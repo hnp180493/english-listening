@@ -1,0 +1,188 @@
+/* Design tokens. Feature CSS must use these variables, never hard-coded colors. */
+:root {
+  --bg: #f7f6f2;
+  --surface: #ffffff;
+  --surface-2: #f0eee8;
+  --border: #e2dfd6;
+  --text: #1d1c1a;
+  --text-muted: #6b6860;
+  --accent: #2f6fde;
+  --accent-contrast: #ffffff;
+  --ok: #1f8a4c;
+  --ok-bg: #e3f4ea;
+  --bad: #c43d3d;
+  --bad-bg: #fbe7e7;
+  --warn: #a86a00;
+  --warn-bg: #fdf1dc;
+
+  /* Phenomenon colors (text-safe on --surface) */
+  --ph-linking: #2f6fde;
+  --ph-elision: #c43d3d;
+  --ph-assimilation: #8a44c4;
+  --ph-weak: #6b7280;
+  --ph-flap: #d06a00;
+  --ph-reduction: #0f8a80;
+  --ph-h: #b0418a;
+  --ph-contraction: #6f6a10;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 2px 8px rgb(0 0 0 / 0.04);
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #151514;
+    --surface: #1f1e1c;
+    --surface-2: #2a2926;
+    --border: #3a3834;
+    --text: #edeae3;
+    --text-muted: #a19d93;
+    --accent: #6b9bf0;
+    --accent-contrast: #0e1420;
+    --ok: #5cc98a;
+    --ok-bg: #18301f;
+    --bad: #f07a7a;
+    --bad-bg: #3a1c1c;
+    --warn: #e8b04a;
+    --warn-bg: #352812;
+    --ph-linking: #6b9bf0;
+    --ph-elision: #f07a7a;
+    --ph-assimilation: #c08cf0;
+    --ph-weak: #a3a9b5;
+    --ph-flap: #f0a04a;
+    --ph-reduction: #4ccfc3;
+    --ph-h: #e57dbf;
+    --ph-contraction: #cfc760;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* Shared primitives — features may use these class names. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+  line-height: 1.2;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btn:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 14px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.input:focus,
+.textarea:focus,
+.select:focus,
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  margin: 0;
+}
