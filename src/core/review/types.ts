@@ -21,6 +21,10 @@ export interface ReviewCard extends CardState {
   suspended?: true; // learner chose "Không ôn mục này nữa"; never served, never graded
   born?: number; // epoch ms the card was created (lineage for the sync merge); absent on cards from before it existed
   seenAt?: number; // device time the learner last met the item (grade, enrol); suspend toggles keep it. Absent → `last`
+  // Sync merge only (core/syncMerge mergeReviewCard): latest miss seen on another lineage of this card, and, while
+  // `last` equals it, the card's own lineage `last`. Ignored once the card is graded again (`last` moves on).
+  missAt?: number;
+  baseLast?: number;
 }
 
 export interface ReviewDaily {
@@ -42,6 +46,11 @@ export interface ReviewStore {
   version: 1;
   cards: Record<string, ReviewCard>; // key = CardId of a StoredKind; never 'chunk:'
   daily: ReviewDaily;
+  /**
+   * Counters of a later local day, kept from another machine whose date is ahead (sync merge around midnight / other
+   * timezone): they become `daily` when this machine reaches that day, so the budget is not spent twice.
+   */
+  otherDaily?: ReviewDaily;
   since: number; // epoch ms the review layer first wrote on any device (merge: min of values > 0); 0 = never
   notice: SeedNotice | null; // one-time "Đã xếp lịch ôn…" callout
   noticeSeenAt: number; // the callout is shown while notice.at > noticeSeenAt

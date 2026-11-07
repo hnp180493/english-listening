@@ -981,14 +981,21 @@ export const mergeReview: Merger = (newer, older) => { … };
     `last`. When the other copy's last grade is a miss made after the winner's `last`, the winner's due date is pulled in
     to the next local midnight after that miss at the latest (`lastGrade: 'again'`, `last` = the miss), as a miss on a
     not-due card does locally (D7). Stable when merged again with either copy.
+  - Order independence (2026-11-07): the pulled copy keeps the miss time in `missAt` and its lineage's own `last` in
+    `baseLast`; both comparisons use the lineage `last` (`baseLast` while `last === missAt`). A later regrade of the
+    winning lineage on a third device therefore still wins, and the carried miss is applied again on top of it, so
+    (A+B)+C = A+(B+C). A local grade moves `last` past `missAt`, which makes both fields inert.
   - `born` is set when a card is created (`applyReview` enrol, `enrolSeenCard`, reconcile) and kept by every later
     write, `resetCardState` included (a reset is a later version of the same card, so it wins by `last`).
   - Cards of kinds this build does not know (a newer build's kind) are kept by the merge; `api.write` copies them from
     the stored value into every save, so a "push" cycle never deletes them from the folder file.
 - **daily**: same day → `{ ...od, ...nd, ids: union (strings only, order kept), exempt: ids exempt on every side that
   has them (a budgeted review on either device spent budget), extraSec: maxOf, enrolled: maxOf }`.
-  Different days → the later `day` wins. One side missing → the other. (`extraSec` merges with max: two devices that
-  each unlock 5 min end with 5 min; accepted.)
+  Different days (midnight, other timezone) → the two latest days are kept, `daily` = the later, `otherDaily` = the
+  earlier, each day merged on its own. `parseReviewStore` picks the slot whose day is the local date (a later day
+  stays in `otherDaily` and becomes `daily` at `rollReviewDaily`), so a device never gets a fresh budget because
+  another device's date is ahead. One side missing → the other. (`extraSec` merges with max: two devices that each
+  unlock 5 min end with 5 min; accepted.) drill-cards `daily` follows the same rule.
 - **since**: min of the values > 0, else 0. **noticeSeenAt**: max. **notice**: the one with the later `at`.
 - Return `{ ...o, ...n, cards, daily, since, notice, noticeSeenAt }`. Register `'review-cards': mergeReview`.
 

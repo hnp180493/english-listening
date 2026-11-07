@@ -82,6 +82,11 @@ describe('sanitizeLibrary', () => {
     const lib = sanitizeLibrary(JSON.parse(JSON.stringify({ items: [item], prefs: { speed: 0.5 } })));
     expect(lib.items[0]).toEqual(item);
   });
+
+  it('keeps the prefs change time (folder sync keeps the prefs changed last)', () => {
+    expect(sanitizeLibrary({ items: [], prefs: { speed: 0.5, changedAt: 77 } }).prefs.changedAt).toBe(77);
+    expect(sanitizeLibrary({ items: [], prefs: { changedAt: -1 } }).prefs.changedAt).toBeUndefined();
+  });
 });
 
 describe('createItem', () => {

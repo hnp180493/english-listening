@@ -4,7 +4,18 @@
 // record, lists are unioned, and only plain preferences take the newer side as a whole.
 
 import { mergeHistoryStores, parseHistory } from './history';
-import { STORAGE_PREFIX } from './storage';
+import { KEYS, STORAGE_PREFIX } from './storage';
+import {
+  mergeReset,
+  mergeTombstones,
+  parseReset,
+  parseTombstones,
+  resetTimeFor,
+  tombstoneAt,
+  type ResetMarker,
+  type TombKind,
+  type Tombstones,
+} from './syncMarkers';
 
 /** Full storage key (with prefix) → raw stored JSON string, as in Backup.data. */
 export type DataMap = Record<string, string>;
@@ -29,6 +40,25 @@ function maxOf(...xs: unknown[]): number {
   for (const x of xs) if (finite(x) && x > m) m = x;
   return m;
 }
+
+/** Deterministic tie-break between two different values (keeps a merge commutative). */
+const stableLast = (a: Obj, b: Obj): Obj => (JSON.stringify(a) >= JSON.stringify(b) ? a : b);
+
+/**
+ * Two versions of a value that is replaced as a whole (settings, media prefs): the one changed last wins, by its
+ * own `stampField`, not by when either machine last wrote anything. When neither has a stamp (written before the
+ * field existed) the newer side wins, as before; an equal non-zero stamp is broken deterministically.
+ */
+function changedLast(newer: unknown, older: unknown, stampField: string): unknown {
+  if (!isObj(newer)) return isObj(older) ? older : newer;
+  if (!isObj(older)) return newer;
+  const d = num(newer[stampField]) - num(older[stampField]);
+  if (d !== 0) return d > 0 ? newer : older;
+  return num(newer[stampField]) === 0 ? newer : stableLast(newer, older);
+}
+
+/** settings: the copy changed last (Settings.changedAt) wins as a whole. */
+export const mergeSettings: Merger = (newer, older) => changedLast(newer, older, 'changedAt');
 
 /**
  * Union of two id → record maps; `both` decides when an id exists on both sides. `preferRecord`: when only one
@@ -216,30 +246,56 @@ export const mergeDrill: Merger = (newer, older) => {
     return d >= 0 ? a : b;
   });
   const out: Obj = { ...o, ...n, cards };
-  const nd = isObj(n.daily) ? n.daily : null;
-  const od = isObj(o.daily) ? o.daily : null;
-  if (nd && od && typeof nd.day === 'string' && nd.day === od.day) {
+  const days = mergeDays(n, o, (nd, od) => {
     const ids = new Set<unknown>([...(Array.isArray(od.studiedIds) ? od.studiedIds : []), ...(Array.isArray(nd.studiedIds) ? nd.studiedIds : [])]);
-    out.daily = {
+    return {
       ...od,
       ...nd,
       newIntroduced: maxOf(nd.newIntroduced, od.newIntroduced),
       extraNew: maxOf(nd.extraNew, od.extraNew),
       reviews: maxOf(nd.reviews, od.reviews),
-      studiedIds: [...ids].filter((x) => typeof x === 'string'),
+      studiedIds: [...ids].filter((x) => typeof x === 'string').sort(),
     };
-  } else if (nd && od) {
-    out.daily = String(od.day ?? '') > String(nd.day ?? '') ? od : nd;
-  } else {
-    out.daily = nd ?? od ?? undefined;
-  }
+  });
+  out.daily = days.daily;
+  if (days.otherDaily) out.otherDaily = days.otherDaily;
+  else delete out.otherDaily;
   return out;
 };
+
+/**
+ * Today's counters (`daily`, plus `otherDaily`) of drill-cards / review-cards. Machines can be on different local
+ * days (around midnight, other timezone): the counters of the two latest days are kept, each day merged on its own
+ * (`sameDay(newer, older)`), so a machine still on the earlier day keeps its spent budget instead of starting a
+ * fresh one because another machine's date is ahead. The store parsers pick the day matching the local date.
+ */
+function mergeDays(n: Obj, o: Obj, sameDay: (newer: Obj, older: Obj) => Obj): { daily: unknown; otherDaily?: Obj } {
+  const byDay = new Map<string, Obj>();
+  for (const d of [o.otherDaily, o.daily, n.otherDaily, n.daily]) {
+    if (!isObj(d) || typeof d.day !== 'string' || d.day === '') continue;
+    const cur = byDay.get(d.day);
+    // a lone day is normalised the same way (sameDay with itself), so merging again changes nothing
+    byDay.set(d.day, sameDay(d, cur ?? d));
+  }
+  const days = [...byDay.keys()].sort().reverse();
+  if (days.length === 0) return { daily: isObj(n.daily) ? n.daily : isObj(o.daily) ? o.daily : undefined };
+  const daily = byDay.get(days[0]);
+  return days.length > 1 ? { daily, otherDaily: byDay.get(days[1]) } : { daily };
+}
+
+/**
+ * `last` of the card's own lineage. A copy pulled in by another lineage's miss (mergeReviewCard) carries that miss
+ * time in `last` (= `missAt`) and its own in `baseLast`; once regraded locally `last` moves on and differs from
+ * `missAt`, so the stale fields are ignored.
+ */
+function lineageLast(c: Obj): number {
+  return finite(c.missAt) && c.missAt === c.last && finite(c.baseLast) ? c.baseLast : num(c.last);
+}
 
 /** Same lineage: the later `last` wins as a whole. Ties: more reps, longer interval, more lapses, later due. */
 function laterCard(a: Obj, b: Obj): Obj {
   const d =
-    num(a.last) - num(b.last) ||
+    lineageLast(a) - lineageLast(b) ||
     num(a.reps) - num(b.reps) ||
     num(a.interval) - num(b.interval) ||
     num(a.lapses) - num(b.lapses) ||
@@ -261,20 +317,39 @@ const isGradedCard = (c: Obj) => typeof c.lastGrade === 'string';
  * before its folder copy arrived), and `last` says nothing about which is further: keep the most advanced copy
  * (graded beats never graded, then longer interval, more reps, later `last`). A miss on the other copy after it
  * only pulls the due date in, to the next day at the latest, as a miss on a not-due card does locally.
+ *
+ * The time of such a foreign miss travels with the card (`missAt`, max of all seen), and the pulled copy keeps its
+ * lineage's own `last` in `baseLast`. So a later regrade of the winning lineage still beats the pulled copy, and the
+ * miss is applied again on top of it: the result no longer depends on the order in which three copies meet.
  */
 function mergeReviewCard(a: Obj, b: Obj): Obj {
-  if (num(a.born) === num(b.born)) return laterCard(a, b);
-  const d =
-    (isGradedCard(a) ? 1 : 0) - (isGradedCard(b) ? 1 : 0) ||
-    num(a.interval) - num(b.interval) ||
-    num(a.reps) - num(b.reps) ||
-    num(a.last) - num(b.last) ||
-    num(a.due) - num(b.due);
-  const [win, lose] = d >= 0 ? [a, b] : [b, a];
-  if (lose.lastGrade !== 'again' || !isGradedCard(win) || num(lose.last) <= num(win.last)) return win;
-  const pulled = Math.min(num(win.due), nextLocalMidnight(num(lose.last)));
-  if (!(pulled < num(win.due))) return win;
-  const out: Obj = { ...win, due: pulled, lastGrade: 'again', last: num(lose.last) };
+  const same = num(a.born) === num(b.born);
+  let win: Obj;
+  let lose: Obj;
+  if (same) {
+    win = laterCard(a, b);
+    lose = win === a ? b : a;
+  } else {
+    const d =
+      (isGradedCard(a) ? 1 : 0) - (isGradedCard(b) ? 1 : 0) ||
+      num(a.interval) - num(b.interval) ||
+      num(a.reps) - num(b.reps) ||
+      lineageLast(a) - lineageLast(b) ||
+      num(a.due) - num(b.due);
+    [win, lose] = d >= 0 ? [a, b] : [b, a];
+  }
+  let miss = maxOf(a.missAt, b.missAt);
+  if (!same && lose.lastGrade === 'again') miss = Math.max(miss, num(lose.last));
+  const own = lineageLast(win);
+  // a miss before the winner's own last grade (or on a never graded card) changes nothing and is not kept
+  if (!(miss > own) || !isGradedCard(win)) return win;
+  const out: Obj = { ...win, missAt: miss };
+  const pulled = Math.min(num(win.due), nextLocalMidnight(miss));
+  if (!(pulled < num(win.due))) return out;
+  out.due = pulled;
+  out.lastGrade = 'again';
+  out.baseLast = own;
+  out.last = miss;
   const seen = maxOf(win.seenAt, lose.seenAt);
   if (seen > 0) out.seenAt = seen;
   return out;
@@ -291,10 +366,7 @@ export const mergeReview: Merger = (newer, older) => {
   const o = isObj(older) ? older : {};
   const cards = mergeMap(n.cards, o.cards, mergeReviewCard, true);
 
-  const nd = isObj(n.daily) ? n.daily : null;
-  const od = isObj(o.daily) ? o.daily : null;
-  let daily: unknown;
-  if (nd && od && typeof nd.day === 'string' && nd.day === od.day) {
+  const days = mergeDays(n, o, (nd, od) => {
     const union = (lists: unknown[]): string[] => {
       const set = new Set<string>();
       for (const list of lists) if (Array.isArray(list)) for (const x of list) if (typeof x === 'string') set.add(x);
@@ -307,7 +379,7 @@ export const mergeReview: Merger = (newer, older) => {
       const ex = new Set(union([d.exempt]));
       for (const x of union([d.ids])) if (!ex.has(x)) spent.add(x);
     }
-    daily = {
+    return {
       ...od,
       ...nd,
       ids,
@@ -317,25 +389,24 @@ export const mergeReview: Merger = (newer, older) => {
       // word cards answered for the first time today (WORD_NEW_PER_DAY); only written once it exists
       ...(nd.newWords !== undefined || od.newWords !== undefined ? { newWords: maxOf(nd.newWords, od.newWords) } : {}),
     };
-  } else if (nd && od) {
-    daily = String(od.day ?? '') > String(nd.day ?? '') ? od : nd;
-  } else {
-    daily = nd ?? od ?? undefined;
-  }
+  });
 
   const sinces = [n.since, o.since].filter((t): t is number => finite(t) && t > 0);
   const nn = isObj(n.notice) ? n.notice : null;
   const on = isObj(o.notice) ? o.notice : null;
   const notice = nn && on ? (num(on.at) > num(nn.at) ? on : nn) : (nn ?? on ?? null);
-  return {
+  const out: Obj = {
     ...o,
     ...n,
     cards,
-    daily,
+    daily: days.daily,
     since: sinces.length ? Math.min(...sinces) : 0,
     notice,
     noticeSeenAt: maxOf(n.noticeSeenAt, o.noticeSeenAt),
   };
+  if (days.otherDaily) out.otherDaily = days.otherDaily;
+  else delete out.otherDaily;
+  return out;
 };
 
 // ───────────────────────── lists keyed by id ─────────────────────────
@@ -365,26 +436,50 @@ function unionById(newer: unknown[], older: unknown[], pick: (n: Obj, o: Obj) =>
   return out;
 }
 
-/** custom-sentences: [{ id, text, vi, level, createdAt }] */
+/** When a custom sentence last changed: its edit time, else its creation time. */
+export const customStamp = (r: Obj): number => Math.max(num(r.updatedAt), num(r.createdAt));
+
+/**
+ * custom-sentences: [{ id, text, vi, level, createdAt, updatedAt? }]. Union by id; per sentence the version edited
+ * last wins (updatedAt, else createdAt), whatever else either machine did since. Two versions without updatedAt
+ * (from before it existed) keep the newer side, as before. Ordered by createdAt, then id. Deleted ids are removed
+ * by mergeData (tombstones).
+ */
 export const mergeCustomSentences: Merger = (newer, older) => {
-  const list = unionById(Array.isArray(newer) ? newer : [], Array.isArray(older) ? older : []);
+  const pick = (n: Obj, o: Obj): Obj => {
+    const d = customStamp(n) - customStamp(o);
+    if (d !== 0) return d > 0 ? n : o;
+    return n.updatedAt === undefined && o.updatedAt === undefined ? n : stableLast(n, o);
+  };
+  const list = unionById(Array.isArray(newer) ? newer : [], Array.isArray(older) ? older : [], pick);
   return list
-    .map((it, i) => ({ it, i }))
-    .sort((a, b) => num(isObj(a.it) ? a.it.createdAt : 0) - num(isObj(b.it) ? b.it.createdAt : 0) || a.i - b.i)
-    .map((x) => x.it);
+    .filter((it): it is Obj => isObj(it) && typeof it.id === 'string')
+    .sort((a, b) => num(a.createdAt) - num(b.createdAt) || (a.id === b.id ? 0 : (a.id as string) < (b.id as string) ? -1 : 1));
 };
 
+/** When a media item last changed in a way a delete must respect: added or opened. */
+export const mediaStamp = (r: Obj): number => Math.max(num(r.createdAt), num(r.openedAt));
+
+/** An item without its merged progress lists: the tie-break key (unchanged by a merge, so the merge is associative). */
+function mediaTieKey(it: Obj): string {
+  const p = isObj(it.progress) ? { ...it.progress, done: undefined, scores: undefined } : it.progress;
+  return JSON.stringify({ ...it, progress: p });
+}
+
 function mergeMediaItem(n: Obj, o: Obj): Obj {
-  const base = num(o.openedAt) > num(n.openedAt) ? o : n;
+  const d = num(n.openedAt) - num(o.openedAt);
+  const base = d > 0 ? n : d < 0 ? o : mediaTieKey(n) >= mediaTieKey(o) ? n : o;
   const np = isObj(n.progress) ? n.progress : {};
   const op = isObj(o.progress) ? o.progress : {};
   const done = new Set<number>();
-  for (const p of [np, op]) if (Array.isArray(p.done)) for (const d of p.done) if (finite(d)) done.add(d);
-  const scores: Obj = {};
+  for (const p of [np, op]) if (Array.isArray(p.done)) for (const x of p.done) if (finite(x)) done.add(x);
+  const best: Obj = {};
   for (const p of [op, np]) {
     if (!isObj(p.scores)) continue;
-    for (const [k, v] of Object.entries(p.scores)) if (!UNSAFE.has(k) && finite(v)) scores[k] = Math.max(num(scores[k]), v);
+    for (const [k, v] of Object.entries(p.scores)) if (!UNSAFE.has(k) && finite(v)) best[k] = Math.max(num(best[k]), v);
   }
+  const scores: Obj = {};
+  for (const k of Object.keys(best).sort()) scores[k] = best[k];
   const bp = base === n ? np : op;
   return {
     ...base,
@@ -392,12 +487,21 @@ function mergeMediaItem(n: Obj, o: Obj): Obj {
   };
 }
 
-/** media-library: { items: MediaItem[], prefs } (or the legacy bare array of items). */
+/**
+ * media-library: { items: MediaItem[], prefs } (or the legacy bare array of items). Items: union by id, progress
+ * merged, newest added first (createdAt, then id). prefs: the copy changed last (prefs.changedAt) wins as a whole.
+ * Deleted ids are removed by mergeData (tombstones).
+ */
 export const mergeMedia: Merger = (newer, older) => {
   const n: Obj = Array.isArray(newer) ? { items: newer } : isObj(newer) ? newer : {};
   const o: Obj = Array.isArray(older) ? { items: older } : isObj(older) ? older : {};
-  const items = unionById(Array.isArray(n.items) ? n.items : [], Array.isArray(o.items) ? o.items : [], mergeMediaItem);
-  return { ...o, ...n, items };
+  const items = unionById(Array.isArray(n.items) ? n.items : [], Array.isArray(o.items) ? o.items : [], mergeMediaItem)
+    .filter((it): it is Obj => isObj(it) && typeof it.id === 'string')
+    .sort((a, b) => num(b.createdAt) - num(a.createdAt) || (a.id === b.id ? 0 : (a.id as string) < (b.id as string) ? -1 : 1));
+  const out: Obj = { ...o, ...n, items };
+  const prefs = changedLast(n.prefs, o.prefs, 'changedAt');
+  if (prefs !== undefined) out.prefs = prefs;
+  return out;
 };
 
 /** decoder-history: recent inputs, newest first. */
@@ -427,9 +531,6 @@ function recordsOf(v: unknown, listKey: string, ok: (r: Obj) => boolean): Obj[] 
   const list = Array.isArray(v) ? v : isObj(v) && Array.isArray(v[listKey]) ? (v[listKey] as unknown[]) : [];
   return list.filter((r): r is Obj => isObj(r) && typeof r.id === 'string' && r.id !== '' && !UNSAFE.has(r.id) && ok(r));
 }
-
-/** Deterministic tie-break between two records with the same id (keeps the merge commutative). */
-const stableLast = (a: Obj, b: Obj): Obj => (JSON.stringify(a) >= JSON.stringify(b) ? a : b);
 
 /**
  * listening-log: { version, entries: [entry | { id, updatedAt, deleted: true }] }. Union by id; the newer
@@ -470,8 +571,11 @@ export const mergeCheckups: Merger = (newer, older) => {
 /** progress-history: per-device daily buckets, max per device/day/field (core/history explains why). */
 export const mergeProgressHistory: Merger = (newer, older) => mergeHistoryStores(parseHistory(newer), parseHistory(older));
 
-/** Short key (without prefix) → merge strategy. Keys not listed (settings, unknown): newer side wins. */
+/** Short key (without prefix) → merge strategy. Keys not listed (unknown): newer side wins. */
 const MERGERS: Record<string, Merger> = {
+  settings: mergeSettings,
+  tombstones: mergeTombstones,
+  reset: mergeReset,
   stats: mergeStats,
   'dictation-progress': mergeDictation,
   'lessons-progress': mergeLessons,
@@ -518,11 +622,84 @@ export function mergeValue(shortKey: string, localRaw: string, remoteRaw: string
   }
 }
 
+const RESET_KEY = STORAGE_PREFIX + KEYS.reset;
+const TOMBSTONES_KEY = STORAGE_PREFIX + KEYS.tombstones;
+/** Bookkeeping keys: they make deletes stick but are not learner data on their own. */
+const BOOKKEEPING = new Set([RESET_KEY, TOMBSTONES_KEY]);
+
+/** The data holds something besides sync bookkeeping (reset marker, tombstones). */
+export function hasUserData(data: DataMap): boolean {
+  return Object.keys(data).some((k) => k.startsWith(STORAGE_PREFIX) && !BOOKKEEPING.has(k));
+}
+
+function parsedOr(raw: string | undefined): unknown {
+  if (typeof raw !== 'string') return null;
+  const p = tryParse(raw);
+  return p.ok ? p.value : null;
+}
+
+/**
+ * Drop the values of each side that are older than a reset the other side has seen ("Xóa dữ liệu" or a restore on
+ * another machine: `all`; "Xóa lịch sử luyện tập": per key). Decided by the markers, not by clocks.
+ */
+function dropPreReset(local: DataMap, remote: DataMap): [DataMap, DataMap] {
+  const ml = parseReset(parsedOr(local[RESET_KEY]));
+  const mr = parseReset(parsedOr(remote[RESET_KEY]));
+  const keep = (side: DataMap, mine: ResetMarker, theirs: ResetMarker): DataMap => {
+    const out: DataMap = {};
+    for (const k of Object.keys(side)) {
+      if (!k.startsWith(STORAGE_PREFIX)) continue;
+      const short = k.slice(STORAGE_PREFIX.length);
+      if (k !== RESET_KEY && resetTimeFor(mine, short) < resetTimeFor(theirs, short)) continue;
+      out[k] = side[k];
+    }
+    return out;
+  };
+  return [keep(local, ml, mr), keep(remote, mr, ml)];
+}
+
+/** Remove deleted custom sentences / media items that came back from a copy that still had them. */
+function applyTombstones(out: DataMap): DataMap {
+  const raw = out[TOMBSTONES_KEY];
+  if (typeof raw !== 'string') return out;
+  const t: Tombstones = parseTombstones(parsedOr(raw));
+  // a record changed after its delete survives; a delete wins a tie
+  const keep = (kind: TombKind, stampOf: (r: Obj) => number) => (r: unknown) => {
+    if (!isObj(r) || typeof r.id !== 'string') return true;
+    const at = tombstoneAt(t, kind, r.id);
+    return at === 0 || at < stampOf(r);
+  };
+  const ck = STORAGE_PREFIX + KEYS.customSentences;
+  const cs = parsedOr(out[ck]);
+  if (Array.isArray(cs)) {
+    const kept = cs.filter(keep('custom', customStamp));
+    if (kept.length !== cs.length) out[ck] = JSON.stringify(kept);
+  }
+  const mk = STORAGE_PREFIX + KEYS.media;
+  const lib = parsedOr(out[mk]);
+  const items = Array.isArray(lib) ? lib : isObj(lib) && Array.isArray(lib.items) ? lib.items : null;
+  if (items) {
+    const kept = items.filter(keep('media', mediaStamp));
+    if (kept.length !== items.length) out[mk] = JSON.stringify(Array.isArray(lib) ? kept : { ...(lib as Obj), items: kept });
+  }
+  return out;
+}
+
+export interface MergeDataOptions {
+  /**
+   * Drop values older than a reset the other side has seen (default true). Off for a first connection, where the
+   * learner explicitly chose to combine both copies.
+   */
+  honorReset?: boolean;
+}
+
 /**
  * Merge this browser's data with the folder file's data. Keys present on one side only are kept.
- * `remoteNewer`: the folder file was saved after the last local change (decides plain preferences).
+ * `remoteNewer`: the folder file was saved after the last local change (decides keys without a merger).
+ * Values older than a reset on the other side are dropped first; deleted items (tombstones) are removed last.
  */
-export function mergeData(local: DataMap, remote: DataMap, remoteNewer: boolean): DataMap {
+export function mergeData(local: DataMap, remote: DataMap, remoteNewer: boolean, opts: MergeDataOptions = {}): DataMap {
+  if (opts.honorReset !== false) [local, remote] = dropPreReset(local, remote);
   const out: DataMap = {};
   const keys = new Set([...Object.keys(local), ...Object.keys(remote)]);
   for (const k of [...keys].sort()) {
@@ -539,5 +716,5 @@ export function mergeData(local: DataMap, remote: DataMap, remoteNewer: boolean)
     }
     out[k] = mergeValue(k.slice(STORAGE_PREFIX.length), a, b, remoteNewer);
   }
-  return out;
+  return applyTombstones(out);
 }

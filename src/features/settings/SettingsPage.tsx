@@ -20,10 +20,10 @@ import Segmented from '../../components/Segmented';
 import PlayButton from '../../components/PlayButton';
 import {
   backupFileName,
-  clearAll,
+  clearAllData,
   exportBackup,
-  importBackup,
   MAX_BACKUP_SIZE,
+  restoreBackup,
   serializeBackup,
   summarizeBackup,
   validateBackup,
@@ -493,7 +493,7 @@ function DataTools() {
     if (!pending || !storage) return;
     setBusy(true);
     try {
-      const n = importBackup(storage, pending.backup, { replace: true });
+      const n = restoreBackup(storage, pending.backup);
       setStatus({ kind: 'ok', text: `Đã khôi phục ${n} mục dữ liệu. Đang tải lại…` });
       setPending(null);
       void syncThenReload(700);
@@ -518,7 +518,7 @@ function DataTools() {
     if (!storage) return;
     setBusy(true);
     try {
-      clearAll(storage);
+      clearAllData(storage);
       // AI key/usage (separate device prefix), the cached AI answers (sessionStorage: explanations quote what
       // the learner typed) and the cached AI voice clips (IndexedDB) go too.
       clearAiDeviceData();
@@ -586,7 +586,7 @@ function DataTools() {
                 <p id={`${uid}-imp-d`} className="set-hint">
                   {summary.exportedAt ? `Sao lưu ngày ${formatDateTimeVi(summary.exportedAt)}` : 'Không rõ ngày sao lưu'} · {summary.attempts}{' '}
                   lượt luyện · {summary.activeDays} ngày học · {summary.keys} mục dữ liệu. Toàn bộ dữ liệu hiện tại trên trình duyệt này sẽ
-                  bị thay thế{syncOn ? ', và tệp trong thư mục đồng bộ cũng được ghi lại theo bản này' : ''}.
+                  bị thay thế{syncOn ? ', và các máy khác đang đồng bộ cũng sẽ theo bản này' : ''}.
                 </p>
                 <div className="row">
                   <button type="button" className="btn btn-primary" onClick={onRestore} disabled={busy} autoFocus>

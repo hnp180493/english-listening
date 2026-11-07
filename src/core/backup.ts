@@ -4,7 +4,8 @@
 import { REVIEW_MINUTES_OPTIONS } from './review/constants';
 import { LISTEN_GOAL_OPTIONS } from './settings';
 import { localDay } from './stats';
-import { isDeviceLocalKey, STORAGE_PREFIX } from './storage';
+import { isDeviceLocalKey, KEYS, STORAGE_PREFIX } from './storage';
+import { mergeReset, parseReset, withReset, type ResetMarker } from './syncMarkers';
 
 export const BACKUP_APP = 'nghe-noi-am';
 export const BACKUP_VERSION = 1;
@@ -41,8 +42,12 @@ export function sanitizeSettingsJSON(raw: string): string | null {
     out.reviewMinutes = s.reviewMinutes;
   }
   if (typeof s.listenGoal === 'number' && LISTEN_GOAL_OPTIONS.includes(s.listenGoal)) out.listenGoal = s.listenGoal;
-  if (s.voiceEngine === 'browser' || s.voiceEngine === 'ai' || s.voiceEngine === 'clips') out.voiceEngine = s.voiceEngine;
+  // The paid AI voice is a choice made on one browser (device-local KEYS.voiceAi): a backup or a synced folder never
+  // switches it on. An 'ai' written by an older build arrives as 'clips' ("Giọng Gemini có sẵn", never paid).
+  if (s.voiceEngine === 'browser' || s.voiceEngine === 'clips') out.voiceEngine = s.voiceEngine;
+  else if (s.voiceEngine === 'ai') out.voiceEngine = 'clips';
   if (typeof s.voiceChosen === 'boolean') out.voiceChosen = s.voiceChosen;
+  if (typeof s.changedAt === 'number' && Number.isFinite(s.changedAt) && s.changedAt > 0) out.changedAt = s.changedAt;
   return JSON.stringify(out);
 }
 
@@ -161,7 +166,9 @@ export function validateBackup(json: unknown, opts: ValidateOptions = {}): Valid
     }
     data[k] = val;
   }
-  if (Object.keys(data).length === 0 && !opts.allowEmpty) {
+  // only sync bookkeeping (the reset marker / tombstones left by "Xóa dữ liệu"): nothing to restore either
+  const bookkeeping = new Set([STORAGE_PREFIX + KEYS.reset, STORAGE_PREFIX + KEYS.tombstones]);
+  if (!Object.keys(data).some((k) => !bookkeeping.has(k)) && !opts.allowEmpty) {
     return { ok: false, error: 'Bản sao lưu trống, không có gì để khôi phục.' };
   }
   const exportedAt = typeof v.exportedAt === 'string' && !Number.isNaN(Date.parse(v.exportedAt)) ? v.exportedAt : '';
@@ -203,6 +210,51 @@ export function clearAll(storage: StorageLike, opts: ClearOptions = {}): number 
   const keys = opts.keepDeviceLocal ? syncedKeys(storage) : appKeys(storage);
   for (const k of keys) storage.removeItem(k);
   return keys.length;
+}
+
+const RESET_KEY = STORAGE_PREFIX + KEYS.reset;
+
+function storedReset(storage: StorageLike): ResetMarker {
+  let v: unknown = null;
+  try {
+    const raw = storage.getItem(RESET_KEY);
+    v = raw == null ? null : JSON.parse(raw);
+  } catch {
+    v = null;
+  }
+  return parseReset(v);
+}
+
+/**
+ * "Xóa dữ liệu": remove every key of this app, then leave only a reset marker, so folder sync clears the other
+ * machines too (their older data is dropped, not merged back; core/syncMarkers). Returns how many keys were removed.
+ */
+export function clearAllData(storage: StorageLike, now: number = Date.now()): number {
+  const prev = storedReset(storage);
+  const n = clearAll(storage);
+  storage.setItem(RESET_KEY, JSON.stringify(withReset(prev, now)));
+  return n;
+}
+
+/**
+ * "Nhập bản sao lưu" (replace): write the backup, then mark it as a reset so the other machines take the restored
+ * data instead of merging their own back into it. Same errors as importBackup (nothing changes on a failed write).
+ */
+export function restoreBackup(storage: StorageLike, backup: Backup, now: number = Date.now()): number {
+  let fromFile: unknown = null;
+  try {
+    fromFile = JSON.parse(backup.data[RESET_KEY] ?? 'null');
+  } catch {
+    fromFile = null;
+  }
+  const prev = mergeReset(storedReset(storage), fromFile);
+  const n = importBackup(storage, backup, { replace: true });
+  try {
+    storage.setItem(RESET_KEY, JSON.stringify(withReset(prev, now)));
+  } catch {
+    // the restore itself is in place; only its spread to other machines by folder sync is lost
+  }
+  return n;
 }
 
 export interface ImportOptions {

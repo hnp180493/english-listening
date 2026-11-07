@@ -87,11 +87,14 @@ export const KEYS = {
   listeningLog: 'listening-log', // "Nhật ký nghe" entries (synced; tombstones for deletes), see core/listening.ts
   checkups: 'checkup-results', // finished "Kiểm tra định kỳ" results (synced), see core/benchmark.ts
   history: 'progress-history', // daily-aggregate archive for the progress report (synced), see core/history.ts
+  tombstones: 'tombstones', // deleted custom sentences / media items (synced, pruned after a while), see core/syncMarkers.ts
+  reset: 'reset', // "Xóa dữ liệu" / restore / "Xóa lịch sử" marker (synced): older data elsewhere is dropped, see core/syncMarkers.ts
   // ── device-local (never synced, never in a backup; see DEVICE_LOCAL_KEYS) ──
   listeningTimer: 'listening-timer', // the running "Bắt đầu nghe" stopwatch of this browser
   listeningPending: 'listening-pending', // in-app video seconds not yet worth an entry (< 1 minute)
   checkupDraft: 'checkup-draft', // an unfinished checkup, so a reload can resume it
   deviceId: 'device-id', // random id of this browser (its own bucket in KEYS.history)
+  voiceAi: 'voice-ai', // true: this browser chose the paid AI voice (Settings.voiceEngine 'ai' never travels)
 } as const;
 
 /**
@@ -104,6 +107,7 @@ export const DEVICE_LOCAL_KEYS: ReadonlySet<string> = new Set<string>([
   KEYS.listeningPending,
   KEYS.checkupDraft,
   KEYS.deviceId,
+  KEYS.voiceAi,
 ]);
 
 /** True for a device-local key, given as a short key ('listening-timer') or a full storage key (with prefix). */

@@ -137,9 +137,10 @@ describe('per-item progress', () => {
     expect(m.newPerDay).toBe(20);
     expect(m.cards.c.lapses).toBe(1);
     expect(Object.keys(m.cards).sort()).toEqual(['c', 'd', 'e']);
-    expect(m.daily).toEqual({ day: '2026-11-06', newIntroduced: 3, extraNew: 5, reviews: 5, studiedIds: ['e', 'c'] });
-    const m2 = mergeDrill(n, { ...o, daily: { ...o.daily, day: '2026-11-05' } }) as { daily: { day: string } };
+    expect(m.daily).toEqual({ day: '2026-11-06', newIntroduced: 3, extraNew: 5, reviews: 5, studiedIds: ['c', 'e'] });
+    const m2 = mergeDrill(n, { ...o, daily: { ...o.daily, day: '2026-11-05' } }) as { daily: { day: string }; otherDaily: { day: string } };
     expect(m2.daily.day).toBe('2026-11-06');
+    expect(m2.otherDaily.day).toBe('2026-11-05'); // the earlier day's counters stay for a machine still on it
   });
 });
 
@@ -275,10 +276,12 @@ describe('mergeReview (review-cards)', () => {
       extraSec: 300,
       enrolled: 5,
     });
-    const later = store({}, { daily: { day: '2026-11-07', ids: ['dict:z'], extraSec: 0, enrolled: 1 } });
+    const later = store({}, { daily: { day: '2026-11-07', ids: ['dict:z'], exempt: [], extraSec: 0, enrolled: 1 } });
     expect(merge(n, later).daily).toEqual(later.daily);
     expect(merge(later, n).daily).toEqual(later.daily);
-    expect(merge({ cards: {} }, o).daily).toEqual(o.daily);
+    // the earlier day stays too, for a machine still on it (core/review/store picks the local day)
+    expect(merge(later, n).otherDaily).toMatchObject({ day: '2026-11-06', ids: ['dict:b', 'dict:a'] });
+    expect(merge({ cards: {} }, o).daily).toEqual({ ...o.daily, exempt: [] });
   });
 
   it('word cards merge like every kind (later `last` wins, junk never wins); newWords: max, absent stays absent', () => {

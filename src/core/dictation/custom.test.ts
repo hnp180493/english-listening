@@ -132,6 +132,16 @@ describe('add / update / remove', () => {
     expect(r.list[0]).toMatchObject({ id, vi: 'x', level: 3 });
     expect(updateCustom(r.list, id, { text: '' }).error).toBe('empty');
   });
+  it('an edit stamps updatedAt past any earlier version (folder sync keeps the edit), and it survives sanitizing', () => {
+    const { list } = addCustom([], [{ text: 'Hi there' }], 1000);
+    const id = list[0].id;
+    const r = updateCustom(list, id, { text: 'Hi again' }, undefined, 5000);
+    expect(r.list[0].updatedAt).toBe(5000);
+    // a machine whose clock is behind still moves it forward
+    expect(updateCustom(r.list, id, { text: 'Hi once more' }, undefined, 10).list[0].updatedAt).toBe(5001);
+    expect(sanitizeCustom(JSON.parse(JSON.stringify(r.list)))[0].updatedAt).toBe(5000);
+    expect(sanitizeCustom([{ ...list[0], updatedAt: 'x' }])[0].updatedAt).toBeUndefined();
+  });
   it('removes by id and converts to a Sentence', () => {
     const { list } = addCustom([], [{ text: 'Hi there', vi: 'Chào' }], 1);
     const s = toSentence(list[0], ['linking']);

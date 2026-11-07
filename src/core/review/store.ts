@@ -46,8 +46,32 @@ function sanitizeCard(id: string, v: unknown, now: number): ReviewCard | null {
   if (v.suspended === true) card.suspended = true;
   if (finite(v.born) && v.born > 0) card.born = v.born;
   if (finite(v.seenAt) && v.seenAt >= 0) card.seenAt = v.seenAt;
+  if (finite(v.missAt) && v.missAt > 0) card.missAt = v.missAt;
+  if (finite(v.baseLast) && v.baseLast >= 0) card.baseLast = v.baseLast;
   return card;
 }
+
+const idList = (v: unknown, within?: ReadonlySet<string>): CardId[] => {
+  const list: CardId[] = [];
+  const seen = new Set<string>();
+  if (!Array.isArray(v)) return list;
+  for (const x of v) {
+    if (typeof x !== 'string' || seen.has(x) || !parseCardId(x) || (within && !within.has(x))) continue;
+    seen.add(x);
+    list.push(x as CardId);
+  }
+  return list;
+};
+
+function sanitizeDaily(d: Record<string, unknown>, day: string): ReviewDaily {
+  const ids = idList(d.ids);
+  const exempt = idList(d.exempt, new Set(ids));
+  const out: ReviewDaily = { day, ids, exempt, extraSec: count(d.extraSec), enrolled: count(d.enrolled) };
+  if (count(d.newWords) > 0) out.newWords = count(d.newWords);
+  return out;
+}
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Whatever was stored (corrupt, partial, older) → a valid store. Never throws. */
 export function parseReviewStore(raw: unknown, now: number): ReviewStore {
@@ -61,30 +85,21 @@ export function parseReviewStore(raw: unknown, now: number): ReviewStore {
       if (c) out.cards[key] = c;
     }
   }
-  const d = raw.daily;
-  if (isRecord(d) && d.day === out.daily.day) {
-    const idList = (v: unknown, within?: ReadonlySet<string>): CardId[] => {
-      const list: CardId[] = [];
-      const seen = new Set<string>();
-      if (!Array.isArray(v)) return list;
-      for (const x of v) {
-        if (typeof x !== 'string' || seen.has(x) || !parseCardId(x) || (within && !within.has(x))) continue;
-        seen.add(x);
-        list.push(x as CardId);
-      }
-      return list;
-    };
-    const ids = idList(d.ids);
-    const exempt = idList(d.exempt, new Set(ids));
-    out.daily = {
-      day: out.daily.day,
-      ids,
-      exempt,
-      extraSec: count(d.extraSec),
-      enrolled: count(d.enrolled),
-    };
-    if (count(d.newWords) > 0) out.daily.newWords = count(d.newWords);
+  // `daily` and `otherDaily` (sync merge keeps two days): today's counters, whichever slot holds them, and those of
+  // a later day (another machine ahead) kept for when this machine gets there. Past days are dropped.
+  const today = out.daily.day;
+  let ahead: ReviewDaily | null = null;
+  let found = false;
+  for (const d of [raw.daily, raw.otherDaily]) {
+    if (!isRecord(d) || typeof d.day !== 'string') continue;
+    if (d.day === today) {
+      if (!found) out.daily = sanitizeDaily(d, today);
+      found = true;
+    } else if (DAY_RE.test(d.day) && d.day > today && (!ahead || d.day > ahead.day)) {
+      ahead = sanitizeDaily(d, d.day);
+    }
   }
+  if (ahead) out.otherDaily = ahead;
   out.since = nonNeg(raw.since);
   out.noticeSeenAt = nonNeg(raw.noticeSeenAt);
   const n = raw.notice;
@@ -95,11 +110,20 @@ export function parseReviewStore(raw: unknown, now: number): ReviewStore {
   return out;
 }
 
-/** New local day → empty daily counters. Same object when nothing changes. */
+/**
+ * New local day → that day's counters: the ones another machine already spent (`otherDaily`, kept by the sync
+ * merge), else empty ones. A day still ahead stays in `otherDaily`. Same object when nothing changes.
+ */
 export function rollReviewDaily(store: ReviewStore, now: number): ReviewStore {
   const day = localDay(now);
   if (store.daily.day === day) return store;
-  return { ...store, daily: emptyDaily(now) };
+  const pool = store.otherDaily ? [store.daily, store.otherDaily] : [store.daily];
+  const daily = pool.find((d) => d.day === day) ?? emptyDaily(now);
+  const ahead = pool.filter((d) => d.day > day).sort((a, b) => (a.day < b.day ? 1 : -1))[0];
+  const rest: ReviewStore = { ...store, daily };
+  delete rest.otherDaily;
+  if (ahead) rest.otherDaily = ahead;
+  return rest;
 }
 
 export function withCard(store: ReviewStore, card: ReviewCard): ReviewStore {
@@ -169,7 +193,17 @@ const CARD_FIELDS = [
   'suspended',
   'born',
   'seenAt',
+  'missAt',
+  'baseLast',
 ] as const;
+
+function dailyEqual(da: ReviewDaily | undefined, db: ReviewDaily | undefined): boolean {
+  if (!da || !db) return da === db;
+  if (da.day !== db.day || da.extraSec !== db.extraSec || da.enrolled !== db.enrolled) return false;
+  if ((da.newWords ?? 0) !== (db.newWords ?? 0)) return false;
+  if (da.ids.length !== db.ids.length || da.ids.some((x, i) => x !== db.ids[i])) return false;
+  return da.exempt.length === db.exempt.length && da.exempt.every((x, i) => x === db.exempt[i]);
+}
 
 function cardsEqual(a: ReviewCard, b: ReviewCard): boolean {
   if (a.id !== b.id) return false;
@@ -184,12 +218,7 @@ export function storesEqual(a: ReviewStore, b: ReviewStore): boolean {
   if ((a.notice?.count ?? -1) !== (b.notice?.count ?? -1) || (a.notice?.at ?? -1) !== (b.notice?.at ?? -1))
     return false;
   if ((a.notice?.words ?? 0) !== (b.notice?.words ?? 0)) return false;
-  const da = a.daily;
-  const db = b.daily;
-  if (da.day !== db.day || da.extraSec !== db.extraSec || da.enrolled !== db.enrolled) return false;
-  if ((da.newWords ?? 0) !== (db.newWords ?? 0)) return false;
-  if (da.ids.length !== db.ids.length || da.ids.some((x, i) => x !== db.ids[i])) return false;
-  if (da.exempt.length !== db.exempt.length || da.exempt.some((x, i) => x !== db.exempt[i])) return false;
+  if (!dailyEqual(a.daily, b.daily) || !dailyEqual(a.otherDaily, b.otherDaily)) return false;
   if (a.cards === b.cards) return true;
   const ka = Object.keys(a.cards);
   if (ka.length !== Object.keys(b.cards).length) return false;
