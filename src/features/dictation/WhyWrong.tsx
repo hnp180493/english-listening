@@ -6,7 +6,7 @@ import type { ClassifyResult, DictationError } from '../../core/dictation/classi
 import type { DiffUnit } from '../../core/dictation/diff';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import { useSettings } from '../../core/settings';
-import { annotationSpeech } from '../../core/playback';
+import { annotationPlayback, contradictsShown } from '../../core/playback';
 import type { Annotation, Phenomenon, SpokenSegment } from '../../core/types';
 import AiExplain from '../ai/AiExplain';
 
@@ -42,6 +42,9 @@ export function AnnotationCard({
 }) {
   const { showIpa } = useSettings();
   const info = PHENOMENON_INFO[a.type];
+  // null: the ▶ would say a lone weak word in its strong form, the opposite of a.spoken (playback.contradictsShown)
+  const fallback = a.original || a.spoken;
+  const speech = segments ? annotationPlayback(a, segments) : contradictsShown(fallback, a.original, a.spoken) ? null : fallback;
   return (
     <div className={'panel dict-ann' + (active ? ' is-active' : '')}>
       <div className="dict-ann-head">
@@ -52,18 +55,20 @@ export function AnnotationCard({
           <span className="respell dict-ann-spoken">{a.spoken}</span>
           {showIpa && a.ipa && <span className="ipa dict-ann-ipa">{a.ipa}</span>}
         </span>
-        <span className="dict-ann-play">
-          <PlayButton
-            text={segments ? annotationSpeech(a, segments) : a.original || a.spoken}
-            mode="connected"
-            size="sm"
-            label="Nghe"
-            variant="ghost"
-            rate={0.85}
-            title="Nghe riêng cụm này"
-            onPlay={onPlayStart}
-          />
-        </span>
+        {speech !== null && (
+          <span className="dict-ann-play">
+            <PlayButton
+              text={speech}
+              mode="connected"
+              size="sm"
+              label="Nghe"
+              variant="ghost"
+              rate={0.85}
+              title="Nghe riêng cụm này"
+              onPlay={onPlayStart}
+            />
+          </span>
+        )}
       </div>
       {a.rule && <p className="dict-ann-rule">{a.rule}</p>}
       {errors && errors.length > 0 && (

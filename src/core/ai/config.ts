@@ -1,8 +1,8 @@
 // AI provider configuration, stored DEVICE-LOCALLY (see deviceStorage.ts). It must never be synced
 // to the shared folder or exported in backups: it holds API keys.
 
-import { PROVIDER_DEFAULTS } from './defaults';
-import { loadDevice, onDeviceStorageChange, removeDevice, saveDevice } from './deviceStorage';
+import { baseUrlAllowed, PROVIDER_DEFAULTS } from './defaults';
+import { loadDevice, loadSession, onDeviceStorageChange, removeDevice, removeSession, saveDevice, saveSession } from './deviceStorage';
 import { registerSecret } from './errors';
 import type { AiConfig, ProviderConfig, ProviderKind } from './types';
 
@@ -40,17 +40,11 @@ export function isValidProviderId(id: string): boolean {
   return ID_RE.test(id) && !RESERVED_IDS.has(id);
 }
 
-function cleanUrl(v: unknown): string | undefined {
+/** A base URL this kind may send its key to (baseUrlAllowed), without trailing slash; else undefined (default URL). */
+function cleanUrl(v: unknown, kind: ProviderKind): string | undefined {
   const s = str(v, 500);
-  if (!s) return undefined;
-  try {
-    const u = new URL(s);
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return undefined;
-    if (u.username || u.password || u.search || u.hash) return undefined; // no credentials/query in base URLs
-    return s.replace(/\/+$/, '');
-  } catch {
-    return undefined;
-  }
+  if (!s || !baseUrlAllowed(kind, s)) return undefined;
+  return s.replace(/\/+$/, '');
 }
 
 export function newProviderId(): string {
@@ -97,7 +91,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
       model: str(p.model, 200) || d.model,
       enabled: typeof p.enabled === 'boolean' ? p.enabled : true,
     };
-    const baseUrl = cleanUrl(p.baseUrl);
+    const baseUrl = cleanUrl(p.baseUrl, kind);
     if (baseUrl) cfg.baseUrl = baseUrl;
     else if (d.requiresBaseUrl) cfg.baseUrl = d.baseUrl;
     const ttsModel = str(p.ttsModel, 200) || d.ttsModel;
@@ -114,7 +108,41 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
   if (dtts && ids.has(dtts)) out.defaultTtsProvider = dtts;
   const cap = r.dailyRequestCap;
   if (typeof cap === 'number' && Number.isFinite(cap) && cap >= 1) out.dailyRequestCap = Math.min(100000, Math.floor(cap));
+  if (r.keyStore === 'session') out.keyStore = 'session';
   return out;
+}
+
+/** Session copy of the keys when keyStore is 'session' ({ providerId: key }). */
+export const AI_SESSION_KEYS = 'ai-keys';
+
+/** The config as written to localStorage: without keys when they are kept for the session only. */
+function storedForm(config: AiConfig): AiConfig {
+  return config.keyStore === 'session' ? { ...config, providers: config.providers.map((p) => ({ ...p, apiKey: '' })) } : config;
+}
+
+/** Keeps the session copy of the keys in step with the config (removed when keys live in localStorage). */
+function syncSessionKeys(config: AiConfig): void {
+  if (config.keyStore !== 'session') {
+    removeSession(AI_SESSION_KEYS);
+    return;
+  }
+  const keys: Record<string, string> = {};
+  for (const p of config.providers) if (p.apiKey) keys[p.id] = p.apiKey;
+  saveSession(AI_SESSION_KEYS, keys);
+}
+
+/** Fills keys from the session copy into a config whose keys are kept for the session only. */
+function withSessionKeys(config: AiConfig): AiConfig {
+  if (config.keyStore !== 'session') return config;
+  const raw = loadSession<unknown>(AI_SESSION_KEYS, null);
+  const keys = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  return {
+    ...config,
+    providers: config.providers.map((p) => {
+      const k = Object.prototype.hasOwnProperty.call(keys, p.id) ? cleanKey(keys[p.id]) : '';
+      return p.apiKey || !k ? p : { ...p, apiKey: k };
+    }),
+  };
 }
 
 let cache: AiConfig | null = null;
@@ -146,10 +174,12 @@ export function loadAiConfig(): AiConfig {
   ensureStorageListener();
   if (!cache) {
     const raw = loadDevice<unknown>(AI_CONFIG_KEY, null);
-    cache = sanitizeAiConfig(raw);
+    const clean = sanitizeAiConfig(raw);
+    // Persist repairs (e.g. replaced ids, a base URL no longer allowed) so ids stay stable for usage history and other tabs.
+    const stored = storedForm(clean);
+    if (raw != null && JSON.stringify(raw) !== JSON.stringify(stored)) saveDevice(AI_CONFIG_KEY, stored);
+    cache = withSessionKeys(clean);
     for (const p of cache.providers) registerSecret(p.apiKey);
-    // Persist repairs (e.g. replaced ids) so ids stay stable for usage history and other tabs.
-    if (raw != null && JSON.stringify(raw) !== JSON.stringify(cache)) saveDevice(AI_CONFIG_KEY, cache);
   }
   return cache;
 }
@@ -158,7 +188,8 @@ export function loadAiConfig(): AiConfig {
 export function saveAiConfig(next: AiConfig): { config: AiConfig; persisted: boolean } {
   const config = sanitizeAiConfig(next);
   for (const p of config.providers) registerSecret(p.apiKey);
-  const persisted = saveDevice(AI_CONFIG_KEY, config);
+  const persisted = saveDevice(AI_CONFIG_KEY, storedForm(config));
+  syncSessionKeys(config);
   cache = config;
   notify();
   return { config, persisted };
@@ -241,6 +272,7 @@ export function maskKey(key: string | undefined): string {
 /** Wipes AI config and usage from this device (used by "xóa toàn bộ dữ liệu"). */
 export function clearAiDeviceData(): void {
   for (const k of AI_DEVICE_LOCAL_KEYS) removeDevice(k);
+  removeSession(AI_SESSION_KEYS);
   cache = null;
   notify();
 }

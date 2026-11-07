@@ -14,7 +14,8 @@ export interface AnnotationCardProps {
   onSelect: (id: string) => void;
   as?: 'li' | 'div';
   /** What the ▶ speaks (the connected form of this stretch); default the written words. */
-  speech?: string;
+  /** What ▶ speaks; null hides it (it would contradict the respelling, playback.annotationPlayback). */
+  speech?: string | null;
 }
 
 /**
@@ -49,9 +50,11 @@ export function AnnotationCard({ annotation: a, selected, showIpa, onSelect, as 
         </span>
         {a.rule && <span className="dec-ann-rule">{a.rule}</span>}
       </button>
-      <div className="dec-ann-play">
-        <SpeakIconButton text={speech ?? a.original} rate={1} mode="connected" icon={Volume2} label={`Nghe "${a.original}"`} />
-      </div>
+      {speech !== null && (
+        <div className="dec-ann-play">
+          <SpeakIconButton text={speech ?? a.original} rate={1} mode="connected" icon={Volume2} label={`Nghe "${a.original}"`} />
+        </div>
+      )}
     </Tag>
   );
 }
@@ -62,7 +65,7 @@ export interface AnnotationListProps {
   showIpa: boolean;
   onSelect: (id: string) => void;
   /** What each annotation's ▶ speaks (see AnnotationCard.speech). */
-  speechFor?: (a: Annotation) => string;
+  speechFor?: (a: Annotation) => string | null;
 }
 
 /** Detail list of every connected-speech event in the sentence (rendered inside "Chi tiết"). */

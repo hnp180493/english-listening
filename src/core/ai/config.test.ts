@@ -139,3 +139,40 @@ describe('device-local storage', () => {
     expect(cfg.loadAiConfig().providers).toHaveLength(1); // kept in memory for this session
   });
 });
+
+describe('base URL lock and session-only keys', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('drops a stored base URL that would send a cloud key to another host', async () => {
+    const { map } = stubStorage();
+    map.set(
+      'nghe-noi-am-device:ai-config',
+      JSON.stringify({ v: 1, providers: [{ id: 'g', kind: 'gemini', apiKey: GEMINI_KEY, model: 'm', baseUrl: 'https://evil.example/v1beta' }] }),
+    );
+    const { loadAiConfig } = await fresh();
+    expect(loadAiConfig().providers[0].baseUrl).toBeUndefined();
+    expect(map.get('nghe-noi-am-device:ai-config')).not.toContain('evil.example'); // repaired on disk too
+    const { effectiveBaseUrl } = await import('./defaults');
+    expect(effectiveBaseUrl('gemini', 'https://evil.example/v1beta')).toBe('https://generativelanguage.googleapis.com/v1beta');
+  });
+
+  it("keyStore 'session' keeps keys out of localStorage and reads them back from the tab's session", async () => {
+    const { map, session } = stubStorage();
+    const { saveAiConfig, loadAiConfig, _resetAiConfigCache, clearAiDeviceData } = await fresh();
+    saveAiConfig({ v: 1, keyStore: 'session', providers: [{ id: 'g', kind: 'gemini', label: 'G', apiKey: GEMINI_KEY, model: 'm', enabled: true }] });
+    expect(map.get('nghe-noi-am-device:ai-config')).not.toContain(GEMINI_KEY);
+    expect(session.get('nghe-noi-am-device:ai-keys')).toContain(GEMINI_KEY);
+    _resetAiConfigCache();
+    expect(loadAiConfig().providers[0].apiKey).toBe(GEMINI_KEY);
+    // a new tab (empty session): the provider is there, the key is not
+    session.clear();
+    _resetAiConfigCache();
+    expect(loadAiConfig().providers[0].apiKey).toBe('');
+    // switching back to device storage writes the key and drops the session copy
+    saveAiConfig({ ...loadAiConfig(), keyStore: undefined, providers: [{ ...loadAiConfig().providers[0], apiKey: GEMINI_KEY }] });
+    expect(map.get('nghe-noi-am-device:ai-config')).toContain(GEMINI_KEY);
+    expect(session.has('nghe-noi-am-device:ai-keys')).toBe(false);
+    clearAiDeviceData();
+    expect(map.has('nghe-noi-am-device:ai-config')).toBe(false);
+  });
+});

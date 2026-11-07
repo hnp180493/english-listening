@@ -11,7 +11,7 @@ import { SENTENCES } from '../../data/sentences';
 import { Icon } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
 import ListenPair, { RealVoiceLink } from '../../components/ListenPair';
-import { annotationSpeech, youglishPhrase } from '../../core/playback';
+import { annotationPlayback, youglishPhrase } from '../../core/playback';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
 import SpokenSentence from '../../components/SpokenSentence';
 import AnnotationList, { AnnotationCard } from './AnnotationList';
@@ -311,7 +311,7 @@ export default function DecoderPage() {
   const vi = picked && picked.text === query ? picked.vi : null;
   // "Nghe" speaks the connected version: an authored `say` (built-in sentence / example), else the decoder's speakText
   const say = authoredSay(query, EXAMPLE_SAY, picked && picked.text === query ? picked : null, SENTENCES);
-  const speechFor = (a: { from: number; to: number; original: string }) => annotationSpeech(a, result.segments);
+  const speechFor = (a: { from: number; to: number; original: string; spoken: string }) => annotationPlayback(a, result.segments);
   const announcement =
     announceFor !== null && announceFor === query && !stale && trimmed
       ? hasTokens

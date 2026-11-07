@@ -260,7 +260,7 @@ function ProviderForm({ kind, existing, onDone, onCancel }: FormProps) {
 
   const savedKey = existing?.apiKey ?? '';
   const effectiveKey = key.trim() || savedKey;
-  const urlBad = baseUrl.trim() !== '' && !isValidBaseUrl(baseUrl);
+  const urlBad = baseUrl.trim() !== '' && !isValidBaseUrl(baseUrl, kind);
   const urlMissing = d.requiresBaseUrl && baseUrl.trim() === '';
   const keyMissing = d.requiresKey && !effectiveKey;
   const canSubmit = !keyMissing && !urlBad && !urlMissing && model.trim() !== '' && !busy;
@@ -392,7 +392,9 @@ function ProviderForm({ kind, existing, onDone, onCancel }: FormProps) {
       {urlBad ? (
         <p className="set-ai-warn" role="status">
           <Icon icon={TriangleAlert} size={15} />
-          Địa chỉ phải bắt đầu bằng http:// hoặc https:// và không chứa “?” hay “#”.
+          {d.requiresBaseUrl
+            ? 'Cần https://, hoặc http:// cho máy chủ trên máy này / mạng nội bộ. Không chứa “?” hay “#”.'
+            : 'Chỉ dùng được địa chỉ chính thức của nhà cung cấp, hoặc máy chủ trên máy này (localhost).'}
         </p>
       ) : (
         <p className="set-hint">
@@ -848,6 +850,20 @@ export default function AiSection() {
               Nhập một số nguyên dương, hoặc để trống nếu không muốn giới hạn.
             </p>
           )}
+          <label className="set-row set-switch-row set-ai-session">
+            <span className="set-row-text">
+              <span className="set-label">Không lưu key lâu dài</span>
+              <span className="set-hint">Key chỉ nằm trong tab đang mở; mở lại app thì nhập lại. An toàn hơn khi mở app từ tệp trên máy.</span>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              className="set-switch-input"
+              checked={config.keyStore === 'session'}
+              onChange={(e) => updateAiConfig((c) => ({ ...c, keyStore: e.target.checked ? 'session' : undefined }))}
+            />
+            <span className="set-switch" aria-hidden="true" />
+          </label>
           {status.overDailyCap && (
             <div className="callout callout-warn" role="status">
               <Icon icon={TriangleAlert} size={16} />
@@ -899,6 +915,10 @@ export default function AiSection() {
             nhà cung cấp. Nghi bị lộ thì thu hồi key ngay.
           </li>
           <li>Ai dùng chung trình duyệt này đều có thể đọc được key, nên chỉ nhập key trên máy cá nhân.</li>
+          <li>
+            Mở app từ tệp trên máy: mọi tệp HTML khác mở trong cùng trình duyệt cũng đọc được dữ liệu của app, kể cả key. Đừng mở tệp
+            HTML lạ (tệp đính kèm, trang đã lưu), hoặc bật “Không lưu key lâu dài”.
+          </li>
         </ul>
         <p className="set-ai-how-links">
           <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">

@@ -103,6 +103,9 @@ public/         icons, manifest, sw.js (service worker, never caches cross-origi
   - every new synced storage key needs a merger in `syncMerge.ts` with tests (idempotent, commutative);
   - device-only state goes in `DEVICE_LOCAL_KEYS`;
   - AI config/usage uses its own prefix `nghe-noi-am-device:`, so it is never synced or backed up.
+  - `loadJSON(key, fallback)` returns the fallback when the stored JSON shape differs from a non-null fallback (a stored `null` for an object key once white-screened every load). Boot steps in `main.tsx` run one by one inside try/catch, and `RootBoundary` wraps the whole app with a rescue card (reload / save a copy / clear).
+- **AI keys:** `baseUrlAllowed` (`src/core/ai/defaults.ts`) is the only gate for base URLs. Cloud kinds accept their official https origin or loopback only; `openai-compatible` accepts https, or http on loopback/LAN. It runs in sanitize (stored configs are repaired) and in `effectiveBaseUrl` at request time. `AiConfig.keyStore: 'session'` keeps keys in sessionStorage only. Reason: every `file://` page shares one origin in Chromium, and so does every project on `hnp180493.github.io`.
+- **Play buttons:** never let a ▶ speak a lone weak-form function word as written while a reduced form is shown (`contradictsShown` / `segmentPlayback` / `annotationPlayback` in `src/core/playback.ts`); such buttons are hidden.
 - **Content:** course authoring contract is in `docs/courses.md`. Content tests validate shape, the decoder agreeing with `focus` labels, and that checkup items don't overlap practice content.
 - **Honesty** (`docs/progress-report.md` §6): hedge small samples, never claim native-level, label self-ratings as "tự đánh giá".
 - **AI is an add-on:** with no provider configured, everything must behave exactly as without AI. AI calls only on user click; nothing loops or auto-bills.
@@ -148,3 +151,9 @@ public/         icons, manifest, sw.js (service worker, never caches cross-origi
   - generated Vietnamese translations are occasionally clunky;
   - the coach filter catches native-speaker claims but not every unsupported trend phrase.
 - **Spelling course:** a few trivial word rows (ship→ship) could be trimmed.
+- **Red-team 2026-11-07, still open** (fixed in the same pass: white screen on bad data, key exposure, contradicting ▶):
+  - lesson example "Nghe" vs annotation: 15 connected-course examples have `say` equal to the written text and 22 have a `say` that differs from the decoder respelling; 49 of 300 dictation sentences play the plain text. Not checked by ear. A real fix means new `say` text plus `GEMINI_API_KEY=… npm run audio:generate` (the user runs it; never handle the key). Do not change `say` without regenerating, or those items fall back to the browser voice;
+  - folder sync: settings and custom-sentence edits can be reverted by a "newer" machine (whole-store `localChangedAt`); deletes and "Xóa dữ liệu" are resurrected (no tombstones for custom sentences / media);
+  - AI cost: a manifest timeout or 2 clip failures send shipped texts to the paid AI voice ('ai' engine); 'bad-response' / 'safety' don't trip the breaker; a backup/sync file can turn on `voiceEngine:'ai'`;
+  - checkup: "Bỏ bài" then restart gives the same form with fresh plays;
+  - daily caps can be bypassed by the review/drill daily merge around midnight or across timezones.

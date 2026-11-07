@@ -136,14 +136,25 @@ describe('AI section helpers', () => {
     expect(modelChoices('', [], [])).toEqual([]);
   });
 
-  it('validates base URLs like the AI config does', async () => {
+  it('validates base URLs like the AI config does (per provider kind)', async () => {
     const { isValidBaseUrl } = await import('./settingsModel');
-    expect(isValidBaseUrl('http://localhost:11434/v1')).toBe(true);
-    expect(isValidBaseUrl('https://example.com/api')).toBe(true);
-    expect(isValidBaseUrl('ftp://x')).toBe(false);
-    expect(isValidBaseUrl('https://u:p@x.com')).toBe(false);
-    expect(isValidBaseUrl('https://x.com/?a=1')).toBe(false);
-    expect(isValidBaseUrl('not a url')).toBe(false);
+    const oc = 'openai-compatible' as const;
+    expect(isValidBaseUrl('http://localhost:11434/v1', oc)).toBe(true);
+    expect(isValidBaseUrl('https://example.com/api', oc)).toBe(true);
+    expect(isValidBaseUrl('http://192.168.1.20:1234/v1', oc)).toBe(true);
+    expect(isValidBaseUrl('http://example.com/api', oc)).toBe(false); // key in clear text over the internet
+    expect(isValidBaseUrl('ftp://x', oc)).toBe(false);
+    expect(isValidBaseUrl('https://u:p@x.com', oc)).toBe(false);
+    expect(isValidBaseUrl('https://x.com/?a=1', oc)).toBe(false);
+    expect(isValidBaseUrl('not a url', oc)).toBe(false);
+    // cloud providers: official origin or this computer only
+    expect(isValidBaseUrl('https://generativelanguage.googleapis.com/v1beta', 'gemini')).toBe(true);
+    expect(isValidBaseUrl('http://127.0.0.1:8787/v1beta', 'gemini')).toBe(true);
+    expect(isValidBaseUrl('https://evil.example/v1beta', 'gemini')).toBe(false);
+    expect(isValidBaseUrl('https://localhost.evil.example', 'gemini')).toBe(false);
+    expect(isValidBaseUrl('https://generativelanguage.googleapis.com.evil.example', 'gemini')).toBe(false);
+    expect(isValidBaseUrl('https://api.openai.com/v1', 'openai')).toBe(true);
+    expect(isValidBaseUrl('https://openrouter.ai/api/v1', 'anthropic')).toBe(false);
   });
 });
 

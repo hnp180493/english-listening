@@ -35,6 +35,12 @@ export interface AiConfig {
   defaultTtsProvider?: string;
   /** Optional soft cap: max successful requests per local day across all providers (undefined/0 = no cap). */
   dailyRequestCap?: number;
+  /**
+   * 'session': API keys are kept in sessionStorage only (this tab, until it closes) and stored without keys in
+   * localStorage, so other pages sharing the origin (other file:// pages, other sites on the same github.io host)
+   * cannot read them later. Undefined: keys are stored with the config in localStorage (this device).
+   */
+  keyStore?: 'session';
 }
 
 /**

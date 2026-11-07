@@ -123,9 +123,47 @@ export function defaultsFor(kind: ProviderKind): ProviderDefaults {
   return PROVIDER_DEFAULTS[kind];
 }
 
-/** Base URL actually used for a config: its override, else the kind's default; no trailing slash. */
+function isLoopbackHost(h: string): boolean {
+  return h === 'localhost' || h.endsWith('.localhost') || h === '[::1]' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h);
+}
+
+function isPrivateLanHost(h: string): boolean {
+  if (h.endsWith('.local')) return true;
+  const m = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(h);
+  if (!m) return false;
+  const a = Number(m[1]);
+  const b = Number(m[2]);
+  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+}
+
+/**
+ * Whether a base URL override may receive this provider's API key:
+ * - always an http(s) URL without credentials, query or hash;
+ * - this computer (localhost, 127.x, [::1]) for any kind: local servers and test mocks;
+ * - cloud kinds (Gemini, OpenAI, Anthropic, OpenRouter): otherwise only their official https origin, so a tampered
+ *   config can never redirect a real key to another host;
+ * - 'openai-compatible': any https host, or plain http on the local network only (the key is not sent unencrypted
+ *   over the internet).
+ */
+export function baseUrlAllowed(kind: ProviderKind, url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url.trim());
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+  if (u.username || u.password || u.search || u.hash) return false;
+  const host = u.hostname.toLowerCase();
+  if (isLoopbackHost(host)) return true;
+  if (kind === 'openai-compatible') return u.protocol === 'https:' || isPrivateLanHost(host);
+  return u.origin === new URL(PROVIDER_DEFAULTS[kind].baseUrl).origin;
+}
+
+/** Base URL actually used for a config: its override when allowed (baseUrlAllowed), else the kind's default; no trailing slash. */
 export function effectiveBaseUrl(kind: ProviderKind, baseUrl: string | undefined): string {
-  return (baseUrl?.trim() || PROVIDER_DEFAULTS[kind].baseUrl).replace(/\/+$/, '');
+  const o = baseUrl?.trim();
+  return (o && baseUrlAllowed(kind, o) ? o : PROVIDER_DEFAULTS[kind].baseUrl).replace(/\/+$/, '');
 }
 
 /**

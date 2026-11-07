@@ -5,11 +5,26 @@ const PREFIX = 'nghe-noi-am:';
 /** Every key this app writes starts with this prefix (used by backup export/import). */
 export const STORAGE_PREFIX = PREFIX;
 
+/** 'array' | 'object' | 'null' | typeof: the JSON shape of a value. */
+function shapeOf(v: unknown): string {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return 'array';
+  return typeof v;
+}
+
+/**
+ * Parsed value of a key, or `fallback` when it is missing, unreadable, or not the same JSON shape as a non-null
+ * fallback (an object fallback never gets null, an array or a string). A hand-edited, truncated or hostile value
+ * (backup file, synced folder) then reads as "no data" instead of crashing every page on load. With a null
+ * fallback anything parsed is returned: those callers sanitize an `unknown`.
+ */
 export function loadJSON<T>(key: string, fallback: T): T {
   try {
     const raw = window.localStorage.getItem(PREFIX + key);
     if (raw == null) return fallback;
-    return JSON.parse(raw) as T;
+    const v: unknown = JSON.parse(raw);
+    if (fallback !== null && fallback !== undefined && shapeOf(v) !== shapeOf(fallback)) return fallback;
+    return v as T;
   } catch {
     return fallback;
   }

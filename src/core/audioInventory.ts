@@ -22,7 +22,7 @@
 import { AUDIO_STYLE_VERSION, AUDIO_VOICE, audioKey, type AudioClipMode } from './audioKey';
 import { decode, speakableFor } from './decoder';
 import { PHENOMENON_INFO } from './phenomena';
-import { annotationSpeech, CAREFUL_STYLE, carefulPlan, compareCarefulPlan, CONNECTED_STYLE, connectedPlan, connectedText, sayOf, segmentSpeech, writtenText } from './playback';
+import { annotationPlayback, CAREFUL_STYLE, carefulPlan, compareCarefulPlan, CONNECTED_STYLE, connectedPlan, connectedText, sayOf, segmentPlayback, writtenText } from './playback';
 import type { Chunk, DecodeResult, Sentence, SpokenSegment } from './types';
 import { BENCHMARK_FORMS } from '../data/benchmark';
 import type { BenchmarkForm } from '../data/benchmarkTypes';
@@ -178,9 +178,10 @@ class Collector {
 
 /** Segment ▶ (SpokenSentence playable) and annotation ▶ (decoder AnnotationCard / dictation WhyWrong + card). */
 function addDecodedParts(c: Collector, source: ClipSource, ref: string, result: DecodeResult, o: { segments: boolean; annotations: boolean }): void {
-  if (o.segments) displaySegments(result).forEach((seg, i) => c.add(source, `${ref}#seg${i}`, 'segment', 'connected', segmentSpeech(seg)));
+  // buttons that would contradict the screen are hidden (playback.segmentPlayback / annotationPlayback): no clip
+  if (o.segments) displaySegments(result).forEach((seg, i) => c.add(source, `${ref}#seg${i}`, 'segment', 'connected', segmentPlayback(seg)));
   if (o.annotations) {
-    for (const a of result.annotations) c.add(source, `${ref}#ann:${a.id}`, 'annotation', 'connected', annotationSpeech(a, result.segments));
+    for (const a of result.annotations) c.add(source, `${ref}#ann:${a.id}`, 'annotation', 'connected', annotationPlayback(a, result.segments));
   }
 }
 

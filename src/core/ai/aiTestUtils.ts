@@ -60,22 +60,25 @@ export function hang(call: FetchCall): Promise<Response | Error> {
   });
 }
 
-/** Stubs window.localStorage (+ storage events). */
-export function stubStorage(): { map: Map<string, string>; fire: (key: string | null) => void } {
+/** Stubs window.localStorage and window.sessionStorage (+ storage events). */
+export function stubStorage(): { map: Map<string, string>; session: Map<string, string>; fire: (key: string | null) => void } {
   const map = new Map<string, string>();
+  const session = new Map<string, string>();
   const handlers: ((e: { key: string | null }) => void)[] = [];
+  const store = (m: Map<string, string>) => ({
+    getItem: (k: string) => m.get(k) ?? null,
+    setItem: (k: string, v: string) => void m.set(k, String(v)),
+    removeItem: (k: string) => void m.delete(k),
+  });
   vi.stubGlobal('window', {
-    localStorage: {
-      getItem: (k: string) => map.get(k) ?? null,
-      setItem: (k: string, v: string) => void map.set(k, String(v)),
-      removeItem: (k: string) => void map.delete(k),
-    },
+    localStorage: store(map),
+    sessionStorage: store(session),
     addEventListener: (type: string, fn: (e: { key: string | null }) => void) => {
       if (type === 'storage') handlers.push(fn);
     },
     removeEventListener: () => {},
   });
-  return { map, fire: (key) => handlers.forEach((fn) => fn({ key })) };
+  return { map, session, fire: (key) => handlers.forEach((fn) => fn({ key })) };
 }
 
 export const GEMINI_KEY = 'AIzaSyD-TESTKEY-0123456789abcdefghijk3Fq';

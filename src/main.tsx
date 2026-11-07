@@ -8,9 +8,19 @@ import { getSettings, reloadSettings } from './core/settings';
 import { reloadStats } from './core/stats';
 import { applyTheme } from './core/theme';
 import App from './App';
+import RootBoundary from './components/RootBoundary';
+
+/** Runs one boot step; a failure (e.g. unreadable stored data) is logged and the app still renders. */
+function safely(step: string, fn: () => void): void {
+  try {
+    fn();
+  } catch (e) {
+    console.warn(`Khởi động: bỏ qua bước "${step}" do lỗi`, e);
+  }
+}
 
 // Apply the saved theme before the first paint of React content.
-applyTheme(getSettings().theme);
+safely('theme', () => applyTheme(getSettings().theme));
 
 async function boot() {
   // Folder sync (OneDrive): if a folder is connected and still allowed, bring this browser's data in
@@ -21,16 +31,18 @@ async function boot() {
     // sync is optional; the app works on local data
   }
   // Settings/stats were read at import time; pick up whatever the sync wrote.
-  reloadSettings();
-  reloadStats();
-  reloadReview();
-  applyTheme(getSettings().theme);
+  safely('settings', reloadSettings);
+  safely('stats', reloadStats);
+  safely('review', reloadReview);
+  safely('theme', () => applyTheme(getSettings().theme));
 
   const root = document.getElementById('root');
   if (root) {
     createRoot(root).render(
       <StrictMode>
-        <App />
+        <RootBoundary>
+          <App />
+        </RootBoundary>
       </StrictMode>,
     );
   }

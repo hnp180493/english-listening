@@ -189,3 +189,24 @@ describe('YouGlish link', () => {
     expect(youglishPhrase(tell, decode(tell))).toBe('Tell him'); // not the whole 6-word sentence
   });
 });
+
+describe('contradicting ▶ buttons are hidden', async () => {
+  const { contradictsShown, segmentPlayback, annotationPlayback } = await import('./playback');
+  it('flags a lone weak function word spoken as written while a reduced form is shown', () => {
+    expect(contradictsShown('the', 'the', 'thə')).toBe(true);
+    expect(contradictsShown('to', 'to', 'tə')).toBe(true);
+    expect(contradictsShown('A', 'A', 'ə')).toBe(true);
+    expect(contradictsShown('need to', 'need to', 'need tə')).toBe(false); // in a phrase the voice reduces it
+    expect(contradictsShown('water', 'water', 'wah-der')).toBe(false); // content word: said alone it still flaps
+    expect(contradictsShown('the', 'the', 'the')).toBe(false); // nothing reduced is shown
+    expect(contradictsShown('Tellim', 'Tell him', 'tel-im')).toBe(false); // a speakable form, not the written word
+  });
+  it('wires the check into segment and annotation playback', () => {
+    expect(segmentPlayback({ written: 'the', spoken: 'thə' })).toBeNull();
+    expect(segmentPlayback({ written: 'the', spoken: 'thə', speak: 'thuh table' })).toBe('thuh table');
+    expect(segmentPlayback({ written: 'coffee', spoken: 'coffee' })).toBe('coffee');
+    const r = decode('Put it on the table.');
+    const the = r.annotations.find((a) => a.original.toLowerCase() === 'the');
+    if (the) expect(annotationPlayback(the, r.segments)).toBeNull();
+  });
+});

@@ -1,6 +1,8 @@
 // Pure helpers for the Settings page.
 
 import type { VoiceEngine } from '../../core/settings';
+import { baseUrlAllowed } from '../../core/ai/defaults';
+import type { ProviderKind } from '../../core/ai/types';
 
 export const RATE_MIN = 0.5;
 export const RATE_MAX = 1.5;
@@ -155,14 +157,9 @@ export function modelChoices(current: string, suggested: readonly string[], list
   return out;
 }
 
-/** True for an http(s) URL without credentials, query or hash (what the AI config accepts as a base URL). */
-export function isValidBaseUrl(s: string): boolean {
-  try {
-    const u = new URL(s.trim());
-    return (u.protocol === 'http:' || u.protocol === 'https:') && !u.username && !u.password && !u.search && !u.hash;
-  } catch {
-    return false;
-  }
+/** True when the AI config would accept this base URL for this provider kind (see core/ai baseUrlAllowed). */
+export function isValidBaseUrl(s: string, kind: ProviderKind): boolean {
+  return baseUrlAllowed(kind, s);
 }
 
 /** Gemini prebuilt voices: Google's one-word character of each voice, in Vietnamese (for the voice picker). */

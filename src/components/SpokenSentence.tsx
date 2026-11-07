@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { Annotation, DecodeResult, SpokenSegment } from '../core/types';
 import { PHENOMENON_INFO } from '../core/phenomena';
-import { segmentSpeech } from '../core/playback';
+import { segmentPlayback } from '../core/playback';
 import { useSettings } from '../core/settings';
 import { speak, stopSpeakingIfOwner, useSpeechPending } from '../core/tts';
 import { LoaderCircle, Play } from 'lucide-react';
@@ -142,13 +142,13 @@ export default function SpokenSentence({
                 </span>
               </span>
             )}
-            {playable && (
+            {playable && segmentPlayback(seg) !== null && (
               <button
                 type="button"
                 className="ss-play"
                 onClick={() => {
                   setLastPlayed(i);
-                  void speak(segmentSpeech(seg), { rate: SEGMENT_RATE, owner, mode: 'connected' });
+                  void speak(segmentPlayback(seg) ?? seg.written, { rate: SEGMENT_RATE, owner, mode: 'connected' });
                 }}
                 aria-label={`Nghe "${seg.written}"`}
                 aria-busy={(pending && lastPlayed === i) || undefined}

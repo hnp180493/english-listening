@@ -46,6 +46,44 @@ export function removeDevice(key: string): void {
   }
 }
 
+function ss(): Storage | undefined {
+  try {
+    return (globalThis as { window?: { sessionStorage?: Storage } }).window?.sessionStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+/** sessionStorage counterpart of loadDevice (this tab only, gone when it closes). */
+export function loadSession<T>(key: string, fallback: T): T {
+  try {
+    const raw = ss()?.getItem(AI_STORAGE_PREFIX + key);
+    if (raw == null) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveSession<T>(key: string, value: T): boolean {
+  try {
+    const s = ss();
+    if (!s) return false;
+    s.setItem(AI_STORAGE_PREFIX + key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function removeSession(key: string): void {
+  try {
+    ss()?.removeItem(AI_STORAGE_PREFIX + key);
+  } catch {
+    // ignore
+  }
+}
+
 /** Calls fn(shortKey) when another tab changes one of our device keys. Returns unsubscribe. */
 export function onDeviceStorageChange(fn: (key: string) => void): () => void {
   const w = (globalThis as { window?: Window }).window;

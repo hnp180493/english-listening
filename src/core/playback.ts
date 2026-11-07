@@ -132,6 +132,46 @@ export function annotationSpeech(
   return spoken.join(' ');
 }
 
+/**
+ * Function words whose weak (reduced) form only exists inside a phrase. Said alone, any voice gives the strong
+ * citation form ("the" → /ðiː/, "to" → /tuː/), the opposite of the "thə" / "tə" the screen shows.
+ */
+const WEAK_FUNCTION_WORDS = new Set([
+  'a', 'an', 'the', 'to', 'of', 'for', 'from', 'at', 'as', 'and', 'or', 'but', 'than', 'that',
+  'am', 'is', 'are', 'was', 'were', 'be', 'been', 'can', 'could', 'would', 'should', 'will', 'shall', 'must',
+  'do', 'does', 'did', 'have', 'has', 'had', 'you', 'your', 'he', 'him', 'his', 'her', 'she', 'we', 'us', 'me',
+  'them', 'they', 'there', 'some', 'just', 'into', 'on', 'in', 'up',
+]);
+
+const bare = (s: string) => s.toLowerCase().replace(/[^a-z']/g, '');
+
+/**
+ * True when a ▶ would contradict what the screen shows: it would speak one weak-form function word on its own
+ * (exactly as written) while a reduced form is displayed. Such buttons are hidden: the learner hears the reduction
+ * in the sentence's "Nghe" instead of a citation form that teaches the opposite.
+ */
+export function contradictsShown(speech: string, written: string, shown: string): boolean {
+  const words = speech.trim().split(/\s+/).filter(Boolean);
+  if (words.length !== 1) return false;
+  const w = bare(speech);
+  return w === bare(written) && WEAK_FUNCTION_WORDS.has(w) && bare(shown) !== w;
+}
+
+/** segmentSpeech, or null when that ▶ would contradict the segment shown (contradictsShown): hide the button. */
+export function segmentPlayback(seg: { written: string; spoken: string; speak?: string }): string | null {
+  const speech = segmentSpeech(seg);
+  return contradictsShown(speech, seg.written, seg.spoken) ? null : speech;
+}
+
+/** annotationSpeech, or null when that ▶ would contradict the annotation shown (contradictsShown): hide the button. */
+export function annotationPlayback(
+  a: { from: number; to: number; original: string; spoken: string; speak?: string },
+  segments: readonly { from: number; to: number; written: string; speak?: string }[],
+): string | null {
+  const speech = annotationSpeech(a, segments);
+  return contradictsShown(speech, a.original, a.spoken) ? null : speech;
+}
+
 /** One playback: what speak() gets. `rate` undefined = the learner's rate from Settings. */
 export interface PlaybackPlan {
   text: string;
