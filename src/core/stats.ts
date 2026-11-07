@@ -1,5 +1,6 @@
 import { noteAttempt } from './history';
 import { KEYS, loadJSON, saveJSON } from './storage';
+import { recordKeyReset } from './syncMarkers';
 import { PHENOMENA, type Phenomenon } from './types';
 
 export type ModuleId = 'dictation' | 'drill' | 'decoder' | 'lesson' | 'pairs' | 'shadowing' | 'media';
@@ -108,8 +109,10 @@ export function recordAttempt(a: Omit<Attempt, 'at'> & { at?: number }, opts: { 
   return s;
 }
 
+/** "Xóa lịch sử luyện tập". The reset marker makes folder sync drop the other machines' older history too. */
 export function resetStats(): void {
   const s: StatsState = { attempts: [], byPhenomenon: emptyByPhenomenon(), activeDays: [] };
+  recordKeyReset([KEYS.stats]);
   sessionStats = saveJSON(KEYS.stats, s) ? null : s;
   listeners.forEach((fn) => fn(s));
 }

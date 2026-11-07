@@ -38,6 +38,7 @@ import { PHENOMENON_INFO } from '../../core/phenomena';
 import { formatDueVi, makeCardId, nextAvailable, recordReview, resetCard, statesOfKind, useReview } from '../../core/review';
 import { recordAttempt } from '../../core/stats';
 import { KEYS, loadJSON, saveJSON } from '../../core/storage';
+import { recordTombstone } from '../../core/syncMarkers';
 import { prefetchSpeech } from '../../core/tts';
 import { PHENOMENA, type Phenomenon, type Sentence } from '../../core/types';
 import { SENTENCES } from '../../data/sentences';
@@ -474,6 +475,8 @@ export default function DictationPage() {
     if (before && after && before.text !== after.text) setNav((n) => ({ ...n, nonce: n.nonce + 1, autoPlay: false, focus: false, retry: false }));
     setCustoms(next);
     setCustomsVersion((v) => v + 1);
+    // the delete must reach the other machines (folder sync would otherwise bring the sentence back)
+    if (removedId) recordTombstone('custom', removedId);
     saveJSON(KEYS.customSentences, next);
     // a deleted sentence, or one whose words were edited, starts over (its old score is for other words)
     const stale = customs

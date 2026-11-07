@@ -20,6 +20,11 @@ export interface DrillStore {
   newPerDay: NewPerDay;
   cards: Record<string, CardState>;
   daily: DailyCounters;
+  /**
+   * Counters of a later local day, kept from another machine whose date is ahead (sync merge around midnight /
+   * other timezone): they become `daily` when this machine reaches that day, so new cards are not started twice.
+   */
+  otherDaily?: DailyCounters;
 }
 
 const GRADE_SET = new Set<Grade>(['again', 'hard', 'good', 'easy']);
@@ -73,20 +78,28 @@ export function parseDrillStore(raw: unknown, now: number): DrillStore {
   }
   const npd = root.newPerDay;
   const newPerDay: NewPerDay = NEW_PER_DAY_OPTIONS.includes(npd as NewPerDay) ? (npd as NewPerDay) : 10;
-  const d = isRecord(root.daily) ? root.daily : null;
-  const daily: DailyCounters =
-    d && d.day === today
-      ? {
-          day: today,
-          newIntroduced: count(d.newIntroduced),
-          extraNew: count(d.extraNew),
-          reviews: count(d.reviews),
-          studiedIds: Array.isArray(d.studiedIds)
-            ? [...new Set(d.studiedIds.filter((x): x is string => typeof x === 'string'))]
-            : [],
-        }
-      : emptyDaily(today);
-  return { version: 1, newPerDay, cards, daily };
+  // `daily` and `otherDaily` (the sync merge keeps two days): today's counters from either slot, and a later day's
+  // (another machine ahead) for when this machine gets there. Past days are dropped.
+  let daily: DailyCounters | null = null;
+  let ahead: DailyCounters | null = null;
+  for (const d of [root.daily, root.otherDaily]) {
+    if (!isRecord(d) || typeof d.day !== 'string') continue;
+    if (d.day === today) daily ??= sanitizeDaily(d, today);
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(d.day) && d.day > today && (!ahead || d.day > ahead.day)) ahead = sanitizeDaily(d, d.day);
+  }
+  const out: DrillStore = { version: 1, newPerDay, cards, daily: daily ?? emptyDaily(today) };
+  if (ahead) out.otherDaily = ahead;
+  return out;
+}
+
+function sanitizeDaily(d: Record<string, unknown>, day: string): DailyCounters {
+  return {
+    day,
+    newIntroduced: count(d.newIntroduced),
+    extraNew: count(d.extraNew),
+    reviews: count(d.reviews),
+    studiedIds: Array.isArray(d.studiedIds) ? [...new Set(d.studiedIds.filter((x): x is string => typeof x === 'string'))] : [],
+  };
 }
 
 export function loadDrillStore(now: number = Date.now()): DrillStore {
@@ -115,11 +128,20 @@ export function gradeBase(memory: DrillStore, lastSaveOk: boolean, read: () => D
   return rollDaily(lastSaveOk ? read() : memory, now);
 }
 
-/** Reset today's counters when the local day changed. Returns the same object if nothing changed. */
+/**
+ * New local day → that day's counters: those another machine already spent (`otherDaily`, kept by the sync merge),
+ * else empty ones. A day still ahead stays in `otherDaily`. Returns the same object if nothing changed.
+ */
 export function rollDaily(store: DrillStore, now: number): DrillStore {
   const today = localDay(now);
   if (store.daily.day === today) return store;
-  return { ...store, daily: emptyDaily(today) };
+  const pool = store.otherDaily ? [store.daily, store.otherDaily] : [store.daily];
+  const daily = pool.find((d) => d.day === today) ?? emptyDaily(today);
+  const ahead = pool.filter((d) => d.day > today).sort((a, b) => (a.day < b.day ? 1 : -1))[0];
+  const rest: DrillStore = { ...store, daily };
+  delete rest.otherDaily;
+  if (ahead) rest.otherDaily = ahead;
+  return rest;
 }
 
 /** Store after grading one card. */

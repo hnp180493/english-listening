@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { STORAGE_PREFIX } from './storage';
 
 const KEY = STORAGE_PREFIX + 'settings';
+const VOICE_AI_KEY = STORAGE_PREFIX + 'voice-ai';
 
 function stubWindow(opts: { blocked?: boolean } = {}) {
   const map = new Map<string, string>();
@@ -140,13 +141,60 @@ describe('settings across tabs', () => {
     expect(s.getSettings()).toMatchObject({ voiceEngine: 'clips', voiceChosen: false });
   });
 
-  it("migration: a stored 'ai' from before the flag was the learner's choice of the AI voice, and stays", async () => {
+  it("migration: a stored 'ai' from before the flag was the learner's choice of the AI voice, and stays (device-local now)", async () => {
     const { map } = stubWindow();
     map.set(KEY, JSON.stringify({ voiceEngine: 'ai', rate: 1 }));
-    const s = await freshSettings();
+    let s = await freshSettings();
     expect(s.getSettings()).toMatchObject({ voiceEngine: 'ai', voiceChosen: true });
+    // the choice moved to this browser's own key; the synced copy never holds 'ai'
+    expect(map.get(VOICE_AI_KEY)).toBe('true');
+    expect(JSON.parse(map.get(KEY)!)).toMatchObject({ voiceEngine: 'clips', voiceChosen: true });
     s.updateSettings({ theme: 'light' });
-    expect(JSON.parse(map.get(KEY)!)).toMatchObject({ voiceEngine: 'ai', voiceChosen: true });
+    expect(JSON.parse(map.get(KEY)!)).toMatchObject({ voiceEngine: 'clips', voiceChosen: true, theme: 'light' });
+    s = await freshSettings();
+    expect(s.getSettings()).toMatchObject({ voiceEngine: 'ai', theme: 'light' });
+  });
+
+  it("the paid AI voice is chosen per browser: never stored in the synced settings, never arriving from them", async () => {
+    const { map } = stubWindow();
+    let s = await freshSettings();
+    s.updateSettings({ voiceEngine: 'browser' });
+    s.updateSettings({ voiceEngine: 'ai' });
+    expect(s.getSettings().voiceEngine).toBe('ai');
+    expect(map.get(VOICE_AI_KEY)).toBe('true');
+    // other machines keep following the last free engine
+    expect(JSON.parse(map.get(KEY)!)).toMatchObject({ voiceEngine: 'browser', voiceChosen: true });
+    s.updateSettings({ voiceEngine: 'clips' });
+    expect(map.has(VOICE_AI_KEY)).toBe(false);
+    expect(s.getSettings().voiceEngine).toBe('clips');
+    // folder sync / a backup replaced the synced settings: an 'ai' there (old build) is cleaned on import; a browser
+    // that never chose the AI voice stays on a free one even if the stored value says 'ai' with the flag false
+    map.set(KEY, JSON.stringify({ voiceEngine: 'clips', voiceChosen: true }));
+    s = await freshSettings();
+    expect(s.getSettings().voiceEngine).toBe('clips');
+    const { sanitizeSettingsJSON } = await import('./backup');
+    map.set(KEY, sanitizeSettingsJSON(JSON.stringify({ voiceEngine: 'ai', voiceChosen: true }))!);
+    s = await freshSettings();
+    expect(s.getSettings().voiceEngine).toBe('clips');
+    expect(map.has(VOICE_AI_KEY)).toBe(false);
+  });
+
+  it('changedAt: moves with every real change, past any value seen, and not on a no-op', async () => {
+    const { map } = stubWindow();
+    const s = await freshSettings();
+    s.updateSettings({ theme: 'dark' }, 1000);
+    expect(JSON.parse(map.get(KEY)!).changedAt).toBe(1000);
+    s.updateSettings({ theme: 'dark' }, 2000);
+    expect(JSON.parse(map.get(KEY)!).changedAt).toBe(1000);
+    // a value merged in from a machine whose clock is ahead
+    map.set(KEY, JSON.stringify({ ...JSON.parse(map.get(KEY)!), changedAt: 9000 }));
+    s.updateSettings({ rate: 0.9 }, 3000);
+    expect(JSON.parse(map.get(KEY)!).changedAt).toBe(9001);
+    // the AI voice choice is device-local: it does not touch the synced copy's changedAt
+    s.updateSettings({ voiceEngine: 'clips' }, 4000);
+    const at = JSON.parse(map.get(KEY)!).changedAt;
+    s.updateSettings({ voiceEngine: 'ai' }, 5000);
+    expect(JSON.parse(map.get(KEY)!).changedAt).toBe(at);
   });
 
   it('backup keeps the voice choice flag', async () => {

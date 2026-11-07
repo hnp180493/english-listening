@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   backupFileName,
   clearAll,
+  clearAllData,
   exportBackup,
   importBackup,
   MAX_BACKUP_SIZE,
+  restoreBackup,
   sanitizeSettingsJSON,
   serializeBackup,
   summarizeBackup,
@@ -111,6 +113,30 @@ describe('summarizeBackup', () => {
   it('is safe on odd content', () => {
     const b: Backup = { app: 'nghe-noi-am', version: 1, exportedAt: '', data: { [P + 'stats']: '"x"' } };
     expect(summarizeBackup(b)).toEqual({ keys: 1, exportedAt: null, attempts: 0, activeDays: 0 });
+  });
+});
+
+describe('clearAllData / restoreBackup (reset marker for folder sync)', () => {
+  it('"Xóa dữ liệu" leaves only a reset marker, later than every reset already known', () => {
+    const s = seeded();
+    s.map.set(P + 'reset', JSON.stringify({ version: 1, all: NOW + 5000, keys: { stats: NOW + 9000 } }));
+    s.map.set(P + 'device-id', '"d-1"');
+    clearAllData(s, NOW);
+    expect([...s.map.keys()].filter((k) => k.startsWith(P))).toEqual([P + 'reset']);
+    expect(JSON.parse(s.getItem(P + 'reset')!)).toEqual({ version: 1, all: NOW + 9001, keys: {} });
+    expect(s.getItem('other-app:token')).toBe('secret');
+    // a backup of only bookkeeping has nothing to restore
+    expect(validateBackup(exportBackup(s, NOW)).ok).toBe(false);
+  });
+
+  it('a restore replaces the data and marks a reset newer than both the current and the file\'s marker', () => {
+    const s = seeded();
+    s.map.set(P + 'reset', JSON.stringify({ version: 1, all: NOW - 10, keys: {} }));
+    const file = exportBackup(seeded(), NOW);
+    file.data[P + 'reset'] = JSON.stringify({ version: 1, all: NOW + 100, keys: {} });
+    restoreBackup(s, file, NOW);
+    expect(JSON.parse(s.getItem(P + 'reset')!).all).toBe(NOW + 101);
+    expect(s.getItem(P + 'stats')).toBe(file.data[P + 'stats']);
   });
 });
 
@@ -324,8 +350,14 @@ describe('device-local keys (timer, checkup draft, device id)', () => {
 });
 
 describe('voiceEngine in settings', () => {
-  it('keeps clips/browser/ai and drops anything else', () => {
-    expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceEngine: 'ai' })) ?? '{}')).toEqual({ voiceEngine: 'ai' });
+  it("keeps clips/browser, turns the paid 'ai' into 'clips' (never switched on by a file), drops anything else", () => {
+    expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceEngine: 'ai' })) ?? '{}')).toEqual({ voiceEngine: 'clips' });
+    expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceEngine: 'ai', voiceChosen: true, changedAt: 5 })) ?? '{}')).toEqual({
+      voiceEngine: 'clips',
+      voiceChosen: true,
+      changedAt: 5,
+    });
+    expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ changedAt: -1 })) ?? '{}')).toEqual({});
     expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceEngine: 'clips' })) ?? '{}')).toEqual({ voiceEngine: 'clips' });
     expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceEngine: 'browser' })) ?? '{}')).toEqual({ voiceEngine: 'browser' });
     for (const bad of ['gemini', 1, null, true, { x: 1 }]) {

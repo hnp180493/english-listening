@@ -15,6 +15,7 @@ export interface CustomSentence {
   vi: string; // Vietnamese meaning, may be ""
   level: Level;
   createdAt: number; // epoch ms
+  updatedAt?: number; // epoch ms of the last edit (folder sync keeps the version edited last); absent = never edited
 }
 
 export interface CustomInput {
@@ -162,7 +163,9 @@ export function sanitizeCustom(raw: unknown, analyze?: Analyzer): CustomSentence
     const level = isLevel(r.level) ? r.level : estimateLevel(wordCount(text), safeAnalyze(analyze, text));
     ids.add(id);
     texts.add(key);
-    out.push({ id, text, vi: cleanText(r.vi, MAX_VI_CHARS), level, createdAt });
+    const c: CustomSentence = { id, text, vi: cleanText(r.vi, MAX_VI_CHARS), level, createdAt };
+    if (typeof r.updatedAt === 'number' && Number.isFinite(r.updatedAt) && r.updatedAt > 0) c.updatedAt = r.updatedAt;
+    out.push(c);
   }
   return out;
 }
@@ -242,12 +245,16 @@ export interface UpdateResult {
   error: CustomError | null;
 }
 
-/** Edit text / meaning of one sentence; the level is re-estimated. */
+/**
+ * Edit text / meaning of one sentence; the level is re-estimated. `updatedAt` moves past any earlier version, so
+ * folder sync keeps this edit even when another machine changed other data later.
+ */
 export function updateCustom(
   list: readonly CustomSentence[],
   id: string,
   input: CustomInput,
   analyze?: Analyzer,
+  now: number = Date.now(),
 ): UpdateResult {
   const idx = list.findIndex((c) => c.id === id);
   if (idx < 0) return { list: [...list], error: null };
@@ -255,11 +262,13 @@ export function updateCustom(
   if (error) return { list: [...list], error };
   const text = cleanText(input.text);
   const next = [...list];
+  const prev = list[idx];
   next[idx] = {
-    ...list[idx],
+    ...prev,
     text,
     vi: cleanText(input.vi, MAX_VI_CHARS),
     level: estimateLevel(wordCount(text), safeAnalyze(analyze, text)),
+    updatedAt: Math.max(Number.isFinite(now) ? now : 0, Math.max(prev.updatedAt ?? 0, prev.createdAt) + 1),
   };
   return { list: next, error: null };
 }

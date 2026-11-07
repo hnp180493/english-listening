@@ -47,6 +47,8 @@ export interface MediaPrefs {
   autoLoop: boolean;
   showSubs: boolean;
   mode: PracticeMode;
+  /** Epoch ms of the last prefs change (folder sync keeps the copy changed last); absent = never changed. */
+  changedAt?: number;
 }
 
 export interface MediaLibrary {
@@ -119,12 +121,14 @@ export function sanitizeItem(v: unknown): MediaItem | null {
 
 function sanitizePrefs(v: unknown): MediaPrefs {
   const p = isObj(v) ? v : {};
-  return {
+  const out: MediaPrefs = {
     speed: SPEEDS.includes(p.speed as Speed) ? (p.speed as Speed) : DEFAULT_PREFS.speed,
     autoLoop: typeof p.autoLoop === 'boolean' ? p.autoLoop : DEFAULT_PREFS.autoLoop,
     showSubs: typeof p.showSubs === 'boolean' ? p.showSubs : DEFAULT_PREFS.showSubs,
     mode: p.mode === 'dictation' || p.mode === 'watch' ? p.mode : DEFAULT_PREFS.mode,
   };
+  if (typeof p.changedAt === 'number' && Number.isFinite(p.changedAt) && p.changedAt > 0) out.changedAt = p.changedAt;
+  return out;
 }
 
 /** Accepts anything read from storage (including the legacy bare-array shape). */

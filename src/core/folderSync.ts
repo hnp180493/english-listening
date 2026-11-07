@@ -15,7 +15,7 @@ import {
   type Backup,
   type StorageLike,
 } from './backup';
-import { mergeData, type DataMap } from './syncMerge';
+import { hasUserData, mergeData, type DataMap } from './syncMerge';
 
 /** Name of the data file inside the chosen folder. */
 export const SYNC_FILE_NAME = 'nghe-noi-am-data.json';
@@ -60,7 +60,10 @@ export interface SyncMeta {
   lastSyncAt: number | null;
   /** Local app data changed since lastSyncedSavedAt. */
   dirty: boolean;
-  /** Time of the last local app data change (decides "newer side" for plain preferences when merging). */
+  /**
+   * Time of the last local app data change. Decides only keys without a merger when merging: settings, custom
+   * sentences and media prefs carry their own change times.
+   */
   localChangedAt: number;
   /**
    * Fingerprint of this browser's data right after the last sync. A mismatch means local data
@@ -509,14 +512,17 @@ export async function runCycle(folder: SyncFolder, ctx: SyncContext, opts: Cycle
     opts.force ??
     decideSync({
       fileSavedAt: file ? file.sync.savedAt : null,
-      fileHasData: !!file && Object.keys(file.data).length > 0,
+      fileHasData: !!file && hasUserData(file.data),
       lastSyncedSavedAt: lastSynced,
       fileDescends: !!file && lastSynced !== null && lineageOf(file).includes(lastSynced),
       dirty,
-      localHasData: Object.keys(local).length > 0,
+      localHasData: hasUserData(local),
     });
   if (!file && action !== 'push') action = 'push';
   if (action === 'ask' && opts.onFirstConnect === 'merge') action = 'merge';
+  // First connection to a folder whose file holds only bookkeeping (e.g. "Xóa dữ liệu" elsewhere left its reset
+  // marker): combine instead of overwriting, so the marker and tombstones stay in the file for the other machines.
+  if (action === 'push' && file && lastSynced === null && Object.keys(file.data).length > 0 && !hasUserData(file.data)) action = 'merge';
 
   if (action === 'noop') return { kind: 'noop' };
   if (action === 'ask' && file) return { kind: 'ask', remote: file };
@@ -528,7 +534,7 @@ export async function runCycle(folder: SyncFolder, ctx: SyncContext, opts: Cycle
     }
     // Never create the folder file from a browser with no data: a new computer connecting before
     // OneDrive has downloaded the existing file would otherwise race it with an empty one.
-    if (!file && Object.keys(local).length === 0) {
+    if (!file && !hasUserData(local)) {
       const m = ctx.meta.load();
       ctx.meta.save({ ...m, folderName: folder.name, dirty: false });
       return { kind: 'noop' };
@@ -565,7 +571,7 @@ export async function runCycle(folder: SyncFolder, ctx: SyncContext, opts: Cycle
 
   // merge
   const remoteNewer = file.sync.savedAt > meta.localChangedAt;
-  const merged = mergeData(local, file.data, remoteNewer);
+  const merged = mergeData(local, file.data, remoteNewer, { honorReset: lastSynced !== null });
   // Validate like an import (settings are sanitised) before it reaches storage.
   const check = validateBackup({ ...file, data: merged }, { allowEmpty: true });
   const data = check.ok ? check.backup.data : merged;
