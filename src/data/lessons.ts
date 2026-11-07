@@ -3,6 +3,7 @@
 // understanding with an 8-item quiz. The other courses live in src/data/courses/*.ts.
 //
 // Types: src/data/lessonTypes.ts (re-exported here). Authoring guide: docs/courses.md.
+import { REAL_CLIPS } from './realClips';
 import { lessonsInCourse, sortLessons } from '../core/lessons';
 import { COURSES, type CourseMeta } from './courses';
 import { IRREGULAR_LESSONS } from './courses/irregular';
@@ -1493,7 +1494,16 @@ const review: Lesson = {
 };
 
 /** Course "connected" (Nghe nối âm), in order. */
-export const CONNECTED_LESSONS: Lesson[] = [intro, weakForm, linking, flapT, elision, assimilation, hDropping, contraction, reduction, review];
+/** "Nghe người thật nói" as the last section before the quiz, for lessons with real clips (src/data/realClips.ts). */
+function withRealClips(lesson: Lesson): Lesson {
+  const clips = REAL_CLIPS[lesson.id];
+  if (!clips?.length) return lesson;
+  return { ...lesson, sections: [...lesson.sections, { title: REAL_SECTION_TITLE, blocks: [{ type: 'real', clips }] }] };
+}
+
+export const REAL_SECTION_TITLE = 'Nghe người thật nói';
+
+export const CONNECTED_LESSONS: Lesson[] = [intro, weakForm, linking, flapT, elision, assimilation, hDropping, contraction, reduction, review].map(withRealClips);
 
 /**
  * Every lesson of every course, sorted by course (COURSE_IDS order) then order within the course. All consumers

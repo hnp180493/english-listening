@@ -101,6 +101,18 @@ function checkBlock(b: LessonBlock, where: string, out: string[]): void {
         if (new Set(b.words.map((w) => w.toLowerCase())).size !== b.words.length) out.push(`${where}: story words repeat`);
       }
       return;
+    case 'real':
+      if (!b.clips.length) out.push(`${where}: real block has no clips`);
+      b.clips.forEach((c, i) => {
+        const w = `${where} clip ${i}`;
+        if (!/^[A-Za-z0-9_-]{11}$/.test(c.videoId)) out.push(`${w}: videoId must be an 11-character YouTube id`);
+        if (!Number.isInteger(c.start) || !Number.isInteger(c.end) || c.start < 0 || c.end <= c.start || c.end - c.start > 15) {
+          out.push(`${w}: start/end must be whole seconds, 0 ≤ start < end ≤ start + 15`);
+        }
+        if (blank(c.text) || blank(c.focus) || blank(c.note) || blank(c.source)) out.push(`${w}: text, focus, note and source are required`);
+        else if (!c.text.toLowerCase().includes(c.focus.toLowerCase())) out.push(`${w}: focus "${c.focus}" is not in the text`);
+      });
+      return;
     case 'words': {
       if (!b.items.length) out.push(`${where}: words block has no items`);
       if (b.title !== undefined && blank(b.title)) out.push(`${where}: words title is empty`);

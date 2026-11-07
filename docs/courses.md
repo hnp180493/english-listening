@@ -321,3 +321,11 @@ characters, same punctuation, left unchanged by the decoder, every `connected` e
 `src/data/connected.test.ts` checks that every annotated built-in sentence sounds connected on "Nghe" (above).
 
 Then run the whole gate: `npx tsc -b`, `npx oxlint`, `npx vitest run`, `npm run build`.
+
+## Real clips ("Nghe người thật nói")
+
+Each connected-speech phenomenon lesson ends with a section of short real-speech clips (`src/data/realClips.ts`, appended by `withRealClips` in `src/data/lessons.ts`; block type `real`, `RealClip` in `src/data/lessonTypes.ts`).
+
+- A clip is a YouTube `videoId`, whole-second `start` < `end` (at most 15 s), the spoken `text`, the `focus` phrase (a substring of `text`, highlighted), a short Vietnamese `note` with the respelling, and the channel as `source`.
+- Nothing loads until the learner clicks; the player is a plain `youtube-nocookie` iframe (no YouTube script in the app page). On `file://` (portable) only the "Mở trên YouTube" link shows, because YouTube refuses embedded playback there.
+- To add or replace one: find the phrase on YouGlish (US), take the video id and caption second, check the video with YouTube oEmbed (public + embeddable), then PLAY it in the lesson with captions on and confirm the phrase's caption shows inside start–end (YouGlish's second is sometimes another line). `validate.ts` checks the shape; `realClips.test.ts` checks every phenomenon lesson has its section.

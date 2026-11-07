@@ -60,7 +60,23 @@ export type LessonBlock =
   /** A calm word table: word (with marked letters), respelling, [IPA], play + slow, note, "Vì sao?" story. */
   | { type: 'words'; title?: string; items: WordItem[] }
   /** "Vì sao lại thế?" story card (md-lite). `words`: English words the story is about, playable at the bottom. */
-  | { type: 'story'; title: string; md: string; words?: string[] };
+  | { type: 'story'; title: string; md: string; words?: string[] }
+  /** "Nghe người thật nói": short real-speech clips (YouTube), see RealClip and src/data/realClips.ts. */
+  | { type: 'real'; clips: readonly RealClip[] };
+
+/**
+ * A few seconds of real speech on YouTube containing `focus`. Played in an embedded player (youtube-nocookie) from
+ * `start` to `end` (seconds) only after a click; the portable build (file://) shows a link instead.
+ */
+export interface RealClip {
+  videoId: string; // 11-character YouTube id
+  start: number; // seconds
+  end: number; // seconds, start < end, at most 15 s later
+  text: string; // what is said (from the captions), shown with `focus` highlighted
+  focus: string; // the phrase to listen for; a substring of `text` (case-insensitive)
+  note: string; // Vietnamese, short: what happens to the sound (respelling in the app convention)
+  source: string; // channel name, shown as the credit
+}
 
 export interface LessonSection {
   title: string;

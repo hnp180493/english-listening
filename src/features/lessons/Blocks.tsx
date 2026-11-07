@@ -9,6 +9,7 @@ import PlayButton from '../../components/PlayButton';
 import SpokenSentence from '../../components/SpokenSentence';
 import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_RATE, CAREFUL_TITLE, CONNECTED_TITLE, compareCarefulPlan, connectedPlan, connectedText, writtenText, youglishPhrase, type MaybeSpeakable } from '../../core/playback';
 import SpeakIconButton from './SpeakIconButton';
+import RealClipsBlock from './RealClips';
 import type { LessonBlock, LessonExample, LessonSection, WordItem } from '../../data/lessonTypes';
 import { contextSentence, keyOf, parseMark, parseMd, spokenHint, type MarkPart, type MdSpan } from './logic';
 import { WORD_SLOW_RATE } from './quizPlayback';
@@ -389,6 +390,8 @@ function Block({ block, clamp = false, connected }: { block: LessonBlock; clamp?
       return <WordsBlock block={block} />;
     case 'story':
       return <StoryBlock block={block} />;
+    case 'real':
+      return <RealClipsBlock clips={block.clips} />;
   }
 }
 
