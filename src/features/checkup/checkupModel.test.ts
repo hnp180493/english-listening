@@ -15,6 +15,7 @@ import {
   deltaInfo,
   durationVi,
   newTest,
+  noteVoice,
   nextLabel,
   phenomenonRows,
   playLabel,
@@ -143,13 +144,18 @@ describe('play-count limit', () => {
     expect(s.dictation[FORM.sentences[0].id].plays).toBe(2);
   });
 
-  it('records the voice on the first play when the test has none yet, and never replaces it', () => {
+  it('records only the voices that actually spoke, each once, in order', () => {
     let s = beginTest(newTest(FORM.id, T0, null), T0);
-    s = recordPlay(s, FORM, 'Microsoft Ava')!;
-    expect(s.voiceName).toBe('Microsoft Ava');
-    s = advance(s, FORM).state;
-    s = recordPlay(s, FORM, 'Google US English')!;
-    expect(s.voiceName).toBe('Microsoft Ava');
+    s = recordPlay(s, FORM)!;
+    expect(s.voiceName).toBeNull(); // counting a play records no voice
+    s = noteVoice(s, 'Gemini · Kore');
+    expect(s.voiceName).toBe('Gemini · Kore');
+    expect(noteVoice(s, 'Gemini · Kore')).toBe(s); // unchanged: same object, no draft save
+    s = noteVoice(s, 'Microsoft Ava'); // the AI voice fell back to the browser voice
+    expect(s.voiceName).toBe('Gemini · Kore + Microsoft Ava');
+    expect(noteVoice(s, 'Gemini · Kore')).toBe(s);
+    expect(noteVoice(s, null)).toBe(s);
+    expect(noteVoice(s, '  ')).toBe(s);
   });
 
   it('has no play on the intro', () => {

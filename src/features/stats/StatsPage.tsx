@@ -31,6 +31,7 @@ import {
   relativeTimeVi,
   validAttempts,
   weaknessReport,
+  withTodayCount,
   type MissRate,
 } from './statsModel';
 import {
@@ -666,10 +667,14 @@ function wordCounts(entries: readonly ReviewEntry[]): { total: number; waiting: 
   return { total, waiting };
 }
 
-/** Ôn tập: the next 7 days (today includes everything overdue), plus restoring items the learner turned off. */
+/** Ôn tập: the next 7 days (today = the nav badge's number), plus restoring items the learner turned off. */
 function ForecastBlock({ snapshot }: { snapshot: ReviewSnapshot }) {
   const { summary, entries, now } = snapshot;
-  const bars = useMemo(() => forecastBars(forecast(entries, now, 7, snapshot.store)), [entries, now, snapshot.store]);
+  const { dueToday, dueTodaySec } = summary;
+  const bars = useMemo(
+    () => forecastBars(withTodayCount(forecast(entries, now, 7, snapshot.store), { count: dueToday, seconds: dueTodaySec })),
+    [entries, now, snapshot.store, dueToday, dueTodaySec],
+  );
   const words = useMemo(() => wordCounts(entries), [entries]);
   const [restored, setRestored] = useState<number | null>(null);
   const { heldBack, suspended } = summary;

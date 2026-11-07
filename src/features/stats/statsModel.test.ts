@@ -3,6 +3,7 @@ import type { Attempt } from '../../core/stats';
 import {
   accuracyLast7Days,
   forecastBars,
+  withTodayCount,
   forecastLabel,
   moduleLabel,
   recentAttempts,
@@ -128,6 +129,17 @@ describe('forecastLabel / forecastBars', () => {
     expect(bars.map((b) => b.minutes)).toEqual([14, 2, 0, 1, 7, 0, 2]);
     expect(bars[0].isToday).toBe(true);
     expect(bars[1].isToday).toBe(false);
+  });
+
+  it("sets today's bar to the badge's number and leaves the other days alone", () => {
+    const days = [
+      { day: '2026-11-05', offset: 0, count: 6, seconds: 300 }, // includes a card due later today
+      { day: '2026-11-06', offset: 1, count: 4, seconds: 120 },
+    ];
+    const out = withTodayCount(days, { count: 5, seconds: 260 });
+    expect(out[0]).toEqual({ day: '2026-11-05', offset: 0, count: 5, seconds: 260 });
+    expect(out[1]).toBe(days[1]);
+    expect(days[0].count).toBe(6); // input untouched
   });
 
   it('is empty-safe', () => {

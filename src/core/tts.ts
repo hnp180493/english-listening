@@ -24,7 +24,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { AiError, aiSpeak, aiStatus, aiVersion, defaultsFor, isAiError, useAiVersion, type AiErrorCode, type ProviderKind, type ProviderSummary } from './ai';
 import { clampClipRate, getClipPlayer } from './audioPlayer';
 import { audioKey, type AudioClipMode } from './audioKey';
-import { clipFileFor, clipUrl, loadAudioManifest, peekAudioManifest, reportClipFailure, reportClipSuccess, type AudioManifest } from './audioManifest';
+import { clipFileFor, clipsDisabled, clipUrl, loadAudioManifest, peekAudioManifest, reportClipFailure, reportClipSuccess, type AudioManifest } from './audioManifest';
 import { CAREFUL_STYLE, CONNECTED_STYLE, slowRate, type SpeechMode } from './playback';
 import { getSettings, useSettings } from './settings';
 
@@ -150,8 +150,16 @@ export function aiVoiceLabel(p: Pick<ProviderSummary, 'kind' | 'label' | 'ttsVoi
   return voice ? `${name} · ${voice}` : name;
 }
 
-/** Name of the voice the next playback uses: "Gemini · Kore", or the browser voice name; null when none. */
+/** Voice name of the shipped clips (public/audio, generated once with Gemini Kore). */
+export const SHIPPED_VOICE_LABEL = 'Gemini · Kore (có sẵn)';
+
+/**
+ * Name of the voice the next playback uses: the shipped clips' voice when they are on, else "Gemini · Kore" (AI
+ * voice) or the browser voice name; null when none. A text without a shipped clip may still use another voice:
+ * SpeakOptions.onVoice reports what actually spoke.
+ */
 export function currentVoiceLabel(): string | null {
+  if (staticEligible() && !clipsDisabled()) return SHIPPED_VOICE_LABEL;
   const p = aiVoiceProvider();
   if (p) return aiVoiceLabel(p);
   if (!speechSynthesisSupported()) return null;
@@ -335,6 +343,11 @@ export interface SpeakOptions {
    * cutting off what another component or the next page started.
    */
   owner?: object;
+  /**
+   * Called with the name of the voice that actually speaks ("Gemini · Kore", or the browser voice name;
+   * null when the browser picks its default): after an AI failure this is the browser fallback voice.
+   */
+  onVoice?: (label: string | null) => void;
 }
 
 /**
@@ -516,6 +529,7 @@ function speakStatic(file: string, text: string, opts: SpeakOptions, resolve: ()
       clearPending(id);
       reportClipSuccess();
       watchdog = setTimeout(() => entry.settle(), speakWatchdogMs(text, rate) * 1.5);
+      opts.onVoice?.(SHIPPED_VOICE_LABEL);
       opts.onStart?.();
     })
     .then(
@@ -554,6 +568,7 @@ function speakBrowser(text: string, opts: SpeakOptions, resolve: () => void, id:
     resolve();
   };
   u.onstart = () => opts.onStart?.();
+  opts.onVoice?.(voice?.name ?? null);
   u.onend = settle;
   u.onerror = settle;
   current = { engine: 'browser', u, settle, id, owner: opts.owner ?? null };
@@ -643,6 +658,7 @@ function speakAi(ai: ProviderSummary, text: string, opts: SpeakOptions, resolve:
       reportAiSuccess();
       sounding = true;
       watchdog = setTimeout(() => entry.settle(), speakWatchdogMs(text, rate) * 1.5);
+      opts.onVoice?.(aiVoiceLabel(ai));
       opts.onStart?.();
       player.play(res.audio, rate).then(
         () => {

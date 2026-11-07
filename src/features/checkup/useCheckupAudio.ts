@@ -36,8 +36,13 @@ export interface CheckupAudio {
   stop: () => void;
 }
 
-export function useCheckupAudio(): CheckupAudio {
+/** `onVoice`: told the name of each voice that actually speaks (see SpeakOptions.onVoice). */
+export function useCheckupAudio(onVoice?: (label: string | null) => void): CheckupAudio {
   const [owner] = useState<object>(() => ({}));
+  const voiceRef = useRef(onVoice);
+  useEffect(() => {
+    voiceRef.current = onVoice;
+  }, [onVoice]);
   const run = useRef(0);
   const [playing, setPlaying] = useState<string | null>(null);
   const pending = useSpeechPending(owner);
@@ -57,7 +62,7 @@ export function useCheckupAudio(): CheckupAudio {
       try {
         for (let i = 0; i < spoken.length; i++) {
           if (run.current !== my) return;
-          await speak(spoken[i], { rate: CHECKUP_RATE, owner, mode: 'connected' });
+          await speak(spoken[i], { rate: CHECKUP_RATE, owner, mode: 'connected', onVoice: (label) => voiceRef.current?.(label) });
           if (run.current !== my) return;
           if (i < spoken.length - 1) await sleep(LINE_PAUSE_MS);
         }
@@ -81,8 +86,9 @@ export function useCheckupAudio(): CheckupAudio {
 }
 
 /**
- * Name of the voice speak() will use, recorded with the result: "Gemini · Kore" with the AI voice, else the
- * learner's browser voice (or the best English one); null when none.
+ * Name of the voice speak() will use next: "Gemini · Kore" with the AI voice, else the learner's browser voice
+ * (or the best English one); null when none. Shown on the intro; the result records the voices that actually
+ * spoke (checkupModel.noteVoice) and falls back to this only when nothing was played.
  */
 export function useVoiceName(): string | null {
   return useVoiceLabel();

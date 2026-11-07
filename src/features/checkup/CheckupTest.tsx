@@ -40,22 +40,23 @@ function isCoarse(): boolean {
 export default function CheckupTest({
   form,
   state,
-  voiceName,
   resumed,
   onChange,
+  onVoice,
   onFinish,
   onAbandon,
 }: {
   form: BenchmarkForm;
   state: TestState;
-  voiceName: string | null;
   resumed: boolean;
   onChange: (next: TestState) => void;
+  /** A voice actually spoke (the AI voice, or the browser voice it fell back to). */
+  onVoice: (label: string | null) => void;
   onFinish: (final: TestState) => void;
   onAbandon: () => void;
 }) {
   const item = currentItem(state, form);
-  const audio = useCheckupAudio();
+  const audio = useCheckupAudio(onVoice);
   const { stop } = audio;
   const [nudgeFor, setNudgeFor] = useState<string | null>(null); // the item the empty-answer nudge is for
   const [confirmQuit, setConfirmQuit] = useState(false);
@@ -94,7 +95,7 @@ export default function CheckupTest({
 
   const listen = () => {
     if (!item || isPlaying || !audio.canSpeak) return;
-    const next = recordPlay(state, form, voiceName);
+    const next = recordPlay(state, form);
     if (!next) return;
     onChange(next); // saved before speaking: a reload never gives a free play
     setNudge(false);

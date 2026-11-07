@@ -29,7 +29,7 @@ Read this first. It is the handoff for any agent (Claude Code, Codex, Cursor…)
   - `npx tsc -b`: type-check;
   - `npx oxlint`: lint;
   - `npx vitest run`: tests (~1900 tests, should be all green);
-  - `npm run build`: build. Known warning: the main chunk is about 660 kB, mostly because the AI layer is imported statically by `src/core/tts.ts`;
+  - `npm run build`: build. Known warning: the main chunk is about 665 kB. It is mostly react-dom plus the content data (courses, lessons, sentences, chunks) that the review catalog needs on every page for the nav badge; the AI layer is a small part;
   - `npm run portable -- --out "<folder>"`: single-file build (default output `portable/Nghe-Noi-Am.html`).
 - Before handing work back: tsc, oxlint and vitest all green, and build OK.
 
@@ -129,10 +129,10 @@ public/         icons, manifest, sw.js (service worker, never caches cross-origi
 
 ## 9. State and known open issues (as of 2026-11-07)
 
-- **Git:** only the baseline commit `7bcc288` exists. All later work (courses, SRS word cards, listening log, checkup, report, AI) is uncommitted in the working tree. Ask the user before committing.
-- **Bundle:** main chunk about 660 kB (warning only).
+- **Git / deploy:** repo `hnp180493/english-listening`, branch `main`. A push to `main` deploys GitHub Pages (`.github/workflows/deploy.yml`: npm test, then build with `--base=/<repo>/`) to https://hnp180493.github.io/english-listening/. The shipped clips (`public/audio`, ~57 MB) are committed, so every regeneration grows the repo. Ask the user before committing or pushing.
+- **Bundle:** main chunk about 665 kB (warning only, cause in §3).
 - **Checkup:**
-  - if the AI voice falls back to the browser voice mid-test, the recorded `voiceName` still says the AI voice;
+  - `voiceName` records every voice that actually spoke, in order (`checkupModel.noteVoice`, from `SpeakOptions.onVoice`; e.g. `Gemini · Kore (có sẵn) + Microsoft Ava` after a fallback), so a mixed test never compares as same-voice;
   - the result screen shows percentages from small per-phenomenon samples.
   - a draft started before the connected-audio change and finished after it is recorded as 'connected' (mixed audio; drafts expire after 24 h).
 - **Playback not yet switched to connected text:** the AI generator preview and the dictation "Câu của tôi" list still send the written text (they show no annotations next to the button). Home, Shadowing and Drill play the connected version.

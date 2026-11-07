@@ -34,7 +34,9 @@ const {
   aiVoicePausedReason,
   VOICE_NOTICE_PREFIX,
   _resetTtsForTests,
+  aiVoiceLabel,
   currentVoiceLabel,
+  SHIPPED_VOICE_LABEL,
   dismissVoiceNotice,
   getVoiceStatus,
   isSpeakingOwner,
@@ -206,9 +208,11 @@ describe('routing', () => {
     expect(player.play.mock.calls.at(-1)?.[1]).toBe(0.8);
   });
 
-  it('labels the AI voice "Gemini · Kore" and says it can speak without speechSynthesis', () => {
+  it('labels the shipped clips first and says it can speak without speechSynthesis', () => {
     setup({ withSynth: false });
-    expect(currentVoiceLabel()).toBe('Gemini · Kore');
+    // Shipped clips play first even with the AI voice chosen, so the label names them.
+    expect(currentVoiceLabel()).toBe(SHIPPED_VOICE_LABEL);
+    expect(aiVoiceLabel({ kind: 'gemini', label: '', ttsVoice: 'Kore' })).toBe('Gemini · Kore');
     expect(ttsSupported()).toBe(true);
     updateSettings({ voiceEngine: 'browser' });
     expect(ttsSupported()).toBe(false);

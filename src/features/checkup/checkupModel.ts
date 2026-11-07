@@ -67,20 +67,35 @@ export function playsLeft(s: TestState, form: BenchmarkForm): number {
 
 /**
  * Count one play of the current item (call it BEFORE speaking, and save the draft, so a reload never gives a
- * free play). Records the voice when the test has none yet (voices load late in some browsers).
+ * free play). The voice is recorded separately, once it actually speaks (noteVoice).
  * null when the item has no plays left or there is no item.
  */
-export function recordPlay(s: TestState, form: BenchmarkForm, voiceName?: string | null): TestState | null {
+export function recordPlay(s: TestState, form: BenchmarkForm): TestState | null {
   const item = currentItem(s, form);
   if (!item || playsLeft(s, form) <= 0) return null;
   const id = itemId(item);
-  const voice = s.voiceName ?? (voiceName || null);
   if (item.kind === 'sentence') {
     const prev = s.dictation[id] ?? { typed: '', plays: 0 };
-    return { ...s, voiceName: voice, dictation: { ...s.dictation, [id]: { ...prev, plays: prev.plays + 1 } } };
+    return { ...s, dictation: { ...s.dictation, [id]: { ...prev, plays: prev.plays + 1 } } };
   }
   const prev = s.comprehension[id] ?? { chosen: null, plays: 0 };
-  return { ...s, voiceName: voice, comprehension: { ...s.comprehension, [id]: { ...prev, plays: prev.plays + 1 } } };
+  return { ...s, comprehension: { ...s.comprehension, [id]: { ...prev, plays: prev.plays + 1 } } };
+}
+
+/** Joins the voices of one test ("Gemini · Kore + Microsoft Ava"): a mixed test never matches a single-voice one. */
+export const VOICE_JOIN = ' + ';
+
+/**
+ * Record a voice that actually spoke during the test (e.g. the browser voice after the AI voice failed).
+ * Every distinct voice heard is kept, in order, so the result says honestly what the learner listened to.
+ * Returns `s` itself when nothing changes.
+ */
+export function noteVoice(s: TestState, label: string | null | undefined): TestState {
+  const name = typeof label === 'string' ? label.trim() : '';
+  if (!name) return s;
+  const heard = s.voiceName ? s.voiceName.split(VOICE_JOIN) : [];
+  if (heard.includes(name)) return s;
+  return { ...s, voiceName: [...heard, name].join(VOICE_JOIN) };
 }
 
 /** The learner's typing on the current sentence (ignored elsewhere). */

@@ -152,7 +152,16 @@ export function forecastLabel(day: string, offset: number): { short: string; lon
   return wd === null ? { short: day, long: day } : { short: WD_SHORT[wd], long: WD_LONG[wd] };
 }
 
-/** Bars for the 7-day review forecast (today includes everything overdue). */
+/**
+ * The forecast with today's bar set to what today's sessions serve (summary.dueToday / dueTodaySec): the nav
+ * badge's number. The raw forecast also counts cards due later today and the backlog held back for later days,
+ * so "Hôm nay" read higher than the badge right after a session.
+ */
+export function withTodayCount<T extends ForecastDayLike>(days: readonly T[], today: { count: number; seconds: number }): T[] {
+  return days.map((d) => (d.offset === 0 ? { ...d, count: today.count, seconds: today.seconds } : d));
+}
+
+/** Bars for the 7-day review forecast (today = what today's sessions serve, see withTodayCount). */
 export function forecastBars(days: readonly ForecastDayLike[]): ForecastBar[] {
   const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0);
   const max = days.reduce((m, d) => Math.max(m, n(d.count)), 0);

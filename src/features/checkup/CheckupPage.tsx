@@ -16,7 +16,7 @@ import {
 } from '../../core/benchmark';
 import { BENCHMARK_FORMS } from '../../data/benchmark';
 import CheckupIntro from './CheckupIntro';
-import { beginTest, newTest, resumeDraft, type TestState } from './checkupModel';
+import { beginTest, newTest, noteVoice, resumeDraft, type TestState } from './checkupModel';
 import CheckupResultView from './CheckupResultView';
 import CheckupTest from './CheckupTest';
 import { useVoiceName } from './useCheckupAudio';
@@ -41,6 +41,8 @@ export default function CheckupPage() {
   const voiceName = useVoiceName();
   const [init] = useState(initial);
   const [test, setTest] = useState<TestState | null>(init.test);
+  // Latest test state for callbacks that arrive after an await (the voice that actually spoke).
+  const testRef = useRef<TestState | null>(init.test);
   const [view, setView] = useState<View>(init.view);
   // The just-finished result, in case storage refused it and the store does not list it.
   const [local, setLocal] = useState<CheckupResult | null>(null);
@@ -55,9 +57,20 @@ export default function CheckupPage() {
   }, [view.kind]);
 
   const update = useCallback((next: TestState) => {
+    testRef.current = next;
     setTest(next);
     saveCheckupDraft(next);
   }, []);
+
+  const voiceHeard = useCallback(
+    (label: string | null) => {
+      const cur = testRef.current;
+      if (!cur) return;
+      const next = noteVoice(cur, label);
+      if (next !== cur) update(next);
+    },
+    [update],
+  );
 
   const form = test ? (BENCHMARK_FORMS.find((f) => f.id === test.form) ?? null) : null;
   const upcoming = nextForm(results, BENCHMARK_FORMS);
@@ -65,7 +78,7 @@ export default function CheckupPage() {
   const start = () => {
     if (!upcoming) return;
     const now = Date.now();
-    update(beginTest(newTest(upcoming.id, now, voiceName), now));
+    update(beginTest(newTest(upcoming.id, now, null), now)); // the voice is recorded when it actually speaks
     setView({ kind: 'test', resumed: false });
   };
 
@@ -82,12 +95,14 @@ export default function CheckupPage() {
     });
     const ok = saveCheckupResult(result); // also clears the draft
     setLocal(result);
+    testRef.current = null;
     setTest(null);
     setView({ kind: 'result', id: result.id, justFinished: true, saveFailed: !ok });
   };
 
   const abandon = () => {
     clearCheckupDraft();
+    testRef.current = null;
     setTest(null);
     setView({ kind: 'intro' });
   };
@@ -96,7 +111,7 @@ export default function CheckupPage() {
     return (
       <div className="stack-lg page-focus ck-page">
         <PageHeader title="Kiểm tra định kỳ" subtitle="Bài nghe 10 phút để đo tiến bộ." help={<ShortcutsHelp items={SHORTCUTS} />} />
-        <CheckupTest form={form} state={test} voiceName={voiceName} resumed={view.resumed} onChange={update} onFinish={finish} onAbandon={abandon} />
+        <CheckupTest form={form} state={test} resumed={view.resumed} onChange={update} onVoice={voiceHeard} onFinish={finish} onAbandon={abandon} />
       </div>
     );
   }
