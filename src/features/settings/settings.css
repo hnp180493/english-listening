@@ -1,0 +1,532 @@
+/* Settings page. Tokens only, no hard-coded colors. Built on the shared classes in src/index.css. */
+
+.set-page > .page-head {
+  margin-bottom: 0;
+}
+
+/* ───────── Card shell ───────── */
+.set-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.set-section-head {
+  min-width: 0;
+}
+.set-section-head h2 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.set-section-head p {
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* ───────── Fields ───────── */
+.set-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.set-label {
+  display: block;
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.set-hint {
+  display: block;
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: var(--measure);
+}
+.set-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.set-value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+.set-field-hint {
+  margin: 0;
+}
+.set-value-badge {
+  font-size: var(--fs-sm);
+  padding: 2px 10px;
+}
+.set-value-hint {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* Label on the left, control on the right; wraps on phones. */
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.set-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+/* Daily real-listening goal: a compact select on the right of its row. */
+.set-listen-goal {
+  width: auto;
+  min-width: 140px;
+}
+
+/* ───────── Range slider: filled track follows --set-pct (set inline) ───────── */
+.set-range {
+  --set-pct: 50%;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 24px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.set-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(to right, var(--accent) var(--set-pct), var(--surface-3) var(--set-pct));
+}
+.set-range::-moz-range-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+}
+.set-range::-moz-range-progress {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+.set-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    var(--shadow-sm);
+  transition: box-shadow var(--dur) var(--ease);
+}
+.set-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    var(--shadow-sm);
+}
+.set-range:hover::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 0 6px var(--accent-soft),
+    var(--shadow-sm);
+}
+.set-range:focus-visible {
+  outline: none;
+}
+.set-range:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    var(--focus-ring);
+}
+.set-range:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    var(--focus-ring);
+}
+.set-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.set-try {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+.set-sample {
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-style: italic;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.set-callout-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+/* ───────── Display ───────── */
+.set-theme .seg-btn {
+  min-height: 36px;
+}
+.set-switch-row {
+  cursor: pointer;
+  flex-wrap: nowrap;
+}
+.set-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.set-switch {
+  /* Same look as the shared .switch (src/index.css); this one is a span driven by a hidden checkbox. */
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  transition: background-color var(--dur) var(--ease);
+}
+.set-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--on-gradient);
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--dur) var(--ease);
+}
+.set-switch-input:checked + .set-switch {
+  background: var(--accent-gradient);
+}
+.set-switch-input:checked + .set-switch::after {
+  transform: translateX(16px);
+}
+.set-switch-input:focus-visible + .set-switch {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+/* ───────── Goal: presets + "Tùy chỉnh…" (slider only on demand) ───────── */
+.set-goal-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+.set-presets .seg-btn {
+  font-variant-numeric: tabular-nums;
+}
+.set-custom {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+}
+
+/* ───────── Data & sync ───────── */
+.set-steps {
+  counter-reset: set-step;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: var(--measure);
+}
+.set-steps li {
+  counter-increment: set-step;
+  position: relative;
+  padding-left: 36px;
+  line-height: 1.5;
+}
+.set-steps li::before {
+  content: counter(set-step);
+  position: absolute;
+  left: 0;
+  top: -1px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.set-connect {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  flex-wrap: wrap;
+}
+.set-connect .set-hint {
+  flex: 1 1 240px;
+}
+/* File and folder names: body font, 600 (never monospace). */
+.set-file-name {
+  font-family: var(--font);
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+/* Connected: one sentence + one status badge (no stat tiles). */
+.set-sync-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+.set-sync-line {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.set-sync-buttons {
+  flex-wrap: wrap;
+}
+.set-linkbtn {
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.set-linkbtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.set-sync-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.set-sync-compare > div {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  min-width: 0;
+}
+.set-sync-compare p {
+  margin: 2px 0 0;
+}
+
+/* Action list (export / import / delete) under a hairline. */
+.set-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}
+.set-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-2) 0;
+}
+.set-action > div {
+  min-width: 0;
+}
+.set-action .btn {
+  flex: none;
+}
+.set-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.set-btn-danger-solid {
+  background: var(--bad);
+  box-shadow: var(--shadow-xs);
+  color: var(--surface);
+}
+.set-btn-danger-solid:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bad) 88%, var(--text));
+  color: var(--surface);
+}
+
+/* Inline confirmation (no border: a tinted inset). */
+.set-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+}
+.set-confirm--danger {
+  background: var(--bad-bg);
+}
+.set-confirm-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.set-confirm .set-hint {
+  color: var(--text);
+}
+
+/* ───────── About ───────── */
+.set-about-text {
+  margin: 0;
+  max-width: var(--measure);
+}
+/* Privacy bullets and the sync steps (.set-how): closed by default. */
+.set-privacy {
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.set-privacy > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.set-privacy > summary::-webkit-details-marker {
+  display: none;
+}
+.set-privacy > summary > .icon {
+  color: var(--text-muted);
+}
+.set-privacy > summary::after {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform var(--dur) var(--ease);
+}
+.set-privacy[open] > summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+.set-privacy > summary:focus-visible {
+  outline-offset: -2px;
+}
+.set-how > .set-steps {
+  padding: var(--space-1) var(--space-4) var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.set-how strong {
+  color: var(--text);
+}
+.set-privacy ul {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-4) calc(var(--space-4) + 20px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  max-width: var(--measure);
+}
+.set-privacy li::marker {
+  color: var(--text-subtle);
+}
+.set-privacy strong {
+  color: var(--text);
+}
+
+/* ───────── Phones ───────── */
+@media (max-width: 560px) {
+  .set-page.stack-lg {
+    gap: var(--space-5);
+  }
+  .set-theme,
+  .set-presets {
+    display: flex;
+    width: 100%;
+  }
+  .set-theme > .seg-btn,
+  .set-presets > .seg-btn {
+    flex: 1 1 0;
+    padding: 0 8px;
+  }
+  .set-sync-compare {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .set-action {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .set-action .btn,
+  .set-connect > .btn {
+    justify-content: center;
+  }
+  .set-connect > .btn {
+    width: 100%;
+  }
+}
+@media (max-width: 380px) {
+  .set-theme > .seg-btn {
+    flex-direction: column;
+    gap: 2px;
+    min-height: 48px;
+    font-size: var(--fs-xs);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .set-switch,
+  .set-switch::after,
+  .set-privacy > summary::after,
+  .set-range::-webkit-slider-thumb {
+    transition: none;
+  }
+}

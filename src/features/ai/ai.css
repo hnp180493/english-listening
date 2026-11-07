@@ -1,0 +1,254 @@
+/* AI add-ons (src/features/ai). Quiet by design: a secondary button, then the answer in a soft panel. */
+
+.ai-action {
+  margin-top: var(--space-3);
+}
+
+.ai-btn .icon,
+.ai-setup .icon,
+.ai-note .icon {
+  color: var(--accent);
+}
+
+/* no provider: one muted line with a link */
+.ai-setup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.ai-setup a {
+  color: var(--accent);
+}
+
+.ai-busy {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.ai-error p {
+  margin: 0;
+}
+.ai-error-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.ai-result {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+}
+.ai-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* explanation */
+.ai-summary {
+  margin: 0;
+  font-weight: 600;
+}
+.ai-points {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ai-point p {
+  margin: 0;
+}
+.ai-map {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.ai-map s {
+  color: var(--bad);
+}
+.ai-map b {
+  color: var(--text);
+  font-weight: 600;
+}
+.ai-why {
+  margin-top: 2px;
+  /* same size as the rule-based "Vì sao bạn nghe sai?" cards above it; the summary stays the heading */
+  font-size: var(--fs-sm);
+}
+.ai-tip {
+  margin-top: 2px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.ai-tip b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* generator (Câu của tôi) */
+.ai-gen-fields {
+  display: grid;
+  gap: var(--space-3);
+}
+.ai-gen-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  align-items: flex-start;
+}
+.ai-gen-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.ai-gen-field .select {
+  min-width: 190px;
+}
+.ai-gen-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+/* the form sits on a tinted panel: chips need their own fill + hairline to read as buttons */
+.ai-gen-chips .chip {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-weight: 500;
+}
+.ai-gen-chips .chip[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+/* settings folded into one line once a preview exists */
+.ai-gen-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.ai-gen-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.ai-gen-list {
+  display: grid;
+  gap: 2px;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ai-gen-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.ai-gen-item .play-btn {
+  flex: none;
+  margin-top: 2px;
+}
+.ai-gen-item label {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--space-3);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.ai-gen-item label:hover {
+  background: var(--surface-2);
+}
+.ai-gen-item input {
+  margin-top: 4px;
+}
+.ai-gen-text {
+  margin: 0;
+  font-weight: 500;
+}
+.ai-gen-vi {
+  grid-column: 2;
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.ai-gen-drop {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* coach (Báo cáo → Nhận xét) */
+.ai-coach {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+.ai-coach-head {
+  margin: 0;
+  font-weight: 600;
+}
+.ai-coach ul,
+.ai-coach ol {
+  margin: var(--space-2) 0 0;
+  padding-left: 1.25em;
+}
+.ai-coach li + li {
+  margin-top: 4px;
+}
+.ai-coach-sub {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.ai-coach > .ai-action,
+.ai-coach > .ai-setup {
+  margin-top: 0;
+}
+
+/* "Đổi" in the folded generator settings: a text link */
+.ai-gen-change {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ai-gen-change:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+@media (max-width: 600px) {
+  /* phones: the preview list keeps its width (no extra row padding) */
+  .ai-gen-item label {
+    padding: var(--space-2) 0;
+    gap: 2px var(--space-2);
+  }
+  .ai-gen-item .play-btn {
+    padding-inline: var(--space-2);
+  }
+}

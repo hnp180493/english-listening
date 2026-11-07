@@ -1,83 +1,150 @@
-.app {
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 16px 16px 64px;
+/* App shell layout. Navigation styles live in src/components/AppNav.css. */
+
+/*
+ * Theme tokens (light and dark) live once in src/index.css via light-dark(); html[data-theme] only sets
+ * color-scheme there. Nothing theme-specific belongs in this file.
+ */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-.app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 0 16px;
-}
-
-.app-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.app-logo {
-  display: inline-grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-size: 16px;
-  letter-spacing: -3px;
-}
-
-.app-title {
-  font-weight: 700;
-  font-size: 18px;
-}
-
-.app-sub {
-  font-size: 13px;
-}
-
-.app-settings {
-  margin-bottom: 16px;
-}
-
-.app-tabs {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 24px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.app-tab {
-  background: none;
-  border: none;
-  padding: 10px 14px;
-  font-weight: 500;
-  color: var(--text-muted);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  white-space: nowrap;
-}
-
-.app-tab:hover {
-  color: var(--text);
-}
-
-.app-tab.is-active {
-  color: var(--text);
-  border-bottom-color: var(--accent);
-}
-
-@media (max-width: 520px) {
-  .app-sub {
-    display: none;
+/*
+ * Mobile: the sticky .nav-topbar (src/components/AppNav.css) covers the top of the page, so in-page
+ * scrolls (scrollIntoView, #anchor jumps, focus scrolling) must stop below it.
+ * Keep 64px in sync with .nav-topbar: with border-box sizing its height is 8px top padding + 44px
+ * .nav-menu-btn + 8px bottom padding + 1px border-bottom = 61px (above its 56px min-height), plus
+ * 3px of breathing room. The safe-area inset is added because the bar's top padding grows by
+ * env(safe-area-inset-top).
+ * The 899px breakpoint mirrors AppNav.css, where the top bar is hidden from 900px up.
+ */
+@media (max-width: 899px) {
+  html {
+    scroll-padding-top: calc(64px + env(safe-area-inset-top));
   }
-  .app-tab {
-    padding: 10px 10px;
-    font-size: 15px;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+@media (min-width: 900px) {
+  .shell {
+    display: grid;
+    grid-template-columns: 264px minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.shell-main {
+  min-width: 0;
+  padding: 20px 16px calc(96px + env(safe-area-inset-bottom));
+  outline: none;
+}
+
+@media (min-width: 900px) {
+  .shell-main {
+    padding: 40px clamp(24px, 3vw, 48px) 80px;
+  }
+}
+
+/*
+ * One 1240px column for every route. Browse pages (.page-browse) fill it; single-task pages (.page-focus, see
+ * src/index.css) centre a 760px column inside it. At 1600px the main area is 1336px with 48px padding, so browse
+ * content starts at 264 + 48 + (1240 - 1240) / 2 = 312px; the sidebar's visible card ends at 247px, a 65px gap
+ * (the plan's ≤ 80px check; 1180 left 95px). At 1280px the column already fills the space between the paddings.
+ */
+.shell-content {
+  max-width: 1240px;
+  margin-inline: auto;
+}
+
+/* Headings receive programmatic focus on route change; no ring for that. */
+.shell-main h1[tabindex='-1']:focus {
+  outline: none;
+}
+
+/* Skip link: visible only when focused with the keyboard. */
+.shell-skip {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-gradient);
+  color: var(--on-gradient);
+  box-shadow: var(--shadow-md);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 0.15s;
+}
+.shell-skip:focus {
+  transform: none;
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* Lazy page loading fallback: appears only if the chunk takes more than ~250ms, so fast loads do not flash. */
+.shell-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40vh;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  animation: shell-loading-in 0.2s ease-out 0.25s both;
+}
+.shell-loading-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  animation: shell-loading-pulse 1s ease-in-out infinite alternate;
+}
+@keyframes shell-loading-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes shell-loading-pulse {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.shell-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.shell-error-title {
+  font-size: var(--fs-xl);
+}
+.shell-error p {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-skip {
+    transition: none;
+  }
+  .shell-loading-dot {
+    animation: none;
   }
 }

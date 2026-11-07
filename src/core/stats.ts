@@ -1,7 +1,18 @@
+import { noteAttempt } from './history';
 import { KEYS, loadJSON, saveJSON } from './storage';
 import { PHENOMENA, type Phenomenon } from './types';
 
-export type ModuleId = 'dictation' | 'drill' | 'decoder';
+export type ModuleId = 'dictation' | 'drill' | 'decoder' | 'lesson' | 'pairs' | 'shadowing' | 'media';
+
+export const MODULE_LABEL: Record<ModuleId, string> = {
+  dictation: 'Chép chính tả',
+  drill: 'Cụm từ',
+  decoder: 'Giải mã câu',
+  lesson: 'Bài học',
+  pairs: 'Phân biệt âm',
+  shadowing: 'Nói nhại',
+  media: 'Video thật',
+};
 
 export interface Attempt {
   at: number; // epoch ms
@@ -38,7 +49,18 @@ export function localDay(ts: number): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+/**
+ * Set only when the last write failed (blocked/full storage): this session's stats live here
+ * so counters keep growing. While storage works it stays null and every read goes to storage
+ * (keeps cross-tab merging intact).
+ */
+let sessionStats: StatsState | null = null;
+
 export function loadStats(): StatsState {
+  return sessionStats ?? readStored();
+}
+
+function readStored(): StatsState {
   const s = loadJSON<Partial<StatsState>>(KEYS.stats, {});
   const by = emptyByPhenomenon();
   if (s.byPhenomenon) {
@@ -63,23 +85,42 @@ export function subscribeStats(fn: Listener): () => void {
 }
 
 /** Record one practice attempt and update per-phenomenon counters. */
-export function recordAttempt(a: Omit<Attempt, 'at'> & { at?: number }): StatsState {
+/**
+ * Record one practice attempt. `opts.inReview`: the attempt is a re-test in Ôn tập (or a word card). It still
+ * counts for stats and phenomena, but not in the long-term archive the progress report trends on (core/history):
+ * re-testing a sentence the learner already got right would make "practice accuracy" rise from memory, and Ôn tập
+ * is measured by its own retention (grades on graduated cards).
+ */
+export function recordAttempt(a: Omit<Attempt, 'at'> & { at?: number }, opts: { inReview?: boolean } = {}): StatsState {
   const at = a.at ?? Date.now();
-  const s = loadStats();
+  // Clone so the in-memory session copy is never mutated in place.
+  const s = structuredClone(loadStats());
   const attempt: Attempt = { ...a, at };
   s.attempts = [...s.attempts, attempt].slice(-MAX_ATTEMPTS);
   for (const p of new Set(a.seen)) s.byPhenomenon[p].seen += 1;
   for (const p of new Set(a.missed)) s.byPhenomenon[p].missed += 1;
   const day = localDay(at);
   if (!s.activeDays.includes(day)) s.activeDays = [...s.activeDays, day].sort();
-  saveJSON(KEYS.stats, s);
+  sessionStats = saveJSON(KEYS.stats, s) ? null : s;
+  // long-term daily archive for the progress report (core/history; survives the MAX_ATTEMPTS cap)
+  if (!opts.inReview) noteAttempt(a.module, a.correct, at);
   listeners.forEach((fn) => fn(s));
   return s;
 }
 
 export function resetStats(): void {
   const s: StatsState = { attempts: [], byPhenomenon: emptyByPhenomenon(), activeDays: [] };
-  saveJSON(KEYS.stats, s);
+  sessionStats = saveJSON(KEYS.stats, s) ? null : s;
+  listeners.forEach((fn) => fn(s));
+}
+
+/**
+ * Drop the in-memory copy and notify subscribers with what storage now holds. Used after folder
+ * sync replaced the stored data (storage changed without recordAttempt).
+ */
+export function reloadStats(): void {
+  sessionStats = null;
+  const s = readStored();
   listeners.forEach((fn) => fn(s));
 }
 

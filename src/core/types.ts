@@ -3,11 +3,11 @@
 
 /** Connected-speech phenomena the app teaches. */
 export type Phenomenon =
-  | 'linking' // nối âm: turn it off → tur-ni-toff (also /j/ /w/ glides: go on → go-won)
+  | 'linking' // nối âm: turn it off → tur-ni-doff (also /j/ /w/ glides: go on → go-won)
   | 'elision' // nuốt âm: next day → nex day
   | 'assimilation' // đồng hóa: did you → didju, ten boys → tem boys
   | 'weak-form' // âm yếu: to → tə, and → n, can → kən
-  | 'flap-t' // T/D giữa nguyên âm (giọng Mỹ): water → wader, get it → ge-dit
+  | 'flap-t' // T/D giữa nguyên âm (giọng Mỹ): water → wadder, get it → ge-dit
   | 'reduction' // rút gọn: going to → gonna, kind of → kinda
   | 'h-dropping' // mất âm h: tell him → tell-im
   | 'contraction'; // rút gọn có dấu nháy: I am → I'm, he would → he'd
@@ -37,7 +37,7 @@ export interface Annotation {
   id: string; // unique within a DecodeResult, e.g. "a3"
   type: Phenomenon;
   from: number; // first token index (inclusive)
-  to: number; // last token index (inclusive); from === to for intra-word events (water → wader)
+  to: number; // last token index (inclusive); from === to for intra-word events (water → wadder)
   original: string; // written words, e.g. "want you"
   spoken: string; // readable respelling, e.g. "wan-chu"
   ipa?: string; // optional IPA, e.g. "/ˈwɑːntʃu/"

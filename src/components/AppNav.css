@@ -1,0 +1,415 @@
+/* App navigation: desktop sidebar, mobile top bar + drawer + bottom tab bar. Tokens only. */
+
+/* ───────── Brand ───────── */
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+.nav-brand:hover {
+  color: var(--text);
+}
+.nav-brand:focus-visible {
+  outline-offset: 3px;
+}
+.nav-mark {
+  flex: none;
+  display: block;
+  filter: drop-shadow(0 4px 8px light-dark(rgb(79 70 229 / 0.28), rgb(0 0 0 / 0.4)));
+}
+.nav-mark-stop1 {
+  stop-color: light-dark(#4f46e5, #5850ec);
+}
+.nav-mark-stop2 {
+  stop-color: light-dark(#7c3aed, #8048f0);
+}
+.nav-mark-fg {
+  stroke: #fff;
+}
+.nav-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.nav-brand-name {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-brand--compact .nav-brand-name {
+  font-size: 16px;
+}
+
+/* ───────── Links (sidebar + drawer) ───────── */
+.nav-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.nav-group-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0 12px 6px;
+}
+.nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+  min-height: 40px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.nav-link:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  color: var(--text);
+}
+.nav-link:focus-visible {
+  outline-offset: -2px;
+}
+.nav-link.is-active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-sm);
+}
+.nav-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 8px;
+  color: var(--text-subtle);
+  transition:
+    color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+.nav-link:hover .nav-icon {
+  color: var(--tile);
+}
+.nav-link.is-active .nav-icon {
+  color: var(--tile);
+  background: color-mix(in srgb, var(--tile) 14%, transparent);
+}
+.nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Due count (Ôn tập): neutral pill; lime stays only on the review icon tile. */
+.nav-count {
+  flex: none;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.nav-link.is-active .nav-count {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ───────── Goal card ───────── */
+.nav-goal {
+  display: block;
+  margin-top: auto;
+  padding: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--text);
+  text-decoration: none;
+  transition: box-shadow var(--dur) var(--ease);
+}
+.nav-goal:hover {
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+}
+.nav-goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.nav-goal-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.nav-goal-count {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.nav-goal-bar {
+  height: 6px;
+  margin: 10px 0;
+}
+.nav-goal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+/* Before the first attempt there is no bar: keep the streak line off the title. */
+.nav-goal-head + .nav-goal-foot {
+  margin-top: 8px;
+}
+.nav-goal-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.nav-goal-streak.is-on {
+  color: var(--text);
+  font-weight: 600;
+}
+.nav-goal-streak.is-on .icon {
+  color: var(--mod-shadowing);
+}
+.nav-goal-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ok);
+  font-weight: 600;
+}
+
+/* ───────── Desktop sidebar ───────── */
+.nav-sidebar {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .nav-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    padding: 24px 16px 18px;
+    overflow-y: auto;
+    background: var(--bg);
+    border-right: 1px solid var(--hairline);
+    scrollbar-width: thin;
+  }
+  .nav-sidebar > .nav-brand {
+    padding: 0 6px;
+  }
+  .nav-topbar,
+  .nav-tabbar,
+  .nav-backdrop {
+    display: none !important;
+  }
+}
+
+/* ───────── Mobile top bar ───────── */
+/* Height: 8 + 44 (.nav-menu-btn) + 8 + 1 (border) = 61px; App.layout.css scroll-padding-top depends on it. */
+.nav-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(8px + env(safe-area-inset-top)) 8px 8px 16px;
+  min-height: 56px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(1.6) blur(14px);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid var(--hairline);
+}
+.nav-menu-btn,
+.nav-close-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  transition: background-color var(--dur) var(--ease);
+}
+.nav-menu-btn:hover,
+.nav-close-btn:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.nav-menu-btn:focus-visible,
+.nav-close-btn:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ───────── Drawer ───────── */
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--overlay);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: nav-fade 0.18s ease-out;
+}
+.nav-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: min(320px, 86vw);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: calc(14px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom)) 14px;
+  background: var(--bg);
+  border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+  box-shadow: var(--shadow-lg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: nav-slide 0.24s var(--ease);
+}
+.nav-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-left: 4px;
+}
+.nav-drawer .nav-goal {
+  margin-top: 0;
+}
+
+@keyframes nav-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes nav-slide {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+/* ───────── Bottom tab bar ───────── */
+.nav-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding: 4px 4px env(safe-area-inset-bottom);
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  backdrop-filter: saturate(1.6) blur(16px);
+  -webkit-backdrop-filter: saturate(1.6) blur(16px);
+  border-top: 1px solid var(--hairline);
+  box-shadow: 0 -4px 20px -12px light-dark(rgb(15 18 34 / 0.18), rgb(0 0 0 / 0.6));
+}
+.nav-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 60px;
+  padding: 4px 2px 6px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 12px; /* the documented sole exception to the 13px floor: five tab labels at 375px */
+  font-weight: 500;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-tab:hover {
+  color: var(--text);
+}
+.nav-tab:focus-visible {
+  outline-offset: -4px;
+  border-radius: var(--radius-sm);
+}
+.nav-tab-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+.nav-tab-icon {
+  position: relative;
+}
+/* Something is due in Ôn tập: a small dot on the tab icon (the count is in the tab's aria-label). */
+.nav-tab-dot {
+  position: absolute;
+  top: 3px;
+  right: 13px;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.nav-tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-tab.is-active {
+  color: var(--accent);
+  font-weight: 600;
+}
+.nav-tab.is-active .nav-tab-icon {
+  background: var(--accent-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-backdrop,
+  .nav-drawer {
+    animation: none;
+  }
+}

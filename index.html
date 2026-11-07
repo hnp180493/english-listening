@@ -2,11 +2,37 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Nghe Nối Âm</title>
+    <meta
+      name="description"
+      content="Luyện nghe tiếng Anh bản xứ cho người Việt: nối âm, nuốt âm, đồng hóa, âm yếu, T bật, gonna/wanna. Học, chép chính tả, nói nhại, miễn phí và chạy ngay trên trình duyệt."
+    />
+    <meta name="theme-color" content="#f5f6fa" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="application-name" content="Nghe Nối Âm" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Nghe Nối Âm" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon-maskable.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <script>
+      // Apply the saved theme before first paint to avoid a light flash in dark mode.
+      (function () {
+        try {
+          var s = JSON.parse(localStorage.getItem('nghe-noi-am:settings') || '{}');
+          var t = s && s.theme;
+          var dark = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#0b0d17' : '#f5f6fa');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
+    <noscript>Nghe Nối Âm cần JavaScript để chạy. Hãy bật JavaScript trong trình duyệt.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

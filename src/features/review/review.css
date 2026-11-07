@@ -1,0 +1,359 @@
+/* Ôn tập (review) page. Tokens + shared classes only (see docs/design-system.md). Prefix: rev-. */
+
+.rev-page {
+  min-width: 0;
+}
+.rev-h2 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* callout with an inline action (seed notice, undo) */
+.rev-callout-body {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+.rev-callout-body .btn {
+  margin: -4px 0 -4px auto;
+}
+
+/* ───────── start ───────── */
+.rev-start-title {
+  font-size: var(--fs-lg);
+}
+.rev-kinds {
+  margin: 0;
+}
+.rev-start-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+/* ───────── session ───────── */
+.rev-session {
+  min-width: 0;
+}
+.rev-bar {
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+}
+.rev-bar-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) 6px;
+  min-width: 0;
+}
+.rev-bar-info .badge {
+  margin-left: var(--space-1);
+}
+.rev-left {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.rev-kind {
+  white-space: nowrap;
+}
+/* Phones: "Còn 11 mục · 1 gặp lại" leaves no room for the kind, so it always takes its own line (no stray "·" at a
+   line start, and the bar keeps one height whether or not a missed item is waiting). */
+@media (max-width: 480px) {
+  .rev-kind {
+    order: 1;
+    flex-basis: 100%;
+  }
+  .rev-kind-sep {
+    display: none;
+  }
+}
+.rev-bar-tools {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-1);
+}
+.rev-progress {
+  --progress-color: var(--accent);
+}
+
+.rev-line {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.rev-context,
+.rev-next {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.rev-next {
+  color: var(--text);
+  font-weight: 600;
+}
+.rev-next:empty {
+  display: block;
+  height: 0;
+  overflow: hidden;
+}
+
+/* overflow menu */
+.rev-menu {
+  position: relative;
+}
+.rev-menu-list {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 20;
+  min-width: 220px;
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-lg);
+}
+.rev-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.rev-menu-item:hover,
+.rev-menu-item:focus-visible {
+  background: var(--surface-2);
+}
+.rev-menu-item .icon {
+  color: var(--text-muted);
+}
+
+/* items */
+.rev-item,
+.rev-pair,
+.rev-lesson {
+  min-width: 0;
+}
+.rev-media-note {
+  gap: var(--space-2);
+}
+.rev-media-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+}
+.rev-step {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+/* The mini round has no second chances inside the item (the card comes back later). */
+.rev-pair .pairs-feedback-note {
+  display: none;
+}
+.rev-lesson-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.rev-lesson-title:focus {
+  outline: none;
+}
+
+.rev-verdict .callout {
+  font-size: var(--fs-base);
+}
+.rev-verdict-title {
+  margin: 0;
+  font-weight: 600;
+}
+.rev-verdict-detail {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.rev-verdict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* word card: listen → pick the word, or read aloud → flip → self-grade */
+.rev-word {
+  min-width: 0;
+}
+.rev-word-front,
+.rev-word-back {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.rev-word-prompt {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.rev-word-listen,
+.rev-word-play {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rev-word-skip {
+  align-self: flex-start;
+}
+.rev-word-big {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.rev-word-front .rev-word-big {
+  padding: var(--space-4) 0;
+  text-align: center;
+}
+/* A heteronym's sentence under the big word (read mode): centred with it, pulled up so they read as one unit. */
+.rev-word-front .rev-word-context {
+  margin: calc(-1 * var(--space-4)) auto 0;
+  text-align: center;
+}
+.rev-word-flip {
+  display: flex;
+  justify-content: center;
+}
+.rev-word-reveal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.rev-word-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+.rev-word-sound {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  min-width: 0;
+  font-size: var(--fs-lg);
+}
+.rev-word-sound::before {
+  content: '→';
+  color: var(--text-subtle);
+}
+.rev-word-ipa {
+  font-size: var(--fs-sm);
+}
+.rev-word-mark {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.rev-word-silent {
+  color: var(--text-subtle);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+.rev-word-context,
+.rev-word-note {
+  margin: 0;
+  max-width: var(--measure);
+}
+/* Same quiet line as a lesson's word row (.lessons-word-say): muted, upright. */
+.rev-word-context {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.rev-word-story {
+  font-size: var(--fs-sm);
+}
+.rev-word-story-body {
+  max-width: var(--measure);
+}
+.rev-word-story-body > :first-child {
+  margin-top: 0;
+}
+.rev-word-story-body > :last-child {
+  margin-bottom: 0;
+}
+.rev-word-why > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+.rev-word-why .rev-word-story-body {
+  font-size: var(--fs-sm);
+}
+.rev-word-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+/* ───────── summary ───────── */
+.rev-summary-title {
+  font-size: var(--fs-lg);
+}
+.rev-summary-title:focus {
+  outline: none;
+}
+.rev-summary-result,
+.rev-summary .meta {
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .rev-verdict-actions {
+    justify-content: stretch;
+  }
+  .rev-verdict-actions .btn,
+  .rev-word-done .btn {
+    flex: 1;
+  }
+}

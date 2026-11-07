@@ -1,0 +1,550 @@
+/* "Kiểm tra định kỳ" (prefix ck-). Tokens and shared classes: src/index.css; rules: docs/design-system.md. */
+
+/* ───────── Intro ───────── */
+.ck-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.ck-intro-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+.ck-intro-head h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.ck-parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ck-parts li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  line-height: 1.5;
+}
+.ck-parts b {
+  font-weight: 600;
+}
+.ck-parts-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.ck-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.ck-intro-note {
+  margin: 0;
+  max-width: var(--measure);
+}
+.ck-intro-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.ck-voice {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ck-past .list-row-lead {
+  width: 44px;
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+
+.ck-how p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ───────── Test ───────── */
+.ck-test {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.ck-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.ck-part {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.ck-part:focus {
+  outline: none;
+}
+.ck-step {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.ck-progress {
+  --progress-color: var(--accent);
+  height: 6px;
+  margin-top: calc(-1 * var(--space-2));
+}
+.ck-resumed {
+  margin: 0;
+}
+.ck-question {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: 1.45;
+}
+.ck-listen {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.ck-play {
+  min-width: 188px;
+}
+.ck-listen-note {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.ck-answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ck-answer > .field-label {
+  margin: 0;
+}
+.ck-input {
+  min-height: 48px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-lg);
+}
+
+/* answer options (part 2) */
+.ck-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ck-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow:
+    inset 0 0 0 1px var(--border),
+    var(--shadow-xs);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-base);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.ck-opt:hover {
+  background: var(--surface-2);
+}
+.ck-opt.is-on {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  color: var(--text);
+}
+.ck-opt-key {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.ck-opt.is-on .ck-opt-key {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.ck-opt-label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ck-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ck-link:hover {
+  color: var(--accent-hover);
+}
+.ck-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+}
+.ck-actions > .btn-ghost {
+  margin-left: calc(-1 * var(--space-3));
+}
+.ck-next {
+  min-width: 160px;
+}
+
+/* ───────── Result ───────── */
+.ck-score {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.ck-score > .meta {
+  margin: 0;
+}
+.ck-score-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+.ck-score-num {
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.ck-score-unit {
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  font-weight: 500;
+}
+.ck-score-cmp {
+  margin: 0;
+  max-width: var(--measure);
+  line-height: 1.55;
+}
+.ck-parts-res {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-1) 0 0;
+}
+.ck-parts-res > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.ck-parts-res dt {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.ck-parts-res dd {
+  margin: 0;
+}
+.ck-parts-res dd.tabular {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+}
+.ck-score-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding-top: var(--space-1);
+}
+
+/* comparison table */
+.ck-cmp-card {
+  padding: var(--space-2) var(--space-5);
+}
+.ck-cmp {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.ck-cmp th,
+.ck-cmp td {
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  vertical-align: bottom;
+}
+.ck-cmp tr:last-child th,
+.ck-cmp tr:last-child td {
+  border-bottom: 0;
+}
+.ck-cmp th:first-child {
+  padding-left: 0;
+  text-align: left;
+}
+.ck-cmp td:last-child,
+.ck-cmp th:last-child {
+  padding-right: 0;
+}
+.ck-cmp thead th {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.ck-cmp tbody th {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ck-cmp-date {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+.ck-cmp-now {
+  font-weight: 700;
+}
+
+/* per-phenomenon misses */
+.ck-ph-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.ck-ph-card > .meta {
+  margin: 0;
+}
+.ck-ph {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ck-ph-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px var(--space-3);
+}
+.ck-ph-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-weight: 500;
+}
+.ck-ph-val {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.ck-ph-bar {
+  --progress-color: var(--accent);
+  grid-column: 1 / -1;
+  height: 6px;
+}
+.ck-ph-first {
+  grid-column: 1 / -1;
+}
+
+.ck-ph-clean {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.ck-ph-clean .icon {
+  flex: none;
+  margin-top: 3px;
+  color: var(--ok);
+}
+
+/* per-item review */
+.ck-review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ck-rev {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+.ck-rev > summary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: inherit;
+  line-height: 1.5;
+  cursor: pointer;
+  list-style: none;
+}
+.ck-rev > summary::-webkit-details-marker {
+  display: none;
+}
+.ck-rev > summary:hover {
+  background: var(--surface-2);
+}
+.ck-rev[open] > summary {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.ck-rev-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-top: 1px;
+  border-radius: var(--radius-full);
+}
+.ck-rev-mark.is-ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.ck-rev-mark.is-bad {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.ck-rev-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ck-rev-n {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.ck-rev-score {
+  flex: none;
+  margin-top: 2px;
+}
+.ck-rev-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) var(--space-4);
+}
+.ck-rev-body > .meta {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.ck-rev-body > .row {
+  align-items: center;
+}
+.ck-rev-body > .row > .btn-ghost {
+  margin-left: calc(-1 * var(--space-3));
+}
+.ck-transcript {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.ck-transcript p {
+  margin: 0;
+  line-height: 1.55;
+}
+.ck-answers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ck-answers li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  line-height: 1.5;
+}
+.ck-answers .icon {
+  flex: none;
+  margin-top: 4px;
+}
+.ck-ans-ok .icon {
+  color: var(--ok);
+}
+.ck-ans-bad .icon {
+  color: var(--bad);
+}
+.ck-why {
+  margin: 0;
+  max-width: var(--measure);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+.ck-foot {
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 599px) {
+  .ck-play {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .ck-next {
+    min-width: 0;
+  }
+  .ck-cmp-card {
+    padding: var(--space-1) var(--space-4);
+  }
+  .ck-cmp th,
+  .ck-cmp td {
+    padding: var(--space-2) var(--space-1);
+    font-size: var(--fs-sm);
+  }
+  .ck-score-actions > .btn {
+    flex: 1 1 auto;
+  }
+}

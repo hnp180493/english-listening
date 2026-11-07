@@ -1,0 +1,580 @@
+/* Drill ("Cụm từ") module. Tokens + shared classes only (see docs/design-system.md). */
+
+.drill {
+  width: 100%;
+  min-width: 0;
+}
+.drill .page-head {
+  margin-bottom: 0;
+}
+.drill-num {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- "Tùy chọn" fold: new cards per day ---------- */
+.drill-limit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+.drill-limit-label {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.drill-limit .seg-btn {
+  min-width: 40px;
+  padding: 0 10px;
+}
+
+/* ---------- Study card ---------- */
+.drill-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.drill-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.drill-card-progress {
+  --progress-color: var(--accent);
+  flex: 1;
+  height: 4px;
+}
+.drill-card-top > .badge {
+  margin-left: auto;
+}
+
+.drill-front {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-5);
+}
+.drill-prompt {
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.drill-listen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.drill-bigplay .btn {
+  --btn-h: 56px;
+  min-width: 220px;
+  padding: 0 32px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-lg);
+  gap: 10px;
+}
+.drill-bigplay .btn > svg {
+  width: 18px;
+  height: 18px;
+}
+
+.drill-answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.drill-answer-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.drill-answer-row .input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  font-size: var(--fs-lg);
+  padding-inline: var(--space-4);
+}
+.drill-answer-row .btn {
+  flex-shrink: 0;
+  min-height: 48px;
+  padding: 0 20px;
+}
+.drill-skip {
+  align-self: center;
+}
+
+/* "Choose" card options */
+.drill-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.drill-option {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 10px var(--space-4);
+  text-align: left;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  transition:
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.drill-option:hover {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.drill-option-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Back ---------- */
+.drill-back {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.drill-verdict {
+  font-size: var(--fs-base);
+  overflow-wrap: anywhere;
+}
+.drill-verdict > svg {
+  margin-top: 3px;
+}
+.drill-verdict q {
+  font-weight: 600;
+}
+.drill-verdict.is-skip {
+  background: var(--surface-2);
+}
+.drill-verdict.is-skip > svg {
+  color: var(--text-muted);
+}
+
+.drill-answer-big {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-6) var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  text-align: center;
+}
+.drill-written {
+  font-size: var(--fs-lg);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.drill-arrow {
+  color: var(--text-subtle);
+  margin: 2px 0;
+}
+/* The respelling, big: --text 600 like every .respell (accent means "clickable"). */
+.drill-spoken {
+  font-size: clamp(30px, 8vw, 40px);
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.drill-ipa {
+  margin-top: var(--space-1);
+  font-size: var(--fs-sm);
+}
+.drill-answer-big > .ph-tag {
+  margin-top: var(--space-3);
+  background: var(--surface);
+}
+.drill-play-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-1);
+}
+.drill-meaning {
+  margin: 0 auto;
+  max-width: var(--measure);
+  text-align: center;
+  font-size: var(--fs-md);
+}
+.drill-example {
+  padding: var(--space-3) var(--space-4);
+}
+.drill-example-en {
+  margin: 0;
+  font-size: var(--fs-md);
+}
+.drill-example-vi {
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.drill-mark {
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+/* Self grading */
+.drill-grade-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.drill-grade-hint {
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.drill-grades {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.drill-grade {
+  --g: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-height: 64px;
+  padding: 10px 4px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--g);
+  font-weight: 600;
+  transition:
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.drill-grade:hover {
+  background: color-mix(in srgb, var(--g) 10%, var(--surface-2));
+}
+.drill-grade.is-again {
+  --g: var(--bad);
+}
+.drill-grade.is-hard {
+  --g: var(--warn);
+}
+.drill-grade.is-good {
+  --g: var(--ok);
+}
+.drill-grade.is-easy {
+  --g: var(--accent);
+}
+.drill-grade.is-suggested {
+  background: color-mix(in srgb, var(--g) 14%, var(--surface));
+  box-shadow: inset 0 0 0 1.5px var(--g);
+}
+.drill-grade-label {
+  font-size: var(--fs-md);
+  line-height: 1.3;
+}
+.drill-grade-when {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ---------- Ôn tập hand-off (docs/review-system.md D9) ---------- */
+.drill-review-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- Done (end of today / end of focus session) ---------- */
+.drill-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-7);
+  text-align: center;
+}
+.drill-done h2 {
+  font-size: var(--fs-xl);
+}
+.drill-done p {
+  margin: 0;
+  max-width: 46ch;
+}
+.drill-done-icon {
+  margin-bottom: var(--space-1);
+  animation: drill-pop 0.4s var(--ease);
+}
+.drill-done .btn-primary {
+  margin-top: var(--space-2);
+}
+.drill-done-all {
+  font-weight: 600;
+}
+@keyframes drill-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.drill-done-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.drill-done-actions .btn-primary {
+  margin-top: 0;
+}
+.drill-missed {
+  width: 100%;
+  max-width: 480px;
+  text-align: left;
+}
+.drill-missed-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.drill-missed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.drill-missed-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+.drill-pair {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Focus banner ---------- */
+.drill-focus-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+.drill-focus-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.drill-focus-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.drill-focus-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.drill-focus-name {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.drill-focus-exit {
+  flex-shrink: 0;
+}
+.drill-focus-summary {
+  margin: 0;
+  max-width: var(--measure);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.drill-focus-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.drill-focus-bar {
+  --progress-color: var(--accent);
+  flex: 1;
+  height: 6px;
+}
+.drill-focus-count {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Phenomenon picker (closed fold under the card) ---------- */
+.drill-picker-sub {
+  margin: 0;
+}
+.drill-picker-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: var(--space-2);
+}
+.drill-picker-item {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+}
+.drill-picker-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-base);
+}
+
+/* ---------- List view ---------- */
+.drill-search {
+  position: relative;
+  display: block;
+}
+.drill-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-subtle);
+  pointer-events: none;
+}
+.drill-search .input {
+  padding-left: 42px;
+}
+.drill-status-tabs {
+  flex: none;
+}
+/* In the 760 column the row fits search + status + select; "Luyện nhóm này" may push the end group to a 2nd row. */
+.drill-list-tools {
+  flex-wrap: wrap;
+}
+.drill-list-tools > .drill-search {
+  flex: 1 1 200px;
+}
+.drill-practice {
+  white-space: nowrap;
+}
+.drill-row .list-row-text {
+  font-weight: 500;
+}
+/* The gloss wraps instead of ending in "…" (the full meaning is in the title). */
+.drill-row-gloss {
+  overflow: visible;
+  white-space: normal;
+}
+.drill-reset-wrap {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2) 0;
+}
+
+/* ---------- Small screens ---------- */
+@media (max-width: 599px) {
+  /* Search alone on row 1, the status Segmented at full width below it, then the phenomenon select. */
+  .drill-list-tools > .drill-search {
+    flex: 1 1 100%;
+  }
+  .drill-list-tools > .drill-list-end {
+    order: 3;
+    flex: 1 1 100%;
+  }
+  .drill-list-tools .drill-ph-select {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+  .drill-list-tools > .drill-status-tabs {
+    order: 2;
+    display: flex;
+    flex: 1 1 100%;
+  }
+  .drill-list-tools > .drill-status-tabs > .seg-btn {
+    flex: 1 1 auto;
+    padding: 0 10px;
+  }
+}
+@media (max-width: 520px) {
+  .drill-card {
+    gap: var(--space-4);
+  }
+  .drill-bigplay .btn {
+    min-width: 0;
+    width: 100%;
+    max-width: 280px;
+  }
+  .drill-answer-row .btn {
+    padding: 0 14px;
+  }
+  .drill-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .drill-grades {
+    gap: 6px;
+  }
+  .drill-grade {
+    min-height: 58px;
+    padding: 8px 2px;
+  }
+  .drill-grade-label {
+    font-size: var(--fs-base);
+  }
+  .drill-answer-big {
+    padding: var(--space-5) var(--space-3) var(--space-4);
+  }
+  .drill-focus-banner {
+    padding: var(--space-4);
+  }
+  .drill-picker-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .drill-picker-item {
+    padding: 10px var(--space-3);
+  }
+}
+/* 16px keeps iOS Safari from zooming the page when a field gets focus. */
+@media (pointer: coarse) {
+  .drill-ph-select {
+    font-size: var(--fs-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drill-done-icon {
+    animation: none;
+  }
+}

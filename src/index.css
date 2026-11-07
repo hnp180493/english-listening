@@ -1,66 +1,142 @@
-/* Design tokens. Feature CSS must use these variables, never hard-coded colors. */
+/*
+ * Design system: tokens + shared classes. Read docs/design-system.md before styling a page.
+ *
+ * Theming: every color token is written ONCE as light-dark(<light>, <dark>). The active scheme comes from
+ * `color-scheme` on <html>: "light dark" follows the OS (Settings → Theo hệ thống), and
+ * html[data-theme='light' | 'dark'] (set by src/core/theme.ts) forces one. There is no second copy of the
+ * dark palette to keep in sync. Feature CSS must use these variables, never hard-coded colors.
+ */
 :root {
-  --bg: #f7f6f2;
-  --surface: #ffffff;
-  --surface-2: #f0eee8;
-  --border: #e2dfd6;
-  --text: #1d1c1a;
-  --text-muted: #6b6860;
-  --accent: #2f6fde;
-  --accent-contrast: #ffffff;
-  --ok: #1f8a4c;
-  --ok-bg: #e3f4ea;
-  --bad: #c43d3d;
-  --bad-bg: #fbe7e7;
-  --warn: #a86a00;
-  --warn-bg: #fdf1dc;
+  color-scheme: light dark;
 
-  /* Phenomenon colors (text-safe on --surface) */
-  --ph-linking: #2f6fde;
-  --ph-elision: #c43d3d;
-  --ph-assimilation: #8a44c4;
-  --ph-weak: #6b7280;
-  --ph-flap: #d06a00;
-  --ph-reduction: #0f8a80;
-  --ph-h: #b0418a;
-  --ph-contraction: #6f6a10;
+  /* ── Surfaces: separated by layer + shadow, not by borders ── */
+  --bg: light-dark(#f5f6fa, #0b0d17); /* page background */
+  --surface: light-dark(#ffffff, #131626); /* cards */
+  --surface-raised: light-dark(#ffffff, #262b47); /* popovers, active segment, menus: sits above a card (visibly lighter in dark) */
+  --surface-2: light-dark(#f1f3f8, #1b1f33); /* inset panel / track / hover fill inside a card */
+  --surface-3: light-dark(#e8ebf3, #252a42); /* pressed / stronger inset */
+  --border: light-dark(#e3e6ee, #262b42); /* hairline, only where a line is really needed */
+  --border-strong: light-dark(#cdd2df, #363c5a); /* form field outlines */
+  --hairline: light-dark(rgb(15 18 34 / 0.06), rgb(255 255 255 / 0.06)); /* edge ring of cards */
+  --overlay: light-dark(rgb(15 18 34 / 0.4), rgb(0 0 0 / 0.6));
+  /* Track of segmented controls: translucent, so it reads on the page background AND inside a card. */
+  --track: light-dark(rgb(15 18 34 / 0.06), rgb(255 255 255 / 0.055));
 
-  --radius: 10px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 2px 8px rgb(0 0 0 / 0.04);
-  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  /* ── Text ── */
+  --text: light-dark(#0f1222, #e8eaf4);
+  --text-muted: light-dark(#5b6178, #9aa0b8); /* secondary text: ≥ 5:1 on --surface and --bg */
+  --text-subtle: light-dark(#6b7186, #858ba3); /* tertiary, still ≥ 4.5:1 on --surface */
 
+  /* ── Accent: indigo → violet ── */
+  --accent: light-dark(#4f46e5, #8e8cff); /* links, active states, focus; text-safe on surfaces */
+  --accent-hover: light-dark(#4338ca, #a5a4ff);
+  --accent-contrast: light-dark(#ffffff, #0b0d17); /* text on a solid var(--accent) fill */
+  --accent-soft: light-dark(#eef0fe, #1f2147); /* tinted fill; var(--accent) text on it is ≥ 5:1 */
+  --accent-soft-hover: light-dark(#e2e5fd, #282b5c);
+  --accent-gradient: linear-gradient(135deg, light-dark(#4f46e5, #5850ec) 0%, light-dark(#7c3aed, #8048f0) 100%);
+  --accent-gradient-hover: linear-gradient(135deg, light-dark(#4338ca, #4f46e5) 0%, light-dark(#6d28d9, #7c3aed) 100%);
+  --on-gradient: #ffffff; /* text on --accent-gradient: ≥ 5:1 in both themes */
+
+  /* ── Status ── */
+  --ok: light-dark(#137333, #4ade80);
+  --ok-bg: light-dark(#e6f6eb, #10291b);
+  --bad: light-dark(#c62828, #f87171);
+  --bad-bg: light-dark(#fdecec, #33141a);
+  --warn: light-dark(#a24b07, #fbbf24);
+  --warn-bg: light-dark(#fef4e4, #2f250c);
+
+  /*
+   * ── Phenomenon colors: text-safe on --surface and on a 12–16% tint of themselves ──
+   * Allowed ONLY in .ss-* (SpokenSentence), the annotation text paired with a coloured segment, the
+   * phenomena guide and .ph-dot. Never as chip/badge/card/bar/tile fill or title colour (docs §1).
+   */
+  --ph-linking: light-dark(#1d5bd6, #6ea8ff);
+  --ph-elision: light-dark(#c81e1e, #f79090);
+  --ph-assimilation: light-dark(#8a2be2, #c99bff);
+  --ph-weak: light-dark(#556070, #a8b3c7);
+  --ph-flap: light-dark(#b93d0a, #f5a874);
+  --ph-reduction: light-dark(#0d7068, #3dd9c5);
+  --ph-h: light-dark(#b3175a, #f39ac6);
+  --ph-contraction: light-dark(#66620e, #d2cc84);
+
+  /* ── Module tints (icon tiles, nav). Pair with .mod-<route> or use directly. ── */
+  --mod-home: light-dark(#d97706, #fbbf24);
+  --mod-lessons: light-dark(#4f46e5, #8e8cff);
+  --mod-decoder: light-dark(#0369a1, #38bdf8);
+  --mod-dictation: light-dark(#7c3aed, #a78bfa);
+  --mod-pairs: light-dark(#0f766e, #2dd4bf);
+  --mod-drill: light-dark(#be185d, #f472b6);
+  --mod-shadowing: light-dark(#c2410c, #fb923c);
+  --mod-media: light-dark(#be123c, #fb7185);
+  --mod-stats: light-dark(#047857, #34d399);
+  --mod-settings: light-dark(#475569, #94a3b8);
+  --mod-review: light-dark(#4d7c0f, #a3e635);
+  --mod-listening: light-dark(#0e7490, #22d3ee);
+  --mod-checkup: light-dark(#a16207, #facc15);
+
+  /* ── Shape ── */
+  --radius-xs: 6px;
+  --radius-sm: 10px; /* buttons, inputs, small panels */
+  --radius-md: 14px; /* inset panels, list rows */
+  --radius-lg: 18px; /* cards */
+  --radius-xl: 24px; /* hero / dialogs */
+  --radius-full: 999px;
+  --radius: var(--radius-lg); /* legacy name: card radius */
+
+  /* ── Elevation ── */
+  --shadow-xs: 0 1px 2px light-dark(rgb(15 18 34 / 0.06), rgb(0 0 0 / 0.4));
+  --shadow-sm: 0 1px 2px light-dark(rgb(15 18 34 / 0.04), rgb(0 0 0 / 0.35)),
+    0 2px 6px -1px light-dark(rgb(15 18 34 / 0.06), rgb(0 0 0 / 0.3));
+  --shadow-md: 0 2px 4px -1px light-dark(rgb(15 18 34 / 0.05), rgb(0 0 0 / 0.4)),
+    0 8px 20px -4px light-dark(rgb(15 18 34 / 0.1), rgb(0 0 0 / 0.45));
+  --shadow-lg: 0 4px 8px -2px light-dark(rgb(15 18 34 / 0.06), rgb(0 0 0 / 0.45)),
+    0 20px 44px -12px light-dark(rgb(15 18 34 / 0.22), rgb(0 0 0 / 0.65));
+  --shadow-accent: 0 6px 16px -6px light-dark(rgb(79 70 229 / 0.55), rgb(88 80 236 / 0.6));
+  --shadow: var(--shadow-sm); /* legacy name */
+
+  /* ── Focus ── */
+  --focus-ring-color: var(--accent);
+  --focus-ring: 0 0 0 3px light-dark(rgb(79 70 229 / 0.28), rgb(142 140 255 / 0.35)); /* box-shadow halo for fields */
+
+  /* ── Spacing scale (4px base) ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* ── Type scale ── */
+  --fs-xs: 13px; /* floor: badges, counts, chart axes. Nothing visible is smaller (tab bar labels excepted). */
+  --fs-sm: 14px; /* meta, helper text, chips, segments */
+  --fs-base: 16px; /* body */
+  --fs-md: 17px; /* h3, h2 inside a card */
+  --fs-lg: 18px; /* card titles, section titles */
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 34px;
+  --measure: 68ch; /* max width for paragraphs */
+
+  --font: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* IPA: faces with full IPA coverage, one face per word (Be Vietnam Pro lacks ə, ʃ, ŋ…). */
+  --font-ipa: 'Segoe UI', 'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
+  /* Monospace: ONLY the bulk-paste editor (.dict-mgr-bulk). Respellings use .respell, IPA uses .ipa. */
+  --mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur: 140ms;
+}
+
+:root[data-theme='light'] {
   color-scheme: light;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --bg: #151514;
-    --surface: #1f1e1c;
-    --surface-2: #2a2926;
-    --border: #3a3834;
-    --text: #edeae3;
-    --text-muted: #a19d93;
-    --accent: #6b9bf0;
-    --accent-contrast: #0e1420;
-    --ok: #5cc98a;
-    --ok-bg: #18301f;
-    --bad: #f07a7a;
-    --bad-bg: #3a1c1c;
-    --warn: #e8b04a;
-    --warn-bg: #352812;
-    --ph-linking: #6b9bf0;
-    --ph-elision: #f07a7a;
-    --ph-assimilation: #c08cf0;
-    --ph-weak: #a3a9b5;
-    --ph-flap: #f0a04a;
-    --ph-reduction: #4ccfc3;
-    --ph-h: #e57dbf;
-    --ph-contraction: #cfc760;
-    color-scheme: dark;
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
+
+/* ───────────────────────── Base ───────────────────────── */
 
 * {
   box-sizing: border-box;
@@ -76,9 +152,11 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 16px;
-  line-height: 1.55;
+  font-size: var(--fs-base);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 button,
@@ -93,96 +171,1385 @@ button {
   cursor: pointer;
 }
 
-/* Shared primitives — features may use these class names. */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-weight: 500;
-  line-height: 1.2;
-  transition: background 0.12s, border-color 0.12s;
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.25;
+  margin: 0;
+  letter-spacing: -0.015em;
+  font-weight: 700;
 }
-.btn:hover:not(:disabled) {
-  background: var(--surface-2);
+h1 {
+  font-size: var(--fs-2xl);
+  letter-spacing: -0.025em;
 }
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+/* The ONE card / section title style (--fs-lg, 600, --text) on every page; pages do not resize or mute it.
+   A muted label above content is an .eyebrow, not an h2. */
+h2,
+.card-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
 }
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-contrast);
-}
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent);
-  filter: brightness(1.08);
-}
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 14px;
+h3 {
+  font-size: var(--fs-md);
+  font-weight: 600;
 }
 
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 20px;
+a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
 }
+a:hover {
+  color: var(--accent-hover);
+}
+
+strong,
+b {
+  font-weight: 600;
+}
+
+::selection {
+  background: light-dark(rgb(79 70 229 / 0.18), rgb(142 140 255 / 0.3));
+}
+
+/* One focus style everywhere; components may refine the offset. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+/* ───────────────────────── Utilities ───────────────────────── */
 
 .muted {
   color: var(--text-muted);
 }
+.subtle {
+  color: var(--text-subtle);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.stack-lg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.prose {
+  max-width: var(--measure);
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+/* One " · " segment of a meta line: wraps only between segments, never inside a value. */
+.nowrap-seg {
+  white-space: nowrap;
+}
+.eyebrow {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-muted);
+}
+.section-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.divider {
+  height: 1px;
+  border: 0;
+  margin: var(--space-4) 0;
+  background: var(--border);
+}
+
+/* Icons (lucide SVGs rendered through <Icon> or directly) */
+.icon {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* ───────────────────────── Buttons ───────────────────────── */
+
+.btn {
+  --btn-h: 40px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--btn-h);
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow:
+    inset 0 0 0 1px var(--border),
+    var(--shadow-xs);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn > svg {
+  flex: none;
+}
+/* Wrapping labels are allowed on narrow screens (long Vietnamese labels). */
+@media (max-width: 480px) {
+  .btn {
+    white-space: normal;
+    text-align: center;
+  }
+}
+
+.btn-primary {
+  background: var(--accent-gradient);
+  box-shadow: var(--shadow-accent);
+  color: var(--on-gradient);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-gradient-hover);
+  color: var(--on-gradient);
+}
+
+/* Accent-tinted secondary action (e.g. "Nghe"). */
+.btn-soft {
+  background: var(--accent-soft);
+  box-shadow: none;
+  color: var(--accent);
+}
+.btn-soft:hover:not(:disabled) {
+  background: var(--accent-soft-hover);
+  color: var(--accent);
+}
+
+/* Quiet action: no fill until hover. */
+.btn-ghost {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+/* Inside an inset panel the hover fill must differ from the panel itself. */
+.panel .btn-ghost:hover:not(:disabled),
+.callout .btn-ghost:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.btn-danger {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 35%, transparent);
+  color: var(--bad);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+.btn-sm {
+  --btn-h: 32px;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: var(--fs-sm);
+}
+.btn-lg {
+  --btn-h: 48px;
+  padding: 0 22px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-md);
+}
+.btn-block {
+  width: 100%;
+}
+/* Square icon-only button: always give it an aria-label. */
+.btn-icon {
+  width: var(--btn-h);
+  padding: 0;
+}
+
+/* ───────────────────────── Surfaces ───────────────────────── */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+}
+@media (max-width: 520px) {
+  .card {
+    padding: var(--space-5) var(--space-4);
+    border-radius: var(--radius-md);
+  }
+}
+
+/* Inset area inside a card (examples, tips, sub-groups). Never put a bordered box inside a card. */
+.panel {
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+/* Interactive row/tile surface: lifts on hover. */
+.tile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-xs);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+a.tile:hover,
+button.tile:hover {
+  background: var(--surface-2);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+}
+
+/* Callout: a short tip or notice. Pair with an icon. */
+.callout {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+.callout > svg {
+  margin-top: 2px;
+  color: var(--accent);
+}
+.callout-warn {
+  background: var(--warn-bg);
+}
+.callout-warn > svg {
+  color: var(--warn);
+}
+.callout-ok {
+  background: var(--ok-bg);
+}
+.callout-ok > svg {
+  color: var(--ok);
+}
+.callout-bad {
+  background: var(--bad-bg);
+}
+.callout-bad > svg {
+  color: var(--bad);
+}
+
+/* ───────────────────────── Page templates ───────────────────────── */
+
+/*
+ * Every page root (the .stack-lg holding PageHeader) gets ONE template class:
+ * - .page-browse: lists and grids (Pairs picker, Media library, Stats, Home). Full shell column (1240px).
+ * - .page-focus: one task (exercise, lesson, decoder, settings, review, Drill in both views).
+ *   Header + work share a centred 760px column.
+ * A page whose sub-view changes template (picker → round) switches the class with the view.
+ */
+.page-focus {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+}
+.page-browse {
+  width: 100%;
+}
+
+/* ───────────────────────── Page header ───────────────────────── */
+
+/* No route tile: the sidebar's active item already shows the page's icon and tint. */
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-6);
+}
+/* In a .stack* page the gap already spaces the header: no double margin. */
+:is(.stack, .stack-sm, .stack-lg) > .page-head {
+  margin-bottom: 0;
+}
+.page-head-text {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.page-head h1 {
+  font-size: var(--fs-2xl);
+}
+/* Back link above the title (Lesson view, Media player): <PageHeader back={{ href, label }} />. */
+.page-head .page-head-back {
+  margin: 0 0 var(--space-2) calc(-1 * var(--space-2));
+  padding-inline: var(--space-2) var(--space-3);
+  gap: var(--space-1);
+}
+/* Two classes so a feature's `.x p { margin: 0 }` reset cannot pull the subtitle up against the title. */
+.page-head .page-head-sub {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  max-width: 60ch;
+}
+.page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+/* Legacy: a hand-rolled header that still renders a tile hides it (tiles are gone from headers). */
+.page-head > .icon-tile {
+  display: none;
+}
+@media (max-width: 599px) {
+  .page-head {
+    margin-bottom: var(--space-5);
+  }
+  .page-head h1 {
+    font-size: var(--fs-xl);
+  }
+  /* Single-task screens: the work starts right under the title on a phone. */
+  .page-focus .page-head-sub {
+    display: none;
+  }
+}
+
+/* ───────────────────────── Icon tile ───────────────────────── */
+
+/* Rounded tinted square holding an icon. Tint: style={{'--tile': 'var(--mod-drill)'}} or a .mod-<route> class. */
+.icon-tile {
+  --tile: var(--accent);
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: var(--tile);
+  background: color-mix(in srgb, var(--tile) 13%, transparent);
+}
+.icon-tile-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+}
+.icon-tile-lg {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+}
+.icon-tile-solid {
+  color: #fff;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tile) 82%, #fff), var(--tile));
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--tile) 60%, transparent);
+}
+
+.mod-home {
+  --tile: var(--mod-home);
+}
+.mod-lessons {
+  --tile: var(--mod-lessons);
+}
+.mod-decoder {
+  --tile: var(--mod-decoder);
+}
+.mod-dictation {
+  --tile: var(--mod-dictation);
+}
+.mod-pairs {
+  --tile: var(--mod-pairs);
+}
+.mod-drill {
+  --tile: var(--mod-drill);
+}
+.mod-shadowing {
+  --tile: var(--mod-shadowing);
+}
+.mod-media {
+  --tile: var(--mod-media);
+}
+.mod-stats {
+  --tile: var(--mod-stats);
+}
+.mod-settings {
+  --tile: var(--mod-settings);
+}
+.mod-review {
+  --tile: var(--mod-review);
+}
+.mod-listening {
+  --tile: var(--mod-listening);
+}
+.mod-checkup {
+  --tile: var(--mod-checkup);
+}
+
+/* ───────────────────────── Chips & badges ───────────────────────── */
+
+/*
+ * Chip: a NEUTRAL filter/label pill. It no longer tints itself from currentColor: never colour a chip by
+ * phenomenon (use <PhTag> for a phenomenon that identifies one item). Selected = accent-soft + accent ring.
+ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 2px 10px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+button.chip {
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease);
+}
+button.chip:hover {
+  background: var(--surface-3);
+}
+/* Selected filter chip: aria-pressed / .is-on */
+.chip[aria-pressed='true'],
+.chip.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+/*
+ * Badge: small count/status label. Neutral by default; at most ONE per card or row.
+ * badge-ok / badge-bad: answer feedback only. badge-warn: real warnings only. Never for levels, SRS state or %.
+ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.badge-accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.badge-ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.badge-bad {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.badge-warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+/* ───────────────────────── Form fields ───────────────────────── */
 
 .input,
 .textarea,
 .select {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
+  min-height: 42px;
+  padding: 9px 14px;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-base);
+  line-height: 1.45;
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.textarea {
+  line-height: 1.55;
+  resize: vertical;
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-subtle);
+}
+.input:hover:not(:disabled),
+.textarea:hover:not(:disabled),
+.select:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--text-muted) 55%, var(--border-strong));
 }
 .input:focus,
 .textarea:focus,
-.select:focus,
-.btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+.input:disabled,
+.textarea:disabled,
+.select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* Custom chevron drawn with gradients so it follows the theme. */
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 15px) 50%;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+.select option {
+  background: var(--surface);
+  color: var(--text);
+}
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.field-hint {
+  margin-top: 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
 }
 
-.chip {
+/* Native range + checkbox pick up the accent. */
+input[type='range'],
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
+}
+
+/* Switch: <input type="checkbox" className="switch"> keeps native semantics, keyboard and label clicks. */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 24px;
+  margin: 0;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease);
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(15 18 34 / 0.3);
+  transition: transform var(--dur) var(--ease);
+}
+.switch:checked {
+  background: var(--accent-gradient);
+}
+.switch:checked::after {
+  transform: translateX(16px);
+}
+.switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ───────────────────────── Segmented control ───────────────────────── */
+
+/* <div className="seg" role="radiogroup"> <button className="seg-btn" role="radio" aria-checked> … (see components/Segmented.tsx) */
+.seg {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+  max-width: 100%;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--track);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.seg::-webkit-scrollbar {
+  display: none;
+}
+.seg-block {
+  display: flex;
+  width: 100%;
+}
+.seg-block > .seg-btn {
+  flex: 1 1 0;
+}
+.seg-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 13px;
-  border: 1px solid currentColor;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
   white-space: nowrap;
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.seg-btn:hover {
+  color: var(--text);
+}
+.seg-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.seg-btn[aria-checked='true'],
+.seg-btn[aria-pressed='true'],
+.seg-btn[aria-selected='true'],
+.seg-btn.is-active {
+  background: var(--surface-raised);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-sm);
+}
+.seg-btn[aria-checked='true'] > .icon,
+.seg-btn[aria-pressed='true'] > .icon,
+.seg-btn[aria-selected='true'] > .icon,
+.seg-btn.is-active > .icon {
+  color: var(--accent);
+}
+.seg-btn:focus-visible {
+  outline-offset: -2px;
+}
+.seg-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--track);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.seg-btn[aria-checked='true'] .seg-count,
+.seg-btn[aria-pressed='true'] .seg-count,
+.seg-btn[aria-selected='true'] .seg-count,
+.seg-btn.is-active .seg-count {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
-.stack {
+/* ───────────────────────── Progress ───────────────────────── */
+
+.progress {
+  display: block;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--track);
+  overflow: hidden;
+}
+.progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--progress-color, var(--accent-gradient));
+  transition: width 0.4s var(--ease);
+}
+.progress.is-done > span {
+  background: var(--ok);
+}
+
+/* ───────────────────────── Empty state ───────────────────────── */
+
+.empty-state {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-.row {
-  display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-5);
+  text-align: center;
+}
+.empty-state h2,
+.empty-state h3 {
+  font-size: var(--fs-lg);
+}
+.empty-state p {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--text-muted);
+}
+.empty-state .row {
+  justify-content: center;
+  margin-top: var(--space-2);
 }
 
-h1,
-h2,
-h3 {
-  line-height: 1.25;
+/* ───────────────────────── Phenomenon tag ───────────────────────── */
+
+/*
+ * <PhTag p="linking" />: neutral pill + 7px coloured dot. Only where the phenomenon IDENTIFIES ONE item (drill card,
+ * decoder details, results, why-wrong). Lists/grids show the label as plain muted text instead. Max one per item.
+ */
+.ph-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.panel .ph-tag,
+.callout .ph-tag {
+  background: var(--surface);
+}
+.ph-tag-more {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* Colour comes from --ph (style={{ '--ph': info.color }}); <PhDot> sets it for you. */
+.ph-dot {
+  flex: none;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ph, var(--text-subtle));
+}
+
+/* ───────────────────────── Respelling / IPA ───────────────────────── */
+
+/* How a phrase is said ("gonna", "wan-na"): content, not a link, never boxed, never monospace. */
+.respell {
+  font-family: var(--font);
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+.respell-sep {
+  margin: 0 0.4em;
+  color: var(--text-subtle);
+  font-weight: 400;
+}
+.ipa {
+  font-family: var(--font-ipa);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ───────────────────────── Meta line ───────────────────────── */
+
+/* Plain muted metadata joined with " · " (durations, x/y counts, phenomenon names on list items). */
+.meta {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────────────────────── Toolbar ───────────────────────── */
+
+/*
+ * The ONE control row above the work area: search / Segmented on the left, a select or <FilterButton> on the right.
+ * Never wraps at ≥ 600px (children shrink, .toolbar-grow takes the slack); may wrap into 2 rows on phones.
+ */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.toolbar > * {
+  min-width: 0;
+}
+.toolbar-start,
+.toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.toolbar-end {
+  flex: none;
+  margin-left: auto;
+}
+.toolbar-grow {
+  flex: 1 1 auto;
+}
+.toolbar .select {
+  width: auto;
+  max-width: 100%;
+}
+.toolbar h2 {
+  font-size: var(--fs-lg);
+  white-space: nowrap;
+}
+@media (max-width: 599px) {
+  .toolbar {
+    flex-wrap: wrap;
+  }
+  .toolbar-grow {
+    flex-basis: 100%;
+  }
+}
+
+/* ───────────────────────── Popover / bottom sheet ───────────────────────── */
+
+/* <Popover>: anchored panel on ≥ 600px; a bottom sheet with a backdrop under 600px. */
+.popover {
+  position: relative;
+  display: inline-flex;
+}
+.popover-trigger[aria-expanded='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.popover-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: max-content;
+  min-width: 240px;
+  max-width: min(380px, calc(100vw - 32px));
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+}
+.popover-panel.is-start {
+  right: auto;
+  left: 0;
+}
+/* The panel itself only receives programmatic focus (as a dialog container): no ring on it. */
+.popover-panel:focus {
+  outline: none;
+}
+/* Fields inside a popover fill it (a toolbar's auto-width .select rule must not leak in). */
+.popover-panel .select,
+.popover-panel .input {
+  width: 100%;
+}
+.popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2)) var(--space-3) 0;
+}
+.popover .popover-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.popover-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.popover-backdrop {
+  display: none;
+}
+@media (max-width: 599px) {
+  .popover-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: var(--overlay);
+  }
+  .popover-panel,
+  .popover-panel.is-start {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 61;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    max-height: 80dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--space-5) var(--space-4) calc(var(--space-5) + env(safe-area-inset-bottom));
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    font-size: var(--fs-base);
+  }
+}
+
+/* ───────────────────────── Shortcuts help ───────────────────────── */
+
+/* <ShortcutsHelp items={…} />: the ONLY place <kbd> appears. Hidden on touch devices. */
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   margin: 0;
+}
+.shortcuts-row {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+.shortcuts-row dt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+.shortcuts-row dd {
+  margin: 0;
+  color: var(--text-muted);
+}
+.shortcuts-plus {
+  color: var(--text-muted);
+}
+.shortcuts-note {
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+@media (hover: none), (pointer: coarse) {
+  .shortcuts-help {
+    display: none;
+  }
+}
+
+/* ───────────────────────── Filter button ───────────────────────── */
+
+/* <FilterButton active={n}>…fields…</FilterButton>: "Bộ lọc" + accent count; fields live in the popover. */
+.filter-count {
+  min-width: 20px;
+  justify-content: center;
+  padding: 0 6px;
+}
+.filter-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 260px;
+}
+@media (max-width: 599px) {
+  .filter-fields {
+    min-width: 0;
+  }
+}
+
+/* ───────────────────────── Explainer ───────────────────────── */
+
+/*
+ * <details className="how"> — opt-in help, always the LAST section of a page. Pass `open` only when the module has
+ * no history yet. Summary: muted CircleHelp icon + a short label ("Cách chơi"). A chevron is drawn by CSS.
+ */
+details.how {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+details.how > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 52px;
+  padding: var(--space-4) var(--space-5);
+  border-radius: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+details.how > summary::-webkit-details-marker {
+  display: none;
+}
+details.how > summary > .icon:first-child {
+  color: var(--text-muted);
+}
+details.how > summary::after {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform var(--dur) var(--ease);
+}
+details.how[open] > summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+details.how > summary:hover {
+  background: var(--surface-2);
+}
+details.how[open] > summary:hover {
+  background: transparent;
+}
+details.how > summary:focus-visible {
+  outline-offset: -2px;
+}
+details.how > :not(summary) {
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-5);
+}
+details.how p {
+  max-width: var(--measure);
+}
+@media (max-width: 520px) {
+  details.how > summary {
+    padding: var(--space-4);
+  }
+  details.how > :not(summary) {
+    padding: 0 var(--space-4) var(--space-4);
+  }
+}
+
+/* ───────────────────────── Grid cards ───────────────────────── */
+
+/*
+ * Browse grid: <div className="card-grid"> of .item-card (Pairs set, Media item, Drill focus tile).
+ * Anatomy (max 3 rows): title (1 line, ellipsis, full text in `title`) · meta (muted, " · " joined) ·
+ * optional foot (thin .progress + one right label) rendered ONLY when there is progress. No coloured fills.
+ */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  grid-auto-rows: 1fr;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.card-grid > li {
+  display: flex;
+  min-width: 0;
+}
+.card-grid > li > .item-card {
+  flex: 1;
+}
+.item-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  transition:
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+a.item-card:hover,
+button.item-card:hover {
+  background: var(--surface-2);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+}
+.item-card[aria-pressed='true'],
+.item-card[aria-current='true'],
+.item-card.is-selected {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.item-card-title {
+  overflow: hidden;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-card-meta {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.item-card-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.item-card-foot > .progress {
+  flex: 1;
+  height: 6px;
+}
+
+/* ───────────────────────── List rows ───────────────────────── */
+
+/*
+ * <ul className="list-rows"> of .list-row (Lessons, Drill list, Shadowing list):
+ * lead (neutral tile/icon) · body (title + ONE muted line) · max 1 badge on the title line · one trailing control.
+ */
+.list-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  transition:
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+a.list-row:hover,
+button.list-row:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.list-row.is-selected,
+.list-row[aria-current='true'] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.list-row-lead {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.list-row-body {
+  flex: 1;
+  min-width: 0;
+}
+.list-row-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.list-row-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list-row-title > .badge {
+  flex: none;
+}
+.list-row-meta {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list-row-end {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: var(--space-2);
+  color: var(--text-subtle);
+}
+
+/* "Xem thêm" under a paginated list (render 20–30, then add more). */
+.list-more {
+  align-self: center;
+}
+
+/* ───────────────────────── Misc ───────────────────────── */
+
+/* Key caps: only inside <ShortcutsHelp>. No <kbd> in page content. */
+kbd,
+.kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow:
+    inset 0 0 0 1px var(--border-strong),
+    inset 0 -1px 0 var(--border-strong);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* No monospace in content: inline code is a bold run of the body font (respellings: use .respell). */
+code {
+  font-family: var(--font);
+  font-size: 1em;
+  font-weight: 600;
+}
+
+/*
+ * Reduced motion: learners who asked the OS for less motion get no CSS animations, transitions or
+ * smooth scrolling anywhere. Durations are set near zero (not `none`) so transitionend /
+ * animationend listeners still fire. JS scrolling uses scrollBehavior() from src/core/motion.ts.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Spinning icon (lucide LoaderCircle) while a play button waits for the AI voice to be generated. */
+.icon-spin {
+  animation: icon-spin 0.9s linear infinite;
+}
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* "Giọng AI lỗi, đang dùng giọng trình duyệt: …" above the page content (components/VoiceNotice.tsx). */
+.voice-notice {
+  align-items: center;
+  margin: 0 0 var(--space-5);
 }

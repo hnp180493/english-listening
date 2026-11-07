@@ -1,0 +1,73 @@
+/* Shell pill of the listening stopwatch (ListeningTimerPill). Tokens only. */
+
+.ltp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-xs);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: box-shadow var(--dur) var(--ease);
+}
+.ltp:hover {
+  color: var(--text);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-md);
+}
+.ltp.is-running {
+  color: var(--accent);
+}
+.ltp-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  animation: ltp-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ltp-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Desktop sidebar: sits just above the goal card (the pill takes the card's auto top margin). */
+.nav-sidebar > .ltp--sidebar {
+  align-self: flex-start;
+  margin: auto 0 -14px 4px;
+}
+.nav-sidebar > .ltp--sidebar + .nav-goal {
+  margin-top: 0;
+}
+
+/* Mobile top bar: grouped with the menu button on the right. */
+.nav-topbar > .ltp--topbar {
+  margin-left: auto;
+  margin-right: -4px;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+/* Very small phones (320px): the pill and the menu button leave no room for the brand name; the logo stays
+   (the page title names the page) so the top bar never wraps to two lines. */
+@media (max-width: 359px) {
+  .nav-topbar:has(> .ltp--topbar) .nav-brand-text {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ltp-dot {
+    animation: none;
+  }
+}

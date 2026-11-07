@@ -2,6 +2,8 @@
 // (private mode, blocked site data). The app must keep working without it.
 
 const PREFIX = 'nghe-noi-am:';
+/** Every key this app writes starts with this prefix (used by backup export/import). */
+export const STORAGE_PREFIX = PREFIX;
 
 export function loadJSON<T>(key: string, fallback: T): T {
   try {
@@ -13,19 +15,44 @@ export function loadJSON<T>(key: string, fallback: T): T {
   }
 }
 
-export function saveJSON<T>(key: string, value: T): void {
+/** Returns false when the write failed (storage unavailable or full); callers may ignore it. */
+export function saveJSON<T>(key: string, value: T): boolean {
   try {
     window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
+    notifyWrite(key);
+    return true;
   } catch {
-    // ignore: storage unavailable or full
+    return false;
   }
 }
 
 export function removeKey(key: string): void {
   try {
     window.localStorage.removeItem(PREFIX + key);
+    notifyWrite(key);
   } catch {
     // ignore
+  }
+}
+
+/** Called with the short key after every successful app write (saveJSON / removeKey). */
+export type WriteListener = (key: string) => void;
+const writeListeners = new Set<WriteListener>();
+
+/** Folder sync uses this to notice local changes. Returns an unsubscribe function. */
+export function onAppWrite(fn: WriteListener): () => void {
+  writeListeners.add(fn);
+  return () => writeListeners.delete(fn);
+}
+
+/** Tell write listeners that app data changed outside saveJSON/removeKey (backup import, clear all). */
+export function notifyWrite(key: string): void {
+  for (const fn of writeListeners) {
+    try {
+      fn(key);
+    } catch {
+      // a listener must never break a save
+    }
   }
 }
 
@@ -35,4 +62,38 @@ export const KEYS = {
   stats: 'stats',
   drill: 'drill-cards',
   dictation: 'dictation-progress',
+  customSentences: 'custom-sentences', // user-added dictation sentences
+  lessons: 'lessons-progress',
+  pairs: 'pairs-progress',
+  shadowing: 'shadowing-progress',
+  media: 'media-library', // saved transcripts (YouTube ids / file names + cues)
+  onboarding: 'onboarding',
+  review: 'review-cards', // spaced-repetition cards of Ôn tập, see docs/review-system.md
+  listeningLog: 'listening-log', // "Nhật ký nghe" entries (synced; tombstones for deletes), see core/listening.ts
+  checkups: 'checkup-results', // finished "Kiểm tra định kỳ" results (synced), see core/benchmark.ts
+  history: 'progress-history', // daily-aggregate archive for the progress report (synced), see core/history.ts
+  // ── device-local (never synced, never in a backup; see DEVICE_LOCAL_KEYS) ──
+  listeningTimer: 'listening-timer', // the running "Bắt đầu nghe" stopwatch of this browser
+  listeningPending: 'listening-pending', // in-app video seconds not yet worth an entry (< 1 minute)
+  checkupDraft: 'checkup-draft', // an unfinished checkup, so a reload can resume it
+  deviceId: 'device-id', // random id of this browser (its own bucket in KEYS.history)
 } as const;
+
+/**
+ * Short keys that belong to this browser only: they are left out of backup export, folder sync and backup
+ * import (an import never writes nor clears them), and their writes do not mark folder sync dirty. "Xóa dữ
+ * liệu" (clearAll) still removes them.
+ */
+export const DEVICE_LOCAL_KEYS: ReadonlySet<string> = new Set<string>([
+  KEYS.listeningTimer,
+  KEYS.listeningPending,
+  KEYS.checkupDraft,
+  KEYS.deviceId,
+]);
+
+/** True for a device-local key, given as a short key ('listening-timer') or a full storage key (with prefix). */
+export function isDeviceLocalKey(key: string): boolean {
+  if (typeof key !== 'string') return false;
+  const short = key.startsWith(PREFIX) ? key.slice(PREFIX.length) : key;
+  return DEVICE_LOCAL_KEYS.has(short);
+}

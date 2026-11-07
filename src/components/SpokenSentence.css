@@ -1,0 +1,232 @@
+/*
+ * SpokenSentence: reads like an annotated line of text, not a row of form fields.
+ * Written words sit small above; the spoken respelling below. Changed parts are colored by phenomenon
+ * with a soft rounded bar underneath; plain words stay quiet. Clickable parts get a tint on hover/active.
+ */
+.ss {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start; /* written labels on one line, spoken words on the next */
+  gap: 14px 2px;
+  min-width: 0;
+}
+
+.ss-seg {
+  --ss-color: var(--text-muted);
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ss-inner {
+  display: contents;
+}
+
+.ss-block {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  max-width: 100%;
+  min-width: 0;
+  padding: 4px 7px 5px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  text-align: center;
+  font: inherit;
+  line-height: 1.25;
+}
+
+button.ss-block {
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    transform 80ms var(--ease);
+}
+button.ss-block:active {
+  transform: translateY(1px);
+}
+button.ss-block:focus-visible {
+  outline: 2px solid var(--ss-color);
+  outline-offset: 1px;
+}
+
+.ss-written {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-muted); /* --text-subtle is only allowed at 14px+ */
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+
+.ss-spoken {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  overflow-wrap: anywhere;
+}
+
+.ss-ipa {
+  margin-top: 1px;
+  font-family: var(--font-ipa);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* Plain parts: quiet, so the changed ones stand out. */
+.ss-block.is-plain .ss-spoken {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.ss-block.is-plain .ss-written {
+  visibility: hidden; /* same word twice adds noise; keep the line height for alignment */
+}
+
+/* Changed parts: phenomenon color + a soft bar underneath. */
+.ss-block.is-changed .ss-written {
+  color: var(--text-muted);
+}
+.ss-block.is-changed .ss-spoken {
+  color: var(--ss-color);
+  font-weight: 600;
+}
+.ss-block.is-changed::after {
+  content: '';
+  align-self: stretch;
+  height: 3px;
+  margin: 4px 2px 0;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ss-color) 35%, transparent);
+  transition: background-color var(--dur) var(--ease);
+}
+button.ss-block.is-changed:hover {
+  background: color-mix(in srgb, var(--ss-color) 9%, transparent);
+}
+button.ss-block.is-changed:hover::after {
+  background: var(--ss-color);
+}
+.ss-block.is-active,
+button.ss-block.is-active:hover {
+  background: color-mix(in srgb, var(--ss-color) 14%, transparent);
+}
+.ss-block.is-active::after {
+  background: var(--ss-color);
+}
+
+.ss-dots {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+.ss-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0.85;
+}
+.ss-dot.is-on {
+  opacity: 1;
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 3px currentColor;
+  color: var(--text);
+}
+
+/* Optional per-block play button. */
+.ss-play {
+  position: absolute;
+  top: -10px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  padding-left: 1px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-sm);
+  color: var(--text-muted);
+  opacity: 0;
+  transition:
+    opacity var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+  z-index: 1;
+}
+.ss-seg:hover .ss-play,
+.ss-play:focus-visible,
+.ss-play[aria-busy='true'] {
+  opacity: 1;
+}
+/* generating the AI voice: stays visible after the pointer leaves, in the accent colour */
+.ss-play[aria-busy='true'] {
+  color: var(--accent);
+}
+.ss-play:hover {
+  color: var(--accent);
+}
+.ss-play:focus-visible {
+  outline-offset: 1px;
+}
+@media (hover: none) {
+  .ss-play {
+    opacity: 0.75;
+  }
+}
+
+.ss-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Compact: used inside feedback panels. */
+.ss--compact {
+  gap: 8px 0;
+}
+.ss--compact .ss-block {
+  padding: 2px 5px 3px;
+}
+.ss--compact .ss-written {
+  font-size: var(--fs-xs);
+}
+.ss--compact .ss-spoken {
+  font-size: 16px;
+}
+.ss--compact .ss-ipa {
+  font-size: var(--fs-xs);
+}
+.ss--compact .ss-block.is-changed::after {
+  height: 2px;
+  margin-top: 3px;
+}
+
+@media (max-width: 480px) {
+  .ss {
+    gap: 12px 0;
+  }
+  .ss-block {
+    padding: 4px 5px 5px;
+  }
+  .ss-spoken {
+    font-size: 18px;
+  }
+  .ss--compact .ss-spoken {
+    font-size: 15px;
+  }
+}

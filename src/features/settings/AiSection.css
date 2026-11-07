@@ -1,0 +1,272 @@
+/* Settings → Trợ lý AI (AiSection.tsx). Tokens only; built on the shared classes and settings.css. */
+
+/* Scrolled to by #/settings?section=ai: keep the card clear of the sticky mobile top bar. */
+.set-ai {
+  scroll-margin-top: var(--space-6);
+}
+
+
+/* A warning line under a field (wrong-looking key, bad URL, bad cap): text, not a box. */
+.set-ai-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--warn);
+  max-width: var(--measure);
+}
+.set-ai-warn > .icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* ───────── Saved provider ───────── */
+.set-ai-provider {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.set-ai-provider + .set-ai-provider,
+.set-ai-form + .set-ai-provider,
+.set-ai-provider + .set-ai-form {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.set-ai-provider-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.set-ai-provider-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.set-ai-actions {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ───────── Add / edit form: a tinted inset like the inline confirmations ───────── */
+.set-ai-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  min-width: 0;
+}
+.set-ai-form-title {
+  font-weight: 600;
+}
+.set-ai-optional {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.set-ai-key {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.set-ai-key > .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.set-ai-key > .btn-icon {
+  flex: none;
+}
+/* Edge draws its own reveal eye in password fields; the form has its own show/hide button. */
+.set-ai-key > .input::-ms-reveal,
+.set-ai-key > .input::-ms-clear {
+  display: none;
+}
+.set-ai-form .set-hint a {
+  font-weight: 600;
+}
+.set-ai-form .set-callout-body > span {
+  overflow-wrap: anywhere;
+}
+/* "Nâng cao": the shared .set-privacy disclosure, on the form's inset it sits on --surface. */
+.set-ai-adv {
+  background: var(--surface);
+}
+.set-ai-adv > summary {
+  font-size: var(--fs-sm);
+}
+.set-ai-adv-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-1) var(--space-4) var(--space-4);
+}
+
+/* ───────── Voice picker (Giọng đọc card, AI engine) ───────── */
+.set-ai-voice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  flex-wrap: wrap;
+}
+.set-ai-voice > .select {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.set-ai-voice > .btn {
+  flex: none;
+}
+
+/* ───────── Defaults, cap, add more ───────── */
+.set-ai-more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.set-ai-default {
+  width: auto;
+  min-width: 180px;
+}
+.set-ai-cap {
+  width: 160px;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.set-ai-add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-left: calc(-1 * var(--space-2));
+}
+
+/* ───────── "Nhà cung cấp khác" popover ───────── */
+.set-ai-kinds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: min(300px, 100%);
+}
+.set-ai-kind {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease);
+}
+.set-ai-kind:hover {
+  background: var(--surface-2);
+}
+.set-ai-kind-name {
+  font-weight: 600;
+}
+.set-ai-kind-note {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* ───────── Privacy note: a details.how, drawn as the settings inset disclosure inside the card ───────── */
+details.how.set-ai-how {
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: none;
+}
+details.how.set-ai-how > summary {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+}
+details.how.set-ai-how > summary:hover {
+  background: transparent;
+}
+details.how.set-ai-how > ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3) calc(var(--space-4) + 20px);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  max-width: var(--measure);
+}
+details.how.set-ai-how li::marker {
+  color: var(--text-subtle);
+}
+details.how.set-ai-how strong {
+  color: var(--text);
+}
+details.how.set-ai-how > .set-ai-how-links {
+  padding: 0 var(--space-4) var(--space-4);
+  font-size: var(--fs-sm);
+}
+
+/* "Kiểm tra kết nối" worked: a quiet line under the buttons (green is for answer feedback only) */
+.set-ai-provider .set-ai-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.set-ai-provider .set-ai-ok .icon {
+  flex: none;
+  color: var(--text-muted);
+}
+.set-ai-offer {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+}
+.set-ai-nowrap {
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  /* phones: no nested insets (card > form > Nâng cao), so the fields keep their width */
+  .set-ai-form {
+    padding: var(--space-3) 0 0;
+    background: none;
+    border-radius: 0;
+  }
+  .set-ai-form .set-ai-adv {
+    background: none;
+  }
+  .set-ai-form .set-ai-adv > summary {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .set-ai-form .set-ai-adv-body {
+    padding: var(--space-1) 0 var(--space-2);
+  }
+  .set-ai-cap {
+    width: 100%;
+  }
+  .set-ai-default {
+    width: 100%;
+  }
+  .set-ai-voice > .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .set-ai-kind {
+    transition: none;
+  }
+}

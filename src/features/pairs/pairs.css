@@ -1,0 +1,571 @@
+/* "Phân biệt âm" (pairs) module. Tokens + shared classes only (see docs/design-system.md). */
+
+.pairs {
+  width: 100%;
+  min-width: 0;
+}
+.pairs .page-head {
+  margin-bottom: 0;
+}
+
+.pairs-h2 {
+  font-size: var(--fs-md);
+  margin-bottom: var(--space-4);
+}
+.pairs-empty-title {
+  font-size: var(--fs-lg);
+}
+
+/* ---------- Picker ---------- */
+.pairs-sets-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pairs-sets-count {
+  font-size: var(--fs-sm);
+}
+.pairs-focus {
+  flex: none;
+}
+.pairs-set-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.pairs-set-bar {
+  flex: none;
+  height: 4px;
+  margin-top: auto;
+}
+.pairs-set-meta:has(+ .pairs-set-bar) {
+  margin-bottom: var(--space-2);
+}
+.pairs-set:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+details.how > ul.pairs-howto {
+  padding-left: calc(var(--space-5) + 20px);
+  color: var(--text-muted);
+}
+
+/* ---------- Round ---------- */
+.pairs-round {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.pairs-round-top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.pairs-round-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+.pairs-round-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+}
+.pairs-round-title strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pairs-round-title .meta {
+  flex: none;
+}
+.pairs-round-tools {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: var(--space-1);
+}
+.pairs-progress {
+  --progress-color: var(--accent);
+  height: 6px;
+}
+
+.pairs-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.pairs-ask {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+.pairs-ask-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pairs-q-heading {
+  font-size: var(--fs-xl);
+  letter-spacing: -0.01em;
+}
+.pairs-q-heading:focus {
+  outline: none;
+}
+.pairs-listen-main {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  color: var(--on-gradient);
+  box-shadow: var(--shadow-accent);
+  transition:
+    transform var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+.pairs-listen-main:hover {
+  background: var(--accent-gradient-hover);
+}
+.pairs-listen-main:active {
+  transform: scale(0.96);
+}
+.pairs-listen-main:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.pairs-listen-play {
+  transform: translateX(2px);
+}
+/* Once the answer is shown, "Câu tiếp" is the screen's only gradient control: the circle turns soft. */
+.pairs-listen-main.is-answered {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: none;
+}
+.pairs-listen-main.is-answered:hover {
+  background: var(--accent-soft-hover);
+}
+.pairs-listen-main.is-fresh {
+  animation: pairs-pulse 1.8s ease-in-out infinite;
+}
+.pairs-listen-main.is-playing {
+  animation: pairs-pulse 0.9s ease-in-out infinite;
+}
+@keyframes pairs-pulse {
+  0%,
+  100% {
+    box-shadow:
+      var(--shadow-accent),
+      0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  50% {
+    box-shadow:
+      var(--shadow-accent),
+      0 0 0 12px color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+.pairs-listen-side {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: calc(-1 * var(--space-3));
+}
+
+.pairs-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.pairs-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 60px;
+  padding: var(--space-3) var(--space-5);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  line-height: 1.4;
+  transition:
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.pairs-option:hover {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.pairs-option-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Feedback: ONE callout (verdict + the item's tip) */
+.pairs-feedback {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-base);
+}
+.pairs-feedback p {
+  margin: 0;
+}
+.pairs-feedback-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.pairs-feedback-title {
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.pairs-feedback-said {
+  font-weight: 400;
+}
+.pairs-feedback-said strong {
+  font-weight: 600;
+}
+.pairs-tip {
+  max-width: var(--measure);
+  overflow-wrap: anywhere;
+}
+/* Phones: the tip folds behind "Mẹo nghe" so "Câu tiếp" stays in view. */
+.pairs-tip-more {
+  display: none;
+}
+.pairs-tip-more > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.pairs-feedback .pairs-tip-more > p {
+  margin-top: var(--space-1);
+}
+
+/* Compare rows: each row plays its sentence */
+.pairs-compare,
+.pairs-missed-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.pairs-compare-row,
+.pairs-missed-options > li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.pairs-compare-row {
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.pairs-compare-row:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+.pairs-compare-row[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.pairs-compare-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+}
+.pairs-compare-row.is-right .pairs-compare-mark,
+.pairs-compare-mark .is-right {
+  color: var(--ok);
+}
+.pairs-compare-row.is-wrong .pairs-compare-mark,
+.pairs-compare-mark .is-wrong {
+  color: var(--bad);
+}
+.pairs-compare-text,
+.pairs-missed-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.pairs-compare-you {
+  margin-left: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.pairs-compare-play {
+  flex: none;
+  color: var(--text-muted);
+}
+.pairs-missed-options > li {
+  padding-right: var(--space-2);
+}
+
+.pairs-next {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---------- Results ---------- */
+.pairs-res-hero {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-6) var(--space-7);
+}
+.pairs-ring {
+  --pairs-pct: 0%;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) var(--pairs-pct), var(--surface-3) 0);
+}
+.pairs-ring-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 106px;
+  height: 106px;
+  border-radius: 50%;
+  background: var(--surface);
+  line-height: 1.15;
+}
+.pairs-ring-inner strong {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.pairs-ring-inner span {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.pairs-res-text {
+  flex: 1 1 280px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.pairs-res-kicker,
+.pairs-res-facts {
+  margin: 0;
+}
+.pairs-res-title {
+  font-size: var(--fs-2xl);
+}
+.pairs-res-title:focus {
+  outline: none;
+}
+.pairs-res-detail {
+  margin: 0;
+  max-width: var(--measure);
+  color: var(--text-muted);
+}
+.pairs-res-review {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  max-width: var(--measure);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.pairs-res-review-icon {
+  flex: none;
+  margin-top: 2px;
+}
+.pairs-res-actions {
+  margin-top: var(--space-2);
+}
+.pairs-res-none {
+  margin: 0;
+}
+
+.pairs-breakdown,
+.pairs-missed,
+.pairs-related {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.pairs-breakdown-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(60px, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+.pairs-breakdown-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  font-weight: 500;
+}
+.pairs-breakdown-bar {
+  height: 6px;
+}
+.pairs-breakdown-num {
+  min-width: 3ch;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pairs-missed {
+  gap: var(--space-5);
+}
+.pairs-missed-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+.pairs-missed-item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.pairs-missed-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+}
+.pairs-missed-fixed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.pairs-missed-cue {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.pairs-missed-cue-icon {
+  flex: none;
+  margin-top: 3px;
+}
+
+.pairs-related-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ---------- Small screens ---------- */
+@media (max-width: 599px) {
+  .pairs-ask {
+    gap: var(--space-4);
+  }
+  .pairs-listen-main {
+    width: 64px;
+    height: 64px;
+  }
+  .pairs-q-heading {
+    font-size: var(--fs-lg);
+  }
+  .pairs-option {
+    min-height: 52px;
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--fs-md);
+  }
+  .pairs-tip {
+    display: none;
+  }
+  .pairs-tip-more {
+    display: block;
+  }
+  .pairs-next {
+    position: sticky;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    z-index: 2;
+  }
+  .pairs-next-btn {
+    width: 100%;
+  }
+  .pairs-res-hero {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  .pairs-res-review {
+    justify-content: center;
+  }
+  .pairs-res-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pairs-breakdown-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .pairs-breakdown-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pairs-listen-main.is-fresh,
+  .pairs-listen-main.is-playing {
+    animation: none;
+  }
+  .pairs-listen-main:active {
+    transform: none;
+  }
+}
+
+/* One column on phones: equal row heights would only add empty space under unplayed sets. */
+@media (max-width: 599px) {
+  .pairs-grid {
+    grid-auto-rows: auto;
+  }
+}

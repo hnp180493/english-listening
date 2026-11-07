@@ -1,0 +1,286 @@
+/* "Hôm nay" page. Tokens only, no hard-coded colors. Built on the shared classes in src/index.css. */
+
+/* Streak pill: phones/tablets only (the sidebar's goal card shows it on desktop); rendered only at streak ≥ 1. */
+.home-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 14px 0 12px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-xs);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.home-streak .icon {
+  color: var(--text-muted);
+}
+@media (min-width: 900px) {
+  .home-streak {
+    display: none;
+  }
+}
+
+/* Shared: the action row at the bottom of a small card. */
+.home-card-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: auto;
+}
+
+/* ───────── Hôm nay: goal line + plan ───────── */
+.home-today {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.home-today-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.home-today-head h2 {
+  font-size: var(--fs-lg);
+}
+.home-today-bar {
+  --progress-color: var(--accent);
+  height: 4px;
+  margin-bottom: var(--space-2);
+}
+
+.home-plan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.home-plan-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 60px;
+  padding: 10px 12px;
+  margin: 0 -12px;
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-decoration: none;
+  transition: background-color var(--dur) var(--ease);
+}
+.home-plan-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.home-plan-item:focus-visible {
+  outline-offset: 0;
+}
+.home-plan-lead {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.home-plan-item:hover .home-plan-lead {
+  background: var(--surface-3);
+}
+.home-plan-item.is-next .home-plan-lead {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.home-plan-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.home-plan-title {
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.home-plan-detail {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+/* Back-pressure line ("Ôn trước, học mới sau"): informational, never the next step. */
+.home-plan-item.is-muted .home-plan-title {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.home-plan-go {
+  color: var(--text-subtle);
+  transition: color var(--dur) var(--ease);
+}
+.home-plan-item:hover .home-plan-go {
+  color: var(--text);
+}
+.home-plan-cta {
+  flex: none;
+  pointer-events: none;
+}
+.home-today-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding-top: var(--space-1);
+}
+.home-plan-done {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.home-plan-more {
+  margin-left: auto;
+}
+
+/*
+ * Under the plan, after a hairline: the optional "Kiểm tra định kỳ" row (plan-row anatomy, always a chevron,
+ * never the primary) and the "Nghe tiếng Anh thật" line (its action is a ghost link). Empty → no hairline.
+ */
+.home-extras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+.home-extras:empty {
+  display: none;
+}
+.home-listen .home-plan-title {
+  font-weight: 500;
+}
+
+/* ───────── Onboarding: one compact card ───────── */
+.home-onb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-6);
+}
+.home-onb-text {
+  flex: 1 1 360px;
+  min-width: 0;
+}
+.home-onb-text h2 {
+  font-size: var(--fs-lg);
+}
+.home-onb-text p {
+  margin: var(--space-1) 0 0;
+  max-width: var(--measure);
+  color: var(--text-muted);
+}
+.home-onb-btns {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+
+/* ───────── Câu của ngày + điểm yếu ───────── */
+.home-mid {
+  display: grid;
+  gap: var(--space-6);
+}
+@media (min-width: 1040px) {
+  .home-mid:has(> :nth-child(2)) {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+.home-sod,
+.home-weak {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+/* Same card-title style as every card (h2: --fs-lg, 600, --text). */
+.home-sod-h {
+  font-size: var(--fs-lg);
+}
+.home-sod-text {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+.home-sod-vi {
+  margin: 0;
+  color: var(--text-muted);
+}
+.home-sod .home-card-foot {
+  padding-top: var(--space-2);
+}
+.home-sod-link {
+  gap: 2px;
+}
+
+.home-weak-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-lg);
+}
+.home-weak-line {
+  margin: calc(-1 * var(--space-2)) 0 0;
+}
+.home-weak-example {
+  margin: 0;
+  font-size: var(--fs-md);
+  overflow-wrap: anywhere;
+}
+.home-weak .home-card-foot {
+  padding-top: var(--space-2);
+}
+
+/* ───────── Phones: routes not in the tab bar ───────── */
+.home-more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.home-more-row {
+  min-height: 52px;
+  padding-block: var(--space-2);
+}
+@media (min-width: 900px) {
+  .home-more {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .home-sod-text {
+    font-size: var(--fs-lg);
+  }
+  .home-onb-btns {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-plan-item,
+  .home-plan-go {
+    transition: none;
+  }
+}

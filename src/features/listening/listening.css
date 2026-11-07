@@ -1,0 +1,283 @@
+/* "Nhật ký nghe" page. Tokens only (no hard-coded colours); built on the shared classes in src/index.css. */
+
+.lis-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.lis-head h2,
+.lis-totals h2 {
+  font-size: var(--fs-lg);
+}
+.lis-bar {
+  --progress-color: var(--accent);
+  height: 4px;
+  margin-top: calc(-1 * var(--space-2));
+}
+
+/* ───────── form fields ───────── */
+.lis-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.lis-optional {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.lis-min-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.lis-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+/* Form chips are tap targets: taller than the shared filter chip. */
+.chip.lis-chip {
+  min-height: 40px;
+  padding: 0 14px;
+}
+.chip.lis-min-chip {
+  min-width: 48px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.lis-min-input {
+  width: 88px;
+  flex: none;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.lis-min-input::-webkit-inner-spin-button,
+.lis-min-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.lis-error {
+  margin-top: var(--space-1);
+  color: var(--warn);
+}
+/* Source + day (or source + title) side by side; one column on phones. */
+.lis-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.lis-pair.is-single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 360px;
+}
+@media (max-width: 520px) {
+  /* Source + day: the day select only needs "Hôm nay" / "Hôm qua". */
+  .lis-pair:not(.is-single) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  /* Stopwatch: source + title stack (a title needs the width). */
+  .lis-timer .lis-pair:not(.is-single) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .chip.lis-min-chip {
+    min-width: 44px;
+    padding: 0 12px;
+  }
+  .lis-min-input {
+    width: 76px;
+  }
+}
+
+/* "Thêm chi tiết": a quiet disclosure inside the form (not a boxed panel). */
+.lis-more > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.lis-more > summary::-webkit-details-marker {
+  display: none;
+}
+.lis-more > summary::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin: 0 4px 2px 2px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur) var(--ease);
+}
+.lis-more[open] > summary::before {
+  transform: rotate(45deg);
+}
+.lis-more[open] > summary {
+  margin-bottom: var(--space-3);
+}
+
+.lis-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.lis-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+.lis-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+/* ───────── stopwatch ───────── */
+.lis-clock-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+.lis-clock {
+  margin: 0;
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.lis-clock.is-idle {
+  color: var(--text-muted);
+}
+.lis-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.lis-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--text-subtle);
+}
+.lis-status.is-running {
+  color: var(--accent);
+}
+.lis-status.is-running .lis-status-dot {
+  background: var(--accent);
+  animation: lis-pulse 1.6s ease-in-out infinite;
+}
+@keyframes lis-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.lis-note {
+  margin: 0;
+  max-width: var(--measure);
+}
+
+/* ───────── totals ───────── */
+.lis-big {
+  margin: calc(-1 * var(--space-2)) 0 0;
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.lis-milestone {
+  --progress-color: var(--accent);
+  height: 6px;
+}
+.lis-totals .meta {
+  margin: 0;
+}
+.lis-week {
+  margin: 0;
+}
+.lis-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-2));
+}
+
+/* ───────── recent list ───────── */
+.lis-row .list-row-meta {
+  display: block;
+  white-space: normal;
+}
+/* Row titles wrap to two lines instead of an ellipsis ("45 phút · The Very Long Title"). */
+.lis-row .list-row-text {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+/* "Bấm giờ" segment while a stopwatch exists: a small dot, the label itself never changes. */
+.lis-seg-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  vertical-align: 0.1em;
+}
+.lis-edit {
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.lis-delete {
+  margin-left: auto;
+}
+.lis-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--fs-sm);
+}
+.lis-undo-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.lis-how p {
+  margin: 0;
+  max-width: var(--measure);
+}
+.lis-how ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lis-status.is-running .lis-status-dot {
+    animation: none;
+  }
+}

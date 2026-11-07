@@ -14,7 +14,7 @@ export const PHENOMENON_INFO: Record<Phenomenon, PhenomenonInfo> = {
     en: 'Linking',
     color: 'var(--ph-linking)',
     summary: 'Phụ âm cuối của từ trước dính sang nguyên âm đầu của từ sau, nghe như một từ.',
-    example: { written: 'turn it off', spoken: 'tur-ni-toff' },
+    example: { written: 'come on', spoken: 'cu-mon' },
   },
   elision: {
     label: 'Nuốt âm',
@@ -28,7 +28,7 @@ export const PHENOMENON_INFO: Record<Phenomenon, PhenomenonInfo> = {
     en: 'Assimilation',
     color: 'var(--ph-assimilation)',
     summary: 'Hai âm cạnh nhau biến thành âm khác, ví dụ /t/ + /j/ thành /tʃ/.',
-    example: { written: 'did you', spoken: 'did-ju' },
+    example: { written: 'meet you', spoken: 'mee-chu' },
   },
   'weak-form': {
     label: 'Âm yếu',
