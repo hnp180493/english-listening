@@ -273,6 +273,15 @@ left as is. How to write it:
   consonant is sent as the bare verb (missed the → miss the). /n/ → /m/: tem, wum, greem, fifteem…; yod: mishu,
   Bleshu, Lass cheer; supposed to → sposta.
 - When unsure, keep the written word. A sentence the decoder finds nothing in keeps `say` equal to `text`.
+- The shipped clips are Gemini (Kore) reading the connected text with `CONNECTED_STYLE` (casual, function words
+  reduced, words flowing together). The written words are therefore enough for linking into a vowel, weak to / was
+  / are / a / the, an unreleased t and written contractions. Respell only what the style would not do on its own
+  (gonna, tellem, puddid on, meetcha). Prefer real words or standard informal spellings (yer, bin, wooden, Izzy,
+  diddy) over invented ones: Gemini reads invented spellings less predictably ("Ther late." may come out with a
+  voiceless th, so "They're late." stays written). The `say` must also sound like the card: "I wanna sof drink."
+  under a card showing wan-tə was wrong ("I want a sof drink."). Gemini reads "'em" well, but the browser fallback
+  voice does not (`LONE_APOSTROPHE`), so an example whose card shows a lone əm needs a glued form (Tellem) or another
+  example.
 - In course `connected`, `say` must sound different from `text` unless the example is listed in `AS_WRITTEN`
   (`src/data/say.test.ts`) with its reason (linking into a vowel, a weak form SAPI already says, a strong form or
   written contraction that is the point).
