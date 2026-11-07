@@ -7,12 +7,14 @@
 // <script type="application/json" id="nna-audio-manifest">; the clips themselves still load from the
 // "audio" folder next to the HTML through an <audio> element, which file:// allows.
 //
-// Every failure is quiet: no manifest, a broken one, a missing folder or file → the old routes play
-// (AI voice if configured, else the browser voice). A manifest that is absent (404, broken JSON, file:// without
-// the inline copy) is remembered as empty for the session; one that failed to load for a passing reason (network
-// error, timeout, 5xx) is asked for again on a playback after MANIFEST_RETRY_MS. A file that fails to load is remembered for the
-// session, and after STATIC_DISABLE_AFTER failures in a row (folder missing) the clips are skipped
-// altogether until the page reloads.
+// Served builds start loading the manifest at app start (preloadAudioManifest in main.tsx), else on the first playback.
+//
+// Every failure is quiet: no manifest, a broken one, a missing folder or file → the old routes play. A manifest that
+// is absent (404, broken JSON, file:// without the inline copy) is remembered as empty for the session: no text has a
+// clip. One that failed to load for a passing reason (network error, timeout, 5xx) is UNKNOWN, not empty: the router
+// then assumes any text may have a clip and never pays for it (browser voice); it is asked for again after
+// MANIFEST_RETRY_MS. A clip file that fails to load is skipped for CLIPS_RETRY_MS, and after STATIC_DISABLE_AFTER
+// failures in a row (folder missing, network down) every clip is skipped for CLIPS_RETRY_MS, then tried again.
 
 /** Id of the inline JSON element of the portable build (scripts/portableAudio.mjs uses the same id). */
 export const AUDIO_MANIFEST_ELEMENT_ID = 'nna-audio-manifest';
@@ -20,12 +22,17 @@ export const AUDIO_MANIFEST_ELEMENT_ID = 'nna-audio-manifest';
 export const AUDIO_DIR = 'audio/';
 /** URL of the manifest in served builds, relative to the page. */
 export const AUDIO_MANIFEST_URL = AUDIO_DIR + 'manifest.json';
-/** The first playback waits at most this long for the manifest, then the session goes without clips. */
-export const MANIFEST_TIMEOUT_MS = 4000;
+/**
+ * The manifest fetch itself gives up after this long (it is ~370 KB: a slow phone network needs several seconds). A
+ * playback does not wait that long: it waits MANIFEST_WAIT_MS (tts.ts) and plays the browser voice meanwhile.
+ */
+export const MANIFEST_TIMEOUT_MS = 30_000;
 /** After a passing failure (network, timeout, 5xx) the manifest is asked for again after this long. */
 export const MANIFEST_RETRY_MS = 30_000;
-/** Clip files that fail to load in a row before the clips are skipped for the rest of the session. */
+/** Clip files that fail to load in a row before every clip is skipped for CLIPS_RETRY_MS. */
 export const STATIC_DISABLE_AFTER = 2;
+/** A clip file that failed, or every clip after STATIC_DISABLE_AFTER failures in a row, is tried again after this long. */
+export const CLIPS_RETRY_MS = 2 * 60_000;
 
 /** key → file name (inside AUDIO_DIR). */
 export type AudioManifest = ReadonlyMap<string, string>;
@@ -83,14 +90,15 @@ export function clipUrl(file: string): string {
 type Loader = () => Promise<unknown>;
 
 let manifest: AudioManifest | null = null;
-let loading: Promise<AudioManifest> | null = null;
-/** After a passing failure: until this time the session goes without clips, then the manifest is asked for again. */
+let loading: Promise<AudioManifest | null> | null = null;
+/** After a passing failure: until this time the manifest is unknown (not asked for), then it is asked for again. */
 let retryAt = 0;
-const NONE: AudioManifest = new Map();
 let loaderOverride: Loader | null = null;
-const failedFiles = new Set<string>();
+/** file → time until which it is skipped. */
+const failedFiles = new Map<string, number>();
 let failuresInRow = 0;
-let disabled = false;
+/** Every clip is skipped until this time (0 = clips on). */
+let disabledUntil = 0;
 
 /** The manifest inlined into the page (portable build), or undefined when there is none. */
 function inlineManifest(): unknown {
@@ -120,7 +128,9 @@ async function defaultLoader(): Promise<unknown> {
     if (!res.ok) throw new Error(`manifest HTTP ${res.status}`);
     try {
       return (await res.json()) as unknown;
-    } catch {
+    } catch (e) {
+      // cut off while the body was arriving (timeout, network): a passing failure, asked for again later
+      if (ctrl?.signal.aborted || (e instanceof Error && (e.name === 'AbortError' || e.name === 'TypeError'))) throw e;
       return null; // not JSON: a broken manifest stays broken
     }
   } finally {
@@ -129,12 +139,12 @@ async function defaultLoader(): Promise<unknown> {
 }
 
 /**
- * The manifest when it is known (loaded, or known to be absent: empty), else null (not loaded yet).
- * Outside a page (tests, no `document`) and without a test loader it is empty at once.
+ * The manifest when it is known (loaded, or known to be absent: empty), else null: not loaded yet, or UNKNOWN after a
+ * passing failure (see manifestUnavailable). Outside a page (tests, no `document`) and without a test loader it is
+ * empty at once.
  */
 export function peekAudioManifest(): AudioManifest | null {
   if (manifest) return manifest;
-  if (retryAt && Date.now() < retryAt) return NONE;
   if (!loaderOverride && typeof document === 'undefined') {
     manifest = new Map();
     return manifest;
@@ -143,13 +153,22 @@ export function peekAudioManifest(): AudioManifest | null {
 }
 
 /**
- * Loads the manifest (inline element, else fetch), once per session when it loads or is absent; resolves with an
- * empty one on any failure. A passing failure (the loader throws) is not remembered: a playback after
- * MANIFEST_RETRY_MS asks again.
+ * True while the manifest is unknown after a passing failure (network, timeout, 5xx) and not asked for again yet
+ * (MANIFEST_RETRY_MS). Any text may have a clip then: playback must not pay for it, and need not wait either.
  */
-export function loadAudioManifest(): Promise<AudioManifest> {
+export function manifestUnavailable(): boolean {
+  return !manifest && retryAt > 0 && Date.now() < retryAt;
+}
+
+/**
+ * Loads the manifest (inline element, else fetch), once per session when it loads or is absent (absent = empty).
+ * Resolves with null when it is UNKNOWN: a passing failure (the loader throws) is not remembered, so a playback after
+ * MANIFEST_RETRY_MS asks again; within that time it resolves null at once without asking.
+ */
+export function loadAudioManifest(): Promise<AudioManifest | null> {
   const known = peekAudioManifest();
   if (known) return Promise.resolve(known);
+  if (manifestUnavailable()) return Promise.resolve(null);
   loading ??= (async () => {
     await undefined; // a loader that throws at once still lands in the catch below after `loading` is set
     try {
@@ -159,25 +178,55 @@ export function loadAudioManifest(): Promise<AudioManifest> {
       return parsed;
     } catch {
       retryAt = Date.now() + MANIFEST_RETRY_MS;
+      return null;
+    } finally {
       loading = null;
-      return NONE;
     }
   })();
   return loading;
 }
 
-/** File of the shipped clip for this key, unless clips are off for the session or this file failed. */
-export function clipFileFor(m: AudioManifest, key: string): string | null {
-  if (disabled) return null;
-  const f = m.get(key);
-  return f && !failedFiles.has(f) ? f : null;
+/** Starts loading the manifest early (app start), so the first playback rarely waits for it. Never throws. */
+export function preloadAudioManifest(): void {
+  try {
+    void loadAudioManifest();
+  } catch {
+    // optional
+  }
 }
 
-/** A clip file did not load or play: skip it this session; too many in a row → skip all clips. */
-export function reportClipFailure(file: string): void {
-  failedFiles.add(file);
+/** True when the manifest lists a clip for this key (whether or not that file is playable right now). */
+export function hasShippedClip(m: AudioManifest, key: string): boolean {
+  return m.has(key);
+}
+
+/** File of the shipped clip for this key, unless clips are off for now or this file failed recently. */
+export function clipFileFor(m: AudioManifest, key: string): string | null {
+  if (clipsDisabled()) return null;
+  const f = m.get(key);
+  if (!f) return null;
+  const until = failedFiles.get(f);
+  if (until !== undefined) {
+    if (Date.now() < until) return null;
+    failedFiles.delete(f);
+  }
+  return f;
+}
+
+/**
+ * A clip file did not load or play: skip it for CLIPS_RETRY_MS; STATIC_DISABLE_AFTER in a row → skip every clip for
+ * CLIPS_RETRY_MS. Returns true when this failure turned the clips off.
+ */
+export function reportClipFailure(file: string): boolean {
+  const now = Date.now();
+  failedFiles.set(file, now + CLIPS_RETRY_MS);
   failuresInRow++;
-  if (failuresInRow >= STATIC_DISABLE_AFTER) disabled = true;
+  // after a pause the run is kept: one more failure turns the clips off again at once (the folder is still missing)
+  if (failuresInRow >= STATIC_DISABLE_AFTER && !clipsDisabled()) {
+    disabledUntil = now + CLIPS_RETRY_MS;
+    return true;
+  }
+  return false;
 }
 
 /** A clip played: the folder is there, a later single failure is just that file. */
@@ -185,9 +234,9 @@ export function reportClipSuccess(): void {
   failuresInRow = 0;
 }
 
-/** True when shipped clips are skipped for the rest of the session. */
+/** True while every shipped clip is skipped after failures in a row (for CLIPS_RETRY_MS, then they are tried again). */
 export function clipsDisabled(): boolean {
-  return disabled;
+  return disabledUntil > 0 && Date.now() < disabledUntil;
 }
 
 /** Test hook: forget everything; `loader` replaces the inline/fetch loader (null = default). */
@@ -198,5 +247,5 @@ export function _resetAudioManifestForTests(loader: Loader | null = null): void 
   loaderOverride = loader;
   failedFiles.clear();
   failuresInRow = 0;
-  disabled = false;
+  disabledUntil = 0;
 }

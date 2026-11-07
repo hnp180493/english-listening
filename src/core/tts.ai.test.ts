@@ -29,6 +29,12 @@ const {
   AI_COOLDOWN_MS,
   AI_PLAY_TIMEOUT_MS,
   AI_PREFETCH_TIMEOUT_MS,
+  AI_TEXT_FAILS_PAUSE_AFTER,
+  AI_TEXT_FAILS_PAUSE_MS,
+  AI_TEXT_RETRY_MS,
+  QUOTA_PAUSE_MAX_MS,
+  QUOTA_PAUSE_MIN_MS,
+  quotaPauseUntil,
   PREFETCH_AHEAD_DEFAULT,
   PREFETCH_CONCURRENCY,
   aiVoicePausedReason,
@@ -510,74 +516,99 @@ describe('prefetchSpeech', () => {
   it('is a no-op with the browser voice', () => {
     setup({ engine: 'browser' });
     prefetchSpeech(['a', 'b']);
+    void speak('a');
     expect(ai.speak).not.toHaveBeenCalled();
   });
 
-  it('warms the cache with at most 2 requests at a time, skipping duplicates', async () => {
+  it('never generates by itself: a sentence that is only shown costs nothing (red team D2)', async () => {
     setup();
-    void speak('played'); // the learner listened once: from now on the next sentences are prefetched too
-    stopSpeaking();
-    calls.length = 0;
+    for (let i = 0; i < 20; i++) {
+      prefetchSpeech([`Custom sentence number ${i}.`], { mode: 'connected' });
+      await flush();
+    }
+    expect(calls).toHaveLength(0);
+    // the learner clicks ▶ on what is shown now: that one request, plus the one armed clip
+    void speak('Custom sentence number 19.', { mode: 'connected' });
+    expect(calls.map((c) => c.text)).toEqual(['Custom sentence number 19.', 'Custom sentence number 19.']);
+  });
+
+  it('`after`: the next item is made only once the learner plays the current one; a skipped item costs nothing', () => {
+    setup();
+    prefetchSpeech(['next one.'], { mode: 'connected', after: 'current one.' });
+    void speak('something else', { mode: 'connected' });
+    expect(calls.map((c) => c.text)).toEqual(['something else']);
+    // skipped without playing: the next arming replaces it, nothing was made
+    prefetchSpeech(['after next.'], { mode: 'connected', after: 'next one.' });
+    void speak('next one.', { mode: 'connected' });
+    expect(calls.map((c) => c.text)).toEqual(['something else', 'next one.', 'after next.']);
+    expect(calls[2].opts).toMatchObject({ timeoutMs: AI_PREFETCH_TIMEOUT_MS, style: CONNECTED_STYLE });
+    // released once: playing it again makes nothing more
+    void speak('next one.', { mode: 'connected' });
+    expect(calls.filter((c) => c.text === 'after next.')).toHaveLength(1);
+  });
+
+  it('an auto playback (not a click) never releases armed clips', () => {
+    setup();
+    prefetchSpeech(['next one.'], { after: 'current one.' });
+    void speak('current one.', { auto: true });
+    expect(calls).toHaveLength(0);
+    expect(synth.speak).toHaveBeenCalledTimes(1);
+  });
+
+  it('released clips: at most 2 requests at a time, skipping duplicates', async () => {
+    setup();
     prefetchSpeech(['one', 'two', 'three', 'one', ' ', 'two'], { ahead: 5 });
+    void speak('played');
     expect(PREFETCH_CONCURRENCY).toBe(2);
-    expect(calls.map((c) => c.text)).toEqual(['one', 'two']);
-    expect(calls[0].opts).toMatchObject({ timeoutMs: AI_PREFETCH_TIMEOUT_MS });
-    prefetchSpeech(['three']); // already queued
-    expect(calls).toHaveLength(2);
-    calls[0].d.resolve(clip());
+    expect(calls.map((c) => c.text)).toEqual(['played', 'one', 'two']);
+    stopSpeaking();
+    prefetchSpeech(['three']);
+    void speak('x'); // 'three' is queued already
+    expect(calls.map((c) => c.text)).toEqual(['played', 'one', 'two', 'x']);
+    calls[1].d.resolve(clip());
     await flush();
-    expect(calls.map((c) => c.text)).toEqual(['one', 'two', 'three']);
-    calls[1].d.reject(new AiError('server', 'x', { retryable: true }));
-    calls[2].d.resolve(clip());
+    expect(calls.map((c) => c.text)).toEqual(['played', 'one', 'two', 'x', 'three']);
+    calls[2].d.reject(new AiError('server', 'x', { retryable: true }));
+    calls[4].d.resolve(clip());
     await flush();
     expect(getVoiceStatus().notice).toBeNull(); // transient prefetch failures are quiet
   });
 
-  it('before the first AI playback only the current sentence is generated (robust-9)', () => {
+  it('by default only the first text is armed (free tier)', () => {
     setup();
-    prefetchSpeech(['current', 'next'], { ahead: 1 });
-    expect(calls.map((c) => c.text)).toEqual(['current']);
-    void speak('current'); // the first AI playback: the held-back next sentence is generated now
-    expect(calls.map((c) => c.text)).toEqual(['current', 'current', 'next']);
-    prefetchSpeech(['current', 'next'], { ahead: 1 }); // already in flight / queued
-    expect(calls).toHaveLength(3);
-  });
-
-  it('by default only the current item is prefetched, even after the first playback (free tier)', () => {
-    setup();
-    void speak('played');
-    stopSpeaking();
-    calls.length = 0;
     expect(PREFETCH_AHEAD_DEFAULT).toBe(0);
     prefetchSpeech(['current', 'next', 'after']);
-    expect(calls.map((c) => c.text)).toEqual(['current']);
+    void speak('played');
+    expect(calls.map((c) => c.text)).toEqual(['played', 'current']);
   });
 
   it('prefetches with the style of the playback mode, so the clip is a cache hit; careful is never prefetched', () => {
     setup();
     prefetchSpeech(['Whaddaya wanna do?'], { mode: 'connected' });
-    expect(calls).toHaveLength(1);
-    expect(calls[0].opts.style).toBe(CONNECTED_STYLE);
+    void speak('a');
+    expect(calls).toHaveLength(2);
+    expect(calls[1].opts.style).toBe(CONNECTED_STYLE);
     prefetchSpeech(['What do you want to do?'], { mode: 'careful' });
-    expect(calls).toHaveLength(1);
+    void speak('b');
+    expect(calls.map((c) => c.text)).toEqual(['a', 'Whaddaya wanna do?', 'b']);
     // same text, other style: a different clip (and a different cache key in the AI layer)
     prefetchSpeech(['Whaddaya wanna do?']);
-    expect(calls).toHaveLength(2);
-    expect(calls[1].opts.style).toBeUndefined();
+    void speak('c');
+    expect(calls).toHaveLength(5);
+    expect(calls[4].opts.style).toBeUndefined();
   });
 
   it('a rate limit while prefetching pauses the AI voice; nothing more is prefetched (robust-3)', async () => {
     setup();
+    prefetchSpeech(['one']);
     void speak('x');
     stopSpeaking();
-    calls.length = 0;
-    prefetchSpeech(['one']);
-    calls[0].d.reject(new AiError('rate-limit', 'Gemini đang giới hạn tốc độ. Đợi khoảng 20 giây rồi thử lại.', { retryAfterMs: 20_000 }));
+    expect(calls.map((c) => c.text)).toEqual(['x', 'one']);
+    calls[1].d.reject(new AiError('rate-limit', 'Gemini đang giới hạn tốc độ. Đợi khoảng 20 giây rồi thử lại.', { retryAfterMs: 20_000 }));
     await flush();
     prefetchSpeech(['two', 'three']);
-    expect(calls).toHaveLength(1);
     void speak('hello');
-    expect(calls).toHaveLength(1);
+    expect(ai.speak).toHaveBeenCalledTimes(2);
     expect(synth.speak).toHaveBeenCalledTimes(1);
   });
 
@@ -586,7 +617,8 @@ describe('prefetchSpeech', () => {
     ai.overCap = true;
     try {
       prefetchSpeech(['one']);
-      expect(calls).toHaveLength(0);
+      void speak('x');
+      expect(calls.map((c) => c.text)).not.toContain('one');
     } finally {
       ai.overCap = false;
     }
@@ -595,10 +627,134 @@ describe('prefetchSpeech', () => {
   it('a hard failure while prefetching switches playback to the browser voice with the notice', async () => {
     setup();
     prefetchSpeech(['one']);
-    calls[0].d.reject(new AiError('bad-key', 'API key Gemini không hợp lệ.', { retryable: false }));
+    void speak('x');
+    stopSpeaking();
+    calls[1].d.reject(new AiError('bad-key', 'API key Gemini không hợp lệ.', { retryable: false }));
     await flush();
     expect(getVoiceStatus().notice).toBe(VOICE_NOTICE_PREFIX + 'API key Gemini không hợp lệ.');
     void speak('hello');
     expect(synth.speak).toHaveBeenCalledTimes(1);
+  });
+
+  it('a per-text failure while prefetching keeps that text off the AI voice, quietly, with no retry', async () => {
+    setup();
+    prefetchSpeech(['odd text.'], { mode: 'connected' });
+    void speak('x');
+    stopSpeaking();
+    calls[1].d.reject(new AiError('bad-response', 'Gemini trả về đoạn âm thanh quá ngắn.', { retryable: false }));
+    await flush();
+    expect(getVoiceStatus().notice).toBeNull();
+    prefetchSpeech(['odd text.'], { mode: 'connected' });
+    void speak('y');
+    stopSpeaking();
+    void speak('odd text.', { mode: 'connected' });
+    expect(ai.speak.mock.calls.filter((c) => c[0] === 'odd text.')).toHaveLength(1);
+    expect(synth.speak).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('auto playback (not a click)', () => {
+  it('never makes a new paid request: the browser voice plays a custom text not made yet', () => {
+    setup();
+    void speak('next custom sentence.', { mode: 'connected', auto: true });
+    expect(ai.speak).not.toHaveBeenCalled();
+    expect(synth.speak).toHaveBeenCalledTimes(1);
+  });
+
+  it('plays the AI clip made after the learner played the previous item (cache hit / joined flight)', async () => {
+    setup();
+    prefetchSpeech(['next custom sentence.'], { mode: 'connected', after: 'current.' });
+    void speak('current.', { mode: 'connected' });
+    expect(calls.map((c) => c.text)).toEqual(['current.', 'next custom sentence.']);
+    // still being made: auto playback joins it (aiSpeak shares the request)
+    void speak('next custom sentence.', { mode: 'connected', auto: true });
+    expect(calls.map((c) => c.text)).toEqual(['current.', 'next custom sentence.', 'next custom sentence.']);
+    stopSpeaking();
+    calls[1].d.resolve(clip());
+    await flush();
+    // made: a later auto playback uses it too
+    void speak('next custom sentence.', { mode: 'connected', auto: true });
+    expect(ai.speak).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('circuit breaker per text and quota reset', () => {
+  it('bad-response / safety: 5 clicks on the same text are 1 billed request each, not 5 (red team C)', async () => {
+    for (const code of ['bad-response', 'safety'] as const) {
+      setup();
+      ai.speak = vi.fn(() => Promise.reject(new AiError(code, 'Gemini trả về đoạn âm thanh quá ngắn.', { retryable: false })));
+      for (let i = 0; i < 5; i++) {
+        void speak('User text without clip.', { mode: 'connected' });
+        await flush();
+      }
+      expect(ai.speak).toHaveBeenCalledTimes(1);
+      expect(synth.speak).toHaveBeenCalledTimes(5); // every click still speaks (browser voice)
+      // other texts still use the AI voice
+      void speak('Another text.', { mode: 'connected' });
+      expect(ai.speak).toHaveBeenCalledTimes(2);
+      stopSpeaking();
+      await flush();
+    }
+  });
+
+  it('a too-short clip may come out right later: that text is tried again after AI_TEXT_RETRY_MS', async () => {
+    vi.useFakeTimers();
+    setup();
+    void speak('odd.');
+    calls[0].d.reject(new AiError('bad-response', 'quá ngắn', { retryable: false }));
+    await flush();
+    void speak('odd.');
+    expect(calls).toHaveLength(1);
+    vi.advanceTimersByTime(AI_TEXT_RETRY_MS + 1);
+    void speak('odd.');
+    expect(calls).toHaveLength(2);
+  });
+
+  it('a 400 on one odd text is per text: the AI voice stays on for the others (red team F)', async () => {
+    setup();
+    void speak('odd.');
+    calls[0].d.reject(new AiError('bad-request', 'Yêu cầu không hợp lệ.', { retryable: false }));
+    await flush();
+    expect(aiVoicePausedReason()).toBeNull();
+    void speak('odd.');
+    expect(calls).toHaveLength(1);
+    void speak('normal text.');
+    expect(calls).toHaveLength(2);
+  });
+
+  it(`${AI_TEXT_FAILS_PAUSE_AFTER} per-text failures in a row on different texts pause the whole AI voice for a while`, async () => {
+    vi.useFakeTimers();
+    setup();
+    for (let i = 0; i < AI_TEXT_FAILS_PAUSE_AFTER; i++) {
+      void speak(`text ${i}.`);
+      calls[i].d.reject(new AiError('bad-request', 'Yêu cầu không hợp lệ.', { retryable: false }));
+      await flush();
+    }
+    void speak('fresh text.');
+    expect(calls).toHaveLength(AI_TEXT_FAILS_PAUSE_AFTER);
+    vi.advanceTimersByTime(AI_TEXT_FAILS_PAUSE_MS + 1);
+    void speak('fresh text.');
+    expect(calls).toHaveLength(AI_TEXT_FAILS_PAUSE_AFTER + 1);
+  });
+
+  it('a provider quota pauses the AI voice until the next local day (bounded), not for the session', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 10, 7, 10, 0, 0)); // 10:00 local
+    setup();
+    void speak('one');
+    calls[0].d.reject(new AiError('quota', 'Đã hết hạn mức của Google Gemini.', { retryable: false }));
+    await flush();
+    void speak('two');
+    expect(calls).toHaveLength(1);
+    vi.setSystemTime(new Date(2026, 10, 7, 10, 0, 0).getTime() + QUOTA_PAUSE_MAX_MS + 1);
+    void speak('three');
+    expect(calls).toHaveLength(2);
+  });
+
+  it('quotaPauseUntil: next local midnight, at least 1 h and at most 6 h away', () => {
+    const at = (h: number, m = 0) => new Date(2026, 10, 7, h, m, 0).getTime();
+    expect(quotaPauseUntil(at(10))).toBe(at(10) + QUOTA_PAUSE_MAX_MS);
+    expect(quotaPauseUntil(at(21))).toBe(new Date(2026, 10, 8, 0, 0, 0).getTime());
+    expect(quotaPauseUntil(at(23, 50))).toBe(at(23, 50) + QUOTA_PAUSE_MIN_MS);
   });
 });

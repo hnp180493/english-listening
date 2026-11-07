@@ -356,12 +356,15 @@ export default function DictationPage() {
 
   const current = byId.get(currentId) ?? null;
 
-  // AI voice: generate this sentence's connected audio in the background (no-op with the browser voice). Only the
-  // current sentence: a free key allows a few speech requests a minute, the next one is made when it comes.
-  const upcomingText = current ? dictationAudio(current).connected : '';
+  // AI voice (no-op with the browser voice and for built-in sentences, which ship their clips): once the learner
+  // PLAYS this sentence, make the next one in the background, so its auto-play is instant. Nothing is made for a
+  // sentence that is only shown or skipped without playing: AI calls happen only after a click.
+  const currentText = current ? dictationAudio(current).connected : '';
+  const nextSentence = byId.get(nav.queue[nav.pos + 1] ?? '') ?? null;
+  const nextText = nextSentence ? dictationAudio(nextSentence).connected : '';
   useEffect(() => {
-    if (upcomingText) prefetchSpeech([upcomingText], { mode: 'connected' });
-  }, [upcomingText]);
+    if (currentText && nextText) prefetchSpeech([nextText], { mode: 'connected', after: currentText });
+  }, [currentText, nextText]);
 
   // ------------------------------------------------------------ session goal
   // the goal counts distinct sentences: retrying the same sentence does not fill it

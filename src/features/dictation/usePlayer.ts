@@ -45,7 +45,8 @@ export interface Player {
   chunkPos: number; // index of the chunk being spoken, -1 when not in chunk mode
   chunkCount: number;
   plays: number; // how many times playback was started
-  play: (mode: PlayMode, toggle?: boolean) => Promise<void>;
+  /** `auto`: not a click (auto-play of the next sentence): never a new paid AI request (SpeakOptions.auto). */
+  play: (mode: PlayMode, toggle?: boolean, auto?: boolean) => Promise<void>;
   stop: () => void;
 }
 
@@ -87,7 +88,7 @@ export function usePlayer(
   }, []);
 
   const play = useCallback(
-    async (mode: PlayMode, toggle = true) => {
+    async (mode: PlayMode, toggle = true, auto = false) => {
       if (!canSpeak) return;
       if (toggle && playingRef.current === mode) {
         stop();
@@ -110,7 +111,7 @@ export function usePlayer(
           }
         } else {
           const p = playbackFor(mode, { connected, careful, level }, rateRef.current);
-          await speak(p.text, { rate: p.rate, owner, mode: p.mode, slow: p.slow });
+          await speak(p.text, { rate: p.rate, owner, mode: p.mode, slow: p.slow, auto });
         }
       } catch {
         // speech errors end playback quietly
@@ -132,14 +133,16 @@ export function usePlayer(
     [],
   );
 
-  // auto-play only after the user has already interacted (browser gesture rules)
+  // auto-play only after the user has already interacted (browser gesture rules). Not a click: with the AI voice it
+  // plays a clip already made (the next sentence is made once the learner played the previous one), never a new
+  // paid request; otherwise the browser voice.
   const playRef = useRef(play);
   useEffect(() => {
     playRef.current = play;
   }, [play]);
   const { autoPlay, rootRef } = opts;
   useEffect(() => {
-    if (autoPlay) void playRef.current('normal', false);
+    if (autoPlay) void playRef.current('normal', false, true);
   }, [autoPlay]);
 
   // Esc = replay, anywhere on the page except other form fields (settings panel, sentence manager …)
