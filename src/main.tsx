@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './fonts.css';
 import './index.css';
+import { preloadAudioManifest } from './core/audioManifest';
 import { initFolderSync } from './core/folderSyncController';
 import { reloadReview } from './core/review/api';
 import { getSettings, reloadSettings } from './core/settings';
@@ -46,6 +47,14 @@ async function boot() {
       </StrictMode>,
     );
   }
+
+  // Shipped clips: load their manifest now (after the page itself), so the first ▶ rarely waits for it. Waiting would
+  // also put the browser voice outside the click on iOS, which then stays silent.
+  safely('audio', () => {
+    if (getSettings().voiceEngine === 'browser') return;
+    if (document.readyState === 'complete') preloadAudioManifest();
+    else window.addEventListener('load', () => preloadAudioManifest(), { once: true });
+  });
 }
 
 void boot();

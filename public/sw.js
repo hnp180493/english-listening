@@ -2,12 +2,15 @@
  * - Navigations: network-first, falling back to the cached app shell (index.html).
  * - Same-origin build assets under /assets/ (hashed file names): cache-first.
  * - Shipped Gemini clips /audio/*.mp3 (file names are content keys, src/core/audioKey.ts): cache-first in their
- *   own cache, on first play only (never precached: there are hundreds), at most AUDIO_MAX_ENTRIES (oldest
- *   dropped). That cache survives deploys: a key names one text, voice and style for good. A Range request
- *   (Safari asks for media in ranges and refuses a plain 200 from a service worker) gets a 206 cut from the
- *   whole stored file.
- *   /audio/manifest.json: network-first, kept in that same audio cache (not the per-deploy cache), so an
- *   offline session after an update still finds the clips it already stored.
+ *   own cache, on first play only (never precached: there are hundreds), at most AUDIO_MAX_ENTRIES, the least
+ *   recently played dropped first (a clip served from the cache moves to the end). That cache survives deploys,
+ *   but its name comes from the manifest's generatedAt (else styleVersion / version): clips regenerated under the
+ *   same key (re-encoded, remade) are fetched again after the new manifest is seen, and the older clip cache is
+ *   dropped. A Range request (Safari asks for media in ranges and refuses a plain 200 from a service worker) gets
+ *   a 206 cut from the whole stored file.
+ *   /audio/manifest.json: network-first with a short timeout (AUDIO_MANIFEST_NETWORK_TIMEOUT_MS: a stalled network
+ *   answers from the cache instead of hanging; the network copy still lands in the cache), kept in its own small
+ *   cache (not the per-deploy cache), so an offline session after an update still finds the clips it stored.
  * - Other same-origin GETs (icons, manifest): network-first with cache fallback.
  * - Cross-origin requests (YouTube, fonts, speech services…) are never touched or cached.
  *
@@ -26,11 +29,20 @@
 // @build-manifest-start (replaced at build time — keep these markers)
 const BUILD = { id: '', assets: [] };
 // @build-manifest-end
-const VERSION = 'v1.3.0';
+const VERSION = 'v1.4.0';
 const CACHE_PREFIX = 'nghe-noi-am-';
 const CACHE = CACHE_PREFIX + VERSION + (BUILD.id ? '-' + BUILD.id : '');
-const AUDIO_CACHE = CACHE_PREFIX + 'audio-v1';
+/** The manifest (and the name of the clip cache it maps to). */
+const AUDIO_META_CACHE = CACHE_PREFIX + 'audio-meta';
+/** Clip caches: AUDIO_CLIPS_PREFIX + a tag from the manifest (audioCacheNameFor). */
+const AUDIO_CLIPS_PREFIX = CACHE_PREFIX + 'audio-c-';
+/** The single clip cache of earlier versions (manifest + clips), migrated on activate. */
+const LEGACY_AUDIO_CACHE = CACHE_PREFIX + 'audio-v1';
 const AUDIO_MAX_ENTRIES = 400;
+/** The manifest is asked from the network first; past this, a cached copy answers (the fetch keeps going into the cache). */
+const AUDIO_MANIFEST_NETWORK_TIMEOUT_MS = 3000;
+/** A clip played again within this time is not moved again (Safari asks for one clip in several ranges). */
+const AUDIO_TOUCH_MIN_MS = 60_000;
 const AUDIO_FILE_RE = /\.(?:mp3|m4a|aac|ogg|opus|wav)$/i;
 const AUDIO_MANIFEST_NAME = 'manifest.json';
 
@@ -38,6 +50,9 @@ const SCOPE_URL = new URL(self.registration.scope);
 const SHELL_URL = new URL('./', SCOPE_URL).href; // index.html served at the scope root
 const ASSETS_PATH = new URL('./assets/', SCOPE_URL).pathname;
 const AUDIO_PATH = new URL('./audio/', SCOPE_URL).pathname;
+const AUDIO_MANIFEST_URL = new URL('./audio/' + AUDIO_MANIFEST_NAME, SCOPE_URL).href;
+/** Synthetic entry of AUDIO_META_CACHE: the clip cache name of the current manifest. */
+const AUDIO_TAG_URL = new URL('./audio/__clip-cache-name', SCOPE_URL).href;
 const PRECACHE = ['./', './manifest.webmanifest', './icon.svg', './icon-maskable.svg'].map((p) => new URL(p, SCOPE_URL).href);
 
 /** Hashed build files referenced by index.html, so the app works offline after the first visit. */
@@ -103,9 +118,12 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
+      await migrateLegacyAudio().catch(() => undefined);
       const keys = await caches.keys();
       await Promise.all(
-        keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE && k !== AUDIO_CACHE).map((k) => caches.delete(k)),
+        keys
+          .filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE && k !== AUDIO_META_CACHE && !k.startsWith(AUDIO_CLIPS_PREFIX))
+          .map((k) => caches.delete(k)),
       );
       await self.clients.claim();
     })(),
@@ -156,7 +174,83 @@ async function cacheFirst(request) {
   return res;
 }
 
-/** Drops the oldest clips beyond AUDIO_MAX_ENTRIES (cache.keys() lists them in insertion order; the manifest never counts). */
+/**
+ * Name of the clip cache for a manifest: its generatedAt, else styleVersion / version. A regenerated manifest gets a
+ * fresh clip cache, so a clip remade under the same key is not served stale forever.
+ */
+function audioCacheNameFor(manifest) {
+  let tag = '';
+  if (manifest && typeof manifest === 'object') {
+    const v = manifest.generatedAt ?? manifest.styleVersion ?? manifest.version;
+    if (v !== undefined && v !== null) tag = String(v);
+  }
+  return AUDIO_CLIPS_PREFIX + (tag.replace(/[^A-Za-z0-9]/g, '').slice(0, 40) || 'none');
+}
+
+let audioCacheName = null;
+
+/** The clip cache of the manifest seen last (remembered in AUDIO_META_CACHE across worker restarts). */
+async function currentAudioCache() {
+  if (!audioCacheName) {
+    const meta = await caches.open(AUDIO_META_CACHE);
+    const stored = await meta.match(AUDIO_TAG_URL);
+    const name = stored ? (await stored.text()).trim() : '';
+    audioCacheName = name.startsWith(AUDIO_CLIPS_PREFIX) ? name : audioCacheNameFor(null);
+  }
+  return caches.open(audioCacheName);
+}
+
+/** A manifest came from the network: switch to its clip cache and drop the clip caches of older manifests. */
+async function adoptManifest(res) {
+  let json = null;
+  try {
+    json = await res.json();
+  } catch {
+    return;
+  }
+  const name = audioCacheNameFor(json);
+  const meta = await caches.open(AUDIO_META_CACHE);
+  await meta.put(AUDIO_TAG_URL, new Response(name, { headers: { 'Content-Type': 'text/plain' } }));
+  audioCacheName = name;
+  const keys = await caches.keys();
+  await Promise.all(keys.filter((k) => k.startsWith(AUDIO_CLIPS_PREFIX) && k !== name).map((k) => caches.delete(k)));
+}
+
+/** Earlier versions kept the manifest and the clips in one cache: move them to the new caches once. */
+async function migrateLegacyAudio() {
+  const keys = await caches.keys();
+  if (!keys.includes(LEGACY_AUDIO_CACHE)) return;
+  const old = await caches.open(LEGACY_AUDIO_CACHE);
+  const meta = await caches.open(AUDIO_META_CACHE);
+  const manifest = await old.match(AUDIO_MANIFEST_URL);
+  if (manifest && !(await meta.match(AUDIO_MANIFEST_URL))) {
+    const forTag = manifest.clone();
+    await meta.put(AUDIO_MANIFEST_URL, manifest);
+    await adoptManifest(forTag);
+  }
+  const target = await currentAudioCache();
+  for (const r of await old.keys()) {
+    if (!AUDIO_FILE_RE.test(new URL(r.url).pathname)) continue;
+    const res = await old.match(r.url);
+    if (res) await target.put(r.url, res);
+  }
+  await caches.delete(LEGACY_AUDIO_CACHE);
+}
+
+/** url → when it was last moved to the end of the clip cache (least recently used goes first). */
+const audioTouched = new Map();
+
+/** A clip served from the cache moves to the end of its list (Cache.put of an existing key re-appends it). */
+async function touchAudio(cache, url, res) {
+  const now = Date.now();
+  const last = audioTouched.get(url);
+  if (last !== undefined && now - last < AUDIO_TOUCH_MIN_MS) return;
+  audioTouched.set(url, now);
+  if (audioTouched.size > AUDIO_MAX_ENTRIES * 2) audioTouched.clear();
+  await cache.put(url, res);
+}
+
+/** Drops the least recently used clips beyond AUDIO_MAX_ENTRIES (cache.keys() lists them oldest first). */
 async function trimAudio(cache) {
   const reqs = (await cache.keys()).filter((r) => AUDIO_FILE_RE.test(new URL(r.url).pathname));
   const extra = reqs.length - AUDIO_MAX_ENTRIES;
@@ -216,9 +310,12 @@ async function rangeAware(request, full) {
  * for next time. Either way a Range request gets a 206 cut from the whole file (rangeAware).
  */
 async function audioCacheFirst(event) {
-  const cache = await caches.open(AUDIO_CACHE);
+  const cache = await currentAudioCache();
   const cached = await cache.match(event.request.url);
-  if (cached) return rangeAware(event.request, cached);
+  if (cached) {
+    event.waitUntil(touchAudio(cache, event.request.url, cached.clone()).catch(() => undefined));
+    return rangeAware(event.request, cached);
+  }
   const res = await fetch(event.request.url, { credentials: 'same-origin' });
   if (res.ok && res.status === 200 && res.type === 'basic') {
     const copy = res.clone();
@@ -233,18 +330,44 @@ async function audioCacheFirst(event) {
   return res;
 }
 
-/** The clip manifest: network-first, kept in the audio cache so it outlives the per-deploy cache. */
-async function audioManifestNetworkFirst(request) {
-  const cache = await caches.open(AUDIO_CACHE);
-  try {
-    const res = await fetch(request);
-    if (res.ok && res.type === 'basic') await cache.put(request.url, res.clone()).catch(() => undefined);
+/**
+ * The clip manifest: network-first, kept in AUDIO_META_CACHE so it outlives the per-deploy cache. A network that has
+ * not answered within AUDIO_MANIFEST_NETWORK_TIMEOUT_MS (stalled, very slow) or fails gets the cached copy instead;
+ * the fetch still finishes into the cache. Without a cached copy it waits for the network.
+ */
+async function audioManifestNetworkFirst(event) {
+  const { request } = event;
+  const meta = await caches.open(AUDIO_META_CACHE);
+  let storing = Promise.resolve();
+  const network = fetch(request).then((res) => {
+    if (res.ok && res.status === 200 && res.type === 'basic') {
+      const forCache = res.clone();
+      const forTag = res.clone();
+      storing = (async () => {
+        await meta.put(AUDIO_MANIFEST_URL, forCache);
+        await adoptManifest(forTag);
+      })().catch(() => undefined);
+    }
     return res;
-  } catch (err) {
-    const cached = await cache.match(request.url);
-    if (cached) return cached;
-    throw err;
-  }
+  });
+  event.waitUntil(network.then(() => storing, () => undefined));
+  const cached = await meta.match(AUDIO_MANIFEST_URL);
+  if (!cached) return network;
+  return new Promise((resolve) => {
+    let settled = false;
+    const answer = (res) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(res);
+    };
+    const timer = setTimeout(() => answer(cached), AUDIO_MANIFEST_NETWORK_TIMEOUT_MS);
+    network.then(
+      // a server error gets the cached copy; a 404 / 410 (no clips any more) is passed on as it is
+      (res) => answer(res.ok || res.status === 404 || res.status === 410 ? res : cached),
+      () => answer(cached),
+    );
+  });
 }
 
 async function networkFirst(request) {
@@ -274,7 +397,7 @@ self.addEventListener('fetch', (event) => {
   } else if (url.pathname.startsWith(AUDIO_PATH) && AUDIO_FILE_RE.test(url.pathname)) {
     event.respondWith(audioCacheFirst(event));
   } else if (url.pathname === AUDIO_PATH + AUDIO_MANIFEST_NAME) {
-    event.respondWith(audioManifestNetworkFirst(request));
+    event.respondWith(audioManifestNetworkFirst(event));
   } else if (url.pathname === new URL('./sw.js', SCOPE_URL).pathname) {
     // let the browser handle its own update checks
   } else {

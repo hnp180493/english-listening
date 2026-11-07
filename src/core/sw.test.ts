@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // public/sw.js is a classic worker script, not a module: it is evaluated here in a sandbox with a stub `self`
 // and `caches`, and its top-level functions are read from the sandbox.
@@ -8,6 +8,9 @@ const { readFile } = await nodeModule('node:fs/promises');
 const vm = await nodeModule('node:vm');
 
 const SCOPE = 'https://app.example/';
+const MANIFEST_URL = SCOPE + 'audio/manifest.json';
+const META = 'nghe-noi-am-audio-meta';
+const CLIPS_PREFIX = 'nghe-noi-am-audio-c-';
 
 class MemCache {
   map = new Map<string, Response>();
@@ -15,7 +18,9 @@ class MemCache {
     const r = this.map.get(url);
     return r ? r.clone() : undefined;
   }
+  /** Like Cache.put: an existing entry is replaced and moves to the end of keys(). */
   async put(url: string, res: Response): Promise<void> {
+    this.map.delete(url);
     this.map.set(url, res);
   }
   async keys(): Promise<{ url: string }[]> {
@@ -31,14 +36,25 @@ async function loadSw(fetchImpl: (url: string) => Promise<Response>) {
   const stores = new Map<string, MemCache>();
   const handlers: Record<string, (e: any) => void> = {};
   const ctx: any = {
-    self: { registration: { scope: SCOPE }, location: { origin: new URL(SCOPE).origin }, addEventListener: (t: string, fn: any) => (handlers[t] = fn) },
+    self: {
+      registration: { scope: SCOPE },
+      location: { origin: new URL(SCOPE).origin },
+      clients: { claim: async () => undefined },
+      skipWaiting: async () => undefined,
+      addEventListener: (t: string, fn: any) => (handlers[t] = fn),
+    },
     caches: {
       open: async (name: string) => {
         if (!stores.has(name)) stores.set(name, new MemCache());
         return stores.get(name);
       },
+      keys: async () => [...stores.keys()],
+      delete: async (name: string) => stores.delete(name),
     },
     fetch: (input: any) => fetchImpl(typeof input === 'string' ? input : input.url),
+    // through globalThis at call time, so vi.useFakeTimers() applies inside the sandbox too
+    setTimeout: (fn: () => void, ms: number) => globalThis.setTimeout(fn, ms),
+    clearTimeout: (id: ReturnType<typeof setTimeout>) => globalThis.clearTimeout(id),
     URL,
     Response,
     Headers,
@@ -47,7 +63,7 @@ async function loadSw(fetchImpl: (url: string) => Promise<Response>) {
   vm.createContext(ctx);
   vm.runInContext(src, ctx);
   /** Runs the worker's fetch handler for a GET; resolves with what it answered (undefined = not handled). */
-  const dispatch = async (url: string, headers: Record<string, string> = {}): Promise<Response | undefined> => {
+  const dispatch = async (url: string, headers: Record<string, string> = {}, { wait = true } = {}): Promise<Response | undefined> => {
     let answer: Promise<Response> | undefined;
     const waits: Promise<unknown>[] = [];
     handlers.fetch({
@@ -56,16 +72,28 @@ async function loadSw(fetchImpl: (url: string) => Promise<Response>) {
       waitUntil: (p: Promise<unknown>) => waits.push(p),
     });
     const res = answer ? await answer : undefined;
-    await Promise.all(waits);
+    if (wait) await Promise.all(waits);
     return res;
   };
-  return { ctx, stores, dispatch };
+  const activate = async () => {
+    const waits: Promise<unknown>[] = [];
+    handlers.activate({ waitUntil: (p: Promise<unknown>) => waits.push(p) });
+    await Promise.all(waits);
+  };
+  /** The clip caches (one per manifest generation). */
+  const clipStores = () => [...stores.entries()].filter(([k]) => k.startsWith(CLIPS_PREFIX));
+  return { ctx, stores, dispatch, activate, clipStores };
 }
 
 const bytes = (n: number) => Uint8Array.from({ length: n }, (_, i) => i % 251);
 const clipResponse = () => new Response(bytes(1000), { status: 200, headers: { 'Content-Type': 'audio/mpeg' } });
 // Node's fetch Response has type 'default'; the worker stores only same-origin ('basic') answers.
 const basic = (r: Response) => Object.defineProperty(r, 'type', { value: 'basic' });
+const manifestResponse = (body: unknown) => basic(new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('service worker: shipped clips', () => {
   it('parseRange reads one bytes range, clamps the end, and refuses what cannot be served', async () => {
@@ -84,7 +112,7 @@ describe('service worker: shipped clips', () => {
   it('answers a Range request with a 206 cut from the whole file, first fetched and then cached', async () => {
     let fetches = 0;
     const seen: string[] = [];
-    const { stores, dispatch } = await loadSw(async (url) => {
+    const { dispatch, clipStores } = await loadSw(async (url) => {
       fetches++;
       seen.push(url);
       return basic(clipResponse());
@@ -97,7 +125,8 @@ describe('service worker: shipped clips', () => {
     expect(res.headers.get('Content-Length')).toBe('2');
     expect([...new Uint8Array(await res.arrayBuffer())]).toEqual([0, 1]);
     // stored whole (200), so the next ranges come from the cache
-    const stored = await stores.get('nghe-noi-am-audio-v1')!.match(url);
+    expect(clipStores()).toHaveLength(1);
+    const stored = await clipStores()[0][1].match(url);
     expect(stored?.status).toBe(200);
     res = (await dispatch(url, { range: 'bytes=990-' }))!;
     expect(res.status).toBe(206);
@@ -113,29 +142,121 @@ describe('service worker: shipped clips', () => {
     expect(seen).toEqual([url]);
   });
 
-  it('keeps audio/manifest.json in the audio cache (survives deploys) and serves it offline', async () => {
+  it('keeps audio/manifest.json in its own cache (survives deploys) and serves it offline', async () => {
     let online = true;
     const { stores, dispatch } = await loadSw(async () => {
       if (!online) throw new TypeError('offline');
-      return basic(new Response('{"clips":{}}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      return manifestResponse({ clips: {} });
     });
-    const url = SCOPE + 'audio/manifest.json';
-    expect((await dispatch(url))!.status).toBe(200);
-    expect(await stores.get('nghe-noi-am-audio-v1')!.match(url)).toBeDefined();
+    expect((await dispatch(MANIFEST_URL))!.status).toBe(200);
+    expect(await stores.get(META)!.match(MANIFEST_URL)).toBeDefined();
     online = false;
-    const res = (await dispatch(url))!;
+    const res = (await dispatch(MANIFEST_URL))!;
     expect(await res.text()).toBe('{"clips":{}}');
   });
 
-  it('the manifest never counts toward the clip limit', async () => {
-    const { ctx, stores } = await loadSw(async () => new Response(''));
-    const cache = await ctx.caches.open('nghe-noi-am-audio-v1');
-    await cache.put(SCOPE + 'audio/manifest.json', new Response('{}'));
-    for (let i = 0; i < 402; i++) await cache.put(`${SCOPE}audio/c${i}.mp3`, new Response('x'));
-    await ctx.trimAudio(cache);
-    const keys = [...stores.get('nghe-noi-am-audio-v1')!.map.keys()];
-    expect(keys).toContain(SCOPE + 'audio/manifest.json');
+  it('a stalled network: the cached manifest answers after AUDIO_MANIFEST_NETWORK_TIMEOUT_MS, and the late copy still lands in the cache', async () => {
+    let stalled: ((r: Response) => void) | null = null;
+    let first = true;
+    const { stores, dispatch } = await loadSw(() => {
+      if (first) {
+        first = false;
+        return Promise.resolve(manifestResponse({ generatedAt: 'old', clips: {} }));
+      }
+      return new Promise<Response>((r) => (stalled = r));
+    });
+    await dispatch(MANIFEST_URL);
+    vi.useFakeTimers();
+    const p = dispatch(MANIFEST_URL, {}, { wait: false });
+    let answered: Response | undefined;
+    void p.then((r) => (answered = r));
+    await vi.advanceTimersByTimeAsync(3000 - 100);
+    expect(answered).toBeUndefined(); // network first
+    await vi.advanceTimersByTimeAsync(200);
+    expect(answered).toBeDefined();
+    expect(JSON.parse(await answered!.text()).generatedAt).toBe('old');
+    stalled!(manifestResponse({ generatedAt: 'new', clips: {} }));
+    await vi.advanceTimersByTimeAsync(0);
+    vi.useRealTimers();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(JSON.parse(await (await stores.get(META)!.match(MANIFEST_URL))!.text()).generatedAt).toBe('new');
+  });
+
+  it('a server error on the manifest gets the cached copy; with no cached copy it waits for the network', async () => {
+    let status = 200;
+    const { dispatch } = await loadSw(async () => (status === 200 ? manifestResponse({ clips: { k: 'k.mp3' } }) : basic(new Response('', { status }))));
+    status = 503;
+    expect((await dispatch(MANIFEST_URL))!.status).toBe(503); // nothing cached yet: the network's answer
+    status = 200;
+    await dispatch(MANIFEST_URL);
+    status = 503;
+    const res = (await dispatch(MANIFEST_URL))!;
+    expect(res.status).toBe(200);
+    expect(JSON.parse(await res.text()).clips.k).toBe('k.mp3');
+  });
+
+  it("the clip cache follows the manifest's generatedAt: regenerated clips under the same key are fetched again", async () => {
+    let gen = 'gen1';
+    let clipFetches = 0;
+    const { dispatch, clipStores, stores } = await loadSw(async (url) => {
+      if (url.endsWith('manifest.json')) return manifestResponse({ generatedAt: gen, styleVersion: 3, clips: {} });
+      clipFetches++;
+      return basic(clipResponse());
+    });
+    const clip = SCOPE + 'audio/same-key.mp3';
+    await dispatch(MANIFEST_URL);
+    await dispatch(clip);
+    await dispatch(clip);
+    expect(clipFetches).toBe(1);
+    expect(clipStores().map(([k]) => k)).toEqual([CLIPS_PREFIX + 'gen1']);
+    gen = '2026-11-08T10:00:00.000Z';
+    await dispatch(MANIFEST_URL);
+    expect(clipStores()).toEqual([]); // the older cache is dropped
+    await dispatch(clip);
+    expect(clipFetches).toBe(2);
+    expect(clipStores().map(([k]) => k)).toEqual([CLIPS_PREFIX + '20261108T100000000Z']);
+    // the worker restarts (memory lost): it still knows the current clip cache
+    expect(await (await stores.get(META)!.match(SCOPE + 'audio/__clip-cache-name'))!.text()).toBe(CLIPS_PREFIX + '20261108T100000000Z');
+  });
+
+  it('audioCacheNameFor: generatedAt, else styleVersion / version, sanitized', async () => {
+    const { ctx } = await loadSw(async () => new Response(''));
+    expect(ctx.audioCacheNameFor({ generatedAt: '2026-11-07T01:02:03Z', styleVersion: 3 })).toBe(CLIPS_PREFIX + '20261107T010203Z');
+    expect(ctx.audioCacheNameFor({ styleVersion: 3 })).toBe(CLIPS_PREFIX + '3');
+    expect(ctx.audioCacheNameFor({ version: '../x' })).toBe(CLIPS_PREFIX + 'x');
+    expect(ctx.audioCacheNameFor(null)).toBe(CLIPS_PREFIX + 'none');
+  });
+
+  it('the least recently played clip is dropped first; the manifest never counts', async () => {
+    const { ctx, dispatch, clipStores } = await loadSw(async () => basic(clipResponse()));
+    const cache = await ctx.currentAudioCache();
+    await cache.put(MANIFEST_URL, new Response('{}'));
+    for (let i = 0; i < 400; i++) await cache.put(`${SCOPE}audio/c${i}.mp3`, new Response('x'));
+    // c0 is played again (from the cache): it becomes the most recent
+    expect((await dispatch(`${SCOPE}audio/c0.mp3`))!.status).toBe(200);
+    // a new clip is fetched: one has to go, and it is c1, not c0
+    await dispatch(`${SCOPE}audio/new.mp3`);
+    const keys = [...clipStores()[0][1].map.keys()];
     expect(keys.filter((k) => k.endsWith('.mp3')).length).toBe(400);
-    expect(keys).not.toContain(SCOPE + 'audio/c0.mp3');
+    expect(keys).toContain(`${SCOPE}audio/c0.mp3`);
+    expect(keys).not.toContain(`${SCOPE}audio/c1.mp3`);
+    expect(keys).toContain(`${SCOPE}audio/new.mp3`);
+    expect(keys).toContain(MANIFEST_URL);
+  });
+
+  it('activate moves the clips and manifest of the old single audio cache into the new caches', async () => {
+    const { ctx, stores, activate, clipStores } = await loadSw(async () => new Response(''));
+    const legacy = await ctx.caches.open('nghe-noi-am-audio-v1');
+    await legacy.put(MANIFEST_URL, new Response(JSON.stringify({ generatedAt: 'g7', clips: {} })));
+    await legacy.put(`${SCOPE}audio/a.mp3`, new Response('a'));
+    await legacy.put(`${SCOPE}audio/b.mp3`, new Response('b'));
+    const old = await ctx.caches.open('nghe-noi-am-v1.3.0');
+    await old.put(SCOPE, new Response('shell'));
+    await activate();
+    expect(stores.has('nghe-noi-am-audio-v1')).toBe(false);
+    expect(stores.has('nghe-noi-am-v1.3.0')).toBe(false); // an old deploy's cache
+    expect(await stores.get(META)!.match(MANIFEST_URL)).toBeDefined();
+    expect(clipStores().map(([k]) => k)).toEqual([CLIPS_PREFIX + 'g7']);
+    expect([...clipStores()[0][1].map.keys()]).toEqual([`${SCOPE}audio/a.mp3`, `${SCOPE}audio/b.mp3`]);
   });
 });
