@@ -91,6 +91,7 @@ export const KEYS = {
   listeningTimer: 'listening-timer', // the running "Bắt đầu nghe" stopwatch of this browser
   listeningPending: 'listening-pending', // in-app video seconds not yet worth an entry (< 1 minute)
   checkupDraft: 'checkup-draft', // an unfinished checkup, so a reload can resume it
+  checkupAbandoned: 'checkup-abandoned', // forms whose test was left after hearing something ("Bỏ bài")
   deviceId: 'device-id', // random id of this browser (its own bucket in KEYS.history)
 } as const;
 
@@ -103,6 +104,7 @@ export const DEVICE_LOCAL_KEYS: ReadonlySet<string> = new Set<string>([
   KEYS.listeningTimer,
   KEYS.listeningPending,
   KEYS.checkupDraft,
+  KEYS.checkupAbandoned,
   KEYS.deviceId,
 ]);
 

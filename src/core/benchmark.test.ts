@@ -10,6 +10,9 @@ import {
   compareAll,
   formatDeltaVi,
   nextForm,
+  isRepeatForm,
+  parseAbandoned,
+  wasAbandoned,
   parseCheckups,
   sanitizeResult,
   scoreComprehension,
@@ -328,5 +331,29 @@ describe('review fixes', () => {
     expect(shortVoiceName('Samantha')).toBe('Samantha');
     expect(shortVoiceName('Microsoft Libby Online (Natural) - English (United Kingdom)')).toBe('Libby (Anh)');
     expect(shortVoiceName(null)).toBeNull();
+  });
+});
+
+describe('left tests (Bỏ bài)', () => {
+  const forms = [{ id: 'A' }, { id: 'B' }, { id: 'C' }] as { id: BenchmarkFormId }[];
+  it('a form heard in a left test counts as used: the next start gives another form', () => {
+    expect(nextForm([], forms)?.id).toBe('A');
+    expect(nextForm([], forms, [{ form: 'A' as BenchmarkFormId, at: 10 }])?.id).toBe('B');
+    const all = ['A', 'B', 'C'].map((f, i) => ({ form: f as BenchmarkFormId, at: 10 + i }));
+    expect(nextForm([], forms, all)?.id).toBe('A'); // all used: the least recently used one
+  });
+  it('a result of a form heard before is flagged as a repeat', () => {
+    const ab = [{ form: 'A' as BenchmarkFormId, at: 100 }];
+    expect(wasAbandoned(ab, 'A' as BenchmarkFormId, 200)).toBe(true);
+    expect(wasAbandoned(ab, 'A' as BenchmarkFormId, 50)).toBe(false);
+    expect(wasAbandoned(ab, 'B' as BenchmarkFormId, 200)).toBe(false);
+    const r = { id: 'r1', at: 300, form: 'A' as BenchmarkFormId };
+    expect(isRepeatForm([], r)).toBe(false);
+    expect(isRepeatForm([], { ...r, seenBefore: true })).toBe(true);
+  });
+  it('parses only well-formed entries and keeps the newest ones', () => {
+    expect(parseAbandoned(null)).toEqual([]);
+    expect(parseAbandoned([{ form: 'A', at: 1 }, { form: 3, at: 2 }, 'x', { form: 'B', at: 'no' }])).toEqual([{ form: 'A', at: 1 }]);
+    expect(parseAbandoned(Array.from({ length: 40 }, (_, i) => ({ form: 'A', at: i }))).length).toBe(24);
   });
 });

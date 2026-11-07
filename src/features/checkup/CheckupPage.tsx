@@ -7,11 +7,14 @@ import ShortcutsHelp from '../../components/ShortcutsHelp';
 import {
   buildCheckupResult,
   clearCheckupDraft,
+  loadAbandoned,
   loadCheckupDraft,
   nextForm,
+  recordAbandoned,
   saveCheckupDraft,
   saveCheckupResult,
   useCheckups,
+  wasAbandoned,
   type CheckupResult,
 } from '../../core/benchmark';
 import { BENCHMARK_FORMS } from '../../data/benchmark';
@@ -73,7 +76,8 @@ export default function CheckupPage() {
   );
 
   const form = test ? (BENCHMARK_FORMS.find((f) => f.id === test.form) ?? null) : null;
-  const upcoming = nextForm(results, BENCHMARK_FORMS);
+  const [abandoned, setAbandoned] = useState(loadAbandoned);
+  const upcoming = nextForm(results, BENCHMARK_FORMS, abandoned);
 
   const start = () => {
     if (!upcoming) return;
@@ -92,6 +96,7 @@ export default function CheckupPage() {
       voiceName: s.voiceName ?? voiceName,
       startedAt: s.startedAt,
       now: Date.now(),
+      seenBefore: wasAbandoned(abandoned, s.form, s.startedAt),
     });
     const ok = saveCheckupResult(result); // also clears the draft
     setLocal(result);
@@ -101,6 +106,13 @@ export default function CheckupPage() {
   };
 
   const abandon = () => {
+    const cur = testRef.current;
+    // Something was heard: this form is used up (the next start gives another form, a later result is flagged).
+    const heard = cur && [...Object.values(cur.dictation), ...Object.values(cur.comprehension)].some((a) => (a?.plays ?? 0) > 0);
+    if (cur && heard) {
+      recordAbandoned(cur.form);
+      setAbandoned(loadAbandoned());
+    }
     clearCheckupDraft();
     testRef.current = null;
     setTest(null);

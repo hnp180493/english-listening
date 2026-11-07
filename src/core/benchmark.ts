@@ -69,6 +69,8 @@ export interface CheckupResult {
   voiceName: string | null; // TTS voice used (a change makes scores less comparable)
   /** 'connected' = the audio was the connected-speech version. Absent on older results (standard text, see audioModeOf). */
   audioMode?: 'connected';
+  /** The learner had already heard this form in a test they left ("Bỏ bài"): the score may read high, like a repeat. */
+  seenBefore?: true;
   rate: 1;
   dictation: {
     words: number; // Σ totalWords
@@ -250,6 +252,8 @@ export interface BuildResultInput {
   startedAt: number;
   now: number;
   id?: string;
+  /** This form was heard before in a test the learner left (abandonedForms). */
+  seenBefore?: boolean;
 }
 
 /** The record saved when the learner finishes the test. */
@@ -262,6 +266,7 @@ export function buildCheckupResult(input: BuildResultInput): CheckupResult {
     form: input.form.id,
     voiceName: typeof input.voiceName === 'string' && input.voiceName ? input.voiceName.slice(0, 200) : null,
     audioMode: CHECKUP_AUDIO_MODE,
+    ...(input.seenBefore ? { seenBefore: true as const } : {}),
     rate: CHECKUP_RATE,
     dictation: { words: d.words, correct: d.correct, extra: d.extra, pct: d.pct, items: d.items },
     comprehension: { correct: c.correct, total: c.total, pct: c.pct, items: c.items },
@@ -324,6 +329,7 @@ export function sanitizeResult(raw: unknown): CheckupResult | null {
     form: raw.form,
     voiceName: typeof raw.voiceName === 'string' && raw.voiceName ? raw.voiceName.slice(0, 200) : null,
     ...(raw.audioMode === 'connected' ? { audioMode: 'connected' as const } : {}),
+    ...(raw.seenBefore === true ? { seenBefore: true as const } : {}),
     rate: CHECKUP_RATE,
     dictation: { words, correct, extra, pct: dPct, items: dItems },
     comprehension: { correct: cCorrect, total, pct: cPct, items: cItems },
@@ -351,10 +357,15 @@ export function parseCheckups(raw: unknown): CheckupResult[] {
  * The form to take next: one never taken first (in `forms` order, A → F), else the least recently taken.
  * null when there are no forms.
  */
-export function nextForm<F extends Pick<BenchmarkForm, 'id'>>(results: readonly Pick<CheckupResult, 'form' | 'at'>[], forms: readonly F[]): F | null {
+export function nextForm<F extends Pick<BenchmarkForm, 'id'>>(
+  results: readonly Pick<CheckupResult, 'form' | 'at'>[],
+  forms: readonly F[],
+  abandoned: readonly AbandonedForm[] = [],
+): F | null {
   if (!forms.length) return null;
   const last = new Map<string, number>();
-  for (const r of results) last.set(r.form, Math.max(last.get(r.form) ?? -Infinity, r.at));
+  // A form heard in a left test counts as used: "Bỏ bài" then "Bắt đầu" gives another form, not fresh plays.
+  for (const r of [...results, ...abandoned]) last.set(r.form, Math.max(last.get(r.form) ?? -Infinity, r.at));
   const never = forms.find((f) => !last.has(f.id));
   if (never) return never;
   return forms.reduce((best, f) => ((last.get(f.id) ?? 0) < (last.get(best.id) ?? 0) ? f : best));
@@ -646,9 +657,47 @@ export function trendCheckups<R extends Pick<CheckupResult, 'at'>>(results: read
   return out;
 }
 
-/** True when `result` uses a form an earlier test already used (sentences and answers were shown afterwards). */
-export function isRepeatForm(results: readonly Pick<CheckupResult, 'id' | 'at' | 'form'>[], result: Pick<CheckupResult, 'id' | 'at' | 'form'>): boolean {
-  return results.some((r) => r.id !== result.id && r.form === result.form && r.at < result.at);
+/**
+ * True when `result` uses a form the learner met before: an earlier finished test (sentences and answers were
+ * shown afterwards), or a test of that form they left after listening (seenBefore).
+ */
+export function isRepeatForm(
+  results: readonly Pick<CheckupResult, 'id' | 'at' | 'form'>[],
+  result: Pick<CheckupResult, 'id' | 'at' | 'form'> & { seenBefore?: true },
+): boolean {
+  return result.seenBefore === true || results.some((r) => r.id !== result.id && r.form === result.form && r.at < result.at);
+}
+
+/** A form the learner heard in a test they then left ("Bỏ bài"). Device-local (KEYS.checkupAbandoned). */
+export interface AbandonedForm {
+  form: BenchmarkFormId;
+  at: number;
+}
+
+/** At most this many left tests are remembered (oldest dropped). */
+export const MAX_ABANDONED = 24;
+
+export function parseAbandoned(raw: unknown): AbandonedForm[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(isObj)
+    .filter((x) => typeof x.form === 'string' && finite(x.at))
+    .map((x) => ({ form: x.form as BenchmarkFormId, at: x.at as number }))
+    .slice(-MAX_ABANDONED);
+}
+
+export function loadAbandoned(): AbandonedForm[] {
+  return parseAbandoned(loadJSON<unknown>(KEYS.checkupAbandoned, null));
+}
+
+/** Remember that this form was heard in a test the learner left. */
+export function recordAbandoned(form: BenchmarkFormId, at: number = Date.now()): void {
+  saveJSON(KEYS.checkupAbandoned, [...loadAbandoned(), { form, at }].slice(-MAX_ABANDONED));
+}
+
+/** True when the learner already heard `form` in a left test before `at` (the result is then seenBefore). */
+export function wasAbandoned(abandoned: readonly AbandonedForm[], form: BenchmarkFormId, at: number): boolean {
+  return abandoned.some((a) => a.form === form && a.at <= at);
 }
 
 const VOICE_REGION: Readonly<Record<string, string>> = {
