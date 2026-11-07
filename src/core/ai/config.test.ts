@@ -68,6 +68,26 @@ describe('device-local storage', () => {
     expect(AI_DEVICE_LOCAL_KEYS).toEqual(['ai-config', 'ai-usage']);
   });
 
+  it('a newly added Gemini provider becomes the voice default over OpenAI; editing OpenAI later keeps it', async () => {
+    stubStorage();
+    const cfg = await fresh();
+    const o = cfg.createProviderConfig('openai', { apiKey: 'sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxx' });
+    cfg.upsertProvider(o);
+    expect(cfg.loadAiConfig().defaultTtsProvider).toBe(o.id);
+    const g = cfg.createProviderConfig('gemini', { apiKey: GEMINI_KEY });
+    cfg.upsertProvider(g);
+    let c = cfg.loadAiConfig();
+    expect(c.defaultTtsProvider).toBe(g.id);
+    expect(c.defaultTextProvider).toBe(o.id); // text default unchanged
+    cfg.upsertProvider({ ...o, model: 'gpt-6-luna' }); // editing an existing provider does not steal it back
+    expect(cfg.loadAiConfig().defaultTtsProvider).toBe(g.id);
+    // a second Gemini provider does not replace the first
+    const g2 = cfg.createProviderConfig('gemini', { apiKey: GEMINI_KEY });
+    cfg.upsertProvider(g2);
+    c = cfg.loadAiConfig();
+    expect(c.defaultTtsProvider).toBe(g.id);
+  });
+
   it('round-trips, sets defaults on first upsert, notifies, reacts to other tabs', async () => {
     const { map, fire } = stubStorage();
     const cfg = await fresh();

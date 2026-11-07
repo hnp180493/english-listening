@@ -5,7 +5,7 @@ The goal is a calm, modern learning app: **one job per screen**, few elements, f
 - Tokens and shared classes: `src/index.css` (global, already loaded).
 - Font: `src/fonts.css` (Be Vietnam Pro 400/500/600/700, latin + vietnamese, bundled locally). Do not add font imports or CDNs.
 - Shell and nav: `src/App.layout.css`, `src/components/AppNav.*`.
-- Shared components: `src/components/` (`PageHeader`, `Popover`, `ShortcutsHelp`, `FilterButton`, `PhTag`, `Segmented`, `PlayButton`, `SpokenSentence`, `Icon`).
+- Shared components: `src/components/` (`PageHeader`, `Popover`, `ShortcutsHelp`, `FilterButton`, `PhTag`, `Segmented`, `PlayButton`, `ListenPair`, `SpokenSentence`, `Icon`).
 
 All CSS is global. Prefix every class you add with your feature prefix (`dict-`, `pairs-`, `drill-`, `lessons-`, `dec-`, `shadow-`, `media-`, `stats-`, `set-`…). Never restyle a shared class (`.btn`, `.card`, `.chip`, `.ph-tag`…) from a feature file. If you need a variant, add a prefixed class next to it (`className="card dict-result"`).
 
@@ -519,9 +519,61 @@ Ghost buttons inside a `.panel` or `.callout` hover to `--surface` automatically
 
 ### Other shared components
 
-- `PlayButton`: `variant="primary" | "soft" | "ghost"` (or legacy `primary`), `size="sm" | "md"`. Use `soft` for the usual "Nghe", `primary` only when listening IS the main action of the view. Pair it with a ghost icon `Turtle` button for slow playback.
-- `SpokenSentence`: already styled as inline annotations. Put it inside a `.panel` (with ~18px top padding for the per-word play buttons) or directly in a card; don't wrap it in a bordered box.
+- `PlayButton`: `variant="primary" | "soft" | "ghost"` (or legacy `primary`), `size="sm" | "md"`, `mode` (`'connected' | 'careful'`, picks the AI voice style), `icon` (rest icon, default filled Play), `ariaLabel`. Use `soft` for the usual "Nghe", `primary` only when listening IS the main action of the view. For a sentence the app shows decoded, use `ListenPair` (below) instead of a PlayButton + turtle.
+- `ListenPair` + `RealVoiceLink` (`src/components/ListenPair.tsx`): see **Playback pattern**.
+- `SpokenSentence`: already styled as inline annotations. With `playable`, each block's ▶ speaks the segment's speakable form (`SpokenSegment.speak`, connected style, 0.9×). Put it inside a `.panel` (with ~18px top padding for the per-word play buttons) or directly in a card; don't wrap it in a bordered box.
 - `Icon` / `IconTile`.
+
+---
+
+### Playback pattern (connected vs careful)
+
+The app SHOWS how a sentence is really spoken, so the main play button must SOUND like that. A TTS engine fed the
+standard spelling reads like a newsreader (measured: Windows SAPI realised 0/2 reductions on "Tell him I'll call him
+back.", 2/2 on "Tellim I'll callim back."). Every sentence shown with annotations therefore has two playbacks
+(`src/core/playback.ts`):
+
+| Button | Text sent to the voice | Rate | AI style |
+|---|---|---|---|
+| **Nghe** (soft, title "Nói nhanh như ngoài đời") | connected: content `say` ?? `DecodeResult.speakText` ?? text (`connectedText`) | learner's rate | `CONNECTED_STYLE` (fast, casual, heavy connected speech) |
+| **Rõ từng từ** (ghost, Turtle icon + text, title "Đọc rõ từng từ", aria `CAREFUL_ARIA`) | the standard written text | `CAREFUL_RATE` 0.75, never above 0.8 × the learner's rate; AI voice ≈ 0.9 (its style already slows it) | `CAREFUL_STYLE` (clear, careful, slightly slow) |
+
+```tsx
+<ListenPair text={example.text} decoded={result} say={example.say} />   // Nghe + Rõ từng từ
+<RealVoiceLink phrase={youglishPhrase(example.text, result)} />          // quiet "Nghe người thật nói" link
+```
+
+- The careful button carries a visible label, not only a turtle: the contrast must be understood without a tooltip
+  on phones. **One label everywhere** (`CAREFUL_LABEL` "Rõ từng từ", `CAREFUL_ARIA` "Rõ từng từ: đọc chuẩn, chậm"):
+  lesson cards, compare cards, dictation, drill, shadowing. A slowed CONNECTED button is titled
+  `CONNECTED_SLOW_TITLE` "Nghe chậm (vẫn nối âm)" so nobody takes it for the careful one.
+- Slow rates are relative (`slowRate`, applied in `speak()`): careful mode and `{ slow: true }` playbacks are never
+  faster than 0.8 × the learner's rate, so a learner at 0.6 does not get "Rõ từng từ" faster than "Nghe".
+- **Where the answer would be given away** (dictation, lesson listen quizzes, drill "choose" cards), the slow button
+  stays connected (`CONNECTED_SLOW_RATE` 0.75, `slow`) and the careful version appears only after checking
+  (dictation: quiet ghost "Rõ từng từ" under "Câu này được nói như thế nào"; quiz: the feedback's `ListenPair`).
+- Dictation level 1 plays the connected version at 0.9× the learner's rate (still connected). "Từng cụm" plays each
+  segment's speakable form, one-short-word chunks joined to a neighbour ("A cuppa"), always with the BROWSER voice
+  (`speak(…, { browserOnly: true })`: one AI request per chunk would spend a free key's minute budget in one press).
+  The checkup plays the connected version only (`audioMode: 'connected'`).
+- Per-annotation ▶ (decoder "Chi tiết", dictation "Vì sao bạn nghe sai?", shadowing feedback) speak the annotation's
+  own words in connected form (`Annotation.speak` via `annotationSpeech`: "I'll" alone, "Tell him" → "Tellim").
+- Drill: the chunk plays its `ttsText`, the example sentence `speakableFor(example)` (connected), "Rõ từng từ" the
+  written chunk. Shadowing: the model (1.0×, 0.8×, A-B, "Nghe mẫu", phrase steps) is the connected version; a
+  ghost "Rõ từng từ" is the only careful playback. Home's "Câu của ngày" plays the connected version.
+- Courses spelling / irregular / loanwords show sentences AS WRITTEN: their example and compare cards use
+  `ListenPair asWritten` (`writtenText`: `say ?? text`, default AI style, no YouGlish link), so "I thought you"
+  never becomes "thoughtcha" in a lesson about "ough".
+- An authored `say` that reads differently from the generated per-segment forms hides the segment ▶ buttons of
+  that example card, so the two never contradict each other.
+- `RealVoiceLink`: YouGlish (`https://youglish.com/pronounce/<phrase>/english/us`, new tab, `rel="noopener
+  noreferrer"`), real YouTube clips of native speakers; no embed, no key. Muted underlined text link with a 14px
+  `ExternalLink` icon, on its own row under the play buttons (lesson examples, compare cards, decoder). Texts over
+  4 words search the first connected stretch (2–4 words, `youglishPhrase`), because YouGlish matches exact phrases.
+- Unchanged: single words (word tables, spelling quizzes: normal + slow), minimal pairs, real media audio.
+- AI voice (free keys allow a few speech requests a minute, ~30 a day): only the current item is prefetched
+  (`PREFETCH_AHEAD_DEFAULT = 0`), careful clips are never prefetched, and the cache key is text + style. On a 429
+  the browser voice takes over quietly with the same connected text.
 
 ---
 

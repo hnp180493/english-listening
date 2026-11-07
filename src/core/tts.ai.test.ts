@@ -4,6 +4,7 @@
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { AiError, type AiSpeakResult, type ProviderSummary } from './ai';
 import { _setClipPlayerForTests, type ClipPlayer } from './audioPlayer';
+import { CAREFUL_STYLE, CONNECTED_STYLE } from './playback';
 import { updateSettings } from './settings';
 
 const ai = vi.hoisted(() => ({
@@ -28,6 +29,7 @@ const {
   AI_COOLDOWN_MS,
   AI_PLAY_TIMEOUT_MS,
   AI_PREFETCH_TIMEOUT_MS,
+  PREFETCH_AHEAD_DEFAULT,
   PREFETCH_CONCURRENCY,
   aiVoicePausedReason,
   VOICE_NOTICE_PREFIX,
@@ -90,7 +92,7 @@ const flush = async () => {
 };
 
 let synth: { speaking: boolean; cancel: Mock<() => void>; speak: Mock<(u: FakeUtterance) => void>; getVoices: () => unknown[] };
-let player: ClipPlayer & { play: Mock<(audio: Blob, rate: number) => Promise<void>>; stop: Mock<() => void>; prime: Mock<() => void> };
+let player: ClipPlayer & { playUrl: Mock<(url: string, rate: number, onPlaying?: () => void) => Promise<void>>; play: Mock<(audio: Blob, rate: number) => Promise<void>>; stop: Mock<() => void>; prime: Mock<() => void> };
 let playing: Deferred<void> | null;
 let calls: { text: string; opts: Record<string, unknown>; d: Deferred<AiSpeakResult> }[];
 
@@ -121,6 +123,7 @@ function setup({ engine = 'ai', provider = GEMINI as ProviderSummary | null, wit
     stop: vi.fn(() => {
       playing?.resolve();
     }),
+    playUrl: vi.fn(() => Promise.reject(new Error('no shipped clips in these tests'))),
   };
   _setClipPlayerForTests(player);
   calls = [];
@@ -210,6 +213,30 @@ describe('routing', () => {
     updateSettings({ voiceEngine: 'browser' });
     expect(ttsSupported()).toBe(false);
     expect(currentVoiceLabel()).toBeNull();
+  });
+});
+
+describe('playback modes (AI style)', () => {
+  it("'connected' sends the casual connected-speech style, 'careful' the clear careful style, none the default", () => {
+    setup();
+    void speak("Tellim I'll callim back.", { mode: 'connected' });
+    expect(calls[0].text).toBe("Tellim I'll callim back.");
+    expect(calls[0].opts.style).toBe(CONNECTED_STYLE);
+    void speak("Tell him I'll call him back.", { mode: 'careful', rate: 0.75 });
+    expect(calls[1].opts.style).toBe(CAREFUL_STYLE);
+    void speak('water');
+    expect(calls[2].opts.style).toBeUndefined();
+    expect(CONNECTED_STYLE).toMatch(/gonna/);
+    expect(CAREFUL_STYLE).toMatch(/careful/);
+  });
+
+  it('a 429 on connected playback falls back to the browser voice with the SAME connected text', async () => {
+    setup();
+    void speak('Whaddaya wanna do?', { mode: 'connected' });
+    calls[0].d.reject(new AiError('rate-limit', 'Gemini đang giới hạn tốc độ. Đợi khoảng 20 giây rồi thử lại.', { retryAfterMs: 20_000 }));
+    await flush();
+    expect(synth.speak).toHaveBeenCalledTimes(1);
+    expect((synth.speak.mock.calls[0][0] as FakeUtterance).text).toBe('Whaddaya wanna do?');
   });
 });
 
@@ -487,7 +514,7 @@ describe('prefetchSpeech', () => {
     void speak('played'); // the learner listened once: from now on the next sentences are prefetched too
     stopSpeaking();
     calls.length = 0;
-    prefetchSpeech(['one', 'two', 'three', 'one', ' ', 'two']);
+    prefetchSpeech(['one', 'two', 'three', 'one', ' ', 'two'], { ahead: 5 });
     expect(PREFETCH_CONCURRENCY).toBe(2);
     expect(calls.map((c) => c.text)).toEqual(['one', 'two']);
     expect(calls[0].opts).toMatchObject({ timeoutMs: AI_PREFETCH_TIMEOUT_MS });
@@ -504,12 +531,35 @@ describe('prefetchSpeech', () => {
 
   it('before the first AI playback only the current sentence is generated (robust-9)', () => {
     setup();
-    prefetchSpeech(['current', 'next']);
+    prefetchSpeech(['current', 'next'], { ahead: 1 });
     expect(calls.map((c) => c.text)).toEqual(['current']);
     void speak('current'); // the first AI playback: the held-back next sentence is generated now
     expect(calls.map((c) => c.text)).toEqual(['current', 'current', 'next']);
-    prefetchSpeech(['current', 'next']); // already in flight / queued
+    prefetchSpeech(['current', 'next'], { ahead: 1 }); // already in flight / queued
     expect(calls).toHaveLength(3);
+  });
+
+  it('by default only the current item is prefetched, even after the first playback (free tier)', () => {
+    setup();
+    void speak('played');
+    stopSpeaking();
+    calls.length = 0;
+    expect(PREFETCH_AHEAD_DEFAULT).toBe(0);
+    prefetchSpeech(['current', 'next', 'after']);
+    expect(calls.map((c) => c.text)).toEqual(['current']);
+  });
+
+  it('prefetches with the style of the playback mode, so the clip is a cache hit; careful is never prefetched', () => {
+    setup();
+    prefetchSpeech(['Whaddaya wanna do?'], { mode: 'connected' });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].opts.style).toBe(CONNECTED_STYLE);
+    prefetchSpeech(['What do you want to do?'], { mode: 'careful' });
+    expect(calls).toHaveLength(1);
+    // same text, other style: a different clip (and a different cache key in the AI layer)
+    prefetchSpeech(['Whaddaya wanna do?']);
+    expect(calls).toHaveLength(2);
+    expect(calls[1].opts.style).toBeUndefined();
   });
 
   it('a rate limit while prefetching pauses the AI voice; nothing more is prefetched (robust-3)', async () => {

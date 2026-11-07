@@ -3,6 +3,7 @@ import { ArrowRight, Check, LoaderCircle, Play, TriangleAlert, VolumeX } from 'l
 import { PENDING_LABEL } from '../../components/pendingLabel';
 import { Icon } from '../../components/Icon';
 import { MAX_PLAYS } from '../../core/benchmark';
+import { sayOf } from '../../core/playback';
 import { prefetchSpeech } from '../../core/tts';
 import type { BenchmarkForm } from '../../data/benchmarkTypes';
 import {
@@ -23,7 +24,7 @@ import {
   typedOf,
   type TestState,
 } from './checkupModel';
-import { useCheckupAudio } from './useCheckupAudio';
+import { connectedLines, useCheckupAudio } from './useCheckupAudio';
 
 /** Ignore a second "next" within this window (held or double Enter). */
 const NEXT_GUARD_MS = 350;
@@ -75,12 +76,15 @@ export default function CheckupTest({
     else headRef.current?.focus({ preventScroll: true });
   }, [id, stop]);
 
-  // AI voice: generate this item's audio and the next one's in the background (no-op with the browser voice).
-  const linesOf = (it: ReturnType<typeof currentItem>) => (!it ? [] : it.kind === 'sentence' ? [it.sentence.text] : it.question.lines);
-  const after = advance(state, form);
-  const upcoming = [...linesOf(item), ...(after.done ? [] : linesOf(currentItem(after.state, form)))].join('\n');
+  // AI voice: generate this item's connected audio in the background (no-op with the browser voice). Only the current
+  // item (all its lines: they are played anyway): a free key allows a few speech requests a minute and ~30 a day.
+  const upcoming = (
+    !item ? [] : item.kind === 'sentence' ? connectedLines([item.sentence.text], sayOf(item.sentence)) : connectedLines(item.question.lines, item.question.say)
+  ).join('\n');
   useEffect(() => {
-    if (upcoming) prefetchSpeech(upcoming.split('\n'));
+    if (!upcoming) return;
+    const lines = upcoming.split('\n');
+    prefetchSpeech(lines, { mode: 'connected', ahead: lines.length - 1 });
   }, [upcoming]);
 
   const used = playsUsed(state, form);
@@ -94,7 +98,8 @@ export default function CheckupTest({
     if (!next) return;
     onChange(next); // saved before speaking: a reload never gives a free play
     setNudge(false);
-    void audio.play(id, item.kind === 'sentence' ? [item.sentence.text] : item.question.lines);
+    if (item.kind === 'sentence') void audio.play(id, [item.sentence.text], sayOf(item.sentence));
+    else void audio.play(id, item.question.lines, item.question.say);
   };
 
   const goNext = (force = false) => {

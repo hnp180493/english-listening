@@ -10,17 +10,18 @@ import { KEYS, loadJSON, saveJSON } from '../../core/storage';
 import { SENTENCES } from '../../data/sentences';
 import { Icon } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
-import PlayButton from '../../components/PlayButton';
+import ListenPair, { RealVoiceLink } from '../../components/ListenPair';
+import { annotationSpeech, youglishPhrase } from '../../core/playback';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
 import SpokenSentence from '../../components/SpokenSentence';
-import SpeakIconButton from '../lessons/SpeakIconButton';
 import AnnotationList, { AnnotationCard } from './AnnotationList';
 import PhenomenaGuide from './PhenomenaGuide';
 import { MAX_CUSTOM_LENGTH as SHADOW_TEXT_MAX } from '../shadowing/sources';
-import { EXAMPLES } from './examples';
+import { EXAMPLE_SAY, EXAMPLES, EXAMPLES_SHOWN } from './examples';
 import {
   addSentenceForDictation,
   addToHistory,
+  authoredSay,
   chipLabel,
   cleanInput,
   findBuiltin,
@@ -34,11 +35,8 @@ import './decoder.css';
 
 const DEBOUNCE_MS = 250;
 const NOTICE_MS = 4500;
-/** Sample chips shown while the input is empty (2 on phones, via CSS). */
-const SAMPLES_SHOWN = 3;
 /** "Gần đây" appears only once there is a real history (2+ entries) and the input is empty. */
 const HISTORY_MIN = 2;
-const SLOW_RATE = 0.7;
 const SHORTCUTS = [
   { keys: ['Enter'], text: 'Giải mã' },
   { keys: ['Shift', 'Enter'], text: 'Xuống dòng' },
@@ -311,6 +309,9 @@ export default function DecoderPage() {
       .trim() ||
     trimmed;
   const vi = picked && picked.text === query ? picked.vi : null;
+  // "Nghe" speaks the connected version: an authored `say` (built-in sentence / example), else the decoder's speakText
+  const say = authoredSay(query, EXAMPLE_SAY, picked && picked.text === query ? picked : null, SENTENCES);
+  const speechFor = (a: { from: number; to: number; original: string }) => annotationSpeech(a, result.segments);
   const announcement =
     announceFor !== null && announceFor === query && !stale && trimmed
       ? hasTokens
@@ -389,7 +390,8 @@ export default function DecoderPage() {
               Thử câu mẫu
             </h3>
             <div className="dec-examples-list" role="group" aria-labelledby="dec-examples-label">
-              {EXAMPLES.slice(0, SAMPLES_SHOWN).map((ex) => (
+              {/* EXAMPLES_SHOWN chips (2 on phones, via CSS) */}
+              {EXAMPLES.slice(0, EXAMPLES_SHOWN).map((ex) => (
                 <button
                   key={ex}
                   type="button"
@@ -472,8 +474,8 @@ export default function DecoderPage() {
               {vi && <p className="dec-vi">{vi}</p>}
 
               <div className="dec-play">
-                <PlayButton text={query} rate={1} label="Nghe" variant="soft" />
-                <SpeakIconButton text={query} rate={SLOW_RATE} size="md" />
+                <ListenPair text={query} decoded={result} say={say} size="md" />
+                <RealVoiceLink phrase={youglishPhrase(query, result)} />
               </div>
 
               {focusAnn && (
@@ -484,6 +486,7 @@ export default function DecoderPage() {
                     showIpa={showIpa}
                     onSelect={selectFromSentence}
                     as="div"
+                    speech={speechFor(focusAnn)}
                   />
                 </div>
               )}
@@ -498,6 +501,7 @@ export default function DecoderPage() {
                     selectedId={activeId}
                     showIpa={showIpa}
                     onSelect={selectFromList}
+                    speechFor={speechFor}
                   />
                 </details>
               )}

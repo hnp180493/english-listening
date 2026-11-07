@@ -1,13 +1,20 @@
 // Text-to-speech for every playback in the app.
 //
-// Two engines behind one speak():
-//  - 'browser' (default): speechSynthesis. Natural/neural voices (Edge "Microsoft … Online (Natural)",
-//    Chrome "Google US English") already produce fairly natural connected speech; we prefer them.
-//  - 'ai' (Settings.voiceEngine === 'ai' AND a usable AI speech provider in Cài đặt → AI): the clip comes
-//    from aiSpeak() (cached in IndexedDB, so replays are free) and plays through one shared
-//    HTMLAudioElement (./audioPlayer). The rate maps to playbackRate (0.5–1.5, pitch preserved).
-//    Any AI failure falls back to the browser voice for that playback and is reported once
-//    through useVoiceStatus() ("Giọng AI lỗi, đang dùng giọng trình duyệt: …").
+// Routes behind one speak(), tried in this order:
+//  - shipped clip (Settings.voiceEngine 'clips', the default "Giọng Gemini có sẵn", or 'ai'): a Gemini (Kore)
+//    clip generated once and shipped with the app in public/audio (or <portable folder>/audio), looked up by
+//    audioKey(mode, exact text) in the manifest (./audioManifest); a playback without a mode looks up
+//    audioKey('plain', text). No key, no request, no cost. It plays through the shared HTMLAudioElement at the
+//    requested rate, pitch preserved. A file that does not load falls through, silently, to the routes below
+//    (and is skipped for the rest of the session).
+//  - AI voice (ONLY Settings.voiceEngine === 'ai', an explicit choice, AND a usable AI speech provider in Cài đặt
+//    → AI): for texts without a clip. The clip comes from aiSpeak() (cached in IndexedDB, so replays are free)
+//    and plays through one shared HTMLAudioElement (./audioPlayer). The rate maps to playbackRate (0.5–1.5,
+//    pitch preserved). Any AI failure falls back to the browser voice for that playback and is reported once
+//    through useVoiceStatus() ("Giọng AI lỗi, đang dùng giọng trình duyệt: …"). The default 'clips' never pays:
+//    a text without a clip goes straight to the browser voice.
+//  - browser voice: speechSynthesis ('browser' always). Natural/neural voices (Edge "Microsoft … Online
+//    (Natural)", Chrome "Google US English") already produce fairly natural connected speech; we prefer them.
 //
 // No feature in the app uses speechSynthesis boundary events (word-by-word highlighting); dictation's
 // chunk highlighting is per speak() call, so it works the same with AI audio. onStart fires when the
@@ -16,6 +23,9 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { AiError, aiSpeak, aiStatus, aiVersion, defaultsFor, isAiError, useAiVersion, type AiErrorCode, type ProviderKind, type ProviderSummary } from './ai';
 import { clampClipRate, getClipPlayer } from './audioPlayer';
+import { audioKey, type AudioClipMode } from './audioKey';
+import { clipFileFor, clipUrl, loadAudioManifest, peekAudioManifest, reportClipFailure, reportClipSuccess, type AudioManifest } from './audioManifest';
+import { CAREFUL_STYLE, CONNECTED_STYLE, slowRate, type SpeechMode } from './playback';
 import { getSettings, useSettings } from './settings';
 
 // ───────────────────────────────────────────── browser voices
@@ -118,9 +128,9 @@ function ttsSnapshot(): { tts: ProviderSummary | null; sig: string } {
 }
 
 /**
- * The AI speech provider playback will use right now, or null for the browser voice: voiceEngine is
- * 'browser', no provider can speak, or the AI voice just failed in a way that needs the settings fixed
- * (or a network problem, for AI_COOLDOWN_MS).
+ * The AI speech provider playback will use right now (for texts without a shipped clip), or null for the browser
+ * voice: voiceEngine is not 'ai' (the paid AI voice is an explicit choice), no provider can speak, or the AI voice
+ * just failed in a way that needs the settings fixed (or a network problem, for AI_COOLDOWN_MS).
  */
 export function aiVoiceProvider(): ProviderSummary | null {
   if (getSettings().voiceEngine !== 'ai') return null;
@@ -175,8 +185,8 @@ const vlisteners = new Set<() => void>();
 const noticed = new Set<string>();
 /** Set by the first AI playback of the session; until then only the current sentence is prefetched. */
 let aiPlayedOnce = false;
-/** Texts held back by prefetchSpeech before the first AI playback (the next sentence): queued once it happens. */
-let heldBack: string[] = [];
+/** Clips held back by prefetchSpeech before the first AI playback (the next ones asked for): queued once it happens. */
+let heldBack: PrefetchJob[] = [];
 
 function setVoiceState(patch: Partial<VoiceStatus>): void {
   const next = { ...vstate, ...patch };
@@ -292,8 +302,31 @@ function reportAiSuccess(): void {
 
 // ───────────────────────────────────────────── speak / stop
 
+/** AI voice delivery style for a playback mode (undefined = the AI layer's default style). Part of the cache key. */
+export function styleFor(mode: SpeechMode | undefined): string | undefined {
+  if (mode === 'connected') return CONNECTED_STYLE;
+  if (mode === 'careful') return CAREFUL_STYLE;
+  return undefined;
+}
+
 export interface SpeakOptions {
   rate?: number; // overrides settings.rate
+  /**
+   * Playback mode (src/core/playback.ts). The caller already chose the TEXT (connected spelling vs standard);
+   * this picks the AI voice's delivery style: 'connected' → CONNECTED_STYLE, 'careful' → CAREFUL_STYLE, omitted
+   * → the AI layer's default style (single words, minimal pairs, samples). The browser voice ignores it.
+   */
+  mode?: SpeechMode;
+  /**
+   * A slowed playback (dictation "Chậm", the quiz turtle): never faster than 0.8 × the learner's rate (slowRate in
+   * playback.ts). Careful mode is always slow. Default false.
+   */
+  slow?: boolean;
+  /**
+   * Never the paid AI voice for this playback (when the browser has a voice): many short clips in a row (dictation
+   * "Từng cụm") would spend a free key's few requests per minute in one press. A shipped clip still plays (free).
+   */
+  browserOnly?: boolean;
   /** Called when sound actually starts (for the AI voice: after the clip was generated). */
   onStart?: () => void;
   /**
@@ -310,7 +343,7 @@ export interface SpeakOptions {
  * even when the browser never fires 'end'/'error'.
  */
 interface Current {
-  engine: 'browser' | 'ai';
+  engine: 'browser' | 'ai' | 'static';
   u: SpeechSynthesisUtterance | null;
   settle: () => void;
   id: number;
@@ -342,11 +375,158 @@ export function speakWatchdogMs(text: string, rate: number): number {
 export function speak(text: string, opts: SpeakOptions = {}): Promise<void> {
   return new Promise((resolve) => {
     if (!text.trim()) return resolve();
-    const ai = aiVoiceProvider();
-    if (ai) return speakAi(ai, text, opts, resolve);
-    if (!speechSynthesisSupported()) return resolve();
-    speakBrowser(text, opts, resolve, ++lastId);
+    if (staticEligible()) {
+      const m = peekAudioManifest();
+      if (!m) return speakAfterManifest(text, opts, resolve);
+      const file = staticClipFor(m, text, clipMode(opts.mode));
+      if (file) return speakStatic(file, text, opts, resolve);
+    }
+    speakDynamic(text, opts, resolve);
   });
+}
+
+/** The routes after the shipped clips: AI voice (when chosen and usable; never for browserOnly), else the browser voice. */
+function speakDynamic(text: string, opts: SpeakOptions, resolve: () => void): void {
+  const ai = opts.browserOnly && speechSynthesisSupported() ? null : aiVoiceProvider();
+  if (ai) return speakAi(ai, text, opts, resolve);
+  if (!speechSynthesisSupported()) return resolve();
+  speakBrowser(text, opts, resolve, ++lastId);
+}
+
+// ───────────────────────────────────────────── shipped clips (public/audio)
+
+/** A shipped clip that has not started sounding after this long is given up (slow or stuck network). */
+export const STATIC_LOAD_TIMEOUT_MS = 8000;
+/** The spinner shows only when a shipped clip takes longer than this to start (local files are instant). */
+const STATIC_PENDING_DELAY_MS = 250;
+
+/**
+ * Shipped clips are used unless the learner chose "Giọng trình duyệt": with the default "Giọng Gemini có sẵn"
+ * ('clips') and with 'ai'. Every playback may have one: per mode (connected / careful), and 'plain' for a playback
+ * without a mode (words, minimal pairs, as-written sentences). browserOnly playback (dictation "Từng cụm") plays
+ * them too: browserOnly only keeps the paid AI voice out.
+ */
+function staticEligible(): boolean {
+  return getSettings().voiceEngine !== 'browser';
+}
+
+/** Which clip a playback looks for: its mode, or 'plain' without one. */
+function clipMode(mode: SpeechMode | undefined): AudioClipMode {
+  return mode ?? 'plain';
+}
+
+function staticClipFor(m: AudioManifest, text: string, mode: AudioClipMode): string | null {
+  if (m.size === 0) return null;
+  return clipFileFor(m, audioKey(mode, text));
+}
+
+/** First playback of the session: the manifest is still loading. Holds the playback (stoppable) until it is known. */
+function speakAfterManifest(text: string, opts: SpeakOptions, resolve: () => void): void {
+  const id = ++lastId;
+  current?.settle();
+  if (speechSynthesisSupported()) window.speechSynthesis.cancel();
+  getClipPlayer().prime(); // still inside the click
+  let done = false;
+  const entry: Current = {
+    engine: 'static',
+    u: null,
+    id,
+    owner: opts.owner ?? null,
+    settle: () => {
+      if (done) return;
+      done = true;
+      if (current === entry) current = null;
+      resolve();
+    },
+  };
+  current = entry;
+  void loadAudioManifest().then((m) => {
+    if (done || current !== entry) return; // stopped or replaced meanwhile
+    done = true;
+    current = null;
+    const file = staticClipFor(m, text, clipMode(opts.mode));
+    if (file) speakStatic(file, text, opts, resolve);
+    else speakDynamic(text, opts, resolve);
+  });
+}
+
+function speakStatic(file: string, text: string, opts: SpeakOptions, resolve: () => void): void {
+  const id = ++lastId;
+  const owner = opts.owner ?? null;
+  const player = getClipPlayer();
+  current?.settle();
+  if (speechSynthesisSupported()) window.speechSynthesis.cancel();
+  player.prime();
+
+  let done = false;
+  let sounding = false;
+  let watchdog: ReturnType<typeof setTimeout> | undefined;
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  let spinner: ReturnType<typeof setTimeout> | undefined;
+  const finish = () => {
+    if (done) return false;
+    done = true;
+    clearTimeout(watchdog);
+    clearTimeout(deadline);
+    clearTimeout(spinner);
+    if (current === entry) current = null;
+    clearPending(id);
+    return true;
+  };
+  const entry: Current = {
+    engine: 'static',
+    u: null,
+    id,
+    owner,
+    settle: () => {
+      if (!finish()) return;
+      player.stop();
+      resolve();
+    },
+  };
+  current = entry;
+  spinner = setTimeout(() => {
+    if (!done && !sounding) setPending(id, owner);
+  }, STATIC_PENDING_DELAY_MS);
+
+  // Generated with the same styles as the AI voice, so the same rates apply (a careful clip is slow already).
+  const rate = clampClipRate(slowRate(opts.rate, getSettings().rate, { mode: opts.mode, slow: opts.slow, engine: 'ai' }));
+  const fallBack = (e: unknown) => {
+    if (!finish()) return;
+    // A clip that is still loading (timeout) must not start later on top of the fallback voice.
+    player.stop();
+    const blocked = e instanceof Error && e.name === 'NotAllowedError'; // autoplay policy: not the file's fault
+    if (blocked) {
+      if (!speechSynthesisSupported()) return resolve();
+      return speakBrowser(text, opts, resolve, id);
+    }
+    reportClipFailure(file);
+    speakDynamic(text, opts, resolve);
+  };
+  deadline = setTimeout(() => {
+    if (!sounding) fallBack(new Error('timeout'));
+  }, STATIC_LOAD_TIMEOUT_MS);
+
+  player
+    .playUrl(clipUrl(file), rate, () => {
+      if (done) return;
+      sounding = true;
+      clearTimeout(deadline);
+      clearTimeout(spinner);
+      clearPending(id);
+      reportClipSuccess();
+      watchdog = setTimeout(() => entry.settle(), speakWatchdogMs(text, rate) * 1.5);
+      opts.onStart?.();
+    })
+    .then(
+      () => {
+        if (finish()) resolve();
+      },
+      (e: unknown) => {
+        sounding = false;
+        fallBack(e);
+      },
+    );
 }
 
 function speakBrowser(text: string, opts: SpeakOptions, resolve: () => void, id: number): void {
@@ -362,7 +542,7 @@ function speakBrowser(text: string, opts: SpeakOptions, resolve: () => void, id:
   } else {
     u.lang = 'en-US';
   }
-  const rate = Math.min(2, Math.max(0.3, opts.rate ?? settings.rate));
+  const rate = Math.min(2, Math.max(0.3, slowRate(opts.rate, settings.rate, { mode: opts.mode, slow: opts.slow, engine: 'browser' })));
   u.rate = rate;
   let done = false;
   let watchdog: ReturnType<typeof setTimeout> | undefined;
@@ -425,7 +605,7 @@ function speakAi(ai: ProviderSummary, text: string, opts: SpeakOptions, resolve:
   current = entry;
   setPending(id, owner);
 
-  const rate = clampClipRate(opts.rate ?? getSettings().rate);
+  const rate = clampClipRate(slowRate(opts.rate, getSettings().rate, { mode: opts.mode, slow: opts.slow, engine: 'ai' }));
   const fallBack = (e: unknown) => {
     if (!finish()) return;
     const blocked = e instanceof Error && e.name === 'NotAllowedError'; // autoplay policy, not an AI problem
@@ -448,12 +628,12 @@ function speakAi(ai: ProviderSummary, text: string, opts: SpeakOptions, resolve:
   // identical requests in flight are shared by aiSpeak (double click, StrictMode, prefetch).
   // The request is still bounded by AI_PLAY_TIMEOUT_MS and is not retried: a 429/5xx falls back at
   // once and pauses the AI voice, instead of sleeping through the server's retry delay inside a click.
-  const flight = aiSpeak(text, { timeoutMs: AI_PLAY_TIMEOUT_MS, retries: 0 });
+  const flight = aiSpeak(text, { timeoutMs: AI_PLAY_TIMEOUT_MS, retries: 0, style: styleFor(opts.mode) });
   // the learner listens with the AI voice: now the next sentence held back by prefetchSpeech is worth making
   if (firstPlay && heldBack.length) {
     const later = heldBack;
     heldBack = [];
-    prefetchSpeech(later);
+    enqueuePrefetch(later);
   }
   flight.then(
     (res) => {
@@ -481,7 +661,7 @@ function speakAi(ai: ProviderSummary, text: string, opts: SpeakOptions, resolve:
 export function stopSpeaking(): void {
   const cur = current;
   cur?.settle();
-  if (cur?.engine === 'ai') getClipPlayer().stop();
+  if (cur && cur.engine !== 'browser') getClipPlayer().stop();
   if (speechSynthesisSupported()) window.speechSynthesis.cancel();
 }
 
@@ -501,52 +681,96 @@ export function stopSpeakingIfOwner(owner: object): boolean {
 export const PREFETCH_CONCURRENCY = 2;
 /** Older queued texts are dropped beyond this (the learner moved on). */
 export const PREFETCH_QUEUE_MAX = 12;
+/**
+ * Default number of items prefetched AFTER the current one. 0 = the current item only: a free Gemini key allows a
+ * few speech requests per minute and ~30 a day, so speculative clips would eat the quota the learner needs.
+ */
+export const PREFETCH_AHEAD_DEFAULT = 0;
 
-const prefetchQueue: string[] = [];
-const prefetchKnown = new Set<string>(); // queued or running
+export interface PrefetchOptions {
+  /** Playback mode the clips will be played with (its AI style is part of the cache key). 'careful' is never prefetched. */
+  mode?: SpeechMode;
+  /** How many texts after the first to prefetch (default PREFETCH_AHEAD_DEFAULT = none). */
+  ahead?: number;
+}
+
+interface PrefetchJob {
+  text: string;
+  style: string | undefined;
+}
+
+const prefetchQueue: PrefetchJob[] = [];
+const prefetchKnown = new Set<string>(); // queued or running, by jobKey
 let prefetchRunning = 0;
 
+const jobKey = (j: PrefetchJob) => `${j.style ?? ''}\u0000${j.text}`;
+
 /**
- * Warms the AI speech cache for texts the learner will probably hear next (the current and the next
- * dictation sentence, checkup item …). No-op with the browser voice. Each text is a paid request, so
- * until the learner has played something with the AI voice this session only the first text (the
- * current sentence) is generated. Failures are quiet, except ones that need the settings fixed and rate
- * limits (they pause the AI voice and show the notice). Nothing is prefetched while the AI voice is
- * paused or once the learner's own daily cap is reached.
+ * Warms the AI speech cache for what the learner will hear next: by default ONLY the first text (the current
+ * dictation sentence, checkup item …); `ahead` allows more. Pass the same `mode` the playback will use, so the
+ * clip lands under the same cache key (text + style). No-op with the browser voice, and for 'careful' playback
+ * (an on-demand contrast, not worth a speculative request). Until the learner has played something with the AI
+ * voice this session only the first text is generated; the rest (within `ahead`) waits for that first playback.
+ * Failures are quiet, except ones that need the settings fixed and rate limits (they pause the AI voice and show
+ * the notice). Nothing is prefetched while the AI voice is paused or once the learner's own daily cap is reached.
  */
-export function prefetchSpeech(texts: readonly string[]): void {
+export function prefetchSpeech(texts: readonly string[], opts: PrefetchOptions = {}): void {
+  if (opts.mode === 'careful') return;
   if (!aiVoiceProvider() || overSelfCap()) return;
-  if (!aiPlayedOnce) heldBack = texts.slice(1).filter((t) => typeof t === 'string' && !!t.trim());
-  for (const t of aiPlayedOnce ? texts : texts.slice(0, 1)) {
-    const clean = typeof t === 'string' ? t.trim() : '';
-    if (!clean || prefetchKnown.has(clean)) continue;
-    prefetchKnown.add(clean);
-    prefetchQueue.push(clean);
+  const style = styleFor(opts.mode);
+  const ahead = Math.max(0, Math.floor(opts.ahead ?? PREFETCH_AHEAD_DEFAULT));
+  const jobs: PrefetchJob[] = texts
+    .slice(0, 1 + ahead)
+    .map((t) => (typeof t === 'string' ? t.trim() : ''))
+    .filter((t) => !!t)
+    .map((text) => ({ text, style }));
+  const queue = (list: PrefetchJob[]) => {
+    if (!aiPlayedOnce) {
+      heldBack = list.slice(1);
+      enqueuePrefetch(list.slice(0, 1));
+    } else enqueuePrefetch(list);
+  };
+  // Never pay for a clip the app ships: texts with a shipped clip play that file instead.
+  if (!staticEligible()) return queue(jobs);
+  const mode = clipMode(opts.mode);
+  const withoutShipped = (m: AudioManifest) => jobs.filter((j) => !staticClipFor(m, j.text, mode));
+  const m = peekAudioManifest();
+  if (m) return queue(withoutShipped(m));
+  void loadAudioManifest().then((loaded) => queue(withoutShipped(loaded)));
+}
+
+function enqueuePrefetch(jobs: readonly PrefetchJob[]): void {
+  if (!aiVoiceProvider() || overSelfCap()) return;
+  for (const j of jobs) {
+    const k = jobKey(j);
+    if (prefetchKnown.has(k)) continue;
+    prefetchKnown.add(k);
+    prefetchQueue.push(j);
   }
   while (prefetchQueue.length > PREFETCH_QUEUE_MAX) {
     const dropped = prefetchQueue.shift();
-    if (dropped !== undefined) prefetchKnown.delete(dropped);
+    if (dropped !== undefined) prefetchKnown.delete(jobKey(dropped));
   }
   pumpPrefetch();
 }
 
 function pumpPrefetch(): void {
   while (prefetchRunning < PREFETCH_CONCURRENCY && prefetchQueue.length) {
-    const text = prefetchQueue.shift() as string;
+    const job = prefetchQueue.shift() as PrefetchJob;
     if (!aiVoiceProvider() || overSelfCap()) {
       prefetchQueue.length = 0;
       prefetchKnown.clear();
       return;
     }
     prefetchRunning++;
-    aiSpeak(text, { retries: 1, timeoutMs: AI_PREFETCH_TIMEOUT_MS })
+    aiSpeak(job.text, { retries: 1, timeoutMs: AI_PREFETCH_TIMEOUT_MS, style: job.style })
       .catch((e: unknown) => {
         if (!isAiError(e) || isSelfCap(e)) return;
         if (HARD_CODES.has(e.code) || e.code === 'rate-limit') reportAiFailure(e);
       })
       .finally(() => {
         prefetchRunning--;
-        prefetchKnown.delete(text);
+        prefetchKnown.delete(jobKey(job));
         pumpPrefetch();
       });
   }

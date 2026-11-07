@@ -6,8 +6,10 @@ import type { DecodeResult, SpokenSegment } from '../../core/types';
 export interface Step {
   from: number; // first token index
   to: number; // last token index
-  text: string; // written words, fed to TTS
+  text: string; // written words
   spoken: string; // respelling, shown to the learner
+  /** What TTS says: the segments' connected forms (SpokenSegment.speak: "Tellim I'll"), else the written words. */
+  speak: string;
   words: number;
 }
 
@@ -40,6 +42,7 @@ export function buildSteps(result: DecodeResult, maxWords = 4): Step[] {
         to: cur[cur.length - 1].to,
         text,
         spoken: cur.map((s) => s.spoken).join(' ').trim(),
+        speak: cur.map((s) => (s.speak?.trim() ? s.speak.trim() : s.written)).join(' ').trim(),
         words,
       });
     } else if (steps.length > 0) {
@@ -47,6 +50,7 @@ export function buildSteps(result: DecodeResult, maxWords = 4): Step[] {
       const prev = steps[steps.length - 1];
       prev.to = cur[cur.length - 1].to;
       prev.text = `${prev.text} ${text}`.trim();
+      prev.speak = `${prev.speak} ${text}`.trim();
     }
     cur = [];
     curWords = 0;

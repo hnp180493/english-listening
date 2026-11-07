@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { CircleCheck, Play, RotateCcw, Square } from 'lucide-react';
 import { Icon } from '../../components/Icon';
+import { connectedText } from '../../core/playback';
 import { speak, stopSpeaking, ttsSupported } from '../../core/tts';
 import type { DecodeResult } from '../../core/types';
 import { buildSteps, repeatPauseMs } from './steps';
@@ -102,7 +103,7 @@ export default function StepGuide({ result, interruptKey, disabled, onFinished }
     };
     for (let i = start; i < steps.length; i++) {
       setRun({ index: i, phase: 'listen' });
-      await speak(steps[i].text, { rate: STEP_RATE });
+      await speak(steps[i].speak, { rate: STEP_RATE, mode: 'connected' });
       if (cancelled()) return;
       setRun({ index: i, phase: 'repeat', ms: repeatPauseMs(steps[i].words, STEP_RATE) });
       await wait(repeatPauseMs(steps[i].words, STEP_RATE));
@@ -111,7 +112,7 @@ export default function StepGuide({ result, interruptKey, disabled, onFinished }
     if (steps.length > 1) {
       const words = steps.reduce((n, s) => n + s.words, 0);
       setRun({ index: -1, phase: 'listen' });
-      await speak(result.input, { rate: STEP_RATE });
+      await speak(connectedText(result.input, result), { rate: STEP_RATE, mode: 'connected' });
       if (cancelled()) return;
       setRun({ index: -1, phase: 'repeat', ms: repeatPauseMs(words, STEP_RATE) });
       await wait(repeatPauseMs(words, STEP_RATE));
@@ -126,7 +127,7 @@ export default function StepGuide({ result, interruptKey, disabled, onFinished }
 
   const playOne = (i: number) => {
     stop();
-    void speak(steps[i].text, { rate: STEP_RATE });
+    void speak(steps[i].speak, { rate: STEP_RATE, mode: 'connected' });
   };
 
   if (steps.length === 0) return null;

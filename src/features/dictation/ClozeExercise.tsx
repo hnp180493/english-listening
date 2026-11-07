@@ -7,10 +7,10 @@ import { makeHint } from '../../core/dictation/hint';
 import { normalizeText, splitWords } from '../../core/dictation/normalize';
 import type { Annotation, Phenomenon, Sentence } from '../../core/types';
 import { NEXT_GUARD_MS } from './constants';
-import { chunksOf, safeDecode, targetTokens } from './decodeCache';
+import { chunksOf, dictationAudio, safeDecode, targetTokens } from './decodeCache';
 import type { CheckedInfo } from './Exercise';
 import FollowUps from './FollowUps';
-import ListenControls from './ListenControls';
+import ListenControls, { CarefulListen } from './ListenControls';
 import { Meaning, ResultActions, Verdict, type Tone } from './ResultParts';
 import { isCoarsePointer, usePlayer } from './usePlayer';
 import { AnnotationCard, PhenomenonChips } from './WhyWrong';
@@ -56,7 +56,8 @@ export default function ClozeExercise({
   const [activeAnn, setActiveAnn] = useState<string | null>(null);
 
   const rootRef = useRef<HTMLElement>(null);
-  const player = usePlayer(sentence.text, chunks, { autoPlay, rootRef });
+  const audio = useMemo(() => dictationAudio(sentence), [sentence]);
+  const player = usePlayer(audio, chunks, { autoPlay, rootRef });
   const { canSpeak, plays, play, stop } = player;
 
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
@@ -257,7 +258,7 @@ export default function ClozeExercise({
                 <h3 className="dict-h3">Vì sao chỗ này khó nghe?</h3>
                 <div className="dict-ann-list">
                   {missedAnns.map((a) => (
-                    <AnnotationCard key={a.id} a={a} onPlayStart={stop} />
+                    <AnnotationCard key={a.id} a={a} onPlayStart={stop} segments={decoded.segments} />
                   ))}
                 </div>
               </>
@@ -293,8 +294,9 @@ export default function ClozeExercise({
                   onAnnotationClick={(id) => setActiveAnn((cur) => (cur === id ? null : id))}
                 />
               </div>
+              <CarefulListen player={player} />
               {activeAnnotation && !missedAnns.includes(activeAnnotation) && (
-                <AnnotationCard a={activeAnnotation} active onPlayStart={stop} />
+                <AnnotationCard a={activeAnnotation} active onPlayStart={stop} segments={decoded.segments} />
               )}
             </section>
           )}

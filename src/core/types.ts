@@ -40,6 +40,8 @@ export interface Annotation {
   to: number; // last token index (inclusive); from === to for intra-word events (water → wadder)
   original: string; // written words, e.g. "want you"
   spoken: string; // readable respelling, e.g. "wan-chu"
+  /** TTS text of just this event (connected, see DecodeResult.speakText): "Tell him" → "Tellim". Set by decode(). */
+  speak?: string;
   ipa?: string; // optional IPA, e.g. "/ˈwɑːntʃu/"
   rule: string; // Vietnamese explanation, 1–2 sentences
 }
@@ -55,6 +57,12 @@ export interface SpokenSegment {
   written: string; // the raw words joined with spaces
   spoken: string; // respelling of how it sounds
   annotationIds: string[]; // annotations touching this segment (may be empty)
+  /**
+   * TTS text for this chunk as it is said in connected speech: eye dialect an engine reads as intended
+   * ("tellim", "gonna", "gedda"), ASCII letters/apostrophes/spaces plus the raw punctuation. Always set by
+   * decode(); optional only so hand-built segments still type-check. Fallback: `written`.
+   */
+  speak?: string;
 }
 
 export interface DecodeResult {
@@ -63,6 +71,13 @@ export interface DecodeResult {
   annotations: Annotation[];
   segments: SpokenSegment[];
   spokenText: string; // the full sentence as it sounds, segments' spoken joined by spaces
+  /**
+   * The CONNECTED version to send to a TTS engine: the input with each reduction spelled so engines say it
+   * ("Whaddaya wanna do?", "Tellim I'll callim back."). Keeps the input's punctuation and spacing; equals the input
+   * when nothing changes. Always set by decode(); optional only for hand-built results. Playback: use
+   * speakableFor(text, override) from core/decoder, which also applies an authored `say`.
+   */
+  speakText?: string;
 }
 
 export type Level = 1 | 2 | 3; // 1 = dễ (chậm, ngắn), 2 = vừa, 3 = khó (nhanh, nhiều biến âm)
@@ -75,6 +90,7 @@ export interface Sentence {
   level: Level;
   topic: string; // short Vietnamese topic label, e.g. "Công việc"
   focus: Phenomenon[]; // main phenomena present (author-labelled)
+  say?: string; // optional authored connected TTS text (eye dialect), used instead of decode(text).speakText
 }
 
 /** A high-frequency chunk used by the drill module. */

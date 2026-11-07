@@ -25,6 +25,18 @@ import { KEYS, loadJSON, onAppWrite, removeKey, saveJSON, STORAGE_PREFIX } from 
 import { PHENOMENA, type DecodeResult, type Phenomenon } from './types';
 
 export const CHECKUP_RATE = 1;
+/**
+ * How the checkup audio is made. 'connected': the speakable connected-speech spelling (src/core/playback.ts), what
+ * new results record. 'standard': results saved before that change (no `audioMode` field): the standard written
+ * text read by the voice, clearer and easier. Scores across the two are a different condition (like a voice change).
+ */
+export type CheckupAudioMode = 'connected' | 'standard';
+export const CHECKUP_AUDIO_MODE = 'connected' as const;
+
+/** Audio mode of a saved result: 'standard' for older results without the field. */
+export function audioModeOf(r: object): CheckupAudioMode {
+  return (r as { audioMode?: unknown }).audioMode === 'connected' ? 'connected' : 'standard';
+}
 export const MAX_PLAYS = 2;
 /** Recommended days between checkups. */
 export const CHECKUP_CADENCE_DAYS = 14;
@@ -55,6 +67,8 @@ export interface CheckupResult {
   at: number; // epoch ms the test was finished
   form: BenchmarkFormId;
   voiceName: string | null; // TTS voice used (a change makes scores less comparable)
+  /** 'connected' = the audio was the connected-speech version. Absent on older results (standard text, see audioModeOf). */
+  audioMode?: 'connected';
   rate: 1;
   dictation: {
     words: number; // Σ totalWords
@@ -247,6 +261,7 @@ export function buildCheckupResult(input: BuildResultInput): CheckupResult {
     at: input.now,
     form: input.form.id,
     voiceName: typeof input.voiceName === 'string' && input.voiceName ? input.voiceName.slice(0, 200) : null,
+    audioMode: CHECKUP_AUDIO_MODE,
     rate: CHECKUP_RATE,
     dictation: { words: d.words, correct: d.correct, extra: d.extra, pct: d.pct, items: d.items },
     comprehension: { correct: c.correct, total: c.total, pct: c.pct, items: c.items },
@@ -308,6 +323,7 @@ export function sanitizeResult(raw: unknown): CheckupResult | null {
     at: raw.at,
     form: raw.form,
     voiceName: typeof raw.voiceName === 'string' && raw.voiceName ? raw.voiceName.slice(0, 200) : null,
+    ...(raw.audioMode === 'connected' ? { audioMode: 'connected' as const } : {}),
     rate: CHECKUP_RATE,
     dictation: { words, correct, extra, pct: dPct, items: dItems },
     comprehension: { correct: cCorrect, total, pct: cPct, items: cItems },
@@ -388,6 +404,16 @@ export interface CheckupComparison {
   vsFirst: CheckupDelta | null;
   /** The TTS voice differs between the compared tests (prev or first vs latest). */
   voiceChanged: boolean;
+  /**
+   * The audio mode differs from the test compared against just before (the previous one, or the first when there is
+   * no other): older 'standard' text vs 'connected' speech, a different test condition. Shown as a caveat.
+   */
+  audioModeChanged: boolean;
+  /**
+   * Only the FIRST test used another audio mode (the previous one did not): the vs-first numbers cross conditions.
+   * Said once, quietly ("lần đầu dùng giọng đọc chuẩn"), not as the full caveat on every later checkup.
+   */
+  firstAudioModeDiffers: boolean;
   phenomena: PhenomenonChange[]; // first vs latest, phenomena seen in either, PHENOMENA order
 }
 
@@ -425,12 +451,17 @@ export function compare(first: CheckupResult, prev: CheckupResult | null, latest
     }
   }
   const voiceChanged = !isBaseline && ((p !== null && p.voiceName !== latest.voiceName) || first.voiceName !== latest.voiceName);
+  const mode = audioModeOf(latest);
+  const firstDiffers = !isBaseline && audioModeOf(first) !== mode;
+  const audioModeChanged = !isBaseline && (p !== null ? audioModeOf(p) !== mode : firstDiffers);
   return {
     latest,
     isBaseline,
     vsPrev: p ? delta(p, latest) : null,
     vsFirst: isBaseline ? null : delta(first, latest),
     voiceChanged,
+    audioModeChanged,
+    firstAudioModeDiffers: firstDiffers && !audioModeChanged,
     phenomena,
   };
 }

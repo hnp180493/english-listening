@@ -68,11 +68,15 @@ options never assume the speaker's gender (the voice is the learner's choice); a
 
 Content rules: everyday American speech, standard spelling ("going to"), no digits, no names to guess, no rare
 words (a vocabulary gap is not a listening gap), no sentence whose typed form depends on a sound the audio does not
-carry (were/we're, iced/ice, we'd/we'll before a consonant). "Why" texts never claim the TTS voice reduced a form:
-they say "khi nói nhanh thường thành 'gonna'", because the voices read the written text.
+carry (were/we're, iced/ice, we'd/we'll before a consonant). "Why" texts still say "khi nói nhanh thường thành
+'gonna'" rather than claiming the voice did it: a machine voice only approximates real connected speech.
 
 Rules of the test: natural speed (rate 1, the voice from Settings), at most 2 plays per item, no slow play, no
-hints. Passage options are shuffled per attempt (`optionOrder`, seeded by the test start and question id; the stored
+hints. **Audio = the connected version** (`src/core/playback.ts`): each line is spoken as the item's authored `say`,
+else the decoder's `speakText` (eye-dialect such as "Whaddaya wanna do?"), with the connected AI style; the test
+measures understanding of natural speech, not of a newsreader reading the written text. Results record
+`audioMode: 'connected'`; results saved before this change have no field and count as `'standard'`
+(`benchmark.audioModeOf`). Only the current item is prefetched for the AI voice (free keys are rate-limited). Passage options are shuffled per attempt (`optionOrder`, seeded by the test start and question id; the stored
 `chosen` is the original index), so the position of an answer cannot be learnt.
 
 **Score** = round(0.6 × dictation word accuracy % + 0.4 × comprehension %). Dictation uses the dictation
@@ -133,7 +137,14 @@ The constants live in `core/progressReport.ts`; weakening one needs a reason wri
 - **Checkup score**: a change of `SCORE_NOISE` (10) points or less is "chưa thay đổi rõ"; until
   `MIN_TREND_CHECKUPS` (4) tests every change says "mới có N lần đo"; from 4 tests the trend compares the mean of
   the first 2 with the mean of the last 2; a series that goes up and down is "dao động từ … đến …"; quick retakes
-  (< 7 days) are left out; a repeated form, a TTS voice change and a last test older than 28 days are mentioned.
+  (< 7 days) are left out; a repeated form, a TTS voice change, an **audio-mode change** and a last test older
+  than 28 days are mentioned. Audio mode: comparing older standard-text results with connected-speech ones is a
+  different condition (the connected audio is harder). `compare()` sets `audioModeChanged` only when the test
+  compared just before (the previous one, or the first when there is no other) used the other mode: the report's
+  `voiceNote` (the test-condition caveat) and the insight add `AUDIO_MODE_NOTE` and the result screen shows the
+  caveat. Once the previous test was connected too, the caveat goes away; if only the FIRST test was standard,
+  `firstAudioModeDiffers` adds the quiet one-liner `FIRST_AUDIO_MODE_NOTE` ("lần đầu dùng giọng đọc chuẩn …") to the
+  vs-first sentence instead. Older results are never rescored or dropped.
   The dictation % is given next to the score, since it is the steadier part.
 - **Phenomena**: pooled first half vs second half of the tests, at least `MIN_PHENOMENON_SENTENCES` (5) sentences
   on each side and a change of at least 30 points, said with "có vẻ" and with counts ("sót 4/6 câu → 1/6 câu"),

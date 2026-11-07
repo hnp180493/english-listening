@@ -3,6 +3,7 @@
 import { decode } from '../../core/decoder';
 import { clozeTokens } from '../../core/dictation/cloze';
 import { splitWords } from '../../core/dictation/normalize';
+import { connectedText, sayOf, segmentSpeech } from '../../core/playback';
 import type { DecodeResult, Phenomenon } from '../../core/types';
 
 const MAX_CACHE = 800;
@@ -63,8 +64,60 @@ function fallbackChunks(words: readonly string[]): string[] {
   return out;
 }
 
-/** Sound-chunks for "Từng cụm" playback. */
+/** A chunk too small to be spoken alone: one short word ("A" is read as the letter /eɪ/, "I'm", "just"). */
+function tooShort(chunk: string): boolean {
+  const ws = chunk.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
+  return ws.length === 1 && ws[0].replace(/[^\p{L}]/gu, '').length <= 4;
+}
+
+/**
+ * Join one-short-word chunks to their neighbour ("A" + "cuppa" → "A cuppa", "I'm" + "just" → "I'm just", a final
+ * "it." joins the chunk before): alone, an engine reads "A" as a letter, and every chunk is one more voice request.
+ */
+export function mergeShortChunks(chunks: readonly string[]): string[] {
+  const out: string[] = [];
+  let carry = '';
+  for (let k = 0; k < chunks.length; k++) {
+    const c = carry ? `${carry} ${chunks[k]}` : chunks[k];
+    carry = '';
+    const endsPhrase = /[,.;:!?…]["'”’)]*$/.test(c);
+    if (tooShort(c) && !endsPhrase && k < chunks.length - 1) {
+      carry = c; // said together with the next chunk
+    } else if (tooShort(c) && endsPhrase && out.length > 0) {
+      out[out.length - 1] = `${out[out.length - 1]} ${c}`; // a short phrase end ("it.") joins the previous chunk
+    } else {
+      out.push(c);
+    }
+  }
+  if (carry) out.push(carry);
+  return out;
+}
+
+/**
+ * Sound-chunks for "Từng cụm" playback: each segment's speakable (connected) form, else its words, with one-short-
+ * word chunks joined to a neighbour (mergeShortChunks).
+ */
 export function chunksOf(decoded: DecodeResult, words: readonly string[]): string[] {
-  const segs = decoded.segments.map((s) => s.written).filter((w) => w && /[\p{L}\p{N}]/u.test(w));
-  return segs.length ? segs : fallbackChunks(words);
+  const segs = decoded.segments
+    .filter((s) => s.written && /[\p{L}\p{N}]/u.test(s.written))
+    .map((s) => segmentSpeech(s))
+    .filter((w) => /[\p{L}\p{N}]/u.test(w));
+  return mergeShortChunks(segs.length ? segs : fallbackChunks(words));
+}
+
+/** What a dictation sentence sounds like in the exercise: the connected version, and the careful (standard) text. */
+export interface DictationAudio {
+  /** Connected version (authored `say`, else the decoder's speakText, else the text): the exercise audio. */
+  connected: string;
+  /** Standard written text: "Rõ từng từ", only after checking. */
+  careful: string;
+  level?: number;
+}
+
+export function dictationAudio(sentence: { text: string; level?: number }): DictationAudio {
+  return {
+    connected: connectedText(sentence.text, safeDecode(sentence.text), sayOf(sentence)),
+    careful: sentence.text,
+    level: sentence.level,
+  };
 }

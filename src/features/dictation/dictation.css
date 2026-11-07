@@ -1033,3 +1033,12 @@
     font-size: 16px;
   }
 }
+
+/* "Nghe rõ từng từ" after checking: a quiet ghost button under the spoken sentence */
+.dict-careful {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin-top: calc(-1 * var(--space-1));
+}

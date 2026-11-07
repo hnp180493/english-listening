@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Square, Volume2 } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import { PENDING_ARIA } from '../../components/pendingLabel';
+import type { SpeechMode } from '../../core/playback';
 import { speak, stopSpeakingIfOwner, ttsSupported, useSpeechPending } from '../../core/tts';
 
-/** Ghost icon button that speaks `text` (click again to stop): the one trailing control of a list row. */
-export default function ListenIcon({ text, label }: { text: string; label: string }) {
+/**
+ * Ghost icon button that speaks `text` (click again to stop): the one trailing control of a list row. Chunk rows
+ * pass their ttsText (eye dialect) with mode 'connected' (the default), so the AI voice gets the casual style too.
+ */
+export default function ListenIcon({ text, label, mode = 'connected' }: { text: string; label: string; mode?: SpeechMode }) {
   const [playing, setPlaying] = useState(false);
   const [owner] = useState<object>(() => ({}));
   const pending = useSpeechPending(owner); // AI voice being generated
@@ -29,7 +33,7 @@ export default function ListenIcon({ text, label }: { text: string; label: strin
       return;
     }
     setPlaying(true);
-    await speak(text, { rate: 1, owner });
+    await speak(text, { rate: 1, owner, mode });
     if (alive.current && g === gen.current) setPlaying(false);
   };
 

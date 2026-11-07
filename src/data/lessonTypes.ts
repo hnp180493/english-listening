@@ -13,6 +13,12 @@ export type { CourseId, CourseMeta, LessonMeta } from '../core/lessons';
 export interface LessonExample {
   text: string; // natural written English
   note?: string; // short Vietnamese note
+  /**
+   * Connected TTS text: how the engine must SAY it, in conservative eye dialect ("Tellim I'll callim back.").
+   * Played by "Nghe" (speakableFor(text, say)); "Đọc rõ từng từ" plays `text`. Absent = decode(text).speakText.
+   * ASCII letters, apostrophes, spaces and the sentence's punctuation only (docs/courses.md).
+   */
+  say?: string;
 }
 
 /**
@@ -43,8 +49,13 @@ export type LessonBlock =
   | { type: 'text'; md: string }
   | { type: 'rule'; title: string; body: string }
   | { type: 'examples'; title?: string; items: LessonExample[] }
-  /** Careful word-by-word form vs. natural speech; both playable. `say` overrides the TTS text of `natural`. */
-  | { type: 'compare'; clear: string; natural: string; note: string; say?: string }
+  /**
+   * Careful word-by-word form vs. natural speech; both playable. `say`: standard text with the reductions
+   * ("What do you wanna do?"), decoded for the respelling hint AND the TTS text of `natural`. `ttsText`: exact
+   * eye dialect for the engine when the decoder cannot produce it ("Is this shur bag?"), used before `say` for
+   * playback only (docs/courses.md).
+   */
+  | { type: 'compare'; clear: string; natural: string; note: string; say?: string; ttsText?: string }
   | { type: 'tip'; md: string }
   /** A calm word table: word (with marked letters), respelling, [IPA], play + slow, note, "Vì sao?" story. */
   | { type: 'words'; title?: string; items: WordItem[] }

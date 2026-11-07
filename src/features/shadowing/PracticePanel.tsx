@@ -25,6 +25,7 @@ import { hrefFor, navigate } from '../../core/nav';
 import { useSettings } from '../../core/settings';
 import { secureContextOk } from '../../core/speech';
 import { recordAttempt } from '../../core/stats';
+import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_RATE, CAREFUL_TITLE, CONNECTED_SLOW_TITLE, connectedText, sayOf } from '../../core/playback';
 import { speak, stopSpeaking, ttsSupported } from '../../core/tts';
 import type { Phenomenon } from '../../core/types';
 import { transcriptCoversTarget } from './autostop';
@@ -105,6 +106,9 @@ interface PracticePanelProps {
 export default function PracticePanel({ source, item, nextId, onSaved }: PracticePanelProps) {
   const { showIpa } = useSettings();
   const result = useMemo(() => decode(source.text), [source.text]);
+  // The model the learner imitates must SOUND like the annotated sentence (tur-ni-doff), not a newsreader: the
+  // connected version (say ?? speakText). "Rõ từng từ" is the only careful playback.
+  const model = useMemo(() => connectedText(source.text, result, sayOf(source)), [source, result]);
   const [activeAnn, setActiveAnn] = useState<string | null>(null);
   const [interruptKey, setInterruptKey] = useState(0);
   const micBtn = useRef<HTMLButtonElement>(null);
@@ -178,7 +182,7 @@ export default function PracticePanel({ source, item, nextId, onSaved }: Practic
     const t = ++abToken.current;
     setAbPlaying(true);
     clip.stop();
-    await speak(source.text, { rate: 1 });
+    await speak(model, { rate: 1, mode: 'connected' });
     if (t !== abToken.current) return;
     await delay(350);
     if (t !== abToken.current) return;
@@ -244,7 +248,7 @@ export default function PracticePanel({ source, item, nextId, onSaved }: Practic
       setInterruptKey((x) => x + 1);
       stopAB();
       clip.stop();
-      void speak(source.text, { rate: k === 's' ? 0.8 : 1 });
+      void speak(model, { rate: k === 's' ? 0.8 : 1, mode: 'connected', slow: k === 's' });
     } else if (k === 'n' && nextId && !busy) {
       e.preventDefault();
       goNext();
@@ -366,8 +370,35 @@ export default function PracticePanel({ source, item, nextId, onSaved }: Practic
 
         {/* Disabled while recording: the model voice must not leak into the microphone. */}
         <fieldset className="row shadow-model shadow-fieldset" disabled={busy} aria-label="Nghe câu mẫu">
-          <PlayButton text={source.text} rate={1} label="Nghe 1.0×" variant="soft" title="Nghe mẫu (R)" onPlay={() => setInterruptKey((k) => k + 1)} />
-          <PlayButton text={source.text} rate={0.8} label="Nghe chậm 0.8×" title="Nghe chậm (S)" onPlay={() => setInterruptKey((k) => k + 1)} />
+          <PlayButton
+            text={model}
+            rate={1}
+            mode="connected"
+            label="Nghe 1.0×"
+            variant="soft"
+            title="Nghe mẫu, nói nhanh như ngoài đời (R)"
+            onPlay={() => setInterruptKey((k) => k + 1)}
+          />
+          <PlayButton
+            text={model}
+            rate={0.8}
+            slow
+            mode="connected"
+            label="Nghe chậm 0.8×"
+            title={`${CONNECTED_SLOW_TITLE} (S)`}
+            onPlay={() => setInterruptKey((k) => k + 1)}
+          />
+          <PlayButton
+            text={source.text}
+            rate={CAREFUL_RATE}
+            mode="careful"
+            label={CAREFUL_LABEL}
+            size="sm"
+            variant="ghost"
+            title={CAREFUL_TITLE}
+            ariaLabel={CAREFUL_ARIA}
+            onPlay={() => setInterruptKey((k) => k + 1)}
+          />
           <a className="btn btn-ghost btn-sm shadow-link" href={hrefFor('decoder', { text: source.text })}>
             <Icon icon={ScanText} size={15} />
             Giải mã chi tiết
@@ -525,8 +556,9 @@ export default function PracticePanel({ source, item, nextId, onSaved }: Practic
           {(outcome || ttsSupported()) && (
             <div className="row shadow-playback" role="group" aria-label="Nghe lại">
               <PlayButton
-                text={source.text}
+                text={model}
                 rate={1}
+                mode="connected"
                 label="Nghe mẫu"
                 variant="soft"
                 onPlay={() => {

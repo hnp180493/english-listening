@@ -6,7 +6,8 @@ import type { ClassifyResult, DictationError } from '../../core/dictation/classi
 import type { DiffUnit } from '../../core/dictation/diff';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import { useSettings } from '../../core/settings';
-import type { Annotation, Phenomenon } from '../../core/types';
+import { annotationSpeech } from '../../core/playback';
+import type { Annotation, Phenomenon, SpokenSegment } from '../../core/types';
 import AiExplain from '../ai/AiExplain';
 
 /** One phenomenon tag for an item (the first one, "+N" for the rest): the design budget is one tag per item. */
@@ -30,11 +31,14 @@ export function AnnotationCard({
   errors,
   active,
   onPlayStart,
+  segments,
 }: {
   a: Annotation;
   errors?: DictationError[];
   active?: boolean;
   onPlayStart?: () => void; // lets the exercise cancel its own (chunk) playback first
+  /** The sentence's decoder segments: "Nghe" speaks this stretch's connected form (playback.annotationSpeech). */
+  segments?: readonly SpokenSegment[];
 }) {
   const { showIpa } = useSettings();
   const info = PHENOMENON_INFO[a.type];
@@ -50,7 +54,8 @@ export function AnnotationCard({
         </span>
         <span className="dict-ann-play">
           <PlayButton
-            text={a.original || a.spoken}
+            text={segments ? annotationSpeech(a, segments) : a.original || a.spoken}
+            mode="connected"
             size="sm"
             label="Nghe"
             variant="ghost"
@@ -83,9 +88,12 @@ export default function WhyWrong({
   activeId,
   onPlayStart,
   ai,
+  segments,
 }: {
   cls: ClassifyResult;
   annotations: Annotation[];
+  /** The sentence's decoder segments, so each card's "Nghe" speaks the connected form. */
+  segments?: readonly SpokenSegment[];
   /** The spot selected in the spoken sentence below: its card is outlined. */
   activeId?: string | null;
   onPlayStart?: () => void;
@@ -126,6 +134,7 @@ export default function WhyWrong({
               errors={cls.errors.filter((e) => e.annotationIds.includes(a.id))}
               active={a.id === activeId}
               onPlayStart={onPlayStart}
+              segments={segments}
             />
           ))}
         </div>

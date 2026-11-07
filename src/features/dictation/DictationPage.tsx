@@ -44,7 +44,7 @@ import { SENTENCES } from '../../data/sentences';
 import ClozeExercise from './ClozeExercise';
 import { MINE_TOPIC } from './constants';
 import CustomManager from './CustomManager';
-import { annotationCount, detectedPhenomena, hasCloze } from './decodeCache';
+import { annotationCount, detectedPhenomena, dictationAudio, hasCloze } from './decodeCache';
 import Exercise, { type CheckedInfo } from './Exercise';
 import {
   linkedId,
@@ -356,10 +356,11 @@ export default function DictationPage() {
 
   const current = byId.get(currentId) ?? null;
 
-  // AI voice: generate this sentence's audio and the next one's in the background (no-op with the browser voice)
-  const upcomingText = [current?.text, byId.get(nav.queue[nav.pos + 1] ?? '')?.text].filter(Boolean).join('\n');
+  // AI voice: generate this sentence's connected audio in the background (no-op with the browser voice). Only the
+  // current sentence: a free key allows a few speech requests a minute, the next one is made when it comes.
+  const upcomingText = current ? dictationAudio(current).connected : '';
   useEffect(() => {
-    if (upcomingText) prefetchSpeech(upcomingText.split('\n'));
+    if (upcomingText) prefetchSpeech([upcomingText], { mode: 'connected' });
   }, [upcomingText]);
 
   // ------------------------------------------------------------ session goal

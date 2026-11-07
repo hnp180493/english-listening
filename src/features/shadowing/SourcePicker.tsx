@@ -7,7 +7,7 @@ import { KEYS, loadJSON } from '../../core/storage';
 import type { Level } from '../../core/types';
 import { CHUNKS } from '../../data/chunks';
 import { SENTENCES } from '../../data/sentences';
-import { MAX_CUSTOM_LENGTH, cleanCustomText, filterChunks, filterSentences, type ShadowSource } from './sources';
+import { CUSTOM_EXAMPLES, MAX_CUSTOM_LENGTH, cleanCustomText, filterChunks, filterSentences, type ShadowSource } from './sources';
 import { customItemId, recentCustom, toPercent, type ShadowState } from './store';
 
 /** Sentences the learner added in "Chép chính tả" (newest first), minus ones listed elsewhere. */
@@ -41,7 +41,6 @@ const LEVELS: { id: Level | 0; label: string }[] = [
 /** Rows rendered at first, and added by each "Xem thêm". */
 const PAGE = 20;
 
-const CUSTOM_EXAMPLES = ["What are you going to do about it?", "I don't know what you're talking about.", 'Let me get back to you on that.'];
 
 function tabFor(source: ShadowSource | null): Tab {
   if (!source) return 'sentences';

@@ -188,7 +188,12 @@ export function createProviderConfig(kind: ProviderKind, patch: Partial<Omit<Pro
   return p;
 }
 
-/** Adds or replaces (by id) a provider; the first provider becomes the default for text (and TTS if capable). */
+/**
+ * Adds or replaces (by id) a provider; the first provider becomes the default for text (and TTS if capable).
+ * Gemini is the preferred voice (the owner compared Windows, OpenAI and Gemini by ear and chose Gemini): a newly
+ * added Gemini provider takes over the TTS default unless another Gemini provider already holds it. The learner
+ * can still pick another voice provider in Settings afterwards.
+ */
 export function upsertProvider(p: ProviderConfig): AiConfig {
   return updateAiConfig((c) => {
     const exists = c.providers.some((x) => x.id === p.id);
@@ -196,6 +201,10 @@ export function upsertProvider(p: ProviderConfig): AiConfig {
     const next: AiConfig = { ...c, providers };
     if (!next.defaultTextProvider) next.defaultTextProvider = p.id;
     if (!next.defaultTtsProvider && PROVIDER_DEFAULTS[p.kind].ttsModel) next.defaultTtsProvider = p.id;
+    if (!exists && p.kind === 'gemini') {
+      const current = providers.find((x) => x.id === next.defaultTtsProvider);
+      if (!current || current.kind !== 'gemini') next.defaultTtsProvider = p.id;
+    }
     return next;
   });
 }

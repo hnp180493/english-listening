@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Square, Turtle, type LucideIcon } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import { PENDING_ARIA } from '../../components/pendingLabel';
+import type { SpeechMode } from '../../core/playback';
 import { speak, stopSpeakingIfOwner, ttsSupported, useSpeechPending } from '../../core/tts';
 
 export interface SpeakIconButtonProps {
@@ -14,6 +15,10 @@ export interface SpeakIconButtonProps {
   /** Accessible name and tooltip (icon-only button). */
   label?: string;
   size?: 'sm' | 'md';
+  /** Playback mode (src/core/playback.ts): picks the AI voice style. `text` must already be the matching text. */
+  mode?: SpeechMode;
+  /** A slowed playback: never faster than 0.8 × the learner's rate (SpeakOptions.slow; careful mode always is). */
+  slow?: boolean;
 }
 
 /**
@@ -26,6 +31,8 @@ export default function SpeakIconButton({
   icon = Turtle,
   label = 'Nghe chậm',
   size = 'sm',
+  mode,
+  slow,
 }: SpeakIconButtonProps) {
   const [playing, setPlaying] = useState(false);
   const alive = useRef(true);
@@ -51,7 +58,7 @@ export default function SpeakIconButton({
       return;
     }
     setPlaying(true);
-    await speak(text, { rate, owner });
+    await speak(text, { rate, owner, mode, slow });
     if (alive.current && gen === playGen.current) setPlaying(false);
   };
 

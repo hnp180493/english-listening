@@ -1,12 +1,11 @@
 // Settings → "Trợ lý AI": add / test / edit / remove AI providers (keys stay on this device), the daily
-// cap and usage line, plus the "Nguồn giọng" row used by the Giọng đọc card. AI is an add-on: with no
+// cap and usage line, plus the voice choice (VoiceEngineRow) used by the Giọng đọc card. AI is an add-on: with no
 // provider configured the app works exactly as before. See docs/ai-providers.md.
 
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Check, ChevronDown, Eye, EyeOff, Plus, ShieldCheck, Sparkles, Trash2, TriangleAlert, Volume2 } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import Popover from '../../components/Popover';
-import Segmented from '../../components/Segmented';
 import {
   aiSpeak,
   createProviderConfig,
@@ -29,12 +28,12 @@ import {
   type ProviderSummary,
   type TestResult,
 } from '../../core/ai';
-import { updateSettings, useSettings } from '../../core/settings';
+import { sanitizeVoiceEngine, updateSettings, useSettings, type VoiceEngine } from '../../core/settings';
 import { aiVoicePausedReason, stopSpeaking, useVoiceEngine, useVoiceStatus } from '../../core/tts';
 import { clearAiTaskCache } from '../../core/aiTasks';
 import SectionHead from './SectionHead';
 import './AiSection.css';
-import { aiUsageLine, geminiVoiceStyle, isValidBaseUrl, modelChoices, parseDailyCap } from './settingsModel';
+import { aiUsageLine, geminiVoiceStyle, isValidBaseUrl, modelChoices, parseDailyCap, VOICE_CHOICE_LABEL, voiceChoiceHint } from './settingsModel';
 
 /** Element id of the AI card (#/settings?section=ai scrolls here). */
 export const AI_SECTION_ID = 'set-ai';
@@ -49,6 +48,14 @@ const SHORT: Record<ProviderKind, string> = {
   openrouter: 'OpenRouter',
   'openai-compatible': 'máy chủ',
 };
+
+/**
+ * The owner chose Gemini only ("xài provider gemini luôn"): Settings offers Gemini and nothing else, so the
+ * "Nhà cung cấp khác" menu is hidden. The adapters for the other kinds stay in src/core/ai (provider-agnostic
+ * layer, as first requested), and a provider of another kind that already exists in a config is still listed so it
+ * can be edited or removed. Flip this to offer the others again.
+ */
+const SHOW_OTHER_PROVIDERS: boolean = false;
 
 /** "Nhà cung cấp khác": label + one plain line on what it gives. */
 const OTHER_KINDS: { kind: ProviderKind; label: string; note: string }[] = [
@@ -163,59 +170,53 @@ function AiVoicePicker({ provider, id }: { provider: ProviderSummary; id: string
 }
 
 /**
- * "Nguồn giọng" row of the Giọng đọc card: Trình duyệt / Giọng AI. The AI option is disabled (with a
- * hint and a way to the AI card) until a provider that can speak is configured. With AI on, the AI
- * voice picker replaces the browser voice list (`children`, shown only for the browser engine).
+ * The voice choice of the Giọng đọc card: "Giọng Gemini có sẵn" (voiceEngine 'clips', default: the Gemini clips
+ * shipped with the app, texts without a clip in the browser voice; never paid), "… + Gemini qua key" ('ai': texts
+ * without a clip use the AI voice, paid per new text; offered once a key can speak, or while chosen) or "Giọng
+ * trình duyệt" (always the browser voice). Below it: the AI voice picker when the AI voice reads the other texts,
+ * else the browser voice list (`children`). `labelledBy` = the card heading, which is the control's visible label.
  */
-export function VoiceEngineRow({ children }: { children?: ReactNode }) {
+export function VoiceEngineRow({ children, labelledBy }: { children?: ReactNode; labelledBy?: string }) {
   const uid = useId();
   const settings = useSettings();
   const status = useAiStatus();
   useVoiceStatus(); // re-render when the AI voice pauses or recovers
   const live = useVoiceEngine();
   const tts = status.tts;
-  // No provider that can speak: no row at all (the Trợ lý AI card already offers a natural voice).
-  if (!tts) return <>{children}</>;
-  const engine = settings.voiceEngine === 'ai' ? 'ai' : 'browser';
-  const paused = engine === 'ai' && live === 'browser' ? aiVoicePausedReason() : null;
+  const engine: VoiceEngine = settings.voiceEngine;
+  const paused = engine === 'ai' && tts && live === 'browser' ? aiVoicePausedReason() : null;
   return (
     <>
-      <div className="set-row">
-        <span className="set-row-text">
-          <span className="set-label" id={`${uid}-l`}>
-            Nguồn giọng
-          </span>
-        </span>
-        <Segmented
-          ariaLabel="Nguồn giọng"
+      <div className="set-field">
+        <select
+          id={`${uid}-engine`}
+          className="select"
           value={engine}
-          onChange={(v) => updateSettings({ voiceEngine: v })}
-          options={[
-            { value: 'browser', label: 'Trình duyệt' },
-            {
-              value: 'ai',
-              label: (
-                <>
-                  <Icon icon={Sparkles} size={15} />
-                  Giọng AI
-                </>
-              ),
-            },
-          ]}
-        />
+          aria-labelledby={labelledBy}
+          aria-label={labelledBy ? undefined : 'Giọng đọc'}
+          aria-describedby={`${uid}-engine-hint`}
+          onChange={(e) => updateSettings({ voiceEngine: sanitizeVoiceEngine(e.target.value) })}
+        >
+          <option value="clips">{VOICE_CHOICE_LABEL.clips}</option>
+          {(tts || engine === 'ai') && <option value="ai">{VOICE_CHOICE_LABEL.ai}</option>}
+          <option value="browser">{VOICE_CHOICE_LABEL.browser}</option>
+        </select>
+        <p id={`${uid}-engine-hint`} className="field-hint set-field-hint">
+          {voiceChoiceHint(engine, !!tts)}
+        </p>
       </div>
       {paused && (
         <p className="set-ai-warn" role="status">
           <Icon icon={TriangleAlert} size={15} />
           <span>
-            Giọng AI đang tạm tắt, app dùng giọng trình duyệt: {paused}{' '}
+            Giọng AI đang tạm tắt, câu ngoài app đọc bằng giọng trình duyệt: {paused}{' '}
             <button type="button" className="set-linkbtn" onClick={() => scrollToAi()}>
               Kiểm tra kết nối
             </button>
           </span>
         </p>
       )}
-      {engine === 'ai' ? <AiVoicePicker provider={tts} id={`${uid}-aivoice`} /> : children}
+      {engine === 'ai' && tts ? <AiVoicePicker provider={tts} id={`${uid}-aivoice`} /> : children}
     </>
   );
 }
@@ -720,16 +721,18 @@ export default function AiSection() {
             <Icon icon={Sparkles} size={16} />
             Thêm Gemini
           </button>
-          <KindMenu
-            onPick={(k) => start(k)}
-            triggerClassName="btn btn-ghost btn-sm"
-            trigger={
-              <>
-                Nhà cung cấp khác
-                <Icon icon={ChevronDown} size={15} />
-              </>
-            }
-          />
+          {SHOW_OTHER_PROVIDERS && (
+            <KindMenu
+              onPick={(k) => start(k)}
+              triggerClassName="btn btn-ghost btn-sm"
+              trigger={
+                <>
+                  Nhà cung cấp khác
+                  <Icon icon={ChevronDown} size={15} />
+                </>
+              }
+            />
+          )}
           <p className="set-hint">Gemini có gói miễn phí.</p>
         </div>
       )}
@@ -747,7 +750,7 @@ export default function AiSection() {
             offer={
               notice?.offerVoiceFor === p.id && settings.voiceEngine !== 'ai' ? (
                 <>
-                  <span>Dùng giọng AI tự nhiên này để đọc mọi câu trong app?</span>
+                  <span>Đọc cả câu ngoài app (câu bạn gõ, AI tạo) bằng giọng này? Mỗi câu mới tốn một yêu cầu; câu có sẵn vẫn miễn phí.</span>
                   <div className="row">
                     <button
                       type="button"
@@ -852,7 +855,7 @@ export default function AiSection() {
             </div>
           )}
 
-          {!editing && (
+          {!editing && (SHOW_OTHER_PROVIDERS || !providers.some((p) => p.kind === 'gemini')) && (
             <div className="set-ai-add">
               {!providers.some((p) => p.kind === 'gemini') && (
                 <button type="button" className="btn btn-ghost btn-sm" data-ai-add onClick={() => start('gemini')}>
@@ -860,16 +863,18 @@ export default function AiSection() {
                   Thêm Gemini
                 </button>
               )}
-              <KindMenu
-                onPick={(k) => start(k)}
-                triggerClassName="btn btn-ghost btn-sm"
-                trigger={
-                  <>
-                    <Icon icon={Plus} size={15} />
-                    Thêm nhà cung cấp khác
-                  </>
-                }
-              />
+              {SHOW_OTHER_PROVIDERS && (
+                <KindMenu
+                  onPick={(k) => start(k)}
+                  triggerClassName="btn btn-ghost btn-sm"
+                  trigger={
+                    <>
+                      <Icon icon={Plus} size={15} />
+                      Thêm nhà cung cấp khác
+                    </>
+                  }
+                />
+              )}
             </div>
           )}
         </div>

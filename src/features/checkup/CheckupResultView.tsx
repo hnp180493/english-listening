@@ -4,6 +4,7 @@ import { Icon } from '../../components/Icon';
 import { PhDot } from '../../components/PhTag';
 import { checkSentence, type CheckupResult } from '../../core/benchmark';
 import { hrefFor } from '../../core/nav';
+import { sayOf } from '../../core/playback';
 import type { BenchmarkForm } from '../../data/benchmarkTypes';
 import AiExplain from '../ai/AiExplain';
 import { safeDecode } from '../dictation/decodeCache';
@@ -16,13 +17,23 @@ function practiceLabel(label: string): string {
   return /^\p{Lu}\p{Ll}/u.test(label) ? label[0].toLowerCase() + label.slice(1) : label;
 }
 
-function Replay({ audio, id, lines }: { audio: CheckupAudio; id: string; lines: readonly string[] }) {
+function Replay({
+  audio,
+  id,
+  lines,
+  say,
+}: {
+  audio: CheckupAudio;
+  id: string;
+  lines: readonly string[];
+  say?: string | readonly (string | undefined)[];
+}) {
   const on = audio.playing === id;
   return (
     <button
       type="button"
       className="btn btn-ghost btn-sm"
-      onClick={() => (on ? audio.stop() : void audio.play(id, lines))}
+      onClick={() => (on ? audio.stop() : void audio.play(id, lines, say))}
       disabled={!audio.canSpeak}
       aria-pressed={on}
     >
@@ -105,6 +116,15 @@ export default function CheckupResultView({
           <div className="callout">
             <Icon icon={Info} size={16} />
             <div>Giọng đọc lần này khác với lần trước, nên so sánh điểm chỉ mang tính tham khảo.</div>
+          </div>
+        )}
+        {!baseline && cmp?.audioModeChanged && (
+          <div className="callout">
+            <Icon icon={Info} size={16} />
+            <div>
+              Lần này câu được đọc kiểu nói nối âm như ngoài đời, các lần trước đọc rõ từng từ (dễ hơn): điểm hai kiểu
+              không so trực tiếp được.
+            </div>
           </div>
         )}
         {saveFailed && (
@@ -262,7 +282,7 @@ export default function CheckupResultView({
                       <AiExplain text={s.text} typed={item.typed} units={check.units} annotations={safeDecode(s.text).annotations} />
                     )}
                     <div className="row">
-                      <Replay audio={audio} id={s.id} lines={[s.text]} />
+                      <Replay audio={audio} id={s.id} lines={[s.text]} say={sayOf(s)} />
                       <span className="meta">Lúc làm bài nghe {item?.plays ?? 0} lần</span>
                     </div>
                   </div>
@@ -304,7 +324,7 @@ export default function CheckupResultView({
                     </ul>
                     <p className="ck-why">{q.why}</p>
                     <div className="row">
-                      <Replay audio={audio} id={q.id} lines={q.lines} />
+                      <Replay audio={audio} id={q.id} lines={q.lines} say={q.say} />
                       <span className="meta">Lúc làm bài nghe {a?.plays ?? 0} lần</span>
                     </div>
                   </div>

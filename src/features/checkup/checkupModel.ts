@@ -291,6 +291,8 @@ export function comparisonSummary(info: { cmp: CheckupComparison; first: Checkup
     s += p.score > 0 ? ` So với lần trước thì cao hơn ${p.score} điểm.` : ` So với lần trước thì thấp hơn ${-p.score} điểm.`;
   }
   if (count < MIN_TREND_CHECKUPS && Math.abs(d) > SCORE_NOISE) s += ` Mới có ${count} lần, cần khoảng ${MIN_TREND_CHECKUPS} lần mới chắc được xu hướng.`;
+  // once only: the first test used the older standard reading, the previous one already the connected one
+  if (cmp.firstAudioModeDiffers) s += ' Lần đầu dùng giọng đọc chuẩn (rõ từng từ, dễ hơn), nên so với lần đầu chỉ để tham khảo.';
   return s;
 }
 

@@ -41,7 +41,8 @@ export function sanitizeSettingsJSON(raw: string): string | null {
     out.reviewMinutes = s.reviewMinutes;
   }
   if (typeof s.listenGoal === 'number' && LISTEN_GOAL_OPTIONS.includes(s.listenGoal)) out.listenGoal = s.listenGoal;
-  if (s.voiceEngine === 'browser' || s.voiceEngine === 'ai') out.voiceEngine = s.voiceEngine;
+  if (s.voiceEngine === 'browser' || s.voiceEngine === 'ai' || s.voiceEngine === 'clips') out.voiceEngine = s.voiceEngine;
+  if (typeof s.voiceChosen === 'boolean') out.voiceChosen = s.voiceChosen;
   return JSON.stringify(out);
 }
 

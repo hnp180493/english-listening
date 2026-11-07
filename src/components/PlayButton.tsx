@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { LoaderCircle, Play, Square, VolumeX } from 'lucide-react';
+import { LoaderCircle, Play, Square, VolumeX, type LucideIcon } from 'lucide-react';
+import type { SpeechMode } from '../core/playback';
 import { speak, stopSpeakingIfOwner, ttsSupported, useSpeechPending } from '../core/tts';
 import { Icon } from './Icon';
 import { PENDING_ARIA, PENDING_LABEL } from './pendingLabel';
@@ -14,10 +15,31 @@ export interface PlayButtonProps {
   variant?: 'default' | 'primary' | 'soft' | 'ghost';
   onPlay?: () => void; // called each time playback starts
   title?: string;
+  /** Accessible name when the visible label alone is not enough (must contain the visible label). */
+  ariaLabel?: string;
+  /** Playback mode (src/core/playback.ts): picks the AI voice style. `text` must already be the matching text. */
+  mode?: SpeechMode;
+  /** A slowed playback: never faster than 0.8 × the learner's rate (SpeakOptions.slow; careful mode always is). */
+  slow?: boolean;
+  /** Icon at rest (default Play, filled). */
+  icon?: LucideIcon;
 }
 
 /** Speak `text` with TTS. Click again while playing to stop (or, while the AI voice is generating, to cancel). */
-export default function PlayButton({ text, rate, label = 'Nghe', size = 'md', primary, variant, onPlay, title }: PlayButtonProps) {
+export default function PlayButton({
+  text,
+  rate,
+  label = 'Nghe',
+  size = 'md',
+  primary,
+  variant,
+  onPlay,
+  title,
+  ariaLabel,
+  mode,
+  icon,
+  slow,
+}: PlayButtonProps) {
   const [playing, setPlaying] = useState(false);
   const alive = useRef(true);
   // Ownership token for speak(): unmount and "Dừng" stop speech only while it is still this
@@ -56,7 +78,7 @@ export default function PlayButton({ text, rate, label = 'Nghe', size = 'md', pr
     }
     setPlaying(true);
     onPlay?.();
-    await speak(text, { rate, owner });
+    await speak(text, { rate, owner, mode, slow });
     if (alive.current && gen === playGen.current) setPlaying(false);
   };
 
@@ -72,13 +94,15 @@ export default function PlayButton({ text, rate, label = 'Nghe', size = 'md', pr
       onClick={onClick}
       aria-pressed={playing}
       aria-busy={pending || undefined}
-      aria-label={pending ? PENDING_ARIA : undefined}
+      aria-label={pending ? PENDING_ARIA : playing ? undefined : ariaLabel}
       title={pending ? PENDING_ARIA : title}
     >
       {pending ? (
         <Icon icon={LoaderCircle} size={iconSize} className="icon-spin" />
       ) : playing ? (
         <Icon icon={Square} size={iconSize} fill="currentColor" strokeWidth={1.5} />
+      ) : icon ? (
+        <Icon icon={icon} size={iconSize + 1} />
       ) : (
         <Icon icon={Play} size={iconSize} fill="currentColor" strokeWidth={1.5} />
       )}

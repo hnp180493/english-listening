@@ -200,12 +200,100 @@ every course. With `phenomenon: null` and no `phenomena`, they record no phenome
   close, use, record, present, minute, wound…) is never played alone. A word-table row gives `say` with a
   sentence (`say: 'I read it yesterday.'`), and a listening item plays a sentence, never the bare word. List:
   `HETERONYMS` in `validate.ts`.
-- TTS reads normal English spelling. Never give it a respelling (`play: 'ker-nəl'` is wrong; play the word).
+- TTS reads normal English spelling. Never give it a respelling with ə, hyphens or stress capitals
+  (`play: 'ker-nəl'` is wrong; play the word). The one exception is connected speech: `say` may be **eye dialect**
+  (below), which engines do read as intended.
 - The decoder (`examples`, `compare`, the feedback of connected-speech quiz items) knows phrases, not word
   history. It may respell a heteronym with the wrong vowel ("I read it yesterday" → ree-dit), so keep heteronyms
   out of `examples` blocks; use a `words` row with `say` instead. Quiz feedback decodes only in course
   `connected` (or items that list `phenomena`); elsewhere a listening item's answer is shown as the plain
   word or sentence with play buttons (`isConnectedSpeechItem(item, course)` in `src/features/lessons/logic.ts`).
+
+## Connected playback: `say` (how the engine must SAY it)
+
+Given a standard sentence, a TTS engine reads like a newsreader: clear, separated words, no reductions. So an
+annotated sentence played as written does not sound like its annotations (measured with the Windows voice:
+"Tell him I'll call him back." 0/2 reductions, "Tellim I'll callim back." 2/2). Every sentence with annotations
+therefore has two playbacks:
+
+- **"Nghe" (connected, normal rate)** plays `speakableFor(text, say)` (`src/core/decoder`): the authored `say`
+  when there is one, else the decoder's generated `decode(text).speakText`.
+- **"Đọc rõ từng từ" (careful, slower)** plays the written `text` (for `compare`: `clear`), as plain text like every
+  other careful button (`carefulPlan` / `compareCarefulPlan` in `src/core/playback.ts`). The compare card used to
+  send a comma-separated citation form ("Is, this, your, bag."): that dropped a question's rise and made the same
+  words a second careful clip to generate and ship with the AI voice. Slowness comes from the rate and the careful
+  style, not from commas.
+
+`say` is the same field name everywhere it already existed, with one meaning, "what the engine says instead":
+
+| Where | Field | Notes |
+|---|---|---|
+| `examples` item (`LessonExample`) | `say` | **Required in course `connected`** (`src/data/say.test.ts`); reviewed eye dialect |
+| `compare` block | `say` | TTS/decoder text of `natural`; may be standard text ("What do you wanna do?"), the decoder reduces it; also decoded for the on-screen hint |
+| `compare` block | `ttsText` | exact eye dialect for playback only ("Is this shur bag?"), used before `say`; the hint still comes from `say ?? natural` |
+| `listen-choose`, `silent-letter`, `words` row | `say` | unchanged meaning (TTS text of the answer / word; heteronym context) |
+| `Sentence` (dictation, `src/data/sentences.ts`) | `say` | optional; absent = generated. Authored only where the generator has no safe rule (Whatser name, Whatsid all, prouda you, haydit, ride away) |
+| checkup (`benchmarkTypes.ts`) | `say` / `say[]` | optional; a passage's list matches `lines` one to one (bA-q3, bD-s03, bF-s05, bF-s10) |
+| chunk (`src/data/chunks.ts`) | `ttsText` | eye dialect of the chunk alone ("hafta", "tellim") |
+| decoder page examples | `EXAMPLE_SAY` | `src/features/decoder/examples.ts`, one entry per example |
+| phenomenon cheat-sheet (`PHENOMENON_INFO.example`) | `say` | required; "gonna", "tellim", "cuppa tea" (fragments the decoder leaves alone) |
+
+Outside course `connected`, `say` keeps its old meaning (a heteronym's context sentence, the answer's TTS text) and
+is played exactly as written (`writtenText`), never run through the decoder.
+
+`speakableFor` runs `say` through the decoder too, so standard text in `say` is still reduced, and eye dialect is
+left as is. How to write it:
+
+- **Only** ASCII letters, apostrophes, spaces and the sentence's own punctuation (keep `?` so a question still
+  rises). No ə, no hyphens, no stress capitals, no IPA.
+- Use spellings engines know: gonna, wanna, gotta, hafta, kinda, sorta, a lotta, outta, lemme, gimme, dunno,
+  whaddaya, whatcha, didja, doncha, gotcha, cuppa, 'is, cuz, coulda / shoulda / musta.
+- **Spellings the Windows voice (SAPI) was measured to misread: never use them** (`src/core/decoder/sapiMisread.ts`,
+  checked on every `say` / `ttsText` and on the generated text): ta (/tɑ/: keep "to", already weak), ya (/jæ/: use
+  "yuh"), a lone 'n (the letter N: use "an"), a lone 'er (E-R) / 'em (/ɛm/) / 'im ("I'm"): glue them (teller,
+  tellem, tellim) or keep her / them / him, jus (/dʒuz/: keep "just"), firs (the trees: keep "first"), Han (use
+  "Hann"), coupla (use "couple a"), godda (use "gotta"), budda (Buddha: keep "but a"), wouldja / couldja / shouldja
+  (/u/: use "would juh" …), whaddidja (use "whaddija"), aboutim / fromim (keep "about him"), a lone id (the letters
+  I-D: glue "it" instead, below), om / im (O-M, "I'm": keep "on" / "in" before b, m, p), firss / firsst (/fɜrzɪz/:
+  keep "first"), couldn (/u/: use "coodn"), thaddai (/θ/), almose / almosst, restauran, eed. Add a spelling to that
+  file once it is measured wrong (phonemes: System.Speech `PhonemeReached`, see "Measuring" below).
+- Join words only where the reduction needs it, at most two words per joined chunk: tellim, teller, callim, toldja,
+  meetcha, geda / gedda, puddid on, Turnid off, shoulda. Never walls like "turnitoff". Linking into a vowel is left
+  to the engine. A flapped "it" is glued onto the word before when that word takes a glued ending (Turnid off,
+  Checkid out, Pickid up, Izzid on, droppid off with the consonant doubled), else onto a following "a" (like idda
+  lot; at a → adda), never sent alone. A flapped t before "I" merges with it (whaddai, buddai; not "thaddai"); before
+  "off" it is glued (goddoff). A long vowel keeps the word apart with t written d (meed us, stard at), glued only
+  before "a" (Waida, meeda). Silent-e stems: Givim, givver, luvver (not "givem", read /ɛ/). SAPI does NOT flap inside a word ("water" is read with /t/), so short flapped words are sent with
+  d: wadder, bedder, liddle, madder, ciddy (generated when it is exactly the decoder's respelling).
+- Weak forms that read right (all generated): yuh (you, not at a phrase start), yer (your), fer (for), an (and
+  between words, also after a comma: ", an I" is read ax n, ", and" ae n), kin (can: SAPI says the written word
+  k ae n), frum (from: written f r aa m). Elision only where the t/d-less word reads right: nex, lass, muss, bes, lef,
+  Hann, ress, tess, fine (find), sen (send), behine, aroun, secon, ole, tole, kep, sof, jusst (just: "jus" is
+  /dʒuz/, "juss" is read "just"), dohn (don't), didn, hasn, coodn, Moce (most, lessons only); a past tense before a
+  consonant is sent as the bare verb (missed the → miss the). /n/ → /m/: tem, wum, greem, fifteem…; yod: mishu,
+  Bleshu, Lass cheer; supposed to → sposta.
+- When unsure, keep the written word. A sentence the decoder finds nothing in keeps `say` equal to `text`.
+- In course `connected`, `say` must sound different from `text` unless the example is listed in `AS_WRITTEN`
+  (`src/data/say.test.ts`) with its reason (linking into a vowel, a weak form SAPI already says, a strong form or
+  written contraction that is the point).
+- **Every annotated built-in sentence must sound connected** (`src/data/connected.test.ts`): for each dictation
+  sentence, checkup sentence and passage line and connected-course example with an annotation that changes the
+  sound (reduction, h-dropping, flap-t across words, weak-form, elision, assimilation), `speakableFor(text, say)`
+  differs from `text`. Exempt by rule, each with its reason in the test: weak forms the engine already says weak
+  (a, an, the, to, was, were, been, them) or that no measured spelling says (of, at, as, than, that, or …; the list
+  must equal the `null` entries of `WEAK_SPEAK`), a flap inside one word, a flap after a written d (good as, could
+  I), and /n/ → /m/ without a measured m-form (on Monday, in Bangkok). Exempt by name: `AS_WRITTEN` (first thing,
+  eat out, almost, wake him, believe he …), each with what was probed; the test fails once an entry is no longer
+  needed. To fix a sentence: widen the generator when the rule is safe for every sentence, else author `say`.
+- Measuring: System.Speech in PowerShell (`SpeechSynthesizer`, voice "Microsoft David Desktop",
+  `SetOutputToNull()`, `add_PhonemeReached`) gives `e.Phoneme` as SAPI US phone ids, one character each:
+  7 silence, 10 aa, 11 ae, 12 ah, 13 ao, 14 aw, 15 ax, 16 ay, 17 b, 18 ch, 19 d, 20 dh, 21 eh, 22 er, 23 ey, 24 f,
+  25 g, 26 h, 27 ih, 28 iy, 29 jh, 30 k, 31 l, 32 m, 33 n, 34 ng, 35 ow, 36 oy, 37 p, 38 r, 39 s, 40 sh, 41 t,
+  42 th, 43 uh, 44 uw, 45 v, 46 w, 47 y, 48 z, 49 zh ("muss go" → m ah s g ow).
+- Check: `DECODER_DUMP=1 npx vitest run src/core/decoder/dump.test.ts --reporter=verbose` prints `~>` (what the
+  engine gets) under every built-in sentence. The generated forms live in `src/core/decoder/tables.ts`
+  (`speak` on reductions/contractions, `WEAK_SPEAK`, `H_FORMS`, `H_GLUE_STEM`, `HAVE_SPEAK`, `ELISION_SPEAK`,
+  `PLACE_SPEAK`, `OF_FUSE`, `FLAP_LEFT`/`FLAP_RIGHT`) and are assembled in `speak.ts`.
 
 ## Checks
 
@@ -219,6 +307,8 @@ prints what to fix, for example `irr-colonel quiz 3: silent indices [0,9] must b
 8 quiz items, every item valid for its type (answer in range, options unique, silent indices inside the word,
 listen-type has a `[gap]`), word rows with a word and a respelling, a valid `mark`, IPA written `/…/`, heteronym
 rows with `say`, story text not empty, and no monospace markup. `src/data/respell.test.ts` checks that respellings
-(including every word-table `sound`) follow the convention.
+(including every word-table `sound`) follow the convention. `src/data/say.test.ts` checks every `say` / `ttsText` (allowed
+characters, same punctuation, left unchanged by the decoder, every `connected` example has one).
+`src/data/connected.test.ts` checks that every annotated built-in sentence sounds connected on "Nghe" (above).
 
 Then run the whole gate: `npx tsc -b`, `npx oxlint`, `npx vitest run`, `npm run build`.

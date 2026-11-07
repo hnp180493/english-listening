@@ -9,6 +9,8 @@ export interface ShadowSource {
   kind: SourceKind;
   itemId: string; // sentence id, chunk id or "custom:<hash>"
   text: string; // English sentence to shadow
+  /** Authored connected text of a built-in sentence (Sentence.say): what the model playback speaks. */
+  say?: string;
   vi?: string; // Vietnamese translation
   level?: Level;
   topic?: string;
@@ -17,6 +19,9 @@ export interface ShadowSource {
 }
 
 export const MAX_CUSTOM_LENGTH = 300;
+
+/** "Gợi ý: bấm để điền" chips of the custom-text tab (built-in texts: their clips ship with the app). */
+export const CUSTOM_EXAMPLES: readonly string[] = ['What are you going to do about it?', "I don't know what you're talking about.", 'Let me get back to you on that.'];
 
 /**
  * Collapse whitespace and cap the length of a typed sentence. Over the limit, the text is
@@ -37,7 +42,9 @@ export function cleanCustomText(text: string): string {
 }
 
 export function sentenceSource(s: Sentence): ShadowSource {
-  return { kind: 'sentence', itemId: s.id, text: s.text, vi: s.vi, level: s.level, topic: s.topic, focus: s.focus };
+  const src: ShadowSource = { kind: 'sentence', itemId: s.id, text: s.text, vi: s.vi, level: s.level, topic: s.topic, focus: s.focus };
+  if (s.say?.trim()) src.say = s.say;
+  return src;
 }
 
 export function chunkSource(c: Chunk): ShadowSource {

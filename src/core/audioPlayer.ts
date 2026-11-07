@@ -1,4 +1,5 @@
-// Plays generated speech clips (AI voice) through ONE shared HTMLAudioElement.
+// Plays speech clips (AI voice, and the shipped Gemini clips in public/audio) through ONE shared
+// HTMLAudioElement.
 //
 // One element, reused: browsers (Safari above all) only let a page start audio from a user gesture,
 // but an element that already played inside a gesture may play again later without one. AI speech
@@ -13,6 +14,11 @@ export interface ClipPlayer {
    * the browser cannot play it (decode error, autoplay blocked: error.name 'NotAllowedError').
    */
   play(audio: Blob, rate: number): Promise<void>;
+  /**
+   * Same for a clip file at `url` (a shipped clip, "audio/<f>"). `onPlaying` fires when sound starts (the file
+   * loaded). Rejects when the file cannot be loaded (404, missing folder) or played.
+   */
+  playUrl(url: string, rate: number, onPlaying?: () => void): Promise<void>;
   /** Stops the clip in flight (its play() resolves). Never throws. */
   stop(): void;
 }
@@ -54,6 +60,90 @@ export function createHtmlClipPlayer(): ClipPlayer {
     a.mozPreservesPitch = true;
   };
 
+  /** Plays `src` on the shared element; `release` runs once when it is over (ended, stopped or failed). */
+  const playSrc = (src: string, rate: number, release?: () => void, onPlaying?: () => void): Promise<void> => {
+    stopActive();
+    const a = element();
+    if (!a) {
+      release?.();
+      return Promise.reject(Object.assign(new Error('Trình duyệt không phát được âm thanh.'), { name: 'NotSupportedError' }));
+    }
+    const r = clampClipRate(rate);
+    return new Promise<void>((resolve, reject) => {
+      let done = false;
+      const cleanup = () => {
+        a.removeEventListener('ended', onEnded);
+        a.removeEventListener('error', onError);
+        a.removeEventListener('loadedmetadata', onMeta);
+        a.removeEventListener('playing', onPlay);
+        if (active === me) active = null;
+        release?.();
+      };
+      const finish = () => {
+        if (done) return;
+        done = true;
+        cleanup();
+        resolve();
+      };
+      const fail = (e: unknown) => {
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(e instanceof Error ? e : new Error('Không phát được đoạn âm thanh.'));
+      };
+      const onEnded = () => finish();
+      const onError = () => fail(new Error('Trình duyệt không mở hoặc không giải mã được âm thanh.'));
+      // Loading a new source resets playbackRate to defaultPlaybackRate in some browsers: set it again.
+      const onMeta = () => {
+        a.playbackRate = r;
+      };
+      const onPlay = () => {
+        a.removeEventListener('playing', onPlay);
+        onPlaying?.();
+      };
+      const me = { finish };
+      active = me;
+      a.addEventListener('ended', onEnded);
+      a.addEventListener('error', onError);
+      a.addEventListener('loadedmetadata', onMeta);
+      a.addEventListener('playing', onPlay);
+      setPitch(a);
+      a.defaultPlaybackRate = r;
+      a.playbackRate = r;
+      a.src = src;
+      try {
+        const p = a.play();
+        if (p && typeof p.then === 'function') {
+          p.then(
+            () => {
+              primed = true;
+            },
+            (e: unknown) => {
+              // stop() during loading rejects play() with AbortError: that is a normal stop.
+              if (e instanceof Error && e.name === 'AbortError') finish();
+              else fail(e);
+            },
+          );
+        }
+      } catch (e) {
+        fail(e);
+      }
+    });
+  };
+
+  const stopActive = () => {
+    const cur = active;
+    active = null;
+    if (el) {
+      try {
+        el.pause();
+      } catch {
+        // ignore
+      }
+    }
+    cur?.finish();
+  };
+
   return {
     prime() {
       if (primed) return;
@@ -74,87 +164,36 @@ export function createHtmlClipPlayer(): ClipPlayer {
     },
 
     play(audio, rate) {
-      this.stop();
-      const a = element();
-      if (!a) return Promise.reject(Object.assign(new Error('Trình duyệt không phát được âm thanh.'), { name: 'NotSupportedError' }));
       let url: string;
       try {
         url = URL.createObjectURL(audio);
       } catch {
         return Promise.reject(new Error('Không mở được đoạn âm thanh.'));
       }
-      const r = clampClipRate(rate);
-      return new Promise<void>((resolve, reject) => {
-        let done = false;
-        const cleanup = () => {
-          a.removeEventListener('ended', onEnded);
-          a.removeEventListener('error', onError);
-          a.removeEventListener('loadedmetadata', onMeta);
-          if (active === me) active = null;
-          try {
-            URL.revokeObjectURL(url);
-          } catch {
-            // ignore
-          }
-        };
-        const finish = () => {
-          if (done) return;
-          done = true;
-          cleanup();
-          resolve();
-        };
-        const fail = (e: unknown) => {
-          if (done) return;
-          done = true;
-          cleanup();
-          reject(e instanceof Error ? e : new Error('Không phát được đoạn âm thanh.'));
-        };
-        const onEnded = () => finish();
-        const onError = () => fail(new Error('Trình duyệt không giải mã được âm thanh.'));
-        // Loading a new source resets playbackRate to defaultPlaybackRate in some browsers: set it again.
-        const onMeta = () => {
-          a.playbackRate = r;
-        };
-        const me = { finish };
-        active = me;
-        a.addEventListener('ended', onEnded);
-        a.addEventListener('error', onError);
-        a.addEventListener('loadedmetadata', onMeta);
-        setPitch(a);
-        a.defaultPlaybackRate = r;
-        a.playbackRate = r;
-        a.src = url;
+      return playSrc(url, rate, () => {
         try {
-          const p = a.play();
-          if (p && typeof p.then === 'function') {
-            p.then(
-              () => {
-                primed = true;
-              },
-              (e: unknown) => {
-                // stop() during loading rejects play() with AbortError: that is a normal stop.
-                if (e instanceof Error && e.name === 'AbortError') finish();
-                else fail(e);
-              },
-            );
-          }
-        } catch (e) {
-          fail(e);
+          URL.revokeObjectURL(url);
+        } catch {
+          // ignore
         }
       });
     },
 
+    playUrl(url, rate, onPlaying) {
+      return playSrc(url, rate, undefined, onPlaying);
+    },
+
     stop() {
-      const cur = active;
-      active = null;
-      if (el) {
+      stopActive();
+      // Cancel a clip still loading (a shipped file on a slow network), so nothing arrives and plays later.
+      if (el && el.src && !el.src.startsWith('data:')) {
         try {
-          el.pause();
+          el.removeAttribute('src');
+          el.load();
         } catch {
           // ignore
         }
       }
-      cur?.finish();
     },
   };
 }

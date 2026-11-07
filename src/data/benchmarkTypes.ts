@@ -13,6 +13,8 @@ export interface BenchmarkSentence {
   vi: string; // Vietnamese translation, shown only on the result screen
   level: Level;
   focus: Phenomenon[]; // main connected-speech phenomena present (author-labelled, checked against the decoder)
+  /** Optional connected TTS text (eye dialect, docs/courses.md); absent = decode(text).speakText. Not shown. */
+  say?: string;
 }
 
 /** Part 2: hear a short passage (2–4 sentences, max 2 plays), answer one gist/detail question. */
@@ -24,6 +26,8 @@ export interface BenchmarkQuestion {
   answer: number; // index into options
   why: string; // Vietnamese, 1–2 sentences: which words in the audio give the answer (shown after the test)
   focus: Phenomenon[]; // phenomena that make the key words hard to catch
+  /** Optional connected TTS text per line (same length as `lines`); absent = decode(line).speakText. */
+  say?: string[];
 }
 
 export interface BenchmarkForm {

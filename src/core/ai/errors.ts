@@ -53,6 +53,7 @@ export function registerSecret(secret: string | undefined): void {
 
 const SECRET_PATTERNS: RegExp[] = [
   /AIza[0-9A-Za-z_-]{16,}/g, // Google API keys
+  /\bAQ\.[0-9A-Za-z_-]{16,}/g, // newer Google AI Studio keys "AQ.…"
   /sk-[A-Za-z0-9_*.-]{6,}/g, // OpenAI sk-…, sk-proj-…, Anthropic sk-ant-…, OpenRouter sk-or-v1-… (OpenAI echoes masked keys "sk-ab***yz")
   /\bBearer\s+[^\s"',]+/gi,
   /([?&](?:key|api[_-]?key)=)[^&\s"']+/gi,

@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { Annotation, DecodeResult, SpokenSegment } from '../core/types';
 import { PHENOMENON_INFO } from '../core/phenomena';
+import { segmentSpeech } from '../core/playback';
 import { useSettings } from '../core/settings';
 import { speak, stopSpeakingIfOwner, useSpeechPending } from '../core/tts';
 import { LoaderCircle, Play } from 'lucide-react';
@@ -12,9 +13,12 @@ export interface SpokenSentenceProps {
   compact?: boolean; // smaller, no legend; used inside dictation feedback
   activeAnnotationId?: string | null;
   onAnnotationClick?: (annotationId: string) => void;
-  /** Optional: show a small ▶ on each block that speaks the block's written words. */
+  /** Optional: show a small ▶ on each block that speaks how the block sounds (its speakable form, connected style). */
   playable?: boolean;
 }
+
+/** Per-block ▶: a little slower than normal (a short chunk heard alone), still the connected form. */
+const SEGMENT_RATE = 0.9;
 
 type ColorStyle = CSSProperties & { '--ss-color'?: string };
 
@@ -144,7 +148,7 @@ export default function SpokenSentence({
                 className="ss-play"
                 onClick={() => {
                   setLastPlayed(i);
-                  void speak(seg.written, { rate: 0.9, owner });
+                  void speak(segmentSpeech(seg), { rate: SEGMENT_RATE, owner, mode: 'connected' });
                 }}
                 aria-label={`Nghe "${seg.written}"`}
                 aria-busy={(pending && lastPlayed === i) || undefined}

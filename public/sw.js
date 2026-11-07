@@ -1,6 +1,13 @@
 /* Nghe Nối Âm — service worker (offline support).
  * - Navigations: network-first, falling back to the cached app shell (index.html).
  * - Same-origin build assets under /assets/ (hashed file names): cache-first.
+ * - Shipped Gemini clips /audio/*.mp3 (file names are content keys, src/core/audioKey.ts): cache-first in their
+ *   own cache, on first play only (never precached: there are hundreds), at most AUDIO_MAX_ENTRIES (oldest
+ *   dropped). That cache survives deploys: a key names one text, voice and style for good. A Range request
+ *   (Safari asks for media in ranges and refuses a plain 200 from a service worker) gets a 206 cut from the
+ *   whole stored file.
+ *   /audio/manifest.json: network-first, kept in that same audio cache (not the per-deploy cache), so an
+ *   offline session after an update still finds the clips it already stored.
  * - Other same-origin GETs (icons, manifest): network-first with cache fallback.
  * - Cross-origin requests (YouTube, fonts, speech services…) are never touched or cached.
  *
@@ -19,13 +26,18 @@
 // @build-manifest-start (replaced at build time — keep these markers)
 const BUILD = { id: '', assets: [] };
 // @build-manifest-end
-const VERSION = 'v1.1.0';
+const VERSION = 'v1.3.0';
 const CACHE_PREFIX = 'nghe-noi-am-';
 const CACHE = CACHE_PREFIX + VERSION + (BUILD.id ? '-' + BUILD.id : '');
+const AUDIO_CACHE = CACHE_PREFIX + 'audio-v1';
+const AUDIO_MAX_ENTRIES = 400;
+const AUDIO_FILE_RE = /\.(?:mp3|m4a|aac|ogg|opus|wav)$/i;
+const AUDIO_MANIFEST_NAME = 'manifest.json';
 
 const SCOPE_URL = new URL(self.registration.scope);
 const SHELL_URL = new URL('./', SCOPE_URL).href; // index.html served at the scope root
 const ASSETS_PATH = new URL('./assets/', SCOPE_URL).pathname;
+const AUDIO_PATH = new URL('./audio/', SCOPE_URL).pathname;
 const PRECACHE = ['./', './manifest.webmanifest', './icon.svg', './icon-maskable.svg'].map((p) => new URL(p, SCOPE_URL).href);
 
 /** Hashed build files referenced by index.html, so the app works offline after the first visit. */
@@ -92,7 +104,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
-      await Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE).map((k) => caches.delete(k)));
+      await Promise.all(
+        keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE && k !== AUDIO_CACHE).map((k) => caches.delete(k)),
+      );
       await self.clients.claim();
     })(),
   );
@@ -142,6 +156,97 @@ async function cacheFirst(request) {
   return res;
 }
 
+/** Drops the oldest clips beyond AUDIO_MAX_ENTRIES (cache.keys() lists them in insertion order; the manifest never counts). */
+async function trimAudio(cache) {
+  const reqs = (await cache.keys()).filter((r) => AUDIO_FILE_RE.test(new URL(r.url).pathname));
+  const extra = reqs.length - AUDIO_MAX_ENTRIES;
+  if (extra > 0) await Promise.all(reqs.slice(0, extra).map((r) => cache.delete(r)));
+}
+
+/**
+ * The byte range a "Range: bytes=…" header asks for in a body of `size` bytes: { start, end } (end inclusive),
+ * null when it is not one usable range (answer with the whole file), or 'unsatisfiable' (answer 416).
+ */
+function parseRange(header, size) {
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(header || '').trim());
+  if (!m || (m[1] === '' && m[2] === '')) return null;
+  let start;
+  let end;
+  if (m[1] === '') {
+    const suffix = Number(m[2]); // "bytes=-500": the last 500 bytes
+    if (suffix === 0) return 'unsatisfiable';
+    start = Math.max(0, size - suffix);
+    end = size - 1;
+  } else {
+    start = Number(m[1]);
+    end = m[2] === '' ? size - 1 : Math.min(Number(m[2]), size - 1);
+  }
+  if (start >= size || end < start) return 'unsatisfiable';
+  return { start, end };
+}
+
+/**
+ * Answers a media request from a whole clip: a 206 with the asked-for bytes when the request carries a Range
+ * header (Safari plays media from a service worker only that way), else the whole 200 as it is.
+ */
+async function rangeAware(request, full) {
+  const header = request.headers.get('range');
+  if (!header) return full;
+  const blob = await full.blob();
+  const type = full.headers.get('Content-Type') || 'audio/mpeg';
+  const r = parseRange(header, blob.size);
+  if (r === null) {
+    return new Response(blob, { status: 200, headers: { 'Content-Type': type, 'Content-Length': String(blob.size), 'Accept-Ranges': 'bytes' } });
+  }
+  if (r === 'unsatisfiable') return new Response(null, { status: 416, headers: { 'Content-Range': 'bytes */' + blob.size } });
+  return new Response(blob.slice(r.start, r.end + 1), {
+    status: 206,
+    statusText: 'Partial Content',
+    headers: {
+      'Content-Type': type,
+      'Content-Length': String(r.end - r.start + 1),
+      'Content-Range': 'bytes ' + r.start + '-' + r.end + '/' + blob.size,
+      'Accept-Ranges': 'bytes',
+    },
+  });
+}
+
+/**
+ * A shipped clip: from the audio cache, else fetched whole (no Range header: a 206 cannot be cached) and stored
+ * for next time. Either way a Range request gets a 206 cut from the whole file (rangeAware).
+ */
+async function audioCacheFirst(event) {
+  const cache = await caches.open(AUDIO_CACHE);
+  const cached = await cache.match(event.request.url);
+  if (cached) return rangeAware(event.request, cached);
+  const res = await fetch(event.request.url, { credentials: 'same-origin' });
+  if (res.ok && res.status === 200 && res.type === 'basic') {
+    const copy = res.clone();
+    event.waitUntil(
+      cache
+        .put(event.request.url, copy)
+        .then(() => trimAudio(cache))
+        .catch(() => undefined),
+    );
+    return rangeAware(event.request, res);
+  }
+  return res;
+}
+
+/** The clip manifest: network-first, kept in the audio cache so it outlives the per-deploy cache. */
+async function audioManifestNetworkFirst(request) {
+  const cache = await caches.open(AUDIO_CACHE);
+  try {
+    const res = await fetch(request);
+    if (res.ok && res.type === 'basic') await cache.put(request.url, res.clone()).catch(() => undefined);
+    return res;
+  } catch (err) {
+    const cached = await cache.match(request.url);
+    if (cached) return cached;
+    throw err;
+  }
+}
+
 async function networkFirst(request) {
   const cache = await caches.open(CACHE);
   try {
@@ -166,6 +271,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(networkFirstNavigation(event));
   } else if (url.pathname.startsWith(ASSETS_PATH)) {
     event.respondWith(cacheFirst(request));
+  } else if (url.pathname.startsWith(AUDIO_PATH) && AUDIO_FILE_RE.test(url.pathname)) {
+    event.respondWith(audioCacheFirst(event));
+  } else if (url.pathname === AUDIO_PATH + AUDIO_MANIFEST_NAME) {
+    event.respondWith(audioManifestNetworkFirst(request));
   } else if (url.pathname === new URL('./sw.js', SCOPE_URL).pathname) {
     // let the browser handle its own update checks
   } else {

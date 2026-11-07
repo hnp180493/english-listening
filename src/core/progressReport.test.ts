@@ -3,7 +3,7 @@ import type { CheckupResult } from './benchmark';
 import { emptyByPhenomenon } from './benchmark';
 import { emptyHistory, type HistoryStore } from './history';
 import type { ListeningEntry } from './listening';
-import { buildInsights, buildReport, decimalVi, parseReportPeriod, understoodProse, type ReportInput } from './progressReport';
+import { AUDIO_MODE_NOTE, buildInsights, buildReport, decimalVi, parseReportPeriod, understoodProse, type ReportInput } from './progressReport';
 
 const at = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h).getTime();
 const NOW = at(2026, 11, 6, 20); // Friday 6 Nov 2026
@@ -25,7 +25,14 @@ function checkup(
   id: string,
   ts: number,
   score: number,
-  opts: { voice?: string; linking?: [number, number]; flap?: [number, number]; form?: CheckupResult['form']; dictation?: number } = {},
+  opts: {
+    voice?: string;
+    linking?: [number, number];
+    flap?: [number, number];
+    form?: CheckupResult['form'];
+    dictation?: number;
+    audioMode?: 'connected';
+  } = {},
 ): CheckupResult {
   const by = emptyByPhenomenon();
   if (opts.linking) by.linking = { seen: opts.linking[0], missed: opts.linking[1] };
@@ -35,6 +42,7 @@ function checkup(
     at: ts,
     form: opts.form ?? FORMS[formSeq++ % 6],
     voiceName: opts.voice ?? 'Samantha',
+    ...(opts.audioMode ? { audioMode: opts.audioMode } : {}),
     rate: 1,
     dictation: { words: 100, correct: opts.dictation ?? score, extra: 0, pct: opts.dictation ?? score, items: [] },
     comprehension: { correct: 2, total: 4, pct: 50, items: [] },
@@ -172,6 +180,23 @@ describe('checkup section and sentences', () => {
     expect(r.checkups.nextLabel).toBe('Đến lúc kiểm tra định kỳ'); // 17 days since k2
     expect(r.checkups.deltaHedge).toBe('Mới có 2 lần đo, cần khoảng 4 lần mới chắc được xu hướng.');
     expect(r.insights[1]).toBe('Điểm kiểm tra tăng (54 → 66); phần chép chính tả từ 54% lên 66%. Mới có 2 lần đo nên chưa chắc.');
+  });
+
+  it('older standard-text checkups vs a connected-speech one: an audio-mode caveat, like a voice change', () => {
+    const list = [
+      checkup('k1', at(2026, 9, 1), 70),
+      checkup('k2', at(2026, 9, 20), 72),
+      checkup('k3', at(2026, 10, 30), 55, { audioMode: 'connected' }),
+    ];
+    const r = buildReport(input({ checkups: list }));
+    expect(r.checkups.comparison?.audioModeChanged).toBe(true);
+    expect(r.checkups.comparison?.voiceChanged).toBe(false);
+    expect(r.checkups.points[0]).toMatchObject({ id: 'k3', audioMode: 'connected', audioModeChanged: true });
+    expect(r.checkups.voiceNote).toBe(AUDIO_MODE_NOTE);
+    expect(r.insights[1]).toContain(AUDIO_MODE_NOTE);
+    const same = buildReport(input({ checkups: list.map((c) => ({ ...c, audioMode: 'connected' as const })) }));
+    expect(same.checkups.voiceNote).toBeNull();
+    expect(same.insights[1]).not.toContain(AUDIO_MODE_NOTE);
   });
 
   it('3+ checkups: trend, deltas, noise band, voice change, per-phenomenon change', () => {

@@ -101,20 +101,61 @@ describe('settings across tabs', () => {
     expect(s.sanitizeListenGoal(undefined)).toBe(30);
   });
 
-  it("voiceEngine: default 'browser', only 'browser'/'ai' accepted", async () => {
+  it("voiceEngine: default 'clips' (Giọng Gemini có sẵn, never paid), a picked 'browser' or 'ai' sticks", async () => {
     const { map } = stubWindow();
     let s = await freshSettings();
+    expect(s.getSettings()).toMatchObject({ voiceEngine: 'clips', voiceChosen: false });
+    s.updateSettings({ voiceEngine: 'browser' });
+    expect(JSON.parse(map.get(KEY)!)).toMatchObject({ voiceEngine: 'browser', voiceChosen: true });
+    s = await freshSettings();
     expect(s.getSettings().voiceEngine).toBe('browser');
+    // other settings changes keep the choice
+    s.updateSettings({ rate: 0.9 });
+    expect(s.getSettings()).toMatchObject({ voiceEngine: 'browser', voiceChosen: true, rate: 0.9 });
     s.updateSettings({ voiceEngine: 'ai' });
-    expect(JSON.parse(map.get(KEY)!).voiceEngine).toBe('ai');
-    expect(s.getSettings().voiceEngine).toBe('ai');
+    expect(s.getSettings()).toMatchObject({ voiceEngine: 'ai', voiceChosen: true });
+    s.updateSettings({ voiceEngine: 'clips' });
+    expect(s.getSettings()).toMatchObject({ voiceEngine: 'clips', voiceChosen: true });
     for (const bad of ['gemini', 1, null, true]) {
-      map.set(KEY, JSON.stringify({ voiceEngine: bad }));
+      map.set(KEY, JSON.stringify({ voiceEngine: bad, voiceChosen: true }));
       s = await freshSettings();
-      expect(s.getSettings().voiceEngine).toBe('browser');
+      expect(s.getSettings().voiceEngine).toBe('clips');
     }
+    expect(s.sanitizeVoiceEngine('browser')).toBe('browser');
     expect(s.sanitizeVoiceEngine('ai')).toBe('ai');
-    expect(s.sanitizeVoiceEngine(undefined)).toBe('browser');
+    expect(s.sanitizeVoiceEngine(undefined)).toBe('clips');
+  });
+
+  it("migration: a stored 'browser' from before the shipped clips (no voiceChosen) becomes 'clips', never the paid 'ai'", async () => {
+    const { map } = stubWindow();
+    map.set(KEY, JSON.stringify({ voiceURI: null, rate: 1.1, voiceEngine: 'browser' }));
+    let s = await freshSettings();
+    expect(s.getSettings()).toMatchObject({ voiceEngine: 'clips', voiceChosen: false, rate: 1.1 });
+    // an unrelated change saves the migrated value without marking it as a choice
+    s.updateSettings({ theme: 'dark' });
+    expect(JSON.parse(map.get(KEY)!)).toMatchObject({ voiceEngine: 'clips', voiceChosen: false });
+    // what the first shipped-clips build stored ('ai' forced, flag false) was not a choice either
+    map.set(KEY, JSON.stringify({ voiceEngine: 'ai', voiceChosen: false }));
+    s = await freshSettings();
+    expect(s.getSettings()).toMatchObject({ voiceEngine: 'clips', voiceChosen: false });
+  });
+
+  it("migration: a stored 'ai' from before the flag was the learner's choice of the AI voice, and stays", async () => {
+    const { map } = stubWindow();
+    map.set(KEY, JSON.stringify({ voiceEngine: 'ai', rate: 1 }));
+    const s = await freshSettings();
+    expect(s.getSettings()).toMatchObject({ voiceEngine: 'ai', voiceChosen: true });
+    s.updateSettings({ theme: 'light' });
+    expect(JSON.parse(map.get(KEY)!)).toMatchObject({ voiceEngine: 'ai', voiceChosen: true });
+  });
+
+  it('backup keeps the voice choice flag', async () => {
+    const { sanitizeSettingsJSON } = await import('./backup');
+    expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceEngine: 'browser', voiceChosen: true })) ?? '{}')).toEqual({
+      voiceEngine: 'browser',
+      voiceChosen: true,
+    });
+    expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceChosen: 'yes' })) ?? '{}')).toEqual({});
   });
 
   it('keeps in-memory changes when storage is blocked', async () => {

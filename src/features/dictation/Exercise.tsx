@@ -9,10 +9,10 @@ import { makeHint } from '../../core/dictation/hint';
 import { normalizeText, splitWords } from '../../core/dictation/normalize';
 import type { Phenomenon, Sentence } from '../../core/types';
 import { NEXT_GUARD_MS } from './constants';
-import { chunksOf, safeDecode, targetTokens } from './decodeCache';
+import { chunksOf, dictationAudio, safeDecode, targetTokens } from './decodeCache';
 import DiffView from './DiffView';
 import FollowUps from './FollowUps';
-import ListenControls from './ListenControls';
+import ListenControls, { CarefulListen } from './ListenControls';
 import { ResultActions, Verdict, type Tone } from './ResultParts';
 import { isCoarsePointer, usePlayer } from './usePlayer';
 import WhyWrong, { AnnotationCard, PhenomenonChips } from './WhyWrong';
@@ -60,7 +60,8 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
   const [activeAnn, setActiveAnn] = useState<string | null>(null);
 
   const rootRef = useRef<HTMLElement>(null);
-  const player = usePlayer(sentence.text, chunks, { autoPlay, rootRef });
+  const audio = useMemo(() => dictationAudio(sentence), [sentence]);
+  const player = usePlayer(audio, chunks, { autoPlay, rootRef });
   const { canSpeak, plays, play, stop } = player;
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -222,6 +223,7 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
           <WhyWrong
             cls={outcome.cls}
             annotations={decoded.annotations}
+            segments={decoded.segments}
             activeId={activeAnn}
             onPlayStart={stop}
             ai={{ text: sentence.text, typed: answer, units: outcome.units }}
@@ -243,9 +245,10 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
                   onAnnotationClick={(id) => setActiveAnn((cur) => (cur === id ? null : id))}
                 />
               </div>
+              <CarefulListen player={player} />
               {/* a missed spot already has its card under "Vì sao bạn nghe sai?": don't repeat it here */}
               {activeAnnotation && !outcome.cls.missedAnnotationIds.includes(activeAnnotation.id) && (
-                <AnnotationCard a={activeAnnotation} active onPlayStart={stop} />
+                <AnnotationCard a={activeAnnotation} active onPlayStart={stop} segments={decoded.segments} />
               )}
               {!activeAnnotation && outcome.cls.seenPhenomena.length > 0 && (
                 <PhenomenonChips list={outcome.cls.seenPhenomena} />

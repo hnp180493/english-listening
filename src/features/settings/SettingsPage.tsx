@@ -40,6 +40,8 @@ import { LISTEN_GOAL_OPTIONS, sanitizeListenGoal, sanitizeReviewMinutes, updateS
 import { resetStats } from '../../core/stats';
 import { KEYS, notifyWrite, removeKey } from '../../core/storage';
 import { pickVoice, ttsSupported, useEnglishVoices } from '../../core/tts';
+import { connectedText } from '../../core/playback';
+import { DEFAULT_TEXT, EXAMPLE_SAY } from '../decoder/examples';
 import { sanitizeTheme } from '../../core/theme';
 import { useLiveStats } from '../home/hooks';
 import {
@@ -65,7 +67,10 @@ import SyncSection from './SyncSection';
 import './settings.css';
 
 const APP_VERSION = '1.0';
-const SAMPLE = "What do you want to do tonight? I'm going to check it out.";
+/** "Thử giọng": the decoder's first sample, so with the Gemini clips it plays a clip the app already ships. */
+const SAMPLE = DEFAULT_TEXT;
+/** Its connected version (the decoder example's reviewed say): what the shipped clip says. */
+const SAMPLE_CONNECTED = connectedText(SAMPLE, null, EXAMPLE_SAY[SAMPLE]);
 const GOAL_PRESETS = [15, 30, 50, 80];
 
 function appStorage(): StorageLike | null {
@@ -95,6 +100,8 @@ function VoiceSection() {
   const supported = ttsSupported();
   const aiTts = useAiStatus().tts;
   const aiOn = settings.voiceEngine === 'ai' && aiTts != null;
+  // the default "Giọng Gemini có sẵn": preview the shipped Gemini clip (free), not the browser voice
+  const clipsOn = settings.voiceEngine !== 'browser';
   // Voice lists often arrive a moment after load (voiceschanged); wait before saying "none".
   const [waited, setWaited] = useState(false);
   useEffect(() => {
@@ -115,7 +122,7 @@ function VoiceSection() {
     <section className="card set-section" aria-labelledby={`${uid}-h`}>
       <SectionHead id={`${uid}-h`} title="Giọng đọc" sub="Giọng tiếng Anh đọc mọi câu." />
 
-      <VoiceEngineRow>
+      <VoiceEngineRow labelledBy={`${uid}-h`}>
         {!supported ? (
           <div className="callout callout-warn" role="status">
             <Icon icon={TriangleAlert} size={16} />
@@ -207,7 +214,14 @@ function VoiceSection() {
             {/* With the AI voice, "Nghe thử" next to the voice list is the preview (at this rate). */}
             {!aiOn && (
               <div className="set-try">
-                <PlayButton text={SAMPLE} rate={rate} label="Thử giọng" size="sm" variant="soft" />
+                <PlayButton
+                  text={clipsOn ? SAMPLE_CONNECTED : SAMPLE}
+                  mode={clipsOn ? 'connected' : undefined}
+                  rate={rate}
+                  label="Thử giọng"
+                  size="sm"
+                  variant="soft"
+                />
                 <span className="set-sample" lang="en">
                   “{SAMPLE}”
                 </span>

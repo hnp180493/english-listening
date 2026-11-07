@@ -1,5 +1,6 @@
 import type { Annotation, DecodeResult, Phenomenon, SpokenSegment, Token } from '../types';
 import { tokenize } from './tokenize';
+import { planSpeak, renderSpeak, type SpeakInput } from './speak';
 import {
   avoidFalseWords,
   finalSound,
@@ -128,7 +129,7 @@ function reductionFinal(e: ReductionEntry): FinalSound {
 const reductionStartsVowel = (e: ReductionEntry): boolean => IPA_VOWEL.test(ipaCore(e.ipa).charAt(0));
 
 function emptyResult(input: string): DecodeResult {
-  return { input, tokens: [], annotations: [], segments: [], spokenText: '' };
+  return { input, tokens: [], annotations: [], segments: [], spokenText: '', speakText: input };
 }
 
 /**
@@ -149,8 +150,9 @@ export function decode(input: string): DecodeResult {
         written: t.raw,
         spoken: t.word || t.raw,
         annotationIds: [],
+        speak: t.raw,
       }));
-      return { input: text, tokens, annotations: [], segments, spokenText: segments.map((s) => s.spoken).join(' ') };
+      return { input: text, tokens, annotations: [], segments, spokenText: segments.map((s) => s.spoken).join(' '), speakText: text };
     } catch {
       return emptyResult(text);
     }
@@ -175,7 +177,7 @@ function finalOfDisplay(s: string): FinalSound {
 }
 
 function analyse(text: string): DecodeResult {
-  const { tokens, cores, brk } = tokenize(text);
+  const { tokens, cores, brk, spans } = tokenize(text);
   const n = tokens.length;
   if (n === 0) return emptyResult(text);
   const words = tokens.map((t) => t.word);
@@ -183,6 +185,8 @@ function analyse(text: string): DecodeResult {
   const display = [...base];
   const red = new Array<number>(n).fill(-1);
   const contr = new Array<boolean>(n).fill(false);
+  /** flapped[i]: the flap-T respelling of a word flapped inside itself (water → wadder), for speak.ts. */
+  const flapped = new Array<string | null>(n).fill(null);
   const weak: (WeakInfo | null)[] = new Array<WeakInfo | null>(n).fill(null);
   const elided = new Array<boolean>(n).fill(false);
   const cands: Cand[] = [];
@@ -395,6 +399,7 @@ function analyse(text: string): DecodeResult {
       // display keeps the table spelling so a split still reads rai-ding, raidə-ris (render applies the same check)
       display[i] = fw;
       const f = avoidFalseWords(fw);
+      flapped[i] = f;
       cands.push({
         type: 'flap-t',
         from: i,
@@ -509,6 +514,10 @@ function analyse(text: string): DecodeResult {
       elided[b] = true;
     }
   }
+
+  // ── 3b. Speakable (TTS) text, from the same analysis (speak.ts) ─────────
+  const sx: SpeakInput = { text, tokens, cores, spans, brk, words, red, reds, contr, weak, bev, elided, flapped };
+  const plan = planSpeak(sx);
 
   // ── 4. Respelling engine (shared by annotations and segments) ────────────
   const mkPiece = (i: number): Piece =>
@@ -706,6 +715,12 @@ function analyse(text: string): DecodeResult {
   const annotations: Annotation[] = cands.map((c, k) => {
     const a: Annotation = { id: `a${k + 1}`, type: c.type, from: c.from, to: c.to, original: c.original, spoken: c.spoken, rule: c.rule };
     if (c.ipa) a.ipa = c.ipa;
+    // its own words in connected form, widened only where a joined spoken chunk would be cut (him I'll → Tellim I'll)
+    let f = c.from;
+    let t = c.to;
+    while (f > 0 && plan.glue[f - 1]) f--;
+    while (t < n - 1 && plan.glue[t]) t++;
+    a.speak = renderSpeak(sx, plan, f, t, false);
     return a;
   });
 
@@ -730,9 +745,38 @@ function analyse(text: string): DecodeResult {
       written: tokens.slice(i, j + 1).map((t: Token) => t.raw).join(' '),
       spoken: spoken || base[i],
       annotationIds: ids,
+      speak: renderSpeak(sx, plan, i, j, false),
     });
     i = j + 1;
   }
 
-  return { input: text, tokens, annotations, segments, spokenText: segments.map((s) => s.spoken).join(' ') };
+  return {
+    input: text,
+    tokens,
+    annotations,
+    segments,
+    spokenText: segments.map((s) => s.spoken).join(' '),
+    speakText: renderSpeak(sx, plan, 0, n - 1, true),
+  };
+}
+
+const speakCache = new Map<string, string>();
+
+/**
+ * The CONNECTED text to send to a TTS engine (the main "Nghe"): decode(override || text).speakText.
+ *   speakableFor("Tell him I'll call him back.") → "Tellim I'll callim back."
+ * `override` is an authored `say` (lesson example / compare / quiz `say`, Sentence.say, chunk ttsText, EXAMPLE_SAY).
+ * It may be standard text ("What do you wanna do?") or already eye dialect ("I'm gonna geda cuppa coffee."): it is
+ * run through the decoder too, which leaves eye dialect unchanged (tested), so every `say` field works the same.
+ * For the careful "Đọc rõ từng từ" playback send the WRITTEN text itself, not this. Pure, never throws, memoised.
+ */
+export function speakableFor(text: string, override?: string | null): string {
+  const o = typeof override === 'string' ? override.trim() : '';
+  const t = o || (typeof text === 'string' ? text : '');
+  const hit = speakCache.get(t);
+  if (hit !== undefined) return hit;
+  const out = decode(t).speakText ?? t;
+  if (speakCache.size >= 500) speakCache.clear();
+  speakCache.set(t, out);
+  return out;
 }

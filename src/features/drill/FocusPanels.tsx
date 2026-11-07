@@ -93,7 +93,7 @@ export function FocusDone({ session, chunkMap, onRestart }: FocusDoneProps) {
                   </span>
                   <span className="respell">{c.spoken}</span>
                 </span>
-                <PlayButton text={c.ttsText} rate={1} size="sm" variant="ghost" />
+                <PlayButton text={c.ttsText} rate={1} mode="connected" size="sm" variant="ghost" />
               </li>
             ))}
           </ul>

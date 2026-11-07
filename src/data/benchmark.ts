@@ -52,6 +52,8 @@ export const BENCHMARK_FORMS: BenchmarkForm[] = [
       {
         id: 'bA-q3',
         lines: ["So I can't make it on Saturday, I've got to work.", "But I can come on Sunday if you're still free."],
+        // "maykid on": "it" after a silent-e verb cannot be glued by the generator ("id" alone is read I-D)
+        say: ["So I can't maykid on Saturday, I've got to work.", "Buddai kin come on Sunday if you're still free."],
         question: 'Người nói có thể đến vào ngày nào?',
         options: ['Chủ nhật', 'Thứ bảy', 'Cả thứ bảy lẫn chủ nhật', 'Không ngày nào'],
         answer: 0,
@@ -186,7 +188,7 @@ export const BENCHMARK_FORMS: BenchmarkForm[] = [
     sentences: [
       { id: 'bD-s01', level: 1, text: 'Give me a second to find it.', vi: 'Đợi mình chút, để mình tìm.', focus: ['reduction', 'elision', 'linking'] },
       { id: 'bD-s02', level: 1, text: 'Is it okay if I sit here?', vi: 'Mình ngồi đây được không?', focus: ['linking', 'flap-t'] },
-      { id: 'bD-s03', level: 1, text: "We'll figure it out later on.", vi: 'Để sau tụi mình tính tiếp.', focus: ['contraction', 'flap-t', 'linking'] },
+      { id: 'bD-s03', level: 1, text: "We'll figure it out later on.", say: "We'll figurid out later on.", vi: 'Để sau tụi mình tính tiếp.', focus: ['contraction', 'flap-t', 'linking'] },
       { id: 'bD-s04', level: 2, text: "I don't know if the shops are still open.", vi: 'Mình không biết mấy cửa hàng còn mở không.', focus: ['reduction', 'linking'] },
       { id: 'bD-s05', level: 2, text: 'Could you hold the door for me for a second?', vi: 'Bạn giữ cửa giúp mình một chút được không?', focus: ['reduction', 'weak-form', 'elision'] },
       { id: 'bD-s06', level: 2, text: "They're thinking about moving out of the city next year.", vi: 'Họ đang tính chuyển ra khỏi thành phố vào năm sau.', focus: ['contraction', 'reduction', 'flap-t', 'assimilation'] },
@@ -298,12 +300,12 @@ export const BENCHMARK_FORMS: BenchmarkForm[] = [
       { id: 'bF-s02', level: 1, text: "What's the best way to get downtown?", vi: 'Đi vào trung tâm thành phố bằng đường nào tiện nhất?', focus: ['contraction', 'elision', 'weak-form'] },
       { id: 'bF-s03', level: 1, text: 'Put your bag on the seat next to me.', vi: 'Để túi của bạn lên ghế cạnh mình đi.', focus: ['assimilation', 'linking', 'elision'] },
       { id: 'bF-s04', level: 2, text: "I'm going to need two more days to finish it.", vi: 'Mình sẽ cần thêm hai ngày nữa mới làm xong.', focus: ['reduction', 'linking'] },
-      { id: 'bF-s05', level: 2, text: 'Did he say what time the party starts?', vi: 'Anh ấy có nói mấy giờ bữa tiệc bắt đầu không?', focus: ['h-dropping', 'flap-t'] },
+      { id: 'bF-s05', level: 2, text: 'Did he say what time the party starts?', say: 'Diddy say what time the party starts?', vi: 'Anh ấy có nói mấy giờ bữa tiệc bắt đầu không?', focus: ['h-dropping', 'flap-t'] },
       { id: 'bF-s06', level: 2, text: "You can't park here after eight, or you'll get a ticket.", vi: 'Sau tám giờ không được đậu xe ở đây, không thì bị phạt đó.', focus: ['contraction', 'linking', 'flap-t'] },
       { id: 'bF-s07', level: 2, text: 'I tried to call you, but it went straight to voicemail.', vi: 'Mình đã gọi cho bạn, nhưng máy chuyển thẳng vào hộp thư thoại.', focus: ['flap-t', 'elision', 'weak-form'] },
       { id: 'bF-s08', level: 3, text: "It's a lot of work, but I think it's going to pay off in the end.", vi: 'Việc này nhiều lắm, nhưng mình nghĩ cuối cùng sẽ đáng công.', focus: ['contraction', 'reduction', 'flap-t', 'linking'] },
       { id: 'bF-s09', level: 3, text: 'Did you remember to turn off the oven before we left the house?', vi: 'Bạn có nhớ tắt lò trước khi tụi mình ra khỏi nhà không?', focus: ['reduction', 'linking', 'elision'] },
-      { id: 'bF-s10', level: 3, text: "I'd love to help, but I've already got plans with my sister tonight.", vi: 'Mình rất muốn giúp, nhưng tối nay mình đã có hẹn với chị gái rồi.', focus: ['contraction', 'flap-t', 'linking'] },
+      { id: 'bF-s10', level: 3, text: "I'd love to help, but I've already got plans with my sister tonight.", say: "I'd love to help, buddive already got plans with my sister tonight.", vi: 'Mình rất muốn giúp, nhưng tối nay mình đã có hẹn với chị gái rồi.', focus: ['contraction', 'flap-t', 'linking'] },
     ],
     questions: [
       {

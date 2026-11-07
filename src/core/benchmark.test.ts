@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BenchmarkForm, BenchmarkFormId } from '../data/benchmarkTypes';
 import {
+  audioModeOf,
   buildCheckupResult,
   checkSentence,
   checkupDue,
@@ -193,6 +194,54 @@ describe('comparison', () => {
     expect(c.phenomena.find((p) => p.phenomenon === 'flap-t')?.change).toBe(0);
     expect(c.voiceChanged).toBe(true);
     expect(c.vsPrev).toBeNull();
+  });
+});
+
+describe('audio mode (connected speech vs the older standard text)', () => {
+  it('new results record audioMode connected; older ones without it are standard', () => {
+    const r = result({ at: at(2026, 11, 1) });
+    expect(r.audioMode).toBe('connected');
+    expect(audioModeOf(r)).toBe('connected');
+    const { audioMode: _drop, ...old } = r;
+    void _drop;
+    expect(audioModeOf(old)).toBe('standard');
+  });
+
+  it('sanitizeResult keeps the field, never invents it', () => {
+    const r = result({ at: at(2026, 11, 1), id: 'k9' });
+    expect(sanitizeResult(JSON.parse(JSON.stringify(r)))?.audioMode).toBe('connected');
+    const { audioMode: _drop, ...old } = r;
+    void _drop;
+    const back = sanitizeResult(JSON.parse(JSON.stringify(old)))!;
+    expect('audioMode' in back).toBe(false);
+    expect(sanitizeResult({ ...JSON.parse(JSON.stringify(old)), audioMode: 'weird' })?.audioMode).toBeUndefined();
+  });
+
+  it('comparing an older standard-text result with a connected one is flagged like a voice change', () => {
+    const r1 = result({ at: at(2026, 10, 1), id: 'k1', score: 60 });
+    const { audioMode: _drop, ...old } = r1;
+    void _drop;
+    const r2 = result({ at: at(2026, 10, 20), id: 'k2', score: 50 });
+    const c = compare(old as CheckupResult, null, r2);
+    expect(c.audioModeChanged).toBe(true);
+    expect(c.voiceChanged).toBe(false);
+    expect(compare(r1, null, r2).audioModeChanged).toBe(false);
+    expect(compareAll([r2])?.audioModeChanged).toBe(false); // baseline: nothing to compare
+  });
+
+  it('the caveat goes away once the previous test was connected too: only a quiet vs-first flag stays', () => {
+    const { audioMode: _drop, ...old } = result({ at: at(2026, 9, 1), id: 'k0', score: 70 });
+    void _drop;
+    const r1 = result({ at: at(2026, 10, 1), id: 'k1', score: 60 });
+    const r2 = result({ at: at(2026, 10, 20), id: 'k2', score: 62 });
+    const first = old as CheckupResult;
+    // the first connected test after standard ones: full caveat
+    expect(compare(first, null, r1)).toMatchObject({ audioModeChanged: true, firstAudioModeDiffers: false });
+    expect(compare(first, first, r1)).toMatchObject({ audioModeChanged: true, firstAudioModeDiffers: false });
+    // the next one: previous was connected too, so no caveat; only the vs-first numbers cross conditions
+    expect(compare(first, r1, r2)).toMatchObject({ audioModeChanged: false, firstAudioModeDiffers: true });
+    expect(compareAll([first, r1, r2])).toMatchObject({ audioModeChanged: false, firstAudioModeDiffers: true });
+    expect(compare(r1, r1, r2)).toMatchObject({ audioModeChanged: false, firstAudioModeDiffers: false });
   });
 });
 

@@ -1,6 +1,7 @@
 import { AudioLines, LoaderCircle, Play, Square, Turtle, VolumeX } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import { PENDING_ARIA, PENDING_LABEL } from '../../components/pendingLabel';
+import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_TITLE, CONNECTED_SLOW_TITLE, CONNECTED_TITLE } from '../../core/playback';
 import type { Player } from './usePlayer';
 
 /**
@@ -27,6 +28,7 @@ export default function ListenControls({ player, emphasis = false }: { player: P
           aria-busy={(pending && playing === 'normal') || undefined}
           aria-label={pending && playing === 'normal' ? PENDING_ARIA : undefined}
           aria-keyshortcuts="Escape"
+          title={CONNECTED_TITLE}
         >
           {playing === 'normal' ? stopIcon : <Icon icon={Play} size={17} fill="currentColor" strokeWidth={1.5} />}
           {playing === 'normal' ? (pending ? PENDING_LABEL : 'Dừng') : plays > 0 ? 'Nghe lại' : 'Nghe'}
@@ -39,7 +41,7 @@ export default function ListenControls({ player, emphasis = false }: { player: P
           aria-pressed={playing === 'slow'}
           aria-busy={(pending && playing === 'slow') || undefined}
           aria-label={pending && playing === 'slow' ? PENDING_ARIA : undefined}
-          title="Đọc chậm (0.7×)"
+          title={CONNECTED_SLOW_TITLE}
         >
           {playing === 'slow' ? stopIcon : <Icon icon={Turtle} size={17} />}
           <span className="dict-play-label">{playing === 'slow' ? (pending ? PENDING_LABEL : 'Dừng') : 'Chậm'}</span>
@@ -52,7 +54,7 @@ export default function ListenControls({ player, emphasis = false }: { player: P
           aria-pressed={playing === 'chunks'}
           aria-busy={(pending && playing === 'chunks') || undefined}
           aria-label={pending && playing === 'chunks' ? PENDING_ARIA : undefined}
-          title="Đọc từng cụm âm, có ngắt nghỉ"
+          title="Đọc từng cụm âm, có ngắt nghỉ (giọng trình duyệt)"
         >
           {playing === 'chunks' ? stopIcon : <Icon icon={AudioLines} size={17} />}
           <span className="dict-play-label">{playing === 'chunks' ? (pending ? PENDING_LABEL : 'Dừng') : 'Từng cụm'}</span>
@@ -76,6 +78,41 @@ export default function ListenControls({ player, emphasis = false }: { player: P
           <div>Trình duyệt này không có giọng đọc tiếng Anh. Hãy dùng Chrome, Edge hoặc Safari bản mới.</div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * "Nghe rõ từng từ": the standard written text, slower: the contrast to the connected audio. Shown only after the
+ * answer is checked (before, it would give the sentence away). A quiet ghost button under "how it is said".
+ */
+export function CarefulListen({ player }: { player: Player }) {
+  const { canSpeak, playing, pending, play } = player;
+  if (!canSpeak) return null;
+  const on = playing === 'careful';
+  return (
+    <div className="dict-careful">
+      <button
+        type="button"
+        className={'btn btn-ghost btn-sm' + (on ? ' is-playing' : '')}
+        onClick={() => void play('careful')}
+        aria-pressed={on}
+        aria-busy={(pending && on) || undefined}
+        aria-label={on ? undefined : CAREFUL_ARIA}
+        title={`${CAREFUL_TITLE}, chậm: so với cách nói nhanh ở trên`}
+      >
+        {on ? (
+          pending ? (
+            <Icon icon={LoaderCircle} size={14} className="icon-spin" />
+          ) : (
+            <Icon icon={Square} size={14} fill="currentColor" strokeWidth={1.5} />
+          )
+        ) : (
+          <Icon icon={Turtle} size={15} />
+        )}
+        {on ? (pending ? PENDING_LABEL : 'Dừng') : CAREFUL_LABEL}
+      </button>
+      <span className="dict-small">để so với cách nói nhanh</span>
     </div>
   );
 }

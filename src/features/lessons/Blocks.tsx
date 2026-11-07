@@ -4,13 +4,17 @@ import { Icon } from '../../components/Icon';
 import { decode } from '../../core/decoder';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import { useSettings } from '../../core/settings';
+import ListenPair, { RealVoiceLink } from '../../components/ListenPair';
 import PlayButton from '../../components/PlayButton';
 import SpokenSentence from '../../components/SpokenSentence';
+import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_RATE, CAREFUL_TITLE, CONNECTED_TITLE, compareCarefulPlan, connectedPlan, connectedText, writtenText, youglishPhrase, type MaybeSpeakable } from '../../core/playback';
 import SpeakIconButton from './SpeakIconButton';
 import type { LessonBlock, LessonExample, LessonSection, WordItem } from '../../data/lessonTypes';
-import { citationText, contextSentence, keyOf, parseMark, parseMd, spokenHint, type MarkPart, type MdSpan } from './logic';
+import { contextSentence, keyOf, parseMark, parseMd, spokenHint, type MarkPart, type MdSpan } from './logic';
+import { WORD_SLOW_RATE } from './quizPlayback';
 
-export const SLOW_RATE = 0.6;
+/** Turtle rate of word rows (single words). Sentences use the playback modes (src/core/playback.ts). */
+export const SLOW_RATE = WORD_SLOW_RATE;
 /** Intro text longer than this is clamped to 3 lines on phones, with a "Xem thêm" toggle. */
 const CLAMP_CHARS = 160;
 /** A words block longer than this shows its first WORDS_SHOWN rows and a "Xem thêm N từ" button. */
@@ -72,20 +76,41 @@ function ClampedMd({ md }: { md: string }) {
   );
 }
 
-/** "Nghe" (natural speed) + a turtle icon button (slow) for one English text. */
-export function ListenButtons({ text, say }: { text: string; say?: string }) {
-  const spoken = say ?? text;
-  return (
-    <div className="lessons-listen" role="group" aria-label={`Nghe: ${text}`}>
-      <PlayButton text={spoken} label="Nghe" size="sm" variant="soft" title="Nghe tốc độ nói tự nhiên" />
-      <SpeakIconButton text={spoken} rate={SLOW_RATE} />
-    </div>
-  );
+/**
+ * The playback pair for one English text the lesson shows decoded: "Nghe" = the connected version (say ?? the
+ * decoder's speakText ?? text, normal rate), "Rõ từng từ" = the standard text, slower (src/core/playback.ts).
+ */
+export function ListenButtons({
+  text,
+  say,
+  decoded,
+  asWritten,
+}: {
+  text: string;
+  say?: string;
+  decoded?: MaybeSpeakable | null;
+  /** Course spelling / irregular / loanwords: "Nghe" speaks say ?? text as written (see ListenPair). */
+  asWritten?: boolean;
+}) {
+  const auto = useMemo(() => (decoded === undefined ? decode(text) : decoded), [decoded, text]);
+  return <ListenPair text={text} decoded={auto} say={say} asWritten={asWritten} className="lessons-listen" />;
 }
 
-/** A decoded example: written vs spoken rows, tappable annotations, play buttons. */
-export function ExampleCard({ example }: { example: LessonExample }) {
+/** Words of a text, lowercase, doubled letters single (geda = gedda), for comparing two spellings of one sentence. */
+const wordsOf = (s: string) => (s.toLowerCase().match(/[a-z']+/g) ?? []).join(' ').replace(/([a-z])\1/g, '$1');
+
+/**
+ * A decoded example: written vs spoken rows, tappable annotations, play buttons. `connected` (course connected):
+ * "Nghe" plays the connected version; other courses play the sentence as written (ListenPair asWritten).
+ */
+export function ExampleCard({ example, connected = true }: { example: LessonExample; connected?: boolean }) {
   const result = useMemo(() => decode(example.text), [example.text]);
+  // Each segment's play button speaks the decoder's form of the WRITTEN text. When the authored `say` reads
+  // differently ("I luvver." vs the generated "I love her."), those buttons would contradict the main "Nghe": hidden.
+  const segmentsMatchSay =
+    connected &&
+    (!example.say?.trim() ||
+      wordsOf(connectedText(example.text, result, example.say)) === wordsOf(result.segments.map((g) => g.speak ?? g.written).join(' ')));
   const [active, setActive] = useState<string | null>(null);
   const ann = active ? result.annotations.find((a) => a.id === active) : undefined;
   const info = ann ? PHENOMENON_INFO[ann.type] : undefined;
@@ -95,7 +120,7 @@ export function ExampleCard({ example }: { example: LessonExample }) {
     <li className="panel lessons-example">
       <SpokenSentence
         result={result}
-        playable
+        playable={segmentsMatchSay}
         activeAnnotationId={active}
         onAnnotationClick={(id) => setActive((cur) => (cur === id ? null : id))}
       />
@@ -111,14 +136,21 @@ export function ExampleCard({ example }: { example: LessonExample }) {
           </span>
         </p>
       )}
-      <ListenButtons text={example.text} />
+      <ListenButtons text={example.text} decoded={result} say={example.say} asWritten={!connected} />
+      {connected && <RealVoiceLink phrase={youglishPhrase(example.text, result)} className="lessons-real" />}
     </li>
   );
 }
 
-function CompareCard({ block }: { block: Extract<LessonBlock, { type: 'compare' }> }) {
+function CompareCard({ block, connected = true }: { block: Extract<LessonBlock, { type: 'compare' }>; connected?: boolean }) {
   const said = block.say ?? block.natural;
   const spoken = useMemo(() => decode(said).spokenText, [said]);
+  const naturalDecoded = useMemo(() => decode(block.natural), [block.natural]);
+  // The "native speaker" side plays the connected version (exact `ttsText`, else `say` / natural through the
+  // decoder); the careful version is the left column's button. Other courses play it as written.
+  const naturalPlan = connected
+    ? connectedPlan(block.natural, naturalDecoded, block.ttsText ?? block.say)
+    : { text: writtenText(block.natural, block.say), mode: undefined };
   // Same words on both sides (e.g. "I can swim."): the difference is only in sound, so show the respelling.
   const sameText = keyOf(block.clear) === keyOf(block.natural);
   const hint = spokenHint(block.natural, spoken);
@@ -130,7 +162,16 @@ function CompareCard({ block }: { block: Extract<LessonBlock, { type: 'compare' 
           <div className="lessons-compare-text" lang="en">
             {block.clear}
           </div>
-          <PlayButton text={citationText(block.clear)} label="Nghe từng từ" size="sm" variant="ghost" />
+          <PlayButton
+            text={compareCarefulPlan(block.clear).text}
+            rate={CAREFUL_RATE}
+            mode="careful"
+            label={CAREFUL_LABEL}
+            size="sm"
+            variant="ghost"
+            title={CAREFUL_TITLE}
+            ariaLabel={CAREFUL_ARIA}
+          />
         </div>
         <div className="lessons-compare-arrow" aria-hidden="true">
           <Icon icon={ArrowRight} size={18} className="lessons-compare-arrow-h" />
@@ -154,7 +195,16 @@ function CompareCard({ block }: { block: Extract<LessonBlock, { type: 'compare' 
               )}
             </>
           )}
-          <ListenButtons text={block.natural} say={block.say} />
+          <PlayButton
+            text={naturalPlan.text}
+            mode={naturalPlan.mode}
+            label="Nghe"
+            size="sm"
+            variant="soft"
+            title={connected ? CONNECTED_TITLE : 'Nghe câu'}
+            ariaLabel={connected ? `Nghe, ${CONNECTED_TITLE.toLowerCase()}` : undefined}
+          />
+          {connected && <RealVoiceLink phrase={youglishPhrase(block.natural, naturalDecoded)} className="lessons-real" />}
         </div>
       </div>
       <p className="lessons-compare-note">{block.note}</p>
@@ -301,7 +351,7 @@ function StoryBlock({ block }: { block: Extract<LessonBlock, { type: 'story' }> 
   );
 }
 
-function Block({ block, clamp = false }: { block: LessonBlock; clamp?: boolean }) {
+function Block({ block, clamp = false, connected }: { block: LessonBlock; clamp?: boolean; connected: boolean }) {
   switch (block.type) {
     case 'text':
       return clamp ? <ClampedMd md={block.md} /> : <Md md={block.md} className="lessons-text" />;
@@ -321,13 +371,13 @@ function Block({ block, clamp = false }: { block: LessonBlock; clamp?: boolean }
           {block.title && <h3 className="lessons-block-title">{block.title}</h3>}
           <ul className="lessons-example-list">
             {block.items.map((ex) => (
-              <ExampleCard key={ex.text} example={ex} />
+              <ExampleCard key={ex.text} example={ex} connected={connected} />
             ))}
           </ul>
         </section>
       );
     case 'compare':
-      return <CompareCard block={block} />;
+      return <CompareCard block={block} connected={connected} />;
     case 'tip':
       return (
         <aside className="callout lessons-tip">
@@ -342,13 +392,16 @@ function Block({ block, clamp = false }: { block: LessonBlock; clamp?: boolean }
   }
 }
 
-/** One section of a lesson: title + its blocks. */
-export function SectionBody({ section }: { section: LessonSection }) {
+/**
+ * One section of a lesson: title + its blocks. `connected` (course connected, the default): example and compare
+ * cards play the connected version; other courses play sentences as written (src/core/playback.ts writtenText).
+ */
+export function SectionBody({ section, connected = true }: { section: LessonSection; connected?: boolean }) {
   return (
     <div className="lessons-section-body">
       {section.blocks.map((b, i) => (
         // Only the opening text is clamped on phones, so the first example stays near the fold.
-        <Block key={i} block={b} clamp={i === 0 && section.blocks.length > 1} />
+        <Block key={i} block={b} clamp={i === 0 && section.blocks.length > 1} connected={connected} />
       ))}
     </div>
   );

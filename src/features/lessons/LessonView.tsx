@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CircleHelp, RotateCcw } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
@@ -203,7 +203,7 @@ export default function LessonView({ lesson }: { lesson: Lesson }) {
           <h2 id="lessons-section-title" ref={sectionTitleRef} tabIndex={-1} className="lessons-section-title">
             <NoBreakRespell text={sections[phase.step].title} />
           </h2>
-          <SectionBody key={phase.step} section={sections[phase.step]} />
+          <SectionBody key={phase.step} section={sections[phase.step]} connected={lesson.course === 'connected'} />
           <div className="lessons-stepper">
             {phase.step > 0 && (
               <button type="button" className="btn btn-ghost" onClick={() => goStep(phase.step - 1)}>
@@ -240,6 +240,19 @@ export default function LessonView({ lesson }: { lesson: Lesson }) {
             )}
           </div>
         </section>
+      )}
+
+      {phase.kind === 'learn' && lesson.course === 'connected' && (
+        <details className="how lessons-how">
+          <summary>
+            <Icon icon={CircleHelp} size={18} />
+            Hai nút nghe khác nhau thế nào?
+          </summary>
+          <p>
+            <b>Nghe</b> đọc kiểu nói nhanh ngoài đời (nối âm, nuốt âm); <b>Rõ từng từ</b> đọc chuẩn, chậm, để so sánh.
+          </p>
+          <p>Giọng máy chỉ gần giống người thật: bấm “Nghe người thật nói” để nghe người bản xứ nói cụm đó trong video thật.</p>
+        </details>
       )}
 
       {phase.kind === 'quiz' && <Quiz key={phase.run} lesson={lesson} onFinish={finish} onExit={() => goStep(0)} />}

@@ -110,3 +110,45 @@ export function addSentenceForDictation(stored: unknown, text: string, now: numb
   }
   return { status: 'error', list, message: CUSTOM_ERROR_TEXT[error] };
 }
+
+// ───────────────────────── playback (src/core/playback.ts)
+
+const sayIndexes = new WeakMap<readonly { text: string; say?: string }[], Map<string, string>>();
+
+/** dedupeKey(text) → say of the built-in sentences that have one (built once per list). */
+function sayIndex(list: readonly { text: string; say?: string }[]): Map<string, string> {
+  let m = sayIndexes.get(list);
+  if (!m) {
+    m = new Map();
+    for (const s of list) {
+      const k = dedupeKey(s.text);
+      if (k && s.say?.trim() && !m.has(k)) m.set(k, s.say);
+    }
+    sayIndexes.set(list, m);
+  }
+  return m;
+}
+
+/**
+ * The authored speakable text (`say`) for the decoded input: from the built-in sentence it came from (`sentence`, the
+ * picked one), else from any built-in sentence with the same words (`builtIn`: a link from Home or Shadowing opens
+ * the decoder with no picked sentence), else from the decoder examples' reviewed EXAMPLE_SAY (case, spacing and
+ * punctuation ignored). undefined = the decoder's generated speakText. Once the learner edits the text nothing
+ * matches, so the generated text plays.
+ */
+export function authoredSay(
+  query: string,
+  exampleSay: Readonly<Record<string, string>>,
+  sentence?: { text: string; say?: string } | null,
+  builtIn?: readonly { text: string; say?: string }[],
+): string | undefined {
+  const k = dedupeKey(cleanText(query, Number.MAX_SAFE_INTEGER));
+  if (!k) return undefined;
+  if (sentence && dedupeKey(sentence.text) === k && sentence.say?.trim()) return sentence.say;
+  const fromList = builtIn ? sayIndex(builtIn).get(k) : undefined;
+  if (fromList) return fromList;
+  for (const [text, say] of Object.entries(exampleSay)) {
+    if (say.trim() && dedupeKey(text) === k) return say;
+  }
+  return undefined;
+}

@@ -123,6 +123,10 @@ describe('honesty marking (prompts-5, prompts-6)', () => {
     expect(markGuesses('Đây là Nuốt âm nên khó đoán.', known)).toBe('Đây là Nuốt âm (đoán) nên khó đoán.');
     expect(markGuesses('Âm t bị nuốt («Nuốt âm»), có lẽ vậy.', known)).toBe('Âm t bị nuốt («Nuốt âm» (đoán)), có lẽ vậy.');
     expect(markGuesses('«Nuốt âm» (đoán) và «T bật»', known)).toBe('«Nuốt âm» (đoán) và «T bật»');
+    // a negated name rules the phenomenon out: no "(đoán)" (seen live with Claude: "Đây không phải nối âm (đoán)")
+    expect(markGuesses('Đây không phải Nuốt âm mà là nghe nhầm nguyên âm.', known)).toBe('Đây không phải Nuốt âm mà là nghe nhầm nguyên âm.');
+    expect(markGuesses('Chứ không phải do «Nuốt âm».', known)).toBe('Chứ không phải do «Nuốt âm».');
+    expect(markGuesses('Không phải Nuốt âm, nhưng Nuốt âm ở từ sau.', known)).toBe('Không phải Nuốt âm, nhưng Nuốt âm (đoán) ở từ sau.');
     const input = { text: 't', typed: 't', mistakes: [], annotations: [] };
     const out = sanitizeExplanation({ summary: '', points: [{ heard: '', actual: 'x', why: '«Nối âm» rõ, «Rút gọn» nữa.', tip: '' }] }, input);
     expect(out?.points[0].why).toBe('Nối âm (đoán) rõ, Rút gọn (đoán) nữa.');

@@ -12,16 +12,51 @@
  * woff2 files from src/fonts.css, inlined as data: URIs), then inline the JS as an
  * inline <script type="module">, the CSS as <style>, the icon as a data: URI, and drop the manifest
  * and apple-touch-icon links (they need http(s)). Fails loudly if anything external is left.
+ *
+ * Shipped Gemini clips (public/audio, see src/core/audioManifest.ts): the manifest is inlined into the HTML
+ * (file:// cannot fetch it) and the clip files it names are copied to "<out>/audio/" next to the HTML (only new
+ * or changed files; clips no longer in the manifest are removed). Keep that folder next to the HTML: without it
+ * the app plays the AI or browser voice, as before.
  */
 import { spawnSync } from 'node:child_process'
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
+import { inlineAudioManifest, normalizeAudioManifest, syncAudioFolder } from './portableAudio.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BUILD_DIR = join(ROOT, 'node_modules', '.portable-build') // keep in sync with vite.config.ts
 const FILE_NAME = 'Nghe-Noi-Am.html'
+const AUDIO_SRC_DIR = join(ROOT, 'public', 'audio')
+
+/** public/audio/manifest.json as { key: file }, keeping only clips whose file exists; null when there is none. */
+async function readAudioClips() {
+  let raw
+  try {
+    raw = await readFile(join(AUDIO_SRC_DIR, 'manifest.json'), 'utf8')
+  } catch {
+    return null
+  }
+  let json
+  try {
+    json = JSON.parse(raw)
+  } catch {
+    fail('public/audio/manifest.json không phải JSON hợp lệ')
+  }
+  const all = normalizeAudioManifest(json)
+  const clips = {}
+  let missing = 0
+  for (const [key, file] of Object.entries(all)) {
+    try {
+      await stat(join(AUDIO_SRC_DIR, file))
+      clips[key] = file
+    } catch {
+      missing++
+    }
+  }
+  return { clips, missing }
+}
 
 function parseArgs(argv) {
   let outDir = join(ROOT, 'portable')
@@ -134,6 +169,10 @@ async function main() {
   )
   html = html.replace(/[ \t]*<link rel="(?:manifest|apple-touch-icon)"[^>]*>\r?\n?/g, '')
 
+  // Shipped Gemini clips: the manifest goes into the page; the files are copied next to it below.
+  const audio = await readAudioClips()
+  if (audio) html = inlineAudioManifest(html, audio.clips)
+
   // Nothing may still point at a sibling file.
   const leftovers = [...html.matchAll(/\s(?:src|href)="(?!data:|https?:|#)([^"]+)"/g)].map((m) => m[1])
   if (leftovers.length) fail(`HTML vẫn còn tham chiếu tới file ngoài: ${leftovers.join(', ')}`)
@@ -144,6 +183,18 @@ async function main() {
   const { size } = await stat(outFile)
   console.log(`\n[portable] Đã tạo bản 1 file: ${outFile}`)
   console.log(`[portable] Kích thước: ${formatSize(size)} (${size} bytes)`)
+  if (audio) {
+    const files = [...new Set(Object.values(audio.clips))]
+    const r = await syncAudioFolder(AUDIO_SRC_DIR, join(outDir, 'audio'), files)
+    console.log(
+      `[portable] Giọng Gemini có sẵn: ${r.files} file (${formatSize(r.bytes)}) trong ${join(outDir, 'audio')}` +
+        ` — chép mới ${r.copied}, giữ nguyên ${r.kept}, xóa ${r.removed}.`,
+    )
+    if (audio.missing) console.warn(`[portable] Bỏ qua ${audio.missing} mục trong manifest không có file trong public/audio.`)
+    console.log('[portable] Giữ thư mục "audio" cạnh file HTML khi chép đi máy khác.')
+  } else {
+    console.log('[portable] Chưa có public/audio/manifest.json: bản này dùng giọng AI/trình duyệt như trước.')
+  }
   console.log('[portable] Mở bằng cách nhấp đúp file (Edge/Chrome) — không cần Node hay máy chủ.')
 }
 

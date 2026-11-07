@@ -25,3 +25,6 @@ dist-ssr
 
 # Portable single-file build (npm run portable)
 portable
+
+# Audio generator work files (WAVs, logs, batch state)
+.audio-gen/

@@ -56,8 +56,9 @@ export const PROVIDER_DEFAULTS: Readonly<Record<ProviderKind, ProviderDefaults>>
     suggestedTtsModels: ['gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts'],
     requiresKey: true,
     requiresBaseUrl: false,
-    keyHint: 'Key Gemini bắt đầu bằng "AIza" (39 ký tự). Tạo miễn phí trong Google AI Studio.',
-    keyPattern: /^AIza[0-9A-Za-z_-]{35}$/,
+    keyHint: 'Key Gemini bắt đầu bằng "AIza" hoặc "AQ." (dạng key mới). Tạo trong Google AI Studio.',
+    // Classic Google API keys (AIza + 35) and the newer AI Studio key format "AQ.<token>" (verified live 2026-11-07).
+    keyPattern: /^(?:AIza[0-9A-Za-z_-]{35}|AQ\.[0-9A-Za-z_-]{20,})$/,
     keyUrl: 'https://aistudio.google.com/apikey',
     docsUrl: 'https://aistudio.google.com/docs',
   },

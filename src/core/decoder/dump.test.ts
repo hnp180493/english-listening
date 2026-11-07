@@ -1,5 +1,6 @@
 // Review tool: decode every built-in sentence, chunk example and lesson example and print
-// how it sounds, so a teacher can read the whole output at once.
+// how it sounds (=> respelling for the eye, ~> speakable text sent to TTS), so a teacher can read the whole
+// output at once.
 //   DECODER_DUMP=1 npx vitest run src/core/decoder/dump.test.ts --reporter=verbose
 // Without the variable it only checks that every text decodes.
 import { describe, expect, it } from 'vitest';
@@ -38,7 +39,7 @@ describe('decoder review dump', () => {
     const lines = allTexts().map((t) => {
       const r = decode(t);
       const anns = r.annotations.map((a) => `${a.type}[${a.original} → ${a.spoken}]`).join('  ');
-      return `${t}\n   => ${r.spokenText}\n   :: ${anns}`;
+      return `${t}\n   => ${r.spokenText}\n   ~> ${r.speakText}\n   :: ${anns}`;
     });
     console.log(lines.join('\n'));
   });

@@ -25,7 +25,16 @@ function AnnotationTip({ a, wordsMissed }: { a: Annotation; wordsMissed: string[
           </span>
           {showIpa && a.ipa && <span className="ipa">{a.ipa}</span>}
         </span>
-        <PlayButton text={a.original || a.spoken} rate={0.8} size="sm" label="Nghe chậm" variant="ghost" title="Nghe riêng cụm này ở tốc độ 0.8×" />
+        <PlayButton
+          text={a.speak?.trim() || a.original || a.spoken}
+          rate={0.8}
+          slow
+          mode="connected"
+          size="sm"
+          label="Nghe chậm"
+          variant="ghost"
+          title="Nghe riêng cụm này, chậm, vẫn nối âm"
+        />
       </div>
       {a.rule && <p className="shadow-ann-rule">{a.rule}</p>}
       {wordsMissed.length > 0 && (

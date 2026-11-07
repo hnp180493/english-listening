@@ -4,6 +4,8 @@ import { Icon } from '../../components/Icon';
 import PhTag from '../../components/PhTag';
 import PlayButton from '../../components/PlayButton';
 import { GRADES, newCard, previewIntervals, type CardState, type Grade } from '../../core/srs';
+import { speakableFor } from '../../core/decoder';
+import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_RATE, CAREFUL_TITLE, CONNECTED_SLOW_RATE, CONNECTED_SLOW_TITLE, CONNECTED_TITLE } from '../../core/playback';
 import { speak, stopSpeaking } from '../../core/tts';
 import type { Chunk } from '../../core/types';
 import type { CardKind } from './choice';
@@ -70,12 +72,16 @@ export default function DrillCard({
 
   const revealed = verdict !== null;
   const suggested: Grade = verdict === 'correct' ? 'good' : 'again';
+  // The example sentence as it is really said (connected: "I'm gonna call her tonight."), like the chunk's own
+  // ttsText. In "choose" the learner must hear WHICH chunk is in the sentence: the written text read like a
+  // newsreader ("going to" in full) would give it away and train the wrong ear.
+  const exampleAudio = useMemo(() => (chunk.example ? speakableFor(chunk.example) : ''), [chunk.example]);
   /** What the big play button says on the front: the chunk, or the whole sentence for "choose". */
-  const frontAudio = choose ? chunk.example : chunk.ttsText;
+  const frontAudio = choose ? exampleAudio : chunk.ttsText;
 
   // Play the prompt when a new card appears (only after the learner has interacted).
   useEffect(() => {
-    if (autoPlay) void speak(frontAudio, { rate: 1 });
+    if (autoPlay) void speak(frontAudio, { rate: 1, mode: 'connected' });
     return () => stopSpeaking();
   }, [autoPlay, frontAudio]);
 
@@ -126,7 +132,7 @@ export default function DrillCard({
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === 'Escape') {
         e.preventDefault();
-        void speak(revealed ? chunk.ttsText : frontAudio, { rate: 1 });
+        void speak(revealed ? chunk.ttsText : frontAudio, { rate: 1, mode: 'connected' });
         return;
       }
       if (!revealed && e.key === 'Enter' && e.shiftKey) {
@@ -138,12 +144,12 @@ export default function DrillCard({
       const key = e.key.toLowerCase();
       if (key === 'r') {
         e.preventDefault();
-        void speak(revealed ? chunk.ttsText : frontAudio, { rate: 1 });
+        void speak(revealed ? chunk.ttsText : frontAudio, { rate: 1, mode: 'connected' });
         return;
       }
-      if (key === 'c' && chunk.example) {
+      if (key === 'c' && exampleAudio) {
         e.preventDefault();
-        void speak(chunk.example, { rate: 1 });
+        void speak(exampleAudio, { rate: 1, mode: 'connected' });
         return;
       }
       const idx = ['1', '2', '3', '4'].indexOf(e.key);
@@ -158,7 +164,7 @@ export default function DrillCard({
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [revealed, submitGrade, reveal, choosePick, choose, options, chunk.ttsText, chunk.example, frontAudio]);
+  }, [revealed, submitGrade, reveal, choosePick, choose, options, chunk.ttsText, exampleAudio, frontAudio]);
 
   const previews = useMemo(
     () => (revealed && !extra ? previewIntervals(state ?? newCard(chunk.id, revealedAt), revealedAt) : null),
@@ -212,9 +218,20 @@ export default function DrillCard({
             <p className="drill-prompt">Nghe cả câu. Cụm nào dưới đây có trong câu?</p>
             <div className="drill-listen">
               <div className="drill-bigplay">
-                <PlayButton text={chunk.example} rate={1} label="Nghe câu" variant="primary" />
+                <PlayButton text={exampleAudio} rate={1} mode="connected" label="Nghe câu" variant="primary" title={CONNECTED_TITLE} />
               </div>
-              <PlayButton text={chunk.example} rate={0.75} label="Nghe chậm" size="sm" variant="ghost" />
+              {/* still connected: the careful version would read the answer out */}
+              <PlayButton
+                text={exampleAudio}
+                rate={CONNECTED_SLOW_RATE}
+                slow
+                mode="connected"
+                label="Nghe chậm"
+                size="sm"
+                variant="ghost"
+                title={CONNECTED_SLOW_TITLE}
+                ariaLabel={CONNECTED_SLOW_TITLE}
+              />
             </div>
             <div className="drill-options" role="group" aria-label="Chọn cụm từ bạn nghe thấy">
               {options!.map((o, i) => (
@@ -242,9 +259,9 @@ export default function DrillCard({
             <div className="drill-listen">
               <div className="drill-bigplay">
                 {/* The one gradient action: "Nghe" until the learner has typed, then "Kiểm tra". */}
-                <PlayButton text={chunk.ttsText} rate={1} label="Nghe cụm" variant={typed ? 'soft' : 'primary'} />
+                <PlayButton text={chunk.ttsText} rate={1} mode="connected" label="Nghe cụm" variant={typed ? 'soft' : 'primary'} />
               </div>
-              <PlayButton text={chunk.example} rate={1} label="Nghe trong câu" size="sm" variant="ghost" />
+              <PlayButton text={exampleAudio} rate={1} mode="connected" label="Nghe trong câu" size="sm" variant="ghost" />
             </div>
 
             <form className="drill-answer" onSubmit={onSubmit}>
@@ -328,14 +345,16 @@ export default function DrillCard({
           <div className="drill-play-row">
             <PlayButton
               text={citationText(chunk.written)}
-              rate={0.85}
-              label="Rõ ràng"
+              rate={CAREFUL_RATE}
+              mode="careful"
+              label={CAREFUL_LABEL}
               size="sm"
               variant="ghost"
-              title="Từng từ, đọc chậm và tách rời"
+              title={CAREFUL_TITLE}
+              ariaLabel={CAREFUL_ARIA}
             />
-            <PlayButton text={chunk.ttsText} rate={1} label="Tự nhiên" size="sm" variant="soft" title="Cách người bản xứ nói" />
-            {chunk.example && <PlayButton text={chunk.example} rate={1} label="Câu ví dụ" size="sm" variant="ghost" />}
+            <PlayButton text={chunk.ttsText} rate={1} mode="connected" label="Tự nhiên" size="sm" variant="soft" title={CONNECTED_TITLE} />
+            {exampleAudio && <PlayButton text={exampleAudio} rate={1} mode="connected" label="Câu ví dụ" size="sm" variant="ghost" />}
           </div>
 
           {chunk.meaning && <p className="drill-meaning">{chunk.meaning}</p>}

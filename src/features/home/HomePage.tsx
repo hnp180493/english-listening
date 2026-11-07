@@ -24,6 +24,7 @@ import { listeningToday, timerElapsedMs, timerStatus, useListeningEntries, useLi
 import { loadLessonProgress, sortLessons, type LessonMeta } from '../../core/lessons';
 import { hrefFor, navigate, ROUTES, type RouteId } from '../../core/nav';
 import { PHENOMENON_INFO } from '../../core/phenomena';
+import { CONNECTED_TITLE, connectedText } from '../../core/playback';
 import { useReview } from '../../core/review';
 import { useSettings } from '../../core/settings';
 import { currentStreak } from '../../core/stats';
@@ -270,7 +271,7 @@ function SentenceOfDay({ sentence }: { sentence: Sentence }) {
       </p>
       {sentence.vi && <p className="home-sod-vi">{sentence.vi}</p>}
       <div className="home-card-foot">
-        <PlayButton text={sentence.text} label="Nghe" variant="soft" size="sm" />
+        <PlayButton text={connectedText(sentence.text, null, sentence.say)} mode="connected" label="Nghe" variant="soft" size="sm" title={CONNECTED_TITLE} />
         <a className="btn btn-ghost btn-sm home-sod-link" href={hrefFor('decoder', { text: sentence.text })}>
           Luyện câu này
           <Icon icon={ChevronRight} size={16} />

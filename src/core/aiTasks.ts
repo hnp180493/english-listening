@@ -361,9 +361,13 @@ export function phenomenaNamedIn(s: string): Phenomenon[] {
 /** "(đoán)" right after the name (or its « »). */
 const GUESS_AFTER = /^\s*»?\s*\(\s*đoán\s*\)/iu;
 
+/** A negation right before the name ("không phải nối âm", "chẳng phải do «Nuốt âm»"): the model is ruling it out. */
+const NEGATED_BEFORE = /(?:không|chẳng|chứ không)\s+(?:phải\s+)?(?:là\s+)?(?:do\s+)?(?:hiện tượng\s+)?«?\s*$/iu;
+
 /**
  * Marks each unsupported phenomenon name in `s` as a guess, right after the name ("«Nuốt âm» (đoán)"), unless
- * it already is. A hedge elsewhere in the sentence ("khó đoán", "có lẽ") does not count.
+ * it already is, or the name is negated ("Đây không phải nối âm" rules it out, so no "(đoán)"). A hedge elsewhere
+ * in the sentence ("khó đoán", "có lẽ") does not count.
  */
 export function markGuesses(s: string, known: ReadonlySet<Phenomenon>): string {
   let out = s;
@@ -372,7 +376,8 @@ export function markGuesses(s: string, known: ReadonlySet<Phenomenon>): string {
     const re = nameRe(p, PLAIN_MATCH.has(p));
     out = out.replace(re, (m: string, offset: number, whole: string) => {
       const rest = whole.slice(offset + m.length);
-      return GUESS_AFTER.test(rest) ? m : `${m} (đoán)`;
+      const before = whole.slice(Math.max(0, offset - 40), offset);
+      return GUESS_AFTER.test(rest) || NEGATED_BEFORE.test(before) ? m : `${m} (đoán)`;
     });
   }
   return out;

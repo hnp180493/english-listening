@@ -1,5 +1,7 @@
 // Pure helpers for the Settings page.
 
+import type { VoiceEngine } from '../../core/settings';
+
 export const RATE_MIN = 0.5;
 export const RATE_MAX = 1.5;
 export const RATE_STEP = 0.05;
@@ -200,4 +202,21 @@ const GEMINI_VOICE_STYLE: Record<string, string> = {
 /** Vietnamese character of a Gemini voice ('' when unknown). */
 export function geminiVoiceStyle(voice: string): string {
   return Object.prototype.hasOwnProperty.call(GEMINI_VOICE_STYLE, voice) ? GEMINI_VOICE_STYLE[voice] : '';
+}
+
+/** Labels of the voice choice (Cài đặt → Giọng đọc), by Settings.voiceEngine. */
+export const VOICE_CHOICE_LABEL: Readonly<Record<VoiceEngine, string>> = {
+  clips: 'Giọng Gemini có sẵn (mặc định)',
+  ai: 'Giọng Gemini có sẵn + Gemini qua key (tốn phí)',
+  browser: 'Giọng trình duyệt',
+};
+
+/** Hint under the voice choice: what reads the built-in sentences, and what reads the others (and whether it costs). */
+export function voiceChoiceHint(engine: VoiceEngine, aiCanSpeak: boolean): string {
+  if (engine === 'browser') return 'Mọi câu đọc bằng giọng có sẵn của trình duyệt.';
+  const builtIn = 'Câu có sẵn trong app đã có giọng Gemini, không cần key, không tốn phí.';
+  if (engine === 'clips') return `${builtIn} Câu khác (bạn tự gõ, AI tạo) đọc bằng giọng trình duyệt bên dưới.`;
+  return aiCanSpeak
+    ? `${builtIn} Câu khác (bạn tự gõ, AI tạo) đọc bằng Gemini qua key của bạn: mỗi câu mới tốn một yêu cầu.`
+    : `${builtIn} Chưa có key Gemini đọc được, nên câu khác đọc bằng giọng trình duyệt bên dưới.`;
 }

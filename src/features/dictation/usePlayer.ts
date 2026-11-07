@@ -1,15 +1,39 @@
-// TTS playback shared by the dictation exercises: normal / slow / chunk-by-chunk,
+// TTS playback shared by the dictation exercises: normal / slow / chunk-by-chunk / careful,
 // auto-play after the first user gesture, Esc = replay.
+//
+// The exercise audio is the CONNECTED version (src/core/playback.ts): that is what the learner must decode.
+//  - 'normal': connected, the learner's rate (level 1: a little slower, still connected);
+//  - 'slow': connected, CONNECTED_SLOW_RATE (slower, still reduced and linked);
+//  - 'chunks': each segment's connected form with a pause, always with the BROWSER voice: with the AI voice every
+//    chunk was one more request (a free key allows a few per minute, ~30 a day), so one press used the budget;
+//  - 'careful': the standard written text, slower: "Rõ từng từ", offered only after checking the answer.
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useSettings } from '../../core/settings';
-import { prefetchSpeech, speak, stopSpeaking, ttsSupported, useSpeechPending } from '../../core/tts';
+import { CAREFUL_RATE, CONNECTED_SLOW_RATE, dictationRate, type SpeechMode } from '../../core/playback';
+import { speak, stopSpeaking, ttsSupported, useSpeechPending } from '../../core/tts';
+import type { DictationAudio } from './decodeCache';
 import { session } from './session';
 
-export type PlayMode = 'normal' | 'slow' | 'chunks';
+export type PlayMode = 'normal' | 'slow' | 'chunks' | 'careful';
 
-const SLOW_RATE = 0.7;
 const CHUNK_PAUSE_MS = 380;
+
+/** What one (non-chunk) play mode speaks: text, rate and AI style. Pure, tested. */
+export function playbackFor(
+  mode: Exclude<PlayMode, 'chunks'>,
+  audio: DictationAudio,
+  baseRate: number,
+): { text: string; rate: number; mode: SpeechMode; slow?: boolean } {
+  switch (mode) {
+    case 'careful':
+      return { text: audio.careful, rate: CAREFUL_RATE, mode: 'careful' };
+    case 'slow':
+      return { text: audio.connected, rate: CONNECTED_SLOW_RATE, mode: 'connected', slow: true };
+    default:
+      return { text: audio.connected, rate: dictationRate(baseRate, audio.level), mode: 'connected' };
+  }
+}
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -34,11 +58,12 @@ export function isCoarsePointer(): boolean {
 }
 
 export function usePlayer(
-  text: string,
+  audio: DictationAudio,
   chunks: readonly string[],
   opts: { autoPlay: boolean; rootRef: RefObject<HTMLElement | null> },
 ): Player {
   const settings = useSettings();
+  const { connected, careful, level } = audio;
   const canSpeak = ttsSupported();
   const [playing, setPlaying] = useState<PlayMode | null>(null);
   const [chunkPos, setChunkPos] = useState(-1);
@@ -78,16 +103,14 @@ export function usePlayer(
           for (let k = 0; k < chunks.length; k++) {
             if (runRef.current !== my) return;
             setChunkPos(k);
-            const done = speak(chunks[k], { rate: rateRef.current, owner });
-            // AI voice: generate the other chunks while the first one is made, not one after another between
-            // the pauses (no-op with the browser voice)
-            if (k === 0) prefetchSpeech(chunks.slice(1));
-            await done;
+            // browser voice even when the AI voice is on: no quota spent per chunk
+            await speak(chunks[k], { rate: dictationRate(rateRef.current, level), owner, mode: 'connected', browserOnly: true });
             if (runRef.current !== my) return;
             if (k < chunks.length - 1) await sleep(CHUNK_PAUSE_MS);
           }
         } else {
-          await speak(text, { rate: mode === 'slow' ? SLOW_RATE : rateRef.current, owner });
+          const p = playbackFor(mode, { connected, careful, level }, rateRef.current);
+          await speak(p.text, { rate: p.rate, owner, mode: p.mode, slow: p.slow });
         }
       } catch {
         // speech errors end playback quietly
@@ -97,7 +120,7 @@ export function usePlayer(
       setPlaying(null);
       setChunkPos(-1);
     },
-    [canSpeak, chunks, text, stop, owner],
+    [canSpeak, chunks, connected, careful, level, stop, owner],
   );
 
   // stop audio on unmount (sentence change, tab change)

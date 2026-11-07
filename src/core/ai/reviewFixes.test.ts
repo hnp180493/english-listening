@@ -135,6 +135,11 @@ describe('keys with non-header characters (round 2 F3)', () => {
     expect(l.sleeps).toEqual([]);
     const { keyLooksWrong } = await import('./defaults');
     expect(keyLooksWrong('gemini', 'AIza…k3Fq')).toBe(true);
+    // the newer AI Studio key format is accepted (fake value of the same shape)
+    expect(keyLooksWrong('gemini', 'AQ.Ab8Rfake0000000000000000000000-test_key0')).toBe(false);
+    expect(keyLooksWrong('gemini', 'AQ.short')).toBe(true);
+    const { redactSecrets } = await import('./errors');
+    expect(redactSecrets('bad key AQ.Ab8Rfake0000000000000000000000-test_key0 here')).not.toContain('Ab8Rfake');
     expect(keyLooksWrong('openai-compatible', 'tokén')).toBe(true);
     expect(keyLooksWrong('openai-compatible', 'token-123')).toBe(false);
   });

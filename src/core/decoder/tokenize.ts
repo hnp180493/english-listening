@@ -6,6 +6,8 @@ export interface Tokenized {
   cores: string[];
   /** brk[i] === true when a phrase boundary (punctuation / end of input) follows token i. */
   brk: boolean[];
+  /** Char offsets of each word core in the input (inside the token's raw span): used to rebuild text. */
+  spans: { start: number; end: number }[];
 }
 
 const CORE_RE = /[\p{L}\p{N}'’]+/gu;
@@ -57,5 +59,5 @@ export function tokenize(input: string): Tokenized {
       brk.push(true);
     }
   }
-  return { tokens, cores: cores.map((c) => c.text), brk };
+  return { tokens, cores: cores.map((c) => c.text), brk, spans: cores.map((c) => ({ start: c.start, end: c.end })) };
 }

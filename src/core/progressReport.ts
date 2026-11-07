@@ -16,11 +16,13 @@
 // - a TTS voice change, different/repeated forms and an old last checkup are mentioned.
 
 import {
+  audioModeOf,
   CHECKUP_CADENCE_DAYS,
   checkupDue,
   compareAll,
   isRepeatForm,
   trendCheckups,
+  type CheckupAudioMode,
   type CheckupComparison,
   type CheckupDue,
   type CheckupResult,
@@ -184,6 +186,8 @@ export interface CheckupPoint {
   comprehensionPct: number;
   voiceName: string | null;
   voiceChanged: boolean; // differs from the previous test's voice
+  audioMode: CheckupAudioMode; // 'standard' = an older result read from the standard text (benchmark.audioModeOf)
+  audioModeChanged: boolean; // differs from the previous test's audio mode
   repeatForm: boolean; // a form taken before: the learner saw its sentences and answers
   inTrend: boolean; // false for a quick retake (< RETAKE_WINDOW_DAYS after the previous counted test)
 }
@@ -208,6 +212,7 @@ export interface CheckupSection {
   deltaPrevLabel: string | null; // "+6 điểm so với lần trước"
   deltaHedge: string | null; // "chênh dưới 10 điểm: có thể do đề" | "mới có 2 lần đo"
   baselineNote: string | null; // "Đây là mốc đầu tiên …"
+  /** Test-condition caveats: a voice change and/or an audio-mode change (older standard-text results vs connected speech). */
   voiceNote: string | null;
   formNote: string | null; // forms differ / a repeated form
   staleNote: string | null; // the latest test is old
@@ -345,6 +350,22 @@ export function listenChange(cur: number, prev: number, what = 'kỳ trước'):
     return { pct, label: `gấp khoảng ${x < 3 ? decimalVi(x) : Math.round(x)} lần ${what}` };
   }
   return { pct, label: pct > 0 ? `nhiều hơn ${what} ${pct}%` : `ít hơn ${what} ${Math.abs(pct)}%` };
+}
+
+/** Caveat when older checkups (standard text) are compared with connected-speech ones. */
+export const AUDIO_MODE_NOTE =
+  'Các lần kiểm tra cũ đọc câu rõ từng từ, nay đọc kiểu nói nối âm như ngoài đời (khó hơn), nên điểm hai kiểu không so trực tiếp được.';
+const VOICE_NOTE = 'Giọng đọc đã đổi giữa các lần kiểm tra, nên điểm có thể lệch vì giọng chứ không chỉ vì bạn.';
+/** Quiet label when only the FIRST compared test used the older standard reading (CheckupComparison.firstAudioModeDiffers). */
+export const FIRST_AUDIO_MODE_NOTE = 'Lần đầu dùng giọng đọc chuẩn (rõ từng từ, dễ hơn), nên so với lần đầu chỉ để tham khảo.';
+
+/** The checkup section's condition caveat (voice and/or audio mode changed between the compared tests), or null. */
+function conditionNote(cmp: CheckupComparison | null): string | null {
+  const notes = [
+    cmp?.voiceChanged ? VOICE_NOTE : null,
+    cmp?.audioModeChanged ? AUDIO_MODE_NOTE : cmp?.firstAudioModeDiffers ? FIRST_AUDIO_MODE_NOTE : null,
+  ].filter(Boolean);
+  return notes.length ? notes.join(' ') : null;
 }
 
 function signed(n: number): string {
@@ -494,6 +515,8 @@ export function buildReport(input: ReportInput): ProgressReport {
     comprehensionPct: c.comprehension.pct,
     voiceName: c.voiceName,
     voiceChanged: i > 0 && checkups[i - 1].voiceName !== c.voiceName,
+    audioMode: audioModeOf(c),
+    audioModeChanged: i > 0 && audioModeOf(checkups[i - 1]) !== audioModeOf(c),
     repeatForm: isRepeatForm(checkups, c),
     inTrend: trendIds.has(c.id),
   }));
@@ -526,7 +549,7 @@ export function buildReport(input: ReportInput): ProgressReport {
             ? `Mới có ${tn} lần đo, cần khoảng ${MIN_TREND_CHECKUPS} lần mới chắc được xu hướng.`
             : null,
     baselineNote: tn === 1 && first ? `Đây là mốc đầu tiên (${first.score} điểm). ${baselineNext(due)}` : null,
-    voiceNote: comparison?.voiceChanged ? 'Giọng đọc đã đổi giữa các lần kiểm tra, nên điểm có thể lệch vì giọng chứ không chỉ vì bạn.' : null,
+    voiceNote: conditionNote(comparison),
     formNote: latestPoint?.repeatForm
       ? `Lần gần nhất là đề ${latestPoint.form}, bạn đã làm đề này trước đây: điểm có thể cao hơn thực tế.`
       : tn >= 2
@@ -754,6 +777,8 @@ function checkupInsight(i: InsightInput): string {
   if (n < MIN_TREND_CHECKUPS && Math.abs(d) > SCORE_NOISE) s += ` Mới có ${n} lần đo nên chưa chắc.`;
   const cmp = compareAll(trend);
   if (cmp?.voiceChanged) s += ' Giọng đọc đã đổi giữa các lần, nên so sánh có thể lệch.';
+  if (cmp?.audioModeChanged) s += ' ' + AUDIO_MODE_NOTE;
+  else if (cmp?.firstAudioModeDiffers) s += ' ' + FIRST_AUDIO_MODE_NOTE;
   if (isRepeatForm(i.checkups, trend[n - 1])) s += ' Lần gần nhất là đề đã làm trước đây, điểm có thể cao hơn thực tế.';
   return s + stale;
 }

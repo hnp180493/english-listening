@@ -324,8 +324,9 @@ describe('device-local keys (timer, checkup draft, device id)', () => {
 });
 
 describe('voiceEngine in settings', () => {
-  it('keeps browser/ai and drops anything else', () => {
+  it('keeps clips/browser/ai and drops anything else', () => {
     expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceEngine: 'ai' })) ?? '{}')).toEqual({ voiceEngine: 'ai' });
+    expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceEngine: 'clips' })) ?? '{}')).toEqual({ voiceEngine: 'clips' });
     expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceEngine: 'browser' })) ?? '{}')).toEqual({ voiceEngine: 'browser' });
     for (const bad of ['gemini', 1, null, true, { x: 1 }]) {
       expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceEngine: bad })) ?? '{}')).toEqual({});

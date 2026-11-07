@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  VOICE_CHOICE_LABEL,
+  voiceChoiceHint,
   accentLabel,
   clampRate,
   formatDateTimeVi,
@@ -152,5 +154,25 @@ describe('gemini voice styles', () => {
     for (const v of GEMINI_VOICES) expect(geminiVoiceStyle(v)).not.toBe('');
     expect(geminiVoiceStyle('constructor')).toBe('');
     expect(geminiVoiceStyle('Nope')).toBe('');
+  });
+});
+
+describe('voice choice', () => {
+  it('labels and hint (Vietnamese, says built-in sentences need no key, and which choice costs)', () => {
+    expect(VOICE_CHOICE_LABEL).toEqual({
+      clips: 'Giọng Gemini có sẵn (mặc định)',
+      ai: 'Giọng Gemini có sẵn + Gemini qua key (tốn phí)',
+      browser: 'Giọng trình duyệt',
+    });
+    for (const key of [false, true]) {
+      // the default never pays, with or without a key
+      expect(voiceChoiceHint('clips', key)).toContain('Câu có sẵn trong app đã có giọng Gemini, không cần key');
+      expect(voiceChoiceHint('clips', key)).toContain('giọng trình duyệt');
+      expect(voiceChoiceHint('clips', key)).not.toContain('qua key');
+    }
+    expect(voiceChoiceHint('ai', false)).toContain('giọng trình duyệt');
+    expect(voiceChoiceHint('ai', true)).toContain('qua key của bạn');
+    expect(voiceChoiceHint('ai', true)).toContain('tốn một yêu cầu');
+    expect(voiceChoiceHint('browser', true)).not.toContain('Gemini');
   });
 });

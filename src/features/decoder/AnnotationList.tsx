@@ -13,13 +13,15 @@ export interface AnnotationCardProps {
   showIpa: boolean;
   onSelect: (id: string) => void;
   as?: 'li' | 'div';
+  /** What the ▶ speaks (the connected form of this stretch); default the written words. */
+  speech?: string;
 }
 
 /**
  * One connected-speech event: dot + Vietnamese name (phenomenon colour, text only), original → respelling, IPA,
  * the rule, and a trailing icon play button. Paired with a coloured segment, so the colour is allowed here.
  */
-export function AnnotationCard({ annotation: a, selected, showIpa, onSelect, as = 'li' }: AnnotationCardProps) {
+export function AnnotationCard({ annotation: a, selected, showIpa, onSelect, as = 'li', speech }: AnnotationCardProps) {
   const info = PHENOMENON_INFO[a.type];
   const style: ColorStyle = { '--dec-color': info?.color ?? 'var(--text-muted)' };
   const Tag = as;
@@ -48,7 +50,7 @@ export function AnnotationCard({ annotation: a, selected, showIpa, onSelect, as 
         {a.rule && <span className="dec-ann-rule">{a.rule}</span>}
       </button>
       <div className="dec-ann-play">
-        <SpeakIconButton text={a.original} rate={1} icon={Volume2} label={`Nghe "${a.original}"`} />
+        <SpeakIconButton text={speech ?? a.original} rate={1} mode="connected" icon={Volume2} label={`Nghe "${a.original}"`} />
       </div>
     </Tag>
   );
@@ -59,10 +61,12 @@ export interface AnnotationListProps {
   selectedId: string | null;
   showIpa: boolean;
   onSelect: (id: string) => void;
+  /** What each annotation's ▶ speaks (see AnnotationCard.speech). */
+  speechFor?: (a: Annotation) => string;
 }
 
 /** Detail list of every connected-speech event in the sentence (rendered inside "Chi tiết"). */
-export default function AnnotationList({ annotations, selectedId, showIpa, onSelect }: AnnotationListProps) {
+export default function AnnotationList({ annotations, selectedId, showIpa, onSelect, speechFor }: AnnotationListProps) {
   return (
     <ol className="dec-anns">
       {annotations.map((a) => (
@@ -72,6 +76,7 @@ export default function AnnotationList({ annotations, selectedId, showIpa, onSel
           selected={a.id === selectedId}
           showIpa={showIpa}
           onSelect={onSelect}
+          speech={speechFor?.(a)}
         />
       ))}
     </ol>

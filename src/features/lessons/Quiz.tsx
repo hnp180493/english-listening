@@ -3,10 +3,13 @@ import { ArrowLeft, ArrowRight, Check, TriangleAlert, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import { decode } from '../../core/decoder';
 import { speak, stopSpeaking, ttsSupported } from '../../core/tts';
+import ListenPair from '../../components/ListenPair';
 import PlayButton from '../../components/PlayButton';
 import SpokenSentence from '../../components/SpokenSentence';
+import { CONNECTED_SLOW_TITLE, CONNECTED_TITLE } from '../../core/playback';
 import type { ChooseItem, Lesson, ListenTypeItem, QuizItem, SilentLetterItem } from '../../data/lessonTypes';
-import { MarkedWord, SLOW_RATE, WordListen } from './Blocks';
+import { MarkedWord, WordListen } from './Blocks';
+import { quizPlayback, type QuizPlayback } from './quizPlayback';
 import SpeakIconButton from './SpeakIconButton';
 import {
   checkAnswer,
@@ -14,7 +17,6 @@ import {
   displayOrder,
   exactSpelling,
   isConnectedSpeechItem,
-  itemAudio,
   itemSentence,
   letterDiff,
   letterDiffSummary,
@@ -28,6 +30,30 @@ import {
 } from './logic';
 import { useKeyboard } from './useKeyboard';
 import { splitWords } from '../../core/dictation/normalize';
+
+/** The listen buttons of a quiz item before answering: "Nghe" + turtle, both in the item's playback mode. */
+function QuizListen({ play }: { play: QuizPlayback }) {
+  return (
+    <div className="lessons-q-audio">
+      <PlayButton
+        text={play.text}
+        mode={play.mode}
+        label="Nghe"
+        variant="soft"
+        title={play.mode === 'connected' ? CONNECTED_TITLE : undefined}
+      />
+      {/* connected items: still the connected version, slower (the careful one would give the answer away) */}
+      <SpeakIconButton
+        text={play.text}
+        mode={play.mode}
+        rate={play.slowRate}
+        slow={play.mode === 'connected'}
+        label={play.mode === 'connected' ? CONNECTED_SLOW_TITLE : undefined}
+        size="md"
+      />
+    </div>
+  );
+}
 
 export interface QuizProps {
   lesson: Lesson;
@@ -51,15 +77,15 @@ export default function Quiz({ lesson, onFinish, onExit, embedded = false }: Qui
   const order = useMemo(() => (item ? displayOrder(item, seed + index * 7919) : []), [item, seed, index]);
 
   // Auto-play listening items when they appear; stop audio when leaving.
+  const play = useMemo(() => (item ? quizPlayback(item, lesson.course) : null), [item, lesson.course]);
   useEffect(() => {
-    const audio = item ? itemAudio(item) : null;
-    if (!audio) return;
-    const t = window.setTimeout(() => void speak(audio), 300);
+    if (!play) return;
+    const t = window.setTimeout(() => void speak(play.text, { mode: play.mode }), 300);
     return () => {
       window.clearTimeout(t);
       stopSpeaking();
     };
-  }, [item]);
+  }, [play]);
 
   // Move focus to "Tiếp" after answering so Enter continues.
   useEffect(() => {
@@ -95,8 +121,7 @@ export default function Quiz({ lesson, onFinish, onExit, embedded = false }: Qui
   };
 
   const replay = () => {
-    const audio = item ? itemAudio(item) : null;
-    if (audio) void speak(audio);
+    if (play) void speak(play.text, { mode: play.mode });
   };
 
   useKeyboard((e) => {
@@ -110,7 +135,7 @@ export default function Quiz({ lesson, onFinish, onExit, embedded = false }: Qui
     }
     if (e.key === 'r' || e.key === 'R') {
       replay();
-      return itemAudio(item) !== null;
+      return play !== null;
     }
     if (/^[1-9]$/.test(e.key) && !current && item.type !== 'listen-type' && item.type !== 'silent-letter') {
       const pos = Number(e.key) - 1;
@@ -153,7 +178,7 @@ export default function Quiz({ lesson, onFinish, onExit, embedded = false }: Qui
             Câu {index + 1}/{total}
           </p>
         )}
-        <ItemView key={index} item={item} order={order} outcome={current} onAnswer={answer} />
+        <ItemView key={index} item={item} order={order} outcome={current} onAnswer={answer} play={play} />
 
         {current && <Feedback item={item} outcome={current} course={lesson.course} />}
 
@@ -188,27 +213,24 @@ interface ItemViewProps {
   order: number[];
   outcome: QuizOutcome | undefined;
   onAnswer: (r: QuizResponse) => void;
+  play: QuizPlayback | null;
 }
 
-function ItemView({ item, order, outcome, onAnswer }: ItemViewProps) {
+function ItemView({ item, order, outcome, onAnswer, play }: ItemViewProps) {
   switch (item.type) {
     case 'listen-choose': {
-      const audio = itemAudio(item) ?? '';
       return (
         <>
           <h2 className="lessons-q-title">
             Nghe và chọn {optionUnit(item.options)} bạn nghe được
           </h2>
-          <div className="lessons-q-audio">
-            <PlayButton text={audio} label="Nghe" variant="soft" />
-            <SpeakIconButton text={audio} rate={SLOW_RATE} size="md" />
-          </div>
+          {play && <QuizListen play={play} />}
           <Options item={item} order={order} outcome={outcome} onAnswer={onAnswer} english />
         </>
       );
     }
     case 'listen-type':
-      return <TypeItemView item={item} outcome={outcome} onAnswer={onAnswer} />;
+      return <TypeItemView item={item} outcome={outcome} onAnswer={onAnswer} play={play} />;
     case 'spot':
       return (
         <>
@@ -223,9 +245,9 @@ function ItemView({ item, order, outcome, onAnswer }: ItemViewProps) {
         </>
       );
     case 'choose':
-      return <ChooseView item={item} order={order} outcome={outcome} onAnswer={onAnswer} />;
+      return <ChooseView item={item} order={order} outcome={outcome} onAnswer={onAnswer} play={play} />;
     case 'silent-letter':
-      return <SilentLetterView item={item} outcome={outcome} onAnswer={onAnswer} />;
+      return <SilentLetterView item={item} outcome={outcome} onAnswer={onAnswer} play={play} />;
     case 'which-rule':
       return (
         <>
@@ -303,13 +325,14 @@ function ChooseView({
   order,
   outcome,
   onAnswer,
+  play,
 }: {
   item: ChooseItem;
   order: number[];
   outcome: QuizOutcome | undefined;
   onAnswer: (r: QuizResponse) => void;
+  play: QuizPlayback | null;
 }) {
-  const audio = item.play?.trim();
   return (
     <>
       <h2 className="lessons-q-title">{item.prompt}</h2>
@@ -318,12 +341,7 @@ function ChooseView({
           {item.show}
         </p>
       )}
-      {audio && (
-        <div className="lessons-q-audio">
-          <PlayButton text={audio} label="Nghe" variant="soft" />
-          <SpeakIconButton text={audio} rate={SLOW_RATE} size="md" />
-        </div>
-      )}
+      {play && <QuizListen play={play} />}
       <Options item={item} order={order} outcome={outcome} onAnswer={onAnswer} />
     </>
   );
@@ -334,18 +352,18 @@ function SilentLetterView({
   item,
   outcome,
   onAnswer,
+  play,
 }: {
   item: SilentLetterItem;
   outcome: QuizOutcome | undefined;
   onAnswer: (r: QuizResponse) => void;
+  play: QuizPlayback | null;
 }) {
   const [picked, setPicked] = useState<number[]>([]);
   const [nudge, setNudge] = useState(false);
   const tappable = useMemo(() => new Set(letterIndices(item.word)), [item.word]);
   const silent = useMemo(() => new Set(item.silent), [item.silent]);
   const chosen = new Set(outcome ? (outcome.picked ?? []) : picked);
-  const audio = itemAudio(item) ?? item.word;
-
   const toggle = (i: number) => {
     if (outcome) return;
     setNudge(false);
@@ -363,10 +381,7 @@ function SilentLetterView({
   return (
     <>
       <h2 className="lessons-q-title">{item.prompt ?? 'Chạm vào các chữ câm (viết nhưng không đọc).'}</h2>
-      <div className="lessons-q-audio">
-        <PlayButton text={audio} label="Nghe" variant="soft" />
-        <SpeakIconButton text={audio} rate={SLOW_RATE} size="md" />
-      </div>
+      {play && <QuizListen play={play} />}
       <div className="lessons-letters" role="group" aria-label={`Các chữ cái của từ ${item.word}`} lang="en">
         {[...item.word].map((ch, i) => {
           if (!tappable.has(i)) {
@@ -427,15 +442,16 @@ function TypeItemView({
   item,
   outcome,
   onAnswer,
+  play,
 }: {
   item: ListenTypeItem;
   outcome: QuizOutcome | undefined;
   onAnswer: (r: QuizResponse) => void;
+  play: QuizPlayback | null;
 }) {
   const [value, setValue] = useState('');
   const [nudge, setNudge] = useState(false);
   const gap = parseGap(item.text);
-  const audio = itemAudio(item) ?? '';
   const slots = gap ? splitWords(gap.gap).length : 1;
 
   const submit = (e: FormEvent) => {
@@ -451,10 +467,7 @@ function TypeItemView({
   return (
     <>
       <h2 className="lessons-q-title">Nghe và điền từ còn thiếu</h2>
-      <div className="lessons-q-audio">
-        <PlayButton text={audio} label="Nghe" variant="soft" />
-        <SpeakIconButton text={audio} rate={SLOW_RATE} size="md" />
-      </div>
+      {play && <QuizListen play={play} />}
       <p className="lessons-q-sentence lessons-q-gapped" lang="en">
         {gap?.before}{' '}
         <span className={'lessons-gap' + (outcome ? (outcome.correct ? ' is-correct' : ' is-wrong') : '')}>
@@ -509,6 +522,8 @@ function Feedback({ item, outcome, course }: { item: QuizItem; outcome: QuizOutc
   // and a heteronym in a sentence may be respelled with the wrong vowel).
   const connected = isConnectedSpeechItem(item, course);
   const result = useMemo(() => (connected ? decode(sentence) : null), [connected, sentence]);
+  // a listen-choose `say` is the authored speakable text of its answer
+  const sayOverride = item.type === 'listen-choose' ? item.say : undefined;
   return (
     <div
       className={'lessons-feedback ' + (outcome.correct ? 'is-correct' : 'is-wrong')}
@@ -550,10 +565,8 @@ function Feedback({ item, outcome, course }: { item: QuizItem; outcome: QuizOutc
       {result && result.tokens.length > 0 && (
         <div className="lessons-feedback-decoded">
           <SpokenSentence result={result} compact />
-          <div className="lessons-listen">
-            <PlayButton text={sentence} label="Nghe lại" size="sm" variant="soft" />
-            <SpeakIconButton text={sentence} rate={SLOW_RATE} />
-          </div>
+          {/* answered: now the careful word-by-word version may be heard, next to the connected one */}
+          <ListenPair text={sentence} decoded={result} say={sayOverride} className="lessons-listen" />
         </div>
       )}
     </div>

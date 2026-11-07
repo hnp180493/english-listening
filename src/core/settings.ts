@@ -11,18 +11,37 @@ export interface Settings {
   reviewMinutes: number; // "Thời lượng ôn mỗi ngày" (Ôn tập budget), one of REVIEW_MINUTES_OPTIONS
   listenGoal: number; // "Mục tiêu nghe mỗi ngày" in minutes of real listening (Nhật ký nghe), one of LISTEN_GOAL_OPTIONS; 0 = off
   /**
-   * Which voice reads the app's audio: 'browser' = speechSynthesis (voiceURI), 'ai' = the AI speech provider
-   * from Cài đặt → AI (falls back to the browser voice when no provider can speak or a request fails).
+   * "Giọng đọc" (Cài đặt):
+   * - 'clips' = "Giọng Gemini có sẵn" (default): the Gemini clips shipped with the app (public/audio, no key, no
+   *   cost); a text without a clip uses the browser voice. Never a paid request, even with a key set for AI tasks.
+   * - 'ai' = shipped clips too, and for a text without a clip the AI speech provider from Cài đặt → AI (paid per
+   *   new text; cached). Only ever set by the learner's own choice.
+   * - 'browser' = always the browser voice (speechSynthesis, voiceURI).
    */
   voiceEngine: VoiceEngine;
+  /**
+   * The learner picked voiceEngine themselves (set by updateSettings whenever voiceEngine is in the patch). Until
+   * then voiceEngine is 'clips': before the shipped clips, 'browser' was the stored default of every learner, so a
+   * stored 'browser' without this flag is the old default, not a choice. A stored 'ai' from before this flag
+   * existed WAS a choice (the old "Dùng giọng AI"), so it is kept (legacyVoiceChoice).
+   */
+  voiceChosen: boolean;
 }
 
-export type VoiceEngine = 'browser' | 'ai';
-export const VOICE_ENGINES: readonly VoiceEngine[] = ['browser', 'ai'];
+export type VoiceEngine = 'clips' | 'ai' | 'browser';
+export const VOICE_ENGINES: readonly VoiceEngine[] = ['clips', 'ai', 'browser'];
 
-/** A stored voiceEngine value, or 'browser' when it is not a known engine. */
+/** A stored voiceEngine value, or the default 'clips' ("Giọng Gemini có sẵn") when it is not a known engine. */
 export function sanitizeVoiceEngine(v: unknown): VoiceEngine {
-  return v === 'ai' ? 'ai' : 'browser';
+  return v === 'browser' || v === 'ai' ? v : 'clips';
+}
+
+/**
+ * Stored settings from before the voiceChosen flag: 'ai' there could only come from the learner choosing the AI
+ * voice, so it counts as chosen. Anything else without the flag is the old default.
+ */
+function legacyVoiceChoice(raw: Partial<Settings>): Partial<Settings> {
+  return raw.voiceChosen === undefined && raw.voiceEngine === 'ai' ? { ...raw, voiceChosen: true } : raw;
 }
 
 /** Daily real-listening goal choices in minutes (0 = tắt). */
@@ -42,7 +61,8 @@ const DEFAULTS: Settings = {
   dailyGoal: 30,
   reviewMinutes: DEFAULT_REVIEW_MINUTES,
   listenGoal: DEFAULT_LISTEN_GOAL,
-  voiceEngine: 'browser',
+  voiceEngine: 'clips',
+  voiceChosen: false,
 };
 
 /** A stored reviewMinutes value, or the default when it is not one of REVIEW_MINUTES_OPTIONS. */
@@ -53,13 +73,14 @@ export function sanitizeReviewMinutes(v: unknown): number {
 const withValidReview = (s: Settings): Settings => {
   const reviewMinutes = sanitizeReviewMinutes(s.reviewMinutes);
   const listenGoal = sanitizeListenGoal(s.listenGoal);
-  const voiceEngine = sanitizeVoiceEngine(s.voiceEngine);
-  return s.reviewMinutes === reviewMinutes && s.listenGoal === listenGoal && s.voiceEngine === voiceEngine
+  const voiceChosen = s.voiceChosen === true;
+  const voiceEngine: VoiceEngine = voiceChosen ? sanitizeVoiceEngine(s.voiceEngine) : 'clips';
+  return s.reviewMinutes === reviewMinutes && s.listenGoal === listenGoal && s.voiceEngine === voiceEngine && s.voiceChosen === voiceChosen
     ? s
-    : { ...s, reviewMinutes, listenGoal, voiceEngine };
+    : { ...s, reviewMinutes, listenGoal, voiceEngine, voiceChosen };
 };
 
-const read = (): Settings => withValidReview({ ...DEFAULTS, ...loadJSON<Partial<Settings>>(KEYS.settings, {}) });
+const read = (): Settings => withValidReview({ ...DEFAULTS, ...readStoredPartial() });
 
 let current: Settings = read();
 const listeners = new Set<() => void>();
@@ -84,7 +105,8 @@ export function getSettings(): Settings {
 export function updateSettings(patch: Partial<Settings>): void {
   // Build on what is stored (another tab may have changed it), unless our last write failed:
   // then memory holds changes storage never got, so keep building on memory.
-  current = withValidReview({ ...current, ...(unsaved ? {} : readStoredPartial()), ...patch });
+  const chosen: Partial<Settings> = 'voiceEngine' in patch ? { voiceChosen: true } : {};
+  current = withValidReview({ ...current, ...(unsaved ? {} : readStoredPartial()), ...patch, ...chosen });
   unsaved = !saveJSON(KEYS.settings, current);
   listeners.forEach((fn) => fn());
 }
@@ -97,7 +119,7 @@ export function reloadSettings(): void {
 }
 
 function readStoredPartial(): Partial<Settings> {
-  return loadJSON<Partial<Settings>>(KEYS.settings, {});
+  return legacyVoiceChoice(loadJSON<Partial<Settings>>(KEYS.settings, {}));
 }
 
 function subscribe(fn: () => void): () => void {

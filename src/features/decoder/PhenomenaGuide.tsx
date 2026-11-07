@@ -37,8 +37,9 @@ export default function PhenomenaGuide() {
                 </span>
                 <span className="dec-guide-play">
                   <SpeakIconButton
-                    text={info.example.written}
+                    text={info.example.say}
                     rate={1}
+                    mode="connected"
                     icon={Volume2}
                     label={`Nghe "${info.example.written}"`}
                   />
