@@ -58,7 +58,7 @@ describe('rate', () => {
     expect(formatRate(1)).toBe('1×');
     expect(rateHint(0.6)).toBe('chậm, dễ nghe');
     expect(rateHint(1)).toBe('tốc độ thường');
-    expect(rateHint(1.4)).toBe('nhanh như người bản xứ');
+    expect(rateHint(1.4)).toBe('rất nhanh, để luyện tai');
   });
 });
 

@@ -25,7 +25,7 @@ import { hrefFor, navigate } from '../../core/nav';
 import { useSettings } from '../../core/settings';
 import { secureContextOk } from '../../core/speech';
 import { recordAttempt } from '../../core/stats';
-import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_RATE, CAREFUL_TITLE, CONNECTED_SLOW_TITLE, connectedText, sayOf } from '../../core/playback';
+import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_RATE, CAREFUL_TITLE, CONNECTED_SLOW_TITLE, connectedText, sayOf, naturalRate } from '../../core/playback';
 import { speak, stopSpeaking, ttsSupported } from '../../core/tts';
 import type { Phenomenon } from '../../core/types';
 import { transcriptCoversTarget } from './autostop';
@@ -182,7 +182,7 @@ export default function PracticePanel({ source, item, nextId, onSaved }: Practic
     const t = ++abToken.current;
     setAbPlaying(true);
     clip.stop();
-    await speak(model, { rate: 1, mode: 'connected' });
+    await speak(model, { rate: naturalRate(), mode: 'connected' });
     if (t !== abToken.current) return;
     await delay(350);
     if (t !== abToken.current) return;
@@ -372,7 +372,7 @@ export default function PracticePanel({ source, item, nextId, onSaved }: Practic
         <fieldset className="row shadow-model shadow-fieldset" disabled={busy} aria-label="Nghe câu mẫu">
           <PlayButton
             text={model}
-            rate={1}
+            rate={naturalRate()}
             mode="connected"
             label="Nghe 1.0×"
             variant="soft"
@@ -557,7 +557,7 @@ export default function PracticePanel({ source, item, nextId, onSaved }: Practic
             <div className="row shadow-playback" role="group" aria-label="Nghe lại">
               <PlayButton
                 text={model}
-                rate={1}
+                rate={naturalRate()}
                 mode="connected"
                 label="Nghe mẫu"
                 variant="soft"

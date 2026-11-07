@@ -29,7 +29,7 @@ Read this first. It is the handoff for any agent (Claude Code, Codex, Cursor…)
   - `npx tsc -b`: type-check;
   - `npx oxlint`: lint;
   - `npx vitest run`: tests (~1900 tests, should be all green);
-  - `npm run build`: build. Known warning: the main chunk is about 665 kB. It is mostly react-dom plus the content data (courses, lessons, sentences, chunks) that the review catalog needs on every page for the nav badge; the AI layer is a small part;
+  - `npm run build`: build. The web build splits React (`react-*.js`, ~219 kB) and the built-in content the entry needs (`content-*.js`, ~293 kB: courses, lessons, sentences, chunks, real clips) from the app code (`index-*.js`, ~224 kB) via `codeSplitting.groups` in `vite.config.ts`, so a deploy that only changes app code leaves the other two hashed files unchanged. No size warning. The portable build is still one bundle;
   - `npm run portable -- --out "<folder>"`: single-file build (default output `portable/Nghe-Noi-Am.html`).
 - Before handing work back: tsc, oxlint and vitest all green, and build OK.
 
@@ -137,7 +137,6 @@ public/         icons, manifest, sw.js (service worker, never caches cross-origi
 ## 9. State and known open issues (as of 2026-11-07)
 
 - **Git / deploy:** repo `hnp180493/english-listening`, branch `main`. A push to `main` deploys GitHub Pages (`.github/workflows/deploy.yml`: npm test, then build with `--base=/<repo>/`) to https://hnp180493.github.io/english-listening/. The shipped clips (`public/audio`, ~57 MB) are committed, so every regeneration grows the repo. Ask the user before committing or pushing.
-- **Bundle:** main chunk about 665 kB (warning only, cause in §3).
 - **Checkup:**
   - `voiceName` records every voice that actually spoke, in order (`checkupModel.noteVoice`, from `SpeakOptions.onVoice`; e.g. `Gemini · Kore (có sẵn) + Microsoft Ava` after a fallback), so a mixed test never compares as same-voice;
   - the result screen shows percentages from small per-phenomenon samples.

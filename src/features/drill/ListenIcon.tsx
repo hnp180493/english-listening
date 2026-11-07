@@ -4,6 +4,7 @@ import { Icon } from '../../components/Icon';
 import { PENDING_ARIA } from '../../components/pendingLabel';
 import type { SpeechMode } from '../../core/playback';
 import { speak, stopSpeakingIfOwner, ttsSupported, useSpeechPending } from '../../core/tts';
+import { naturalRate } from '../../core/playback';
 
 /**
  * Ghost icon button that speaks `text` (click again to stop): the one trailing control of a list row. Chunk rows
@@ -33,7 +34,7 @@ export default function ListenIcon({ text, label, mode = 'connected' }: { text: 
       return;
     }
     setPlaying(true);
-    await speak(text, { rate: 1, owner, mode });
+    await speak(text, { rate: naturalRate(), owner, mode });
     if (alive.current && g === gen.current) setPlaying(false);
   };
 

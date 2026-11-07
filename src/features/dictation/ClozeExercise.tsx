@@ -269,7 +269,7 @@ export default function ClozeExercise({
                   <h3 className="dict-h3">Bạn nghe chuẩn rồi!</h3>
                   {outcome.seen.length > 0 && (
                     <p>
-                      Câu này có <PhenomenonChips list={outcome.seen} /> và bạn đều bắt được. Thử chế độ <b>Chép cả câu</b>{' '}
+                      Câu này có <PhenomenonChips list={outcome.seen} /> và bạn đều bắt được. Thử chế độ <b>Cả câu</b>{' '}
                       để thử thách hơn.
                     </p>
                   )}

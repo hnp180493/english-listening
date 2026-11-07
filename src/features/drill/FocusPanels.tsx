@@ -6,6 +6,7 @@ import { navigate } from '../../core/nav';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import type { Chunk } from '../../core/types';
 import type { FocusSession } from './focus';
+import { naturalRate } from '../../core/playback';
 
 /** Top banner of a focus session: which phenomenon, progress, and a way out. */
 export function FocusBanner({ session }: { session: FocusSession }) {
@@ -93,7 +94,7 @@ export function FocusDone({ session, chunkMap, onRestart }: FocusDoneProps) {
                   </span>
                   <span className="respell">{c.spoken}</span>
                 </span>
-                <PlayButton text={c.ttsText} rate={1} mode="connected" size="sm" variant="ghost" />
+                <PlayButton text={c.ttsText} rate={naturalRate()} mode="connected" size="sm" variant="ghost" />
               </li>
             ))}
           </ul>

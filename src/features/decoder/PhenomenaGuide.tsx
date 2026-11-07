@@ -4,6 +4,7 @@ import { Icon } from '../../components/Icon';
 import { PHENOMENA } from '../../core/types';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import SpeakIconButton from '../lessons/SpeakIconButton';
+import { naturalRate } from '../../core/playback';
 
 type ColorStyle = CSSProperties & { '--dec-color'?: string };
 
@@ -38,7 +39,7 @@ export default function PhenomenaGuide() {
                 <span className="dec-guide-play">
                   <SpeakIconButton
                     text={info.example.say}
-                    rate={1}
+                    rate={naturalRate()}
                     mode="connected"
                     icon={Volume2}
                     label={`Nghe "${info.example.written}"`}

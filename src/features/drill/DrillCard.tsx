@@ -5,7 +5,7 @@ import PhTag from '../../components/PhTag';
 import PlayButton from '../../components/PlayButton';
 import { GRADES, newCard, previewIntervals, type CardState, type Grade } from '../../core/srs';
 import { speakableFor } from '../../core/decoder';
-import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_RATE, CAREFUL_TITLE, CONNECTED_SLOW_RATE, CONNECTED_SLOW_TITLE, CONNECTED_TITLE } from '../../core/playback';
+import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_RATE, CAREFUL_TITLE, CONNECTED_SLOW_RATE, CONNECTED_SLOW_TITLE, CONNECTED_TITLE, naturalRate } from '../../core/playback';
 import { speak, stopSpeaking } from '../../core/tts';
 import type { Chunk } from '../../core/types';
 import type { CardKind } from './choice';
@@ -81,7 +81,7 @@ export default function DrillCard({
 
   // Play the prompt when a new card appears (only after the learner has interacted).
   useEffect(() => {
-    if (autoPlay) void speak(frontAudio, { rate: 1, mode: 'connected' });
+    if (autoPlay) void speak(frontAudio, { rate: naturalRate(), mode: 'connected' });
     return () => stopSpeaking();
   }, [autoPlay, frontAudio]);
 
@@ -132,7 +132,7 @@ export default function DrillCard({
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === 'Escape') {
         e.preventDefault();
-        void speak(revealed ? chunk.ttsText : frontAudio, { rate: 1, mode: 'connected' });
+        void speak(revealed ? chunk.ttsText : frontAudio, { rate: naturalRate(), mode: 'connected' });
         return;
       }
       if (!revealed && e.key === 'Enter' && e.shiftKey) {
@@ -144,12 +144,12 @@ export default function DrillCard({
       const key = e.key.toLowerCase();
       if (key === 'r') {
         e.preventDefault();
-        void speak(revealed ? chunk.ttsText : frontAudio, { rate: 1, mode: 'connected' });
+        void speak(revealed ? chunk.ttsText : frontAudio, { rate: naturalRate(), mode: 'connected' });
         return;
       }
       if (key === 'c' && exampleAudio) {
         e.preventDefault();
-        void speak(exampleAudio, { rate: 1, mode: 'connected' });
+        void speak(exampleAudio, { rate: naturalRate(), mode: 'connected' });
         return;
       }
       const idx = ['1', '2', '3', '4'].indexOf(e.key);
@@ -218,7 +218,7 @@ export default function DrillCard({
             <p className="drill-prompt">Nghe cả câu. Cụm nào dưới đây có trong câu?</p>
             <div className="drill-listen">
               <div className="drill-bigplay">
-                <PlayButton text={exampleAudio} rate={1} mode="connected" label="Nghe câu" variant="primary" title={CONNECTED_TITLE} />
+                <PlayButton text={exampleAudio} rate={naturalRate()} mode="connected" label="Nghe câu" variant="primary" title={CONNECTED_TITLE} />
               </div>
               {/* still connected: the careful version would read the answer out */}
               <PlayButton
@@ -259,9 +259,9 @@ export default function DrillCard({
             <div className="drill-listen">
               <div className="drill-bigplay">
                 {/* The one gradient action: "Nghe" until the learner has typed, then "Kiểm tra". */}
-                <PlayButton text={chunk.ttsText} rate={1} mode="connected" label="Nghe cụm" variant={typed ? 'soft' : 'primary'} />
+                <PlayButton text={chunk.ttsText} rate={naturalRate()} mode="connected" label="Nghe cụm" variant={typed ? 'soft' : 'primary'} />
               </div>
-              <PlayButton text={exampleAudio} rate={1} mode="connected" label="Nghe trong câu" size="sm" variant="ghost" />
+              <PlayButton text={exampleAudio} rate={naturalRate()} mode="connected" label="Nghe trong câu" size="sm" variant="ghost" />
             </div>
 
             <form className="drill-answer" onSubmit={onSubmit}>
@@ -353,8 +353,8 @@ export default function DrillCard({
               title={CAREFUL_TITLE}
               ariaLabel={CAREFUL_ARIA}
             />
-            <PlayButton text={chunk.ttsText} rate={1} mode="connected" label="Tự nhiên" size="sm" variant="soft" title={CONNECTED_TITLE} />
-            {exampleAudio && <PlayButton text={exampleAudio} rate={1} mode="connected" label="Câu ví dụ" size="sm" variant="ghost" />}
+            <PlayButton text={chunk.ttsText} rate={naturalRate()} mode="connected" label="Tự nhiên" size="sm" variant="soft" title={CONNECTED_TITLE} />
+            {exampleAudio && <PlayButton text={exampleAudio} rate={naturalRate()} mode="connected" label="Câu ví dụ" size="sm" variant="ghost" />}
           </div>
 
           {chunk.meaning && <p className="drill-meaning">{chunk.meaning}</p>}

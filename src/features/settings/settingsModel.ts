@@ -70,8 +70,8 @@ export function rateHint(r: number): string {
   if (r < 0.8) return 'chậm, dễ nghe';
   if (r < 0.95) return 'hơi chậm';
   if (r <= 1.05) return 'tốc độ thường';
-  if (r <= 1.25) return 'hơi nhanh';
-  return 'nhanh như người bản xứ';
+  if (r <= 1.25) return 'nhanh hơn bình thường';
+  return 'rất nhanh, để luyện tai';
 }
 
 /** Rough minutes per day for a goal: one attempt ≈ 20–30 seconds. */

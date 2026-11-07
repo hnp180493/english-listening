@@ -252,7 +252,7 @@ export default function AddForm({
             </label>
             <label className="btn btn-sm btn-ghost media-file-btn">
               <Icon icon={FileText} size={14} />
-              Chọn tệp phụ đề…
+              Chọn tệp…
               <input
                 type="file"
                 accept=".srt,.vtt,.txt,text/vtt,application/x-subrip,text/plain"

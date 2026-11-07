@@ -57,12 +57,30 @@ const portableBuild: UserConfig['build'] = {
   },
 }
 
+/**
+ * Web build: React and the built-in course content get their own chunks. A deploy usually changes app code only,
+ * so a returning learner re-downloads just that chunk (the hashed react / content files stay the same). Only
+ * content the entry chunk already needs is grouped, so nothing extra is downloaded up front.
+ */
+const webBuild: UserConfig['build'] = {
+  rolldownOptions: {
+    output: {
+      codeSplitting: {
+        groups: [
+          { name: 'react', test: /node_modules[/\\](react|react-dom|scheduler)[/\\]/ },
+          { name: 'content', test: /src[/\\]data[/\\](courses[/\\]|lessons|sentences|chunks|realClips)/ },
+        ],
+      },
+    },
+  },
+}
+
 export default defineConfig(({ mode }) => {
   const portable = mode === 'portable'
   return {
     base: portable ? './' : '/',
     plugins: portable ? [react()] : [react(), swBuildManifest()],
-    build: portable ? portableBuild : undefined,
+    build: portable ? portableBuild : webBuild,
     test: {
       include: ['src/**/*.test.ts'],
       environment: 'node',

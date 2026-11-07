@@ -14,6 +14,7 @@
 // spelling itself comes from the decoder (speakableFor / DecodeResult.speakText, src/core/decoder).
 
 import { speakableFor } from './decoder';
+import { getSettings } from './settings';
 
 export type SpeechMode = 'connected' | 'careful';
 
@@ -170,6 +171,16 @@ export function annotationPlayback(
 ): string | null {
   const speech = annotationSpeech(a, segments);
   return contradictsShown(speech, a.original, a.spoken) ? null : speech;
+}
+
+/**
+ * Rate of a "natural speed" playback (drill chunks, shadowing model, annotation ▶): the learner's Settings rate,
+ * slower or faster (0,5×–1,5×), so one setting governs every normal-speed button. The dedicated slow / careful
+ * buttons keep their own rates; the checkup keeps CHECKUP_RATE.
+ */
+export function naturalRate(): number {
+  const r = getSettings().rate;
+  return typeof r === 'number' && Number.isFinite(r) && r > 0 ? r : 1;
 }
 
 /** One playback: what speak() gets. `rate` undefined = the learner's rate from Settings. */

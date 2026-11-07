@@ -901,15 +901,18 @@
 
 /* ───────── Phones ───────── */
 @media (max-width: 599px) {
-  /* one toolbar row: the mode segments scroll sideways, "Bộ lọc" stays on the right */
+  /* the mode segments fill their own row (every mode visible, none scrolled out of view); "Bộ lọc" goes under it, right */
   .toolbar.dict-toolbar {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
   .dict-toolbar > .seg {
-    flex: 1 1 auto;
+    flex: 1 1 100%;
   }
   .dict-toolbar .seg-btn {
-    padding: 0 10px;
+    flex: 1 1 0;
+    padding: 0 8px;
+    white-space: nowrap;
   }
 }
 @media (max-width: 560px) {

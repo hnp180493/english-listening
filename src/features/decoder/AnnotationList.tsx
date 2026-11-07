@@ -4,6 +4,7 @@ import type { Annotation } from '../../core/types';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import { PhDot } from '../../components/PhTag';
 import SpeakIconButton from '../lessons/SpeakIconButton';
+import { naturalRate } from '../../core/playback';
 
 type ColorStyle = CSSProperties & { '--dec-color'?: string };
 
@@ -52,7 +53,7 @@ export function AnnotationCard({ annotation: a, selected, showIpa, onSelect, as 
       </button>
       {speech !== null && (
         <div className="dec-ann-play">
-          <SpeakIconButton text={speech ?? a.original} rate={1} mode="connected" icon={Volume2} label={`Nghe "${a.original}"`} />
+          <SpeakIconButton text={speech ?? a.original} rate={naturalRate()} mode="connected" icon={Volume2} label={`Nghe "${a.original}"`} />
         </div>
       )}
     </Tag>

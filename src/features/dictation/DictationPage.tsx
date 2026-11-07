@@ -70,10 +70,10 @@ import SessionSummaryCard from './SessionSummary';
 import './dictation.css';
 
 const MODE_INFO: Record<DictMode, { label: string; hint: string }> = {
-  normal: { label: 'Chép cả câu', hint: 'Nghe câu nói tự nhiên, gõ lại từng chữ rồi xem vì sao mình nghe sai.' },
+  normal: { label: 'Cả câu', hint: 'Nghe câu nói tự nhiên, gõ lại từng chữ rồi xem vì sao mình nghe sai.' },
   cloze: { label: 'Điền từ', hint: 'Câu hiện sẵn, chỉ ẩn những chỗ bị nối, nuốt hay biến âm.' },
   review: {
-    label: 'Ôn đến hạn',
+    label: 'Ôn lại',
     hint: 'Câu đã học tới lúc cần nghe lại, câu quên lâu nhất lên trước. Không tính giới hạn ôn mỗi ngày.',
   },
   custom: { label: 'Câu của tôi', hint: 'Luyện nghe với chính những câu bạn tự thêm vào.' },

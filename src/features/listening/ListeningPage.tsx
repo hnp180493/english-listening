@@ -166,14 +166,14 @@ export default function ListeningPage() {
         </section>
       )}
 
-      <details className="how" open={entries.length === 0}>
+      <details className="how">
         <summary>
           <Icon icon={CircleHelp} size={18} />
           Vì sao cần ghi giờ nghe?
         </summary>
         <div className="stack-sm lis-how">
           <p>
-            Bài học trong app giúp bạn nhận ra nối âm, nuốt âm, âm yếu. Nhưng để nghe tự nhiên như người bản xứ, bạn cần hàng trăm,
+            Bài học trong app giúp bạn nhận ra nối âm, nuốt âm, âm yếu. Nhưng để quen tai với tiếng Anh nói tự nhiên, bạn cần hàng trăm,
             rồi hàng nghìn giờ nghe tiếng Anh thật.
           </p>
           <ul className="stack-sm">
