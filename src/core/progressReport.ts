@@ -71,22 +71,23 @@ import { PHENOMENON_INFO } from './phenomena';
 import { localDay, MODULE_LABEL, type ModuleId } from './stats';
 import { PHENOMENA, type Phenomenon } from './types';
 
-export type ReportPeriod = '4w' | '3m' | 'all';
+export type ReportPeriod = '7d' | '4w' | '3m' | 'all';
 
 export const REPORT_PERIODS: readonly { id: ReportPeriod; label: string }[] = [
+  { id: '7d', label: '7 ngày' },
   { id: '4w', label: '4 tuần' },
   { id: '3m', label: '3 tháng' },
   { id: 'all', label: 'Tất cả' },
 ];
 
 export function parseReportPeriod(v: unknown): ReportPeriod {
-  return v === '3m' || v === 'all' ? v : '4w';
+  return v === '7d' || v === '3m' || v === 'all' ? v : '4w';
 }
 
 /** "Tất cả" spanning more weeks than this is charted by month (every point of the period stays visible). */
 export const MAX_CHART_WEEKS = 26;
 /** Smallest previous-window base (minutes) for a listening comparison, per period. */
-export const MIN_LISTEN_BASE: Readonly<Record<'4w' | '3m', number>> = { '4w': 120, '3m': 300 };
+export const MIN_LISTEN_BASE: Readonly<Record<'7d' | '4w' | '3m', number>> = { '7d': 30, '4w': 120, '3m': 300 };
 /** Attempts of one module needed on each side before a practice accuracy trend is stated. */
 export const MIN_PRACTICE_SAMPLE = 20;
 /** Grades on graduated cards needed before retention is stated. */
@@ -129,7 +130,7 @@ export interface ReportWeek extends WeekRef {
   isCurrent: boolean; // contains today (still running)
 }
 
-export type ChartUnit = 'week' | 'month';
+export type ChartUnit = 'day' | 'week' | 'month';
 
 export interface OverviewSection {
   empty: string | null;
@@ -327,6 +328,19 @@ function makeWeeks(currentMonday: string, n: number, today: string): ReportWeek[
 
 const monthKey = (y: number, m: number) => `${y}-${String(m + 1).padStart(2, '0')}-01`;
 
+const WD_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+/** One bucket per day from `fromDay` to `today` (the "7 ngày" period), oldest first. */
+function makeDays(fromDay: string, today: string): ReportWeek[] {
+  const out: ReportWeek[] = [];
+  for (let d = fromDay; d <= today; d = addDays(d, 1)) {
+    const [y, m, dd] = d.split('-').map(Number);
+    const wd = WD_SHORT[new Date(y, m - 1, dd).getDay()];
+    out.push({ key: d, end: d, label: wd, rangeLabel: `${wd} ${ddmm(d)}`, isCurrent: d === today });
+  }
+  return out;
+}
+
 /** Calendar months from the month of `fromDay` to the month of `today`, oldest first. */
 function makeMonths(fromDay: string, today: string): ReportWeek[] {
   const [fy, fm] = fromDay.split('-').map(Number);
@@ -431,15 +445,15 @@ export function buildReport(input: ReportInput): ProgressReport {
 
   // ── period and chart buckets ──
   let nWeeks = input.period === '3m' ? 13 : 4;
-  let fromDay = addDays(currentMonday, -7 * (nWeeks - 1));
+  let fromDay = input.period === '7d' ? addDays(today, -6) : addDays(currentMonday, -7 * (nWeeks - 1));
   if (input.period === 'all') {
     const first = earliestDay({ ...input, log, checkups }, days);
     const firstMonday = first && first < today ? weekStartDay(first) : currentMonday;
     fromDay = firstMonday;
     nWeeks = Math.max(4, Math.floor(daysBetween(firstMonday, currentMonday) / 7) + 1);
   }
-  const unit: ChartUnit = input.period === 'all' && nWeeks > MAX_CHART_WEEKS ? 'month' : 'week';
-  const weeks = unit === 'month' ? makeMonths(fromDay, today) : makeWeeks(currentMonday, nWeeks, today);
+  const unit: ChartUnit = input.period === '7d' ? 'day' : input.period === 'all' && nWeeks > MAX_CHART_WEEKS ? 'month' : 'week';
+  const weeks = unit === 'day' ? makeDays(fromDay, today) : unit === 'month' ? makeMonths(fromDay, today) : makeWeeks(currentMonday, nWeeks, today);
   const periodLen = daysBetween(fromDay, today) + 1;
   const prevTo = addDays(fromDay, -1);
   const prevFrom = addDays(fromDay, -periodLen);
@@ -478,11 +492,11 @@ export function buildReport(input: ReportInput): ProgressReport {
   // ── listening by week / month ──
   const lw = listenBars(log, weeks, today, goal);
   const goalPerWeek = goal * 7;
-  const goalPerBar = unit === 'month' ? goal * 30 : goalPerWeek;
+  const goalPerBar = unit === 'month' ? goal * 30 : unit === 'day' ? goal : goalPerWeek;
   const cur = lw.find((w) => w.isCurrent);
-  const goalCurrent = cur && goal > 0 && cur.elapsedDays < (unit === 'month' ? 28 : 7) ? goal * cur.elapsedDays : 0;
+  const goalCurrent = unit !== 'day' && cur && goal > 0 && cur.elapsedDays < (unit === 'month' ? 28 : 7) ? goal * cur.elapsedDays : 0;
   const listenInChart = lw.reduce((n, w) => n + w.minutes, 0);
-  const unitWord = unit === 'month' ? 'tháng' : 'tuần';
+  const unitWord = unit === 'month' ? 'tháng' : unit === 'day' ? 'ngày' : 'tuần';
   const listening: ListeningSection = {
     empty: listenInChart === 0 ? 'Chưa có giờ nghe trong kỳ này. Ghi giờ nghe ở trang Nhật ký nghe để thấy biểu đồ.' : null,
     unit,

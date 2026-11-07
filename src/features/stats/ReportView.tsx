@@ -279,24 +279,26 @@ function ListeningCard({ report }: { report: ProgressReport }) {
   const id = useId();
   const l = report.listening;
   const month = l.unit === 'month';
+  const day = l.unit === 'day';
+  const unitWord = month ? 'tháng' : day ? 'ngày' : 'tuần';
   const data = l.weeks.map((w) => ({
     key: w.key,
     label: weekAxisLabel(w),
     value: w.minutes,
     current: w.isCurrent,
     title:
-      `${month ? capitalize(w.rangeLabel) : `Tuần ${w.rangeLabel}`}${w.isCurrent ? ' (chưa hết)' : ''}: ${w.minutesLabel}` +
+      `${month || day ? capitalize(w.rangeLabel) : `Tuần ${w.rangeLabel}`}${w.isCurrent ? ' (chưa hết)' : ''}: ${w.minutesLabel}` +
       (w.minutes > 0 ? `, trung bình ${w.avgPerDay} phút/ngày` : ''),
   }));
   return (
     <section className="card rep-card" aria-labelledby={id}>
-      <CardHead id={id} title={month ? 'Giờ nghe theo tháng' : 'Giờ nghe theo tuần'} meta={report.overview.listenLabel + ' · ' + report.overview.periodLabel.toLowerCase()} />
+      <CardHead id={id} title={`Giờ nghe theo ${unitWord}`} meta={report.overview.listenLabel + ' · ' + report.overview.periodLabel.toLowerCase()} />
       <MinutesBarChart data={data} max={l.maxMinutes} goal={l.goalPerBar} goalCurrent={l.goalCurrent} label={l.summary} />
       {l.goalPerDay > 0 && (
         <p className="rep-legend">
           <span className="rep-legend-goal" aria-hidden="true" />
-          Mục tiêu {l.goalPerDay} phút mỗi ngày, tức {formatDurationVi(l.goalPerBar)} mỗi {month ? 'tháng' : 'tuần'}
-          {l.goalCurrent > 0 ? `; vạch đậm trên cột ${month ? 'tháng' : 'tuần'} này: mục tiêu tính đến hôm nay` : ''}
+          Mục tiêu {l.goalPerDay} phút mỗi ngày{day ? '' : `, tức ${formatDurationVi(l.goalPerBar)} mỗi ${unitWord}`}
+          {l.goalCurrent > 0 ? `; vạch đậm trên cột ${unitWord} này: mục tiêu tính đến hôm nay` : ''}
         </p>
       )}
       {l.sources.length > 0 && (
@@ -552,7 +554,7 @@ function PracticeCard({ report }: { report: ProgressReport }) {
               <th scope="col">Lượt</th>
               <th scope="col">Đúng</th>
               <th scope="col" className="rep-spark-col">
-                <span className="sr-only">Theo tuần</span>
+                <span className="sr-only">{report.weeks.length && report.unit === 'day' ? 'Theo ngày' : report.unit === 'month' ? 'Theo tháng' : 'Theo tuần'}</span>
               </th>
             </tr>
           </thead>

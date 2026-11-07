@@ -426,3 +426,21 @@ describe('charts by month and partial weeks', () => {
     expect(r.understood.summary).toMatch(/4 \(1 lần ghi\)/);
   });
 });
+
+describe('7-day period', () => {
+  it('charts the last 7 days one bar per day, today last, with the daily goal as the reference', () => {
+    const r = buildReport(input({ period: '7d', log: [entry('2026-11-06', 20), entry('2026-11-02', 45), entry('2026-10-30', 60)] }));
+    expect(r.unit).toBe('day');
+    expect(r.weeks.map((w) => w.key)).toEqual(['2026-10-31', '2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06']);
+    expect(r.weeks[6]).toMatchObject({ label: 'T6', isCurrent: true });
+    expect(r.listening.weeks.map((w) => w.minutes)).toEqual([0, 0, 45, 0, 0, 0, 20]); // 30/10 is outside the 7 days
+    expect(r.overview.listenMinutes).toBe(65);
+    expect(r.listening.goalPerBar).toBe(30);
+    expect(r.listening.goalCurrent).toBe(0);
+    expect(r.listening.summary).toMatch(/^Giờ nghe theo ngày/);
+  });
+  it('is a valid stored period', () => {
+    expect(parseReportPeriod('7d')).toBe('7d');
+    expect(parseReportPeriod('12d')).toBe('4w');
+  });
+});

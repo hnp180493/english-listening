@@ -774,7 +774,7 @@ export interface CoachInput {
   listening: {
     minutesInPeriod: number;
     minutesAllTime: number;
-    unit: 'week' | 'month';
+    unit: 'day' | 'week' | 'month';
     /** Oldest first. `partial`: the running week/month (only `elapsedDays` of it so far). */
     perBucket: { minutes: number; days: number; goalDays: number; elapsedDays: number; partial: boolean }[];
     goalMinutesPerDay: number;
