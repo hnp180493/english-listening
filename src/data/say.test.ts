@@ -34,11 +34,14 @@ describe('authored connected TTS text', () => {
   });
 
   it('"Nghe" differs from the written text, except where that is a deliberate decision', () => {
-    // Each entry: why the engine gets the written words. Linking into a vowel and the weak forms below SAPI already
-    // says on its own (measured: "to" /tʊ/, "was" /wəz/); strong forms and written contractions are the point.
+    // Each entry: why the engine gets the written words. The shipped clip is Gemini reading the written text with
+    // CONNECTED_STYLE (casual, function words reduced, words flowing together), which already produces what the card
+    // shows here: linking into a vowel, weak "to" / "was" / "are", unreleased t. A respelling would only add risk
+    // (Gemini reads invented spellings less predictably). The browser voice (SAPI) was measured to say "to" /tʊ/ and
+    // "was" /wəz/ on its own. Strong forms and written contractions are the point.
     const AS_WRITTEN: Record<string, string> = {
-      'We need to talk.': 'SAPI says "to" weak (/tʊ/); "ta" is read /tɑ/',
-      'I was there.': 'SAPI says "was" weak (/wəz/)',
+      'We need to talk.': 'weak "to" before a consonant: Gemini (casual style) and SAPI (/tʊ/) say it; "ta" is read /tɑ/',
+      'I was there.': 'weak "was": Gemini (casual style) and SAPI (/wəz/) say it',
       'Yes, I can.': 'strong "can" at the end is the point',
       'Come on in.': 'linking into a vowel: engines do it',
       'Hold on a second.': 'linking into a vowel: engines do it',
@@ -47,12 +50,13 @@ describe('authored connected TTS text', () => {
       'Who is it?': 'linking into a vowel: engines do it',
       'Do it now.': 'linking (w glide): engines do it',
       "It's far away.": 'linking r: engines do it',
-      'Where are you?': 'linking r: engines do it',
+      'Where are you?': 'linking r + weak "are": Gemini (casual style) does it; no measured spelling of /ər/',
       'Where is it?': 'linking r: engines do it',
       'The car is outside.': 'linking r: engines do it',
-      "She'd like to come.": 'the written contraction is what is said',
-      "I can't hear you.": "strong can't is the point",
+      "She'd like to come.": 'the written contraction is what is said; weak "to" as above',
+      "I can't hear you.": "strong can't is the point; the t is only unreleased",
       "It won't work.": 'the written contraction is what is said',
+      "They're late.": 'the written contraction is what is said (thər, like their / there); "Ther" may be read with a voiceless th',
     };
     const same = examples()
       .filter(({ ex }) => speakableFor(ex.text, ex.say) === ex.text)
