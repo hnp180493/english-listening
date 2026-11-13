@@ -805,6 +805,9 @@ export interface CoachInput {
     modules: { module: string; attempts: number; accuracyPct: number }[];
     reviewRetentionPct: number | null;
     reviewGrades: number;
+    /** New dictation sentences written fully right after ONE normal-speed play (app voice, clearer than real speech). */
+    firstListenPct: number | null;
+    firstListenSentences: number;
     lessonsPassed: number;
   };
   selfRated: {
@@ -884,6 +887,8 @@ export function buildCoachInput(
       modules: p.modules.map((m) => ({ module: m.label, attempts: m.n, accuracyPct: m.pct })),
       reviewRetentionPct: p.retention.pct,
       reviewGrades: p.retention.n,
+      firstListenPct: p.firstListen.pct,
+      firstListenSentences: p.firstListen.n,
       lessonsPassed: p.lessonsPassed,
     },
     selfRated: {

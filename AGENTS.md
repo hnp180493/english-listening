@@ -80,7 +80,7 @@ public/         icons, manifest, sw.js (service worker, never caches cross-origi
 | `#/review` | Ôn tập | SRS session: dictation/pairs/chunks/lessons/media/**word cards** (per-word cards for irregular + loanwords, 6 new words/day) |
 | `#/lessons` | Bài học | course list → `?course=connected|spelling|irregular|loanwords` → `?id=<lessonId>`. Blocks: text, words (marks `[..]` highlighted letters, `(..)` silent letters, `why` stories), story, quiz types incl. choose / silent-letter |
 | `#/decoder` | Giải mã câu | shows how a sentence is actually spoken; "Nghe" plays it that way (connected), "Rõ từng từ" the written text slowly, "Nghe người thật nói" opens YouGlish |
-| `#/dictation` | Chép chính tả | listen and type; rule-based "Vì sao bạn nghe sai?" + "Hỏi AI"; "Câu của tôi" with "Tạo bằng AI" |
+| `#/dictation` | Chép chính tả | listen and type; rule-based "Vì sao bạn nghe sai?" + "Hỏi AI"; "Câu của tôi" with "Tạo bằng AI"; counts the plays before each check: "Nghe 1 lần là đúng" in the result, the round summary and Báo cáo (`core/dictation/listens.ts`, docs/progress-report.md §4) |
 | `#/pairs`, `#/drill`, `#/shadowing`, `#/media` | Phân biệt âm, Cụm từ, Nói nhại, Video thật | minimal pairs, chunk flashcards, shadowing, YouTube/local media with transcripts (auto-logs listening time) |
 | `#/stats` | Tiến độ | overview; `?view=report` = Báo cáo tiến bộ (4 tuần / 3 tháng / Tất cả, charts, checkup trend, "Nhận xét", AI coach) |
 | `#/listening` | Nhật ký nghe | log real listening (quick add / stopwatch), milestones (10…1000 h), listenGoal |

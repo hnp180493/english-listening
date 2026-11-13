@@ -13,6 +13,7 @@ import { hrefFor, navigate, type RouteId } from '../../core/nav';
 import {
   buildReport,
   decimalVi,
+  MIN_FIRST_LISTEN_SAMPLE,
   MIN_RETENTION_SAMPLE,
   MIN_WEEK_ATTEMPTS,
   MIN_WEEK_RATINGS,
@@ -514,6 +515,8 @@ function PracticeCard({ report }: { report: ProgressReport }) {
   const current = weeks.length - 1;
   const hasWeekly = weeks.some((w) => w.total.pct !== null);
   const facts: string[] = [];
+  if (p.firstListen.label)
+    facts.push(p.firstListen.label + (p.firstListen.n < MIN_FIRST_LISTEN_SAMPLE ? ', còn ít câu nên chưa chắc' : ''));
   if (p.retention.label) facts.push(p.retention.label + (p.retention.n < MIN_RETENTION_SAMPLE ? ', còn ít lượt nên chưa chắc' : ''));
   if (p.lessonsPassed > 0)
     facts.push(

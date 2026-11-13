@@ -36,6 +36,7 @@ import { scrollBehavior } from '../../core/motion';
 import { hrefFor, navigate, useRoute } from '../../core/nav';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import { formatDueVi, makeCardId, nextAvailable, recordReview, resetCard, statesOfKind, useReview } from '../../core/review';
+import { firstListenOutcome, rightOnFirstListen, totalListens } from '../../core/dictation/listens';
 import { recordAttempt } from '../../core/stats';
 import { KEYS, loadJSON, saveJSON } from '../../core/storage';
 import { recordTombstone } from '../../core/syncMarkers';
@@ -424,13 +425,11 @@ export default function DictationPage() {
     const outcome = statsOutcome(info, !!nav.retry);
     if (outcome.record) {
       try {
-        recordAttempt({
-          module: 'dictation',
-          itemId: current.id,
-          correct: outcome.correct,
-          seen: info.seen,
-          missed: info.missed,
-        });
+        recordAttempt(
+          { module: 'dictation', itemId: current.id, correct: outcome.correct, seen: info.seen, missed: info.missed },
+          // "nghe 1 lần là đúng" is measured on sentences never dictated before (core/dictation/listens)
+          { once: firstListenOutcome(info, { cloze: mode === 'cloze', retry: !!nav.retry, prevAttempts }) },
+        );
       } catch {
         // stats are best-effort
       }
@@ -447,7 +446,14 @@ export default function DictationPage() {
     } catch {
       // review is best-effort: the practice itself is saved above
     }
-    recordSessionCheck({ id: current.id, score: info.score, seen: info.seen, missed: info.missed });
+    recordSessionCheck({
+      id: current.id,
+      score: info.score,
+      seen: info.seen,
+      missed: info.missed,
+      heard: mode !== 'cloze' && totalListens(info.listens) > 0,
+      once: mode !== 'cloze' && rightOnFirstListen(info),
+    });
     setChecks([...session.checks]);
     setGoalStart(session.goalStart);
   };
@@ -753,6 +759,7 @@ export default function DictationPage() {
                 autoPlay={nav.autoPlay}
                 focusOnMount={nav.focus}
                 top={goalBar}
+                retry={!!nav.retry}
                 onChecked={onChecked}
                 onNext={goNext}
                 onRetry={retry}

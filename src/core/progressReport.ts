@@ -30,6 +30,8 @@ import {
 } from './benchmark';
 import { weakestRate } from './goals';
 import {
+  firstListenTotals,
+  type FirstListen,
   historyDays,
   HISTORY_MODULES,
   lessonsPassedByWeek,
@@ -92,6 +94,10 @@ export const MIN_LISTEN_BASE: Readonly<Record<'7d' | '4w' | '3m', number>> = { '
 export const MIN_PRACTICE_SAMPLE = 20;
 /** Grades on graduated cards needed before retention is stated. */
 export const MIN_RETENTION_SAMPLE = 20;
+/** New dictation sentences needed before "nghe 1 lần là đúng" is stated without a hedge, or compared between periods. */
+export const MIN_FIRST_LISTEN_SAMPLE = 20;
+/** Smaller differences between two periods' first-listen rates are not called a change. */
+export const MIN_FIRST_LISTEN_CHANGE = 10;
 /**
  * Checkup score change (points) treated as noise. One of the 4 comprehension answers is worth 10 points, and two
  * tests of a learner of constant ability differ by about 15 points (SD, measured with buildCheckupResult on the
@@ -256,6 +262,8 @@ export interface PracticeSection {
   total: { n: number; ok: number; pct: number | null };
   modules: ModuleRow[]; // modules practised in the period, most attempts first
   retention: Retention & { label: string | null }; // "Nhớ được ở 85% lượt ôn thẻ đã thuộc (120 lượt)"
+  /** New dictation sentences right after one normal-speed play (history DayAgg.once). label: "Câu mới nghe 1 lần là đúng: 35% (40 câu)". */
+  firstListen: FirstListen & { label: string | null };
   lessonsPassed: number; // in the period
   lessonsPassedTotal: number;
   lessonsByWeek: WeekCount[];
@@ -623,6 +631,8 @@ export function buildReport(input: ReportInput): ProgressReport {
     .map((m) => ({ module: m, label: MODULE_LABEL[m], ...pt.byModule[m]! }))
     .sort((a, b) => b.n - a.n);
   const ret = reviewRetention(days, fromDay, today);
+  const once = firstListenTotals(days, fromDay, today);
+  const oncePrev = input.period === 'all' ? null : firstListenTotals(days, prevFrom, prevTo);
   const lessonsByWeek = lessonsPassedByWeek(input.lessons ?? {}, weeks);
   const passDays = Object.values(input.lessons ?? {})
     .map((r) => r?.completedAt)
@@ -635,13 +645,14 @@ export function buildReport(input: ReportInput): ProgressReport {
   );
   const practice: PracticeSection = {
     empty:
-      pt.n === 0 && ret.n === 0 && !passDays.some((d) => d >= fromDay)
+      pt.n === 0 && ret.n === 0 && once.n === 0 && !passDays.some((d) => d >= fromDay)
         ? 'Chưa có lượt luyện trong kỳ này. Luyện vài bài ở trang Hôm nay để thấy độ chính xác.'
         : null,
     weeks: pw,
     total: { n: pt.n, ok: pt.ok, pct: pt.pct },
     modules,
     retention: { ...ret, label: ret.pct !== null ? `Nhớ được ở ${ret.pct}% lượt ôn thẻ đã thuộc (${ret.n} lượt)` : null },
+    firstListen: { ...once, label: once.pct !== null ? `Câu mới nghe 1 lần là đúng: ${once.pct}% (${once.n} câu)` : null },
     lessonsPassed: passDays.filter((d) => d >= fromDay && d <= today).length,
     lessonsPassedTotal: passDays.length,
     lessonsByWeek,
@@ -675,6 +686,8 @@ export function buildReport(input: ReportInput): ProgressReport {
       stats: input.stats,
       pw,
       ret,
+      once,
+      oncePrev,
       rated,
       uAvg,
       daysSinceCheckup: due.daysSince,
@@ -702,17 +715,19 @@ export interface InsightInput {
   stats: ReportInput['stats'];
   pw: WeekModuleAccuracy[];
   ret: Retention;
+  once?: FirstListen; // "nghe 1 lần là đúng" in the period
+  oncePrev?: FirstListen | null; // the same-length window just before; null for "Tất cả"
   rated: number;
   uAvg: number | null;
   daysSinceCheckup: number | null;
 }
 
-/** 2–4 rule-based items, in this order: listening, checkups, phenomena, practice / retention / self-rating. */
+/** 2–4 rule-based items, in this order: listening, checkups, phenomena, first listen / practice / retention / self-rating. */
 export function buildInsights(i: InsightInput): string[] {
   const out: string[] = [listeningInsight(i), checkupInsight(i)];
   const ph = phenomenonInsight(i);
   if (ph) out.push(ph);
-  const fourth = practiceInsight(i) ?? retentionInsight(i) ?? understoodInsight(i);
+  const fourth = firstListenInsight(i) ?? practiceInsight(i) ?? retentionInsight(i) ?? understoodInsight(i);
   if (fourth && out.length < 4) out.push(fourth);
   return out.slice(0, 4);
 }
@@ -874,6 +889,25 @@ function practiceInsight(i: InsightInput): string | null {
   if (best.b - best.a >= 5) return `${label}: độ đúng ${unit} tăng từ ${best.a}% (nửa đầu kỳ) lên ${best.b}% (nửa sau).`;
   if (best.a - best.b >= 5) return `${label}: độ đúng ${unit} giảm từ ${best.a}% (nửa đầu kỳ) xuống ${best.b}% (nửa sau); có thể bài đang khó hơn.`;
   return `${label}: độ đúng ${unit} ổn định quanh ${best.b}%.`;
+}
+
+/**
+ * "Nghe 1 lần là đúng" on new dictation sentences: the practice number closest to real listening (said once, no
+ * replay). Stated from MIN_FIRST_LISTEN_SAMPLE sentences; compared with the previous window only when that one has
+ * the sample too and the gap is at least MIN_FIRST_LISTEN_CHANGE. Always with the caveat that the app's voice is
+ * clearer than real speakers: it is not a claim about real-life listening.
+ */
+function firstListenInsight(i: InsightInput): string | null {
+  const o = i.once;
+  if (!o || o.pct === null || o.n < MIN_FIRST_LISTEN_SAMPLE) return null;
+  let s = `Câu mới trong Chép chính tả: bạn nghe 1 lần là viết đúng ở ${o.pct}% số câu (${o.n} câu)`;
+  const p = i.oncePrev;
+  if (p && p.pct !== null && p.n >= MIN_FIRST_LISTEN_SAMPLE) {
+    if (o.pct - p.pct >= MIN_FIRST_LISTEN_CHANGE) s += `, tăng so với ${p.pct}% của kỳ trước`;
+    else if (p.pct - o.pct >= MIN_FIRST_LISTEN_CHANGE) s += `, thấp hơn ${p.pct}% của kỳ trước (có thể câu đang khó hơn)`;
+    else s += `, gần bằng kỳ trước (${p.pct}%)`;
+  }
+  return `${s}. Ngoài đời người ta chỉ nói một lần nên đây là số sát thực tế nhất trong app; giọng trong app rõ hơn người thật, nên nghe thật sẽ khó hơn.`;
 }
 
 function retentionInsight(i: InsightInput): string | null {

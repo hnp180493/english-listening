@@ -369,6 +369,23 @@ describe('honesty rules', () => {
     }
   });
 
+  it('first listen: a hedged fact below the sample, an insight with the caveat from it, compared with the previous window', () => {
+    const day = (once: { n: number; ok: number }) => ({ mod: { dictation: { n: once.n, ok: once.ok } }, once });
+    const few = buildReport(input({ history: { version: 1, devices: { d1: { '2026-11-04': day({ n: 8, ok: 2 }) } }, base: null } }));
+    expect(few.practice.firstListen).toEqual({ n: 8, ok: 2, pct: 25, label: 'Câu mới nghe 1 lần là đúng: 25% (8 câu)' });
+    expect(few.insights.join(' ')).not.toMatch(/nghe 1 lần/);
+
+    expect(buildReport(input({})).practice.firstListen).toEqual({ n: 0, ok: 0, pct: null, label: null });
+
+    const hist: HistoryStore = { version: 1, devices: { d1: { '2026-09-30': day({ n: 30, ok: 6 }), '2026-11-04': day({ n: 40, ok: 16 }) } }, base: null };
+    const line = buildReport(input({ history: hist })).insights.find((s) => /nghe 1 lần/.test(s))!;
+    expect(line).toMatch(/^Câu mới trong Chép chính tả: bạn nghe 1 lần là viết đúng ở 40% số câu \(40 câu\), tăng so với 20% của kỳ trước\./);
+    expect(line).toMatch(/giọng trong app rõ hơn người thật/);
+    const all = buildReport(input({ history: hist, period: 'all' }));
+    expect(all.practice.firstListen).toMatchObject({ n: 70, ok: 22, pct: 31 });
+    expect(all.insights.find((s) => /nghe 1 lần/.test(s))).not.toMatch(/kỳ trước/);
+  });
+
   it('buildInsights is deterministic', () => {
     const args = { log: [entry('2026-11-06', 30)], checkups: [], goal: 30, today: '2026-11-06', period: '4w' as const, fromDay: '2026-10-19', listenMinutes: 30, change: null, stats: null, pw: [], ret: { n: 0, again: 0, pct: null }, rated: 0, uAvg: null, daysSinceCheckup: null };
     expect(buildInsights(args)).toEqual(buildInsights(args));

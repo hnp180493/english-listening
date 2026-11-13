@@ -91,8 +91,13 @@ export function subscribeStats(fn: Listener): () => void {
  * counts for stats and phenomena, but not in the long-term archive the progress report trends on (core/history):
  * re-testing a sentence the learner already got right would make "practice accuracy" rise from memory, and Ôn tập
  * is measured by its own retention (grades on graduated cards).
+ * `opts.once`: the attempt measures "nghe 1 lần là đúng" (core/history DayAgg.once); the caller decides whether it
+ * qualifies and what it is (core/dictation/listens firstListenOutcome). Left out for everything else.
  */
-export function recordAttempt(a: Omit<Attempt, 'at'> & { at?: number }, opts: { inReview?: boolean } = {}): StatsState {
+export function recordAttempt(
+  a: Omit<Attempt, 'at'> & { at?: number },
+  opts: { inReview?: boolean; once?: boolean } = {},
+): StatsState {
   const at = a.at ?? Date.now();
   // Clone so the in-memory session copy is never mutated in place.
   const s = structuredClone(loadStats());
@@ -104,7 +109,7 @@ export function recordAttempt(a: Omit<Attempt, 'at'> & { at?: number }, opts: { 
   if (!s.activeDays.includes(day)) s.activeDays = [...s.activeDays, day].sort();
   sessionStats = saveJSON(KEYS.stats, s) ? null : s;
   // long-term daily archive for the progress report (core/history; survives the MAX_ATTEMPTS cap)
-  if (!opts.inReview) noteAttempt(a.module, a.correct, at);
+  if (!opts.inReview) noteAttempt(a.module, a.correct, at, opts.once);
   listeners.forEach((fn) => fn(s));
   return s;
 }

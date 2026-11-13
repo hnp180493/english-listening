@@ -9,6 +9,7 @@
 //  - 'careful': the standard written text, slower: "Rõ từng từ", offered only after checking the answer.
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { NO_LISTENS, type ListenTally } from '../../core/dictation/listens';
 import { useSettings } from '../../core/settings';
 import { CAREFUL_RATE, CONNECTED_SLOW_RATE, dictationRate, type SpeechMode } from '../../core/playback';
 import { speak, stopSpeaking, ttsSupported, useSpeechPending } from '../../core/tts';
@@ -45,6 +46,8 @@ export interface Player {
   chunkPos: number; // index of the chunk being spoken, -1 when not in chunk mode
   chunkCount: number;
   plays: number; // how many times playback was started
+  /** Plays started so far, per kind ("Rõ từng từ" is not one: it only exists after the check). Read at check time. */
+  listens: () => ListenTally;
   /** `auto`: not a click (auto-play of the next sentence): never a new paid AI request (SpeakOptions.auto). */
   play: (mode: PlayMode, toggle?: boolean, auto?: boolean) => Promise<void>;
   stop: () => void;
@@ -70,6 +73,8 @@ export function usePlayer(
   const [chunkPos, setChunkPos] = useState(-1);
   const [plays, setPlays] = useState(0);
   const runRef = useRef(0);
+  const tallyRef = useRef<ListenTally>(NO_LISTENS);
+  const listens = useCallback(() => tallyRef.current, []);
   // Ownership token: lets the buttons show "generating" only for this player's own speech.
   const [owner] = useState<object>(() => ({}));
   const pending = useSpeechPending(owner);
@@ -99,6 +104,7 @@ export function usePlayer(
       playingRef.current = mode;
       setPlaying(mode);
       setPlays((n) => n + 1);
+      if (mode !== 'careful') tallyRef.current = { ...tallyRef.current, [mode]: tallyRef.current[mode] + 1 };
       try {
         if (mode === 'chunks') {
           for (let k = 0; k < chunks.length; k++) {
@@ -166,5 +172,5 @@ export function usePlayer(
     return () => window.removeEventListener('keydown', onKey);
   }, [rootRef]);
 
-  return { canSpeak, playing, pending: pending && playing !== null, chunkPos, chunkCount: chunks.length, plays, play, stop };
+  return { canSpeak, playing, pending: pending && playing !== null, chunkPos, chunkCount: chunks.length, plays, listens, play, stop };
 }

@@ -34,6 +34,17 @@ describe('summarizeChecks', () => {
     expect(s.topMissed[0]).toEqual({ phenomenon: 'flap-t', missed: 2, seen: 2 });
   });
   it('empty input gives an empty summary', () => {
-    expect(summarizeChecks([])).toEqual({ count: 0, avg: 0, perfect: 0, topMissed: [] });
+    expect(summarizeChecks([])).toEqual({ count: 0, avg: 0, perfect: 0, topMissed: [], heard: 0, once: 0 });
+  });
+  it('counts sentences right after one listen among those that were played', () => {
+    const s = summarizeChecks([
+      { ...c(1, [], []), heard: true, once: true },
+      { ...c(1, [], []), heard: true, once: false },
+      { ...c(0.5, [], []), heard: true },
+      { ...c(1, [], []), heard: false, once: true }, // not played: not part of the count
+      c(1, [], []),
+    ]);
+    expect(s.heard).toBe(3);
+    expect(s.once).toBe(1);
   });
 });

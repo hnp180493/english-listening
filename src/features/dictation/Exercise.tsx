@@ -6,6 +6,7 @@ import { align, type AlignResult } from '../../core/dictation/align';
 import { classify, type ClassifyResult } from '../../core/dictation/classify';
 import { buildDiff, type DiffUnit } from '../../core/dictation/diff';
 import { makeHint } from '../../core/dictation/hint';
+import { listensLabelVi, rightOnFirstListen, type ListenTally } from '../../core/dictation/listens';
 import { normalizeText, splitWords } from '../../core/dictation/normalize';
 import type { Phenomenon, Sentence } from '../../core/types';
 import { NEXT_GUARD_MS } from './constants';
@@ -28,6 +29,7 @@ export interface CheckedInfo {
   matched?: number; // AlignResult.matched (typo matches count as matched)
   extra?: number; // AlignResult.extra (extra words typed)
   revealed?: boolean; // "Chịu, xem đáp án"
+  listens?: ListenTally; // plays before the check (whole-sentence dictation only; "Điền từ" leaves it out)
 }
 
 interface Outcome {
@@ -46,9 +48,11 @@ export interface ExerciseProps {
   onSkip: () => void;
   /** The card's top row (the session goal bar). */
   top?: ReactNode;
+  /** "Làm lại câu này": the answer was just shown, so one listen proves nothing (no first-listen praise). */
+  retry?: boolean;
 }
 
-export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, onNext, onRetry, onSkip, top }: ExerciseProps) {
+export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, onNext, onRetry, onSkip, top, retry = false }: ExerciseProps) {
   const decoded = useMemo(() => safeDecode(sentence.text), [sentence.text]);
   const targetRaw = useMemo(() => targetTokens(decoded, sentence.text), [decoded, sentence.text]);
   const chunks = useMemo(() => chunksOf(decoded, targetRaw), [decoded, targetRaw]);
@@ -57,12 +61,14 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
   const [hintShown, setHintShown] = useState(false);
   const [nudge, setNudge] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  // plays made before the check (later replays of the shown answer are not part of the result)
+  const [heard, setHeard] = useState<ListenTally | null>(null);
   const [activeAnn, setActiveAnn] = useState<string | null>(null);
 
   const rootRef = useRef<HTMLElement>(null);
   const audio = useMemo(() => dictationAudio(sentence), [sentence]);
   const player = usePlayer(audio, chunks, { autoPlay, rootRef });
-  const { canSpeak, plays, play, stop } = player;
+  const { canSpeak, plays, listens, play, stop } = player;
 
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -85,7 +91,9 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
     const al = align(targetRaw, answerRaw);
     const cls = classify(decoded, al.ops, answerRaw, targetRaw);
     const units = buildDiff(targetRaw, answerRaw, al.ops);
+    const tally = listens();
     setOutcome({ al, cls, units });
+    setHeard(tally);
     setNudge(false);
     setActiveAnn(cls.missedAnnotationIds[0] ?? null);
     // the "Kiểm tra" button disappears: keep focus on the input so Enter → next sentence works
@@ -99,6 +107,7 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
       matched: al.matched,
       extra: al.extra,
       revealed: reveal,
+      listens: tally,
     });
   };
 
@@ -118,15 +127,19 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
   const tone: Tone = !outcome ? 'ok' : outcome.al.score >= 1 ? 'ok' : outcome.al.score >= 0.6 ? 'warn' : 'bad';
   // one primary action at a time: "Nghe" until the learner has listened or typed, then "Kiểm tra"
   const listenFirst = plays === 0 && !answer.trim();
+  const heardLabel = listensLabelVi(heard);
+  const firstListen = !!outcome && !retry && rightOnFirstListen({ score: outcome.al.score, hinted: hintShown, listens: heard ?? undefined });
   const verdict = !outcome
     ? ''
-    : outcome.al.score >= 1
-      ? 'Chính xác!'
-      : outcome.al.score >= 0.8
-        ? 'Gần đúng rồi'
-        : outcome.al.score >= 0.5
-          ? 'Nghe được một nửa'
-          : 'Câu này khó, nghe lại từng cụm nhé';
+    : firstListen
+      ? 'Nghe 1 lần là đúng!'
+      : outcome.al.score >= 1
+        ? 'Chính xác!'
+        : outcome.al.score >= 0.8
+          ? 'Gần đúng rồi'
+          : outcome.al.score >= 0.5
+            ? 'Nghe được một nửa'
+            : 'Câu này khó, nghe lại từng cụm nhé';
 
   return (
     <article className="card dict-ex" ref={rootRef}>
@@ -214,6 +227,7 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
                 Đúng {outcome.al.matched}/{outcome.al.total} từ
                 {outcome.al.extra > 0 ? ` · thừa ${outcome.al.extra} từ` : ''}
                 {hintShown ? ' · có dùng gợi ý' : ''}
+                {heardLabel && !firstListen ? ` · ${heardLabel}` : ''}
               </>
             }
           />

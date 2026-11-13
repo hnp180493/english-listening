@@ -43,6 +43,13 @@ export interface DayAgg {
   grades?: GradeCount; // grades given in Ôn tập (context 'review', chunks included)
   ret?: { n: number; again: number }; // any grade on a graduated card (interval ≥ 1 day) that changed its schedule
   words?: number; // word cards graduated for the first time
+  /**
+   * "Nghe 1 lần là đúng": whole-sentence dictations of a sentence the learner had never dictated before, where the
+   * sentence was played at least once. `ok` = written fully right, without the hint, after ONE play at the normal
+   * speed (no replay, no "Chậm", no "Từng cụm"). Real speech is said once: this is the practice number closest to
+   * it. Not backfilled: attempts from before this field did not record plays.
+   */
+  once?: ModuleCount;
 }
 
 export interface HistoryBase {
@@ -101,6 +108,10 @@ export function sanitizeDayAgg(raw: unknown): DayAgg {
   }
   const w = count(raw.words);
   if (w > 0) out.words = w;
+  if (isObj(raw.once)) {
+    const n = count(raw.once.n);
+    if (n > 0) out.once = { n, ok: Math.min(n, count(raw.once.ok)) };
+  }
   return out;
 }
 
@@ -149,6 +160,10 @@ export function maxDayAgg(a: DayAgg, b: DayAgg): DayAgg {
   if (a.ret || b.ret) out.ret = { n: Math.max(a.ret?.n ?? 0, b.ret?.n ?? 0), again: Math.max(a.ret?.again ?? 0, b.ret?.again ?? 0) };
   const w = Math.max(a.words ?? 0, b.words ?? 0);
   if (w > 0) out.words = w;
+  if (a.once || b.once) {
+    const n = Math.max(a.once?.n ?? 0, b.once?.n ?? 0);
+    out.once = { n, ok: Math.min(n, Math.max(a.once?.ok ?? 0, b.once?.ok ?? 0)) };
+  }
   return out;
 }
 
@@ -200,6 +215,11 @@ function addAgg(into: DayAgg, a: DayAgg): void {
     into.ret.again += a.ret.again;
   }
   if (a.words) into.words = (into.words ?? 0) + a.words;
+  if (a.once) {
+    into.once ??= { n: 0, ok: 0 };
+    into.once.n += a.once.n;
+    into.once.ok += a.once.ok;
+  }
 }
 
 /** Per-day totals over the backfill and every device bucket. */
@@ -284,6 +304,24 @@ export function reviewRetention(days: Map<string, DayAgg>, fromDay?: string, toD
     again += a.ret.again;
   }
   return { n, again, pct: n > 0 ? Math.round(((n - again) / n) * 100) : null };
+}
+
+export interface FirstListen {
+  n: number; // new sentences dictated after listening
+  ok: number; // of those, fully right after one play at the normal speed
+  pct: number | null; // 0..100
+}
+
+/** "Nghe 1 lần là đúng" on new dictation sentences in [fromDay, toDay] (DayAgg.once). */
+export function firstListenTotals(days: Map<string, DayAgg>, fromDay?: string, toDay?: string): FirstListen {
+  let n = 0;
+  let ok = 0;
+  for (const [day, a] of days) {
+    if (!inRange(day, fromDay, toDay) || !a.once) continue;
+    n += a.once.n;
+    ok += a.once.ok;
+  }
+  return { n, ok, pct: n > 0 ? Math.round((ok / n) * 100) : null };
 }
 
 export function gradeTotals(days: Map<string, DayAgg>, fromDay?: string, toDay?: string): GradeCount & { total: number } {
@@ -476,14 +514,22 @@ function bump(at: number, apply: (agg: DayAgg) => void): void {
   }
 }
 
-/** One practice attempt (called by core/stats recordAttempt). */
-export function noteAttempt(module: ModuleId, correct: boolean, at: number = Date.now()): void {
+/**
+ * One practice attempt (called by core/stats recordAttempt). `once`: the attempt is a first-listen measurement
+ * (DayAgg.once: a new dictation sentence, played at least once); true = it took one normal-speed play.
+ */
+export function noteAttempt(module: ModuleId, correct: boolean, at: number = Date.now(), once?: boolean): void {
   if (!isModule(module)) return;
   bump(at, (agg) => {
     agg.mod ??= {};
     const cur = (agg.mod[module] ??= { n: 0, ok: 0 });
     cur.n += 1;
     if (correct) cur.ok += 1;
+    if (once !== undefined && module === 'dictation') {
+      agg.once ??= { n: 0, ok: 0 };
+      agg.once.n += 1;
+      if (once && correct) agg.once.ok += 1;
+    }
   });
 }
 

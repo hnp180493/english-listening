@@ -114,6 +114,16 @@ sentence, pair, lesson, chunk and word cards) count for stats and phenomena but 
 sentence the learner already got right would make "practice accuracy" rise from memory; Ôn tập is measured by its
 retention instead.
 
+**"Nghe 1 lần là đúng" (`DayAgg.once { n, ok }`, `core/dictation/listens.ts`).** Real speech is said once, so the
+archive also keeps how new dictation sentences went on the first listen. Measured (`n`) only for a whole-sentence
+check of a sentence never dictated before, played at least once; not for "Điền từ", a retry of the sentence on
+screen, or an answer typed without playing. `ok` = fully right, no hint, after exactly one play at the normal speed
+(no replay, no "Chậm", no "Từng cụm"; auto-play of the next sentence counts as the one play). Not backfilled. The
+report states it from 20 sentences (`MIN_FIRST_LISTEN_SAMPLE`; fewer: hedged fact, no insight), compares it with the
+previous window only when both have the sample and differ by 10 points, and always adds that the app's voice is
+clearer than real speakers. The dictation result line and the round summary show the same thing for the sentences
+of the round (those include sentences seen before: the summary counts what happened, the archive measures).
+
 ## 5. Báo cáo tiến bộ (`#/stats?view=report`)
 
 Periods: 4 tuần (3 full weeks + this week), 3 tháng (13 weeks), Tất cả. Labels name the start day ("Từ 12/10"), so

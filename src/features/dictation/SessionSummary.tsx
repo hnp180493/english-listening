@@ -53,6 +53,12 @@ export default function SessionSummaryCard({
         <p className="dict-sum-sub">
           Điểm trung bình <b>{avgPct}%</b> · {summary.perfect}/{summary.count} câu đúng hoàn toàn. {praise}
         </p>
+        {summary.heard > 0 && (
+          <p className="dict-sum-sub">
+            Nghe 1 lần là đúng: <b>{summary.once}/{summary.heard}</b> câu. Ngoài đời người ta chỉ nói một lần, nên đây là con số
+            đáng nhìn nhất.
+          </p>
+        )}
       </div>
 
       <div className="dict-sum-missed">

@@ -192,6 +192,36 @@ describe('live recording', () => {
     expect(practiceTotals(historyDays(history.loadHistory(NOW + 2000)))).toMatchObject({ n: 1005, ok: 503 });
   });
 
+  it('records first-listen results of dictation only, and merges them by max', async () => {
+    const map = stubWindow();
+    const { history, stats } = await fresh();
+    const a = (itemId: string) => ({ module: 'dictation' as const, itemId, seen: [], missed: [] });
+    stats.recordAttempt({ ...a('n1'), correct: true, at: NOW }, { once: true });
+    stats.recordAttempt({ ...a('n2'), correct: true, at: NOW + 1 }, { once: false }); // right, but replayed
+    stats.recordAttempt({ ...a('n3'), correct: false, at: NOW + 2 }, { once: true }); // one listen, wrong
+    stats.recordAttempt({ ...a('n4'), correct: true, at: NOW + 3 }); // not measured (seen before / cloze / retry)
+    stats.recordAttempt({ module: 'pairs', itemId: 'p', correct: true, seen: [], missed: [], at: NOW + 4 }, { once: true });
+    stats.recordAttempt({ ...a('n5'), correct: true, at: NOW + 5 }, { inReview: true, once: true }); // Ôn tập: not archived
+    const s = history.loadHistory(NOW + 9);
+    const dev = JSON.parse(map.get(P + 'device-id')!);
+    expect(s.devices[dev]['2026-11-06'].once).toEqual({ n: 3, ok: 1 });
+    const days = history.historyDays(s);
+    expect(history.firstListenTotals(days)).toEqual({ n: 3, ok: 1, pct: 33 });
+    expect(history.firstListenTotals(days, '2026-11-07')).toEqual({ n: 0, ok: 0, pct: null });
+
+    const other = parseHistory({
+      version: 1,
+      devices: { [dev]: { '2026-11-06': { once: { n: 2, ok: 2 } } }, 'd-z': { '2026-11-06': { once: { n: 4, ok: 9 } } } },
+      base: null,
+    });
+    expect(other.devices['d-z']['2026-11-06'].once).toEqual({ n: 4, ok: 4 }); // ok never above n
+    const merged = mergeHistoryStores(s, other);
+    expect(merged.devices[dev]['2026-11-06'].once).toEqual({ n: 3, ok: 2 });
+    expect(mergeHistoryStores(other, s)).toEqual(merged);
+    expect(mergeHistoryStores(merged, merged)).toEqual(merged);
+    expect(history.firstListenTotals(history.historyDays(merged))).toEqual({ n: 7, ok: 6, pct: 86 });
+  });
+
   it('records review grades: retention on graduated cards, split for Ôn tập, first word graduation', async () => {
     stubWindow();
     const { history } = await fresh();

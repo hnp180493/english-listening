@@ -9,6 +9,10 @@ export interface SessionCheck {
   score: number; // 0..1
   seen: Phenomenon[];
   missed: Phenomenon[];
+  /** The sentence was played before this check (false / missing: "Điền từ", or answered without listening). */
+  heard?: boolean;
+  /** Fully right, unaided, after one normal-speed play (core/dictation/listens rightOnFirstListen). */
+  once?: boolean;
 }
 
 export interface GoalProgress {
@@ -37,6 +41,9 @@ export interface SessionSummary {
   avg: number; // 0..1
   perfect: number; // checks with score 1
   topMissed: MissedStat[]; // most-missed first, at most `limit`
+  /** "Nghe 1 lần là đúng": of the `heard` sentences that were played before the check, `once` were right after one play. */
+  heard: number;
+  once: number;
 }
 
 /** Summarise a round of checks. Phenomena are ranked by how many checks missed them. */
@@ -62,7 +69,8 @@ export function summarizeChecks(checks: readonly SessionCheck[], limit = 3): Ses
     .filter((s) => s.missed > 0)
     .sort((a, b) => b.missed - a.missed || b.missed / Math.max(1, b.seen) - a.missed / Math.max(1, a.seen) || PHENOMENA.indexOf(a.phenomenon) - PHENOMENA.indexOf(b.phenomenon))
     .slice(0, Math.max(0, limit));
-  return { count, avg, perfect, topMissed };
+  const heard = valid.filter((c) => c.heard === true);
+  return { count, avg, perfect, topMissed, heard: heard.length, once: heard.filter((c) => c.once === true).length };
 }
 
 /**
