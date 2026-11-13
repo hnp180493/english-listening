@@ -124,6 +124,19 @@ previous window only when both have the sample and differ by 10 points, and alwa
 clearer than real speakers. The dictation result line and the round summary show the same thing for the sentences
 of the round (those include sentences seen before: the summary counts what happened, the archive measures).
 
+**The same on real speech (`DayAgg.onceReal`, `features/media/lineListens.ts`).** "Video thật → Chép chính tả"
+counts the plays of each transcript line during a visit of the player: "Phát câu" / "Lặp lại" / the sentence loop /
+moving to the next line (each one play), and lines that free playback through the video's own controls passes (one
+per pass; a jump back counts again). A play below 1× is a slowed play. A check is measured only on a first meeting
+of the line: not in `MediaProgress.heard` when the visit began (lines played in any mode are remembered there,
+synced as a union, kept by "Luyện lại từ đầu"), no score, not ticked, and its text never on screen in this visit
+(the line was shown in "Nghe & xem", or subtitles were on there, which shows the whole list). `ok` = fully right
+(score 1, no hint) after exactly one play at 1×. Limits: it cannot know a video watched elsewhere or lines played
+before `heard` existed, and a caption that differs from the audio makes a perfect answer impossible. The two
+counters are never added: the app's voice and a real speaker are different tests. In the report the real-speech
+number has its own fact line and, from 20 lines, replaces the app-voice insight, with the caveat that the learner
+chose the videos.
+
 ## 5. Báo cáo tiến bộ (`#/stats?view=report`)
 
 Periods: 4 tuần (3 full weeks + this week), 3 tháng (13 weeks), Tất cả. Labels name the start day ("Từ 12/10"), so

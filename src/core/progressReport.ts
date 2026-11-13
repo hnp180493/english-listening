@@ -264,6 +264,8 @@ export interface PracticeSection {
   retention: Retention & { label: string | null }; // "Nhớ được ở 85% lượt ôn thẻ đã thuộc (120 lượt)"
   /** New dictation sentences right after one normal-speed play (history DayAgg.once). label: "Câu mới nghe 1 lần là đúng: 35% (40 câu)". */
   firstListen: FirstListen & { label: string | null };
+  /** The same on real speech: new lines of "Video thật" (history DayAgg.onceReal). label: "Video thật, câu mới nghe 1 lần là đúng: 20% (25 câu)". */
+  firstListenReal: FirstListen & { label: string | null };
   lessonsPassed: number; // in the period
   lessonsPassedTotal: number;
   lessonsByWeek: WeekCount[];
@@ -633,6 +635,8 @@ export function buildReport(input: ReportInput): ProgressReport {
   const ret = reviewRetention(days, fromDay, today);
   const once = firstListenTotals(days, fromDay, today);
   const oncePrev = input.period === 'all' ? null : firstListenTotals(days, prevFrom, prevTo);
+  const onceReal = firstListenTotals(days, fromDay, today, 'onceReal');
+  const onceRealPrev = input.period === 'all' ? null : firstListenTotals(days, prevFrom, prevTo, 'onceReal');
   const lessonsByWeek = lessonsPassedByWeek(input.lessons ?? {}, weeks);
   const passDays = Object.values(input.lessons ?? {})
     .map((r) => r?.completedAt)
@@ -645,7 +649,7 @@ export function buildReport(input: ReportInput): ProgressReport {
   );
   const practice: PracticeSection = {
     empty:
-      pt.n === 0 && ret.n === 0 && once.n === 0 && !passDays.some((d) => d >= fromDay)
+      pt.n === 0 && ret.n === 0 && once.n === 0 && onceReal.n === 0 && !passDays.some((d) => d >= fromDay)
         ? 'Chưa có lượt luyện trong kỳ này. Luyện vài bài ở trang Hôm nay để thấy độ chính xác.'
         : null,
     weeks: pw,
@@ -653,6 +657,10 @@ export function buildReport(input: ReportInput): ProgressReport {
     modules,
     retention: { ...ret, label: ret.pct !== null ? `Nhớ được ở ${ret.pct}% lượt ôn thẻ đã thuộc (${ret.n} lượt)` : null },
     firstListen: { ...once, label: once.pct !== null ? `Câu mới nghe 1 lần là đúng: ${once.pct}% (${once.n} câu)` : null },
+    firstListenReal: {
+      ...onceReal,
+      label: onceReal.pct !== null ? `Video thật, câu mới nghe 1 lần là đúng: ${onceReal.pct}% (${onceReal.n} câu)` : null,
+    },
     lessonsPassed: passDays.filter((d) => d >= fromDay && d <= today).length,
     lessonsPassedTotal: passDays.length,
     lessonsByWeek,
@@ -688,6 +696,8 @@ export function buildReport(input: ReportInput): ProgressReport {
       ret,
       once,
       oncePrev,
+      onceReal,
+      onceRealPrev,
       rated,
       uAvg,
       daysSinceCheckup: due.daysSince,
@@ -717,6 +727,8 @@ export interface InsightInput {
   ret: Retention;
   once?: FirstListen; // "nghe 1 lần là đúng" in the period
   oncePrev?: FirstListen | null; // the same-length window just before; null for "Tất cả"
+  onceReal?: FirstListen; // the same on new lines of real videos
+  onceRealPrev?: FirstListen | null;
   rated: number;
   uAvg: number | null;
   daysSinceCheckup: number | null;
@@ -898,16 +910,32 @@ function practiceInsight(i: InsightInput): string | null {
  * clearer than real speakers: it is not a claim about real-life listening.
  */
 function firstListenInsight(i: InsightInput): string | null {
+  const real = realFirstListenInsight(i);
+  if (real) return real;
   const o = i.once;
   if (!o || o.pct === null || o.n < MIN_FIRST_LISTEN_SAMPLE) return null;
-  let s = `Câu mới trong Chép chính tả: bạn nghe 1 lần là viết đúng ở ${o.pct}% số câu (${o.n} câu)`;
-  const p = i.oncePrev;
-  if (p && p.pct !== null && p.n >= MIN_FIRST_LISTEN_SAMPLE) {
-    if (o.pct - p.pct >= MIN_FIRST_LISTEN_CHANGE) s += `, tăng so với ${p.pct}% của kỳ trước`;
-    else if (p.pct - o.pct >= MIN_FIRST_LISTEN_CHANGE) s += `, thấp hơn ${p.pct}% của kỳ trước (có thể câu đang khó hơn)`;
-    else s += `, gần bằng kỳ trước (${p.pct}%)`;
-  }
+  const s = `Câu mới trong Chép chính tả: bạn nghe 1 lần là viết đúng ở ${o.pct}% số câu (${o.n} câu)${vsPrevious(o, i.oncePrev)}`;
   return `${s}. Ngoài đời người ta chỉ nói một lần nên đây là số sát thực tế nhất trong app; giọng trong app rõ hơn người thật, nên nghe thật sẽ khó hơn.`;
+}
+
+/** ", tăng so với 20% của kỳ trước" | ", thấp hơn …" | ", gần bằng …" | '' (no previous window with the sample). */
+function vsPrevious(o: FirstListen, p: FirstListen | null | undefined): string {
+  if (o.pct === null || !p || p.pct === null || p.n < MIN_FIRST_LISTEN_SAMPLE) return '';
+  if (o.pct - p.pct >= MIN_FIRST_LISTEN_CHANGE) return `, tăng so với ${p.pct}% của kỳ trước`;
+  if (p.pct - o.pct >= MIN_FIRST_LISTEN_CHANGE) return `, thấp hơn ${p.pct}% của kỳ trước (có thể câu đang khó hơn)`;
+  return `, gần bằng kỳ trước (${p.pct}%)`;
+}
+
+/**
+ * The same on real speech (new lines of "Video thật"): preferred over the app-voice one when it has the sample,
+ * since it is a real speaker at real speed. Its caveat is the other way round: the learner chose the videos, so
+ * the number says how those videos went, not how any English will go.
+ */
+function realFirstListenInsight(i: InsightInput): string | null {
+  const o = i.onceReal;
+  if (!o || o.pct === null || o.n < MIN_FIRST_LISTEN_SAMPLE) return null;
+  const s = `Video thật: với câu mới, bạn nghe 1 lần là viết đúng ở ${o.pct}% số câu (${o.n} câu)${vsPrevious(o, i.onceRealPrev)}`;
+  return `${s}. Đây là người thật nói ở tốc độ thật, nên là số sát thực tế nhất trong app; nó còn tùy độ khó của video bạn chọn.`;
 }
 
 function retentionInsight(i: InsightInput): string | null {

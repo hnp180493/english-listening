@@ -83,7 +83,7 @@ describe('merger laws', () => {
         createdAt: T0 + i,
         openedAt: T0 + ri(3),
         units: [],
-        progress: { unitIndex: ri(2), done: [ri(3)], scores: { [ri(3)]: ri(3) / 2 } },
+        progress: { unitIndex: ri(2), done: [ri(3)], scores: { [ri(3)]: ri(3) / 2 }, ...(maybe() ? { heard: [...new Set([ri(4), ri(4)])].sort((x, y) => x - y) } : {}) },
       })),
     prefs: { speed: pick([0.75, 1]), autoLoop: maybe(), showSubs: true, mode: 'watch', changedAt: T0 + 1 + ri(4) },
   }));

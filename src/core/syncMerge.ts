@@ -462,7 +462,7 @@ export const mediaStamp = (r: Obj): number => Math.max(num(r.createdAt), num(r.o
 
 /** An item without its merged progress lists: the tie-break key (unchanged by a merge, so the merge is associative). */
 function mediaTieKey(it: Obj): string {
-  const p = isObj(it.progress) ? { ...it.progress, done: undefined, scores: undefined } : it.progress;
+  const p = isObj(it.progress) ? { ...it.progress, done: undefined, scores: undefined, heard: undefined } : it.progress;
   return JSON.stringify({ ...it, progress: p });
 }
 
@@ -480,11 +480,14 @@ function mergeMediaItem(n: Obj, o: Obj): Obj {
   }
   const scores: Obj = {};
   for (const k of Object.keys(best).sort()) scores[k] = best[k];
+  // lines whose audio was played on either machine (MediaProgress.heard): union, left out while empty
+  const heard = new Set<number>();
+  for (const p of [np, op]) if (Array.isArray(p.heard)) for (const x of p.heard) if (finite(x)) heard.add(x);
   const bp = base === n ? np : op;
-  return {
-    ...base,
-    progress: { ...bp, done: [...done].sort((a, b) => a - b), scores },
-  };
+  const progress: Obj = { ...bp, done: [...done].sort((a, b) => a - b), scores };
+  if (heard.size) progress.heard = [...heard].sort((a, b) => a - b);
+  else delete progress.heard;
+  return { ...base, progress };
 }
 
 /**

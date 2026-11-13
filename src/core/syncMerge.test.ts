@@ -168,6 +168,15 @@ describe('lists keyed by id', () => {
     expect(m.items[0].progress).toEqual({ unitIndex: 4, done: [0, 1, 3], scores: { 0: 0.9, 3: 1 } });
   });
 
+  it('media library: lines heard on either machine stay heard (union), absent while none', () => {
+    const item = (openedAt: number, heard?: number[]) => ({ id: 'a', kind: 'file', title: 'a', createdAt: 1, openedAt, units: [], progress: { unitIndex: 0, done: [], scores: {}, ...(heard ? { heard } : {}) } });
+    const heardOf = (x: unknown, y: unknown) => (mergeMedia({ items: [x] }, { items: [y] }) as { items: { progress: { heard?: number[] } }[] }).items[0].progress.heard;
+    expect(heardOf(item(5, [4, 1]), item(9, [2, 1]))).toEqual([1, 2, 4]);
+    expect(heardOf(item(9, [2, 1]), item(5, [4, 1]))).toEqual([1, 2, 4]);
+    expect(heardOf(item(5), item(9, [3]))).toEqual([3]);
+    expect(heardOf(item(5), item(9))).toBeUndefined();
+  });
+
   it('onboarding stays finished', () => {
     expect(mergeOnboarding({ done: false }, { done: true, at: 1 })).toEqual({ done: true, at: 1 });
     expect(mergeOnboarding({ done: true, at: 2 }, null)).toEqual({ done: true, at: 2 });

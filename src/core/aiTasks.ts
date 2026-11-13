@@ -808,6 +808,9 @@ export interface CoachInput {
     /** New dictation sentences written fully right after ONE normal-speed play (app voice, clearer than real speech). */
     firstListenPct: number | null;
     firstListenSentences: number;
+    /** The same on new lines of real videos (a real speaker at real speed; the learner chose the videos). */
+    firstListenRealPct: number | null;
+    firstListenRealSentences: number;
     lessonsPassed: number;
   };
   selfRated: {
@@ -889,6 +892,8 @@ export function buildCoachInput(
       reviewGrades: p.retention.n,
       firstListenPct: p.firstListen.pct,
       firstListenSentences: p.firstListen.n,
+      firstListenRealPct: p.firstListenReal.pct,
+      firstListenRealSentences: p.firstListenReal.n,
       lessonsPassed: p.lessonsPassed,
     },
     selfRated: {

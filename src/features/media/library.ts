@@ -27,6 +27,12 @@ export interface MediaProgress {
   unitIndex: number; // where the learner left off
   done: number[]; // unit indexes completed, sorted, unique
   scores: Record<number, number>; // best dictation score per unit index, 0..1
+  /**
+   * Unit indexes whose audio has been played here in any mode, sorted, unique; absent = none. Only used to decide
+   * whether a dictation check is a FIRST listen (lineListens.ts): a line heard in an earlier session is not one.
+   * Kept by "Luyện lại từ đầu" (the lines were still heard). Items from before this field have none recorded.
+   */
+  heard?: number[];
 }
 
 export interface MediaItem {
@@ -92,7 +98,8 @@ function sanitizeProgress(v: unknown, unitCount: number): MediaProgress {
     }
   }
   const unitIndex = inRange(p.unitIndex) ? p.unitIndex : 0;
-  return { unitIndex, done, scores };
+  const heard = Array.isArray(p.heard) ? [...new Set(p.heard.filter(inRange))].sort((a, b) => a - b) : [];
+  return heard.length ? { unitIndex, done, scores, heard } : { unitIndex, done, scores };
 }
 
 export function sanitizeItem(v: unknown): MediaItem | null {
@@ -232,7 +239,16 @@ export function recordScore(item: MediaItem, index: number, score: number): Medi
 }
 
 export function resetProgress(item: MediaItem): MediaItem {
-  return { ...item, progress: { unitIndex: 0, done: [], scores: {} } };
+  const heard = item.progress.heard;
+  return { ...item, progress: heard?.length ? { unitIndex: 0, done: [], scores: {}, heard } : { unitIndex: 0, done: [], scores: {} } };
+}
+
+/** Remember that the audio of a unit was played (MediaProgress.heard). Returns the same item when already known. */
+export function markHeard(item: MediaItem, index: number): MediaItem {
+  if (!Number.isInteger(index) || index < 0 || index >= item.units.length) return item;
+  const heard = item.progress.heard ?? [];
+  if (heard.includes(index)) return item;
+  return { ...item, progress: { ...item.progress, heard: [...heard, index].sort((a, b) => a - b) } };
 }
 
 export function donePercent(item: MediaItem): number {

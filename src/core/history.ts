@@ -50,6 +50,12 @@ export interface DayAgg {
    * it. Not backfilled: attempts from before this field did not record plays.
    */
   once?: ModuleCount;
+  /**
+   * The same measurement on real speech: lines of "Video thật" dictated on a first meeting (features/media
+   * lineListens.ts), right after one play at 1×. Kept apart from `once`: the app's voice and a real speaker are
+   * not the same test, so the two are never added together.
+   */
+  onceReal?: ModuleCount;
 }
 
 export interface HistoryBase {
@@ -66,6 +72,11 @@ export interface HistoryStore {
 
 export const HISTORY_MODULES: readonly ModuleId[] = ['dictation', 'drill', 'decoder', 'lesson', 'pairs', 'shadowing', 'media'];
 const GRADES: readonly Grade[] = ['again', 'hard', 'good', 'easy'];
+/** The first-listen counters of a day: app voice (Chép chính tả) and real speech (Video thật). */
+export type OnceKey = 'once' | 'onceReal';
+const ONCE_KEYS: readonly OnceKey[] = ['once', 'onceReal'];
+/** Which counter a module's first-listen measurement goes to (other modules have none). */
+const ONCE_OF: Partial<Record<ModuleId, OnceKey>> = { dictation: 'once', media: 'onceReal' };
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const UNSAFE = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -108,9 +119,11 @@ export function sanitizeDayAgg(raw: unknown): DayAgg {
   }
   const w = count(raw.words);
   if (w > 0) out.words = w;
-  if (isObj(raw.once)) {
-    const n = count(raw.once.n);
-    if (n > 0) out.once = { n, ok: Math.min(n, count(raw.once.ok)) };
+  for (const k of ONCE_KEYS) {
+    const v = raw[k];
+    if (!isObj(v)) continue;
+    const n = count(v.n);
+    if (n > 0) out[k] = { n, ok: Math.min(n, count(v.ok)) };
   }
   return out;
 }
@@ -160,9 +173,12 @@ export function maxDayAgg(a: DayAgg, b: DayAgg): DayAgg {
   if (a.ret || b.ret) out.ret = { n: Math.max(a.ret?.n ?? 0, b.ret?.n ?? 0), again: Math.max(a.ret?.again ?? 0, b.ret?.again ?? 0) };
   const w = Math.max(a.words ?? 0, b.words ?? 0);
   if (w > 0) out.words = w;
-  if (a.once || b.once) {
-    const n = Math.max(a.once?.n ?? 0, b.once?.n ?? 0);
-    out.once = { n, ok: Math.min(n, Math.max(a.once?.ok ?? 0, b.once?.ok ?? 0)) };
+  for (const k of ONCE_KEYS) {
+    const x = a[k];
+    const y = b[k];
+    if (!x && !y) continue;
+    const n = Math.max(x?.n ?? 0, y?.n ?? 0);
+    out[k] = { n, ok: Math.min(n, Math.max(x?.ok ?? 0, y?.ok ?? 0)) };
   }
   return out;
 }
@@ -215,10 +231,12 @@ function addAgg(into: DayAgg, a: DayAgg): void {
     into.ret.again += a.ret.again;
   }
   if (a.words) into.words = (into.words ?? 0) + a.words;
-  if (a.once) {
-    into.once ??= { n: 0, ok: 0 };
-    into.once.n += a.once.n;
-    into.once.ok += a.once.ok;
+  for (const k of ONCE_KEYS) {
+    const v = a[k];
+    if (!v) continue;
+    const cur = (into[k] ??= { n: 0, ok: 0 });
+    cur.n += v.n;
+    cur.ok += v.ok;
   }
 }
 
@@ -312,14 +330,18 @@ export interface FirstListen {
   pct: number | null; // 0..100
 }
 
-/** "Nghe 1 lần là đúng" on new dictation sentences in [fromDay, toDay] (DayAgg.once). */
-export function firstListenTotals(days: Map<string, DayAgg>, fromDay?: string, toDay?: string): FirstListen {
+/**
+ * "Nghe 1 lần là đúng" in [fromDay, toDay]: new dictation sentences in the app's voice (`once`, the default) or
+ * new lines of real videos (`onceReal`).
+ */
+export function firstListenTotals(days: Map<string, DayAgg>, fromDay?: string, toDay?: string, key: OnceKey = 'once'): FirstListen {
   let n = 0;
   let ok = 0;
   for (const [day, a] of days) {
-    if (!inRange(day, fromDay, toDay) || !a.once) continue;
-    n += a.once.n;
-    ok += a.once.ok;
+    const v = a[key];
+    if (!inRange(day, fromDay, toDay) || !v) continue;
+    n += v.n;
+    ok += v.ok;
   }
   return { n, ok, pct: n > 0 ? Math.round((ok / n) * 100) : null };
 }
@@ -516,7 +538,8 @@ function bump(at: number, apply: (agg: DayAgg) => void): void {
 
 /**
  * One practice attempt (called by core/stats recordAttempt). `once`: the attempt is a first-listen measurement
- * (DayAgg.once: a new dictation sentence, played at least once); true = it took one normal-speed play.
+ * (a new dictation sentence → DayAgg.once, a new line of a real video → DayAgg.onceReal, played at least once);
+ * true = it took one normal-speed play.
  */
 export function noteAttempt(module: ModuleId, correct: boolean, at: number = Date.now(), once?: boolean): void {
   if (!isModule(module)) return;
@@ -525,10 +548,11 @@ export function noteAttempt(module: ModuleId, correct: boolean, at: number = Dat
     const cur = (agg.mod[module] ??= { n: 0, ok: 0 });
     cur.n += 1;
     if (correct) cur.ok += 1;
-    if (once !== undefined && module === 'dictation') {
-      agg.once ??= { n: 0, ok: 0 };
-      agg.once.n += 1;
-      if (once && correct) agg.once.ok += 1;
+    const key = once !== undefined ? ONCE_OF[module] : undefined;
+    if (key) {
+      const c = (agg[key] ??= { n: 0, ok: 0 });
+      c.n += 1;
+      if (once && correct) c.ok += 1;
     }
   });
 }

@@ -386,6 +386,21 @@ describe('honesty rules', () => {
     expect(all.insights.find((s) => /nghe 1 lần/.test(s))).not.toMatch(/kỳ trước/);
   });
 
+  it('first listen on real videos: its own fact, and the insight when it has the sample (app voice otherwise)', () => {
+    const day = (once: { n: number; ok: number }, onceReal: { n: number; ok: number }) => ({ mod: { dictation: { n: once.n, ok: once.ok }, media: { n: onceReal.n, ok: onceReal.ok } }, once, onceReal });
+    const few = buildReport(input({ history: { version: 1, devices: { d1: { '2026-11-04': day({ n: 40, ok: 16 }, { n: 6, ok: 1 }) } }, base: null } }));
+    expect(few.practice.firstListenReal).toEqual({ n: 6, ok: 1, pct: 17, label: 'Video thật, câu mới nghe 1 lần là đúng: 17% (6 câu)' });
+    expect(few.practice.firstListen.pct).toBe(40); // never added together
+    expect(few.insights.find((s) => /nghe 1 lần/.test(s))).toMatch(/^Câu mới trong Chép chính tả/);
+
+    const hist: HistoryStore = { version: 1, devices: { d1: { '2026-09-30': day({ n: 30, ok: 6 }, { n: 20, ok: 8 }), '2026-11-04': day({ n: 40, ok: 16 }, { n: 25, ok: 5 }) } }, base: null };
+    const line = buildReport(input({ history: hist })).insights.find((s) => /nghe 1 lần/.test(s))!;
+    expect(line).toMatch(/^Video thật: với câu mới, bạn nghe 1 lần là viết đúng ở 20% số câu \(25 câu\), thấp hơn 40% của kỳ trước \(có thể câu đang khó hơn\)\./);
+    expect(line).toMatch(/tùy độ khó của video bạn chọn/);
+    expect(line).not.toMatch(NATIVE);
+    expect(buildReport(input({})).practice.firstListenReal).toEqual({ n: 0, ok: 0, pct: null, label: null });
+  });
+
   it('buildInsights is deterministic', () => {
     const args = { log: [entry('2026-11-06', 30)], checkups: [], goal: 30, today: '2026-11-06', period: '4w' as const, fromDay: '2026-10-19', listenMinutes: 30, change: null, stats: null, pw: [], ret: { n: 0, again: 0, pct: null }, rated: 0, uAvg: null, daysSinceCheckup: null };
     expect(buildInsights(args)).toEqual(buildInsights(args));

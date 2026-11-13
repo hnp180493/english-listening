@@ -27,6 +27,7 @@ import { decode } from '../../core/decoder';
 import { formatClock } from '../../core/media/transcript';
 import { hrefFor, navigate } from '../../core/nav';
 import { makeCardId, mediaRef, recordReview } from '../../core/review';
+import { firstListenOutcome } from '../../core/dictation/listens';
 import { recordAttempt } from '../../core/stats';
 import { reviewNoteVi } from '../dictation/pageModel';
 import DictationPanel, { type CheckOutcome } from './DictationPanel';
@@ -36,6 +37,7 @@ import { FileSurface, YouTubeSurface, type MediaHandle } from './surfaces';
 import {
   SPEEDS,
   clampIndex,
+  markHeard,
   nextUndone,
   playWindow,
   recordScore,
@@ -47,6 +49,7 @@ import {
   type MediaPrefs,
   type PracticeMode,
 } from './library';
+import { lineIsFresh, lineTally, newListenSession, noteLinePlay, noteLineShown, type ListenSession } from './lineListens';
 import { mediaReviewPlan } from './reviewPlan';
 import { useListenAutoLog } from './listenAutoLog';
 import { dismissSaveWarning, isSessionOnly, rememberFile, rememberedFile, setPrefs, updateItem, useSaveFailed } from './store';
@@ -116,6 +119,24 @@ export default function PlayerView({ item, prefs, startUnit }: { item: MediaItem
     indexRef.current = index;
   }, [index]);
 
+  // "Nghe 1 lần là đúng" (lineListens.ts): the plays of each line during this visit. The player is remounted per
+  // item (MediaPage key), so a ref lives as long as the visit. Made on first use, from the lines heard before the
+  // visit (the first render's progress: nothing has been played yet).
+  const heardAtOpen = useRef(item.progress.heard);
+  const listenRef = useRef<ListenSession | null>(null);
+  const listening = useCallback(() => (listenRef.current ??= newListenSession({ heard: heardAtOpen.current })), []);
+  // The line already counted for the playback going on: the one "Phát câu" started, or the one free playback (the
+  // player's own controls) is passing through. -1 = the next line heard is a new listen. freeTimeRef: the last free
+  // playback time, to notice a jump back (hearing the line again).
+  const freeLineRef = useRef(-1);
+  const freeTimeRef = useRef(-1);
+  const noteHeard = useCallback(
+    (i: number) => {
+      if (noteLinePlay(listening(), i, prefsRef.current.speed)) updateItem(item.id, (it) => markHeard(it, i));
+    },
+    [item.id, listening],
+  );
+
   // mark as opened (once per item); a line asked for by the URL also becomes the saved position
   useEffect(() => {
     updateItem(item.id, (it) => {
@@ -148,13 +169,17 @@ export default function PlayerView({ item, prefs, startUnit }: { item: MediaItem
       h.seek(w.start);
       h.play();
       boundRef.current = { index: i, start: w.start, end: w.end, startedAt: performance.now(), armed: false };
+      freeLineRef.current = i; // if the window is lost (slow seek), the same play going on is not a second listen
+      freeTimeRef.current = -1;
+      noteHeard(i);
     },
-    [units],
+    [units, noteHeard],
   );
 
   const stop = useCallback(() => {
     clearLoop();
     boundRef.current = null;
+    freeLineRef.current = -1;
     handleRef.current?.pause();
   }, []);
 
@@ -205,12 +230,14 @@ export default function PlayerView({ item, prefs, startUnit }: { item: MediaItem
         }
         if (t < b.start - SEEK_SLACK - 0.5 || t > b.end + 1.5) {
           boundRef.current = null; // the learner scrubbed elsewhere: free playback
+          freeLineRef.current = -1;
           return;
         }
         const finish = () => {
           if (boundRef.current !== b) return;
           h.pause();
           boundRef.current = null;
+          freeLineRef.current = -1;
           clearLoop();
           if (prefsRef.current.autoLoop) {
             loopTimer.current = window.setTimeout(() => playUnit(b.index), LOOP_PAUSE_MS);
@@ -227,13 +254,23 @@ export default function PlayerView({ item, prefs, startUnit }: { item: MediaItem
         }
         return;
       }
-      if (prefsRef.current.mode === 'watch') {
-        const i = unitAtTime(units, t + 0.05);
-        if (i >= 0 && i !== indexRef.current) setIndex(i);
+      // free playback (the player's own controls, or after scrubbing away): each line it passes was heard
+      if (t < freeTimeRef.current - 1) freeLineRef.current = -1; // jumped back: what plays now is heard again
+      freeTimeRef.current = t;
+      const i = unitAtTime(units, t + 0.05);
+      if (i >= 0 && i !== freeLineRef.current) {
+        freeLineRef.current = i;
+        noteHeard(i);
       }
+      if (prefsRef.current.mode === 'watch' && i >= 0 && i !== indexRef.current) setIndex(i);
     }, 100);
     return () => window.clearInterval(id);
-  }, [ready, units, playUnit, setIndex]);
+  }, [ready, units, playUnit, setIndex, noteHeard]);
+
+  // a line shown in "Nghe & xem" may have been read there (and with subtitles on, so may the whole list)
+  useEffect(() => {
+    if (prefs.mode === 'watch') noteLineShown(listening(), index, prefs.showSubs);
+  }, [prefs.mode, prefs.showSubs, index, listening]);
 
   // cleanup on unmount
   useEffect(
@@ -287,13 +324,11 @@ export default function PlayerView({ item, prefs, startUnit }: { item: MediaItem
     // perfect answer typed with the first-letter hint does not count as "correct"
     if (!o.retry) {
       try {
-        recordAttempt({
-          module: 'media',
-          itemId: `${item.id}:${i}`,
-          correct: o.score === 1 && !o.hinted,
-          seen: o.seen,
-          missed: o.missed,
-        });
+        recordAttempt(
+          { module: 'media', itemId: `${item.id}:${i}`, correct: o.score === 1 && !o.hinted, seen: o.seen, missed: o.missed },
+          // "nghe 1 lần là đúng" with a real speaker: only a line met for the first time (lineListens.ts)
+          { once: firstListenOutcome(o, { cloze: false, retry: o.retry, prevAttempts: o.fresh ? 0 : 1 }) },
+        );
       } catch {
         // stats are best-effort (as in the main dictation)
       }
@@ -648,6 +683,7 @@ export default function PlayerView({ item, prefs, startUnit }: { item: MediaItem
                       bestScore={item.progress.scores[index]}
                       isLast={index >= units.length - 1}
                       onChecked={onChecked}
+                      listenInfo={() => ({ listens: lineTally(listening(), index), fresh: lineIsFresh(listening(), index, item.progress) })}
                       onReplay={replay}
                       onNext={next}
                       quiet={item.kind === 'file' && !file}

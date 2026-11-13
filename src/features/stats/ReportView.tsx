@@ -517,6 +517,8 @@ function PracticeCard({ report }: { report: ProgressReport }) {
   const facts: string[] = [];
   if (p.firstListen.label)
     facts.push(p.firstListen.label + (p.firstListen.n < MIN_FIRST_LISTEN_SAMPLE ? ', còn ít câu nên chưa chắc' : ''));
+  if (p.firstListenReal.label)
+    facts.push(p.firstListenReal.label + (p.firstListenReal.n < MIN_FIRST_LISTEN_SAMPLE ? ', còn ít câu nên chưa chắc' : ''));
   if (p.retention.label) facts.push(p.retention.label + (p.retention.n < MIN_RETENTION_SAMPLE ? ', còn ít lượt nên chưa chắc' : ''));
   if (p.lessonsPassed > 0)
     facts.push(

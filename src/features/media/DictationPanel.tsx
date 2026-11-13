@@ -9,6 +9,7 @@ import { align, type AlignResult } from '../../core/dictation/align';
 import { classify, type ClassifyResult } from '../../core/dictation/classify';
 import { buildDiff, type DiffUnit } from '../../core/dictation/diff';
 import { makeHint } from '../../core/dictation/hint';
+import { listensLabelVi, rightOnFirstListen, type ListenTally } from '../../core/dictation/listens';
 import { normalizeText, splitWords } from '../../core/dictation/normalize';
 import type { DecodeResult } from '../../core/types';
 import SpokenSentence from '../../components/SpokenSentence';
@@ -26,6 +27,9 @@ export interface CheckOutcome {
   matched: number; // AlignResult.matched (typo matches count as matched)
   extra: number; // AlignResult.extra (extra words typed)
   revealed: boolean; // "Chịu, xem đáp án"
+  listens: ListenTally; // plays of this line before the check, during this visit of the player
+  /** The learner met the line for the first time (lineListens.ts lineIsFresh): the check can count as a first listen. */
+  fresh: boolean;
 }
 
 interface Props {
@@ -34,6 +38,8 @@ interface Props {
   bestScore?: number;
   isLast: boolean;
   onChecked: (o: CheckOutcome) => void;
+  /** Read at check time: the plays of this line so far, and whether it is a first meeting. */
+  listenInfo: () => { listens: ListenTally; fresh: boolean };
   onReplay: () => void;
   onNext: () => void;
   /** Another action is the view's primary (e.g. "Chọn tệp…" while the audio file is missing): no gradient here. */
@@ -45,17 +51,20 @@ interface Result {
   cls: ClassifyResult;
   units: DiffUnit[];
   revealed: boolean;
+  heard: string; // "nghe 3 lần, có nghe chậm" | ''
+  once: boolean; // a first meeting, fully right after one play at 1×
 }
 
-function verdict(score: number, revealed: boolean): string {
+function verdict(score: number, revealed: boolean, once: boolean): string {
   if (revealed) return 'Đáp án đây: nghe lại vài lần cho quen tai nhé';
+  if (once) return 'Nghe 1 lần là đúng!';
   if (score >= 1) return 'Chính xác!';
   if (score >= DONE_SCORE) return 'Gần đúng rồi, tính là đã xong';
   if (score >= 0.5) return 'Nghe được hơn một nửa';
   return 'Câu này khó, nghe lại từng đoạn nhé';
 }
 
-export default function DictationPanel({ text, decoded, bestScore, isLast, onChecked, onReplay, onNext, quiet }: Props) {
+export default function DictationPanel({ text, decoded, bestScore, isLast, onChecked, listenInfo, onReplay, onNext, quiet }: Props) {
   const [answer, setAnswer] = useState('');
   const [result, setResult] = useState<Result | null>(null);
   const [hint, setHint] = useState(false);
@@ -85,7 +94,10 @@ export default function DictationPanel({ text, decoded, bestScore, isLast, onChe
     const al = align(targetRaw, answerRaw);
     const cls = classify(decoded, al.ops, answerRaw, targetRaw);
     const units = buildDiff(targetRaw, answerRaw, al.ops);
-    setResult({ al, cls, units, revealed: reveal });
+    const hinted = hintedRef.current || hint;
+    const { listens, fresh } = listenInfo();
+    const once = fresh && !retriedRef.current && rightOnFirstListen({ score: al.score, hinted, revealed: reveal, listens });
+    setResult({ al, cls, units, revealed: reveal, heard: once ? '' : listensLabelVi(listens), once });
     setNudge(false);
     setActiveAnn(cls.missedAnnotationIds[0] ?? null);
     onChecked({
@@ -93,11 +105,13 @@ export default function DictationPanel({ text, decoded, bestScore, isLast, onChe
       seen: cls.seenPhenomena,
       missed: cls.missedPhenomena,
       retry: retriedRef.current,
-      hinted: hintedRef.current || hint,
+      hinted,
       total: al.total,
       matched: al.matched,
       extra: al.extra,
       revealed: reveal,
+      listens,
+      fresh,
     });
   };
 
@@ -205,7 +219,10 @@ export default function DictationPanel({ text, decoded, bestScore, isLast, onChe
               <Icon icon={tone === 'ok' ? Check : tone === 'warn' ? Lightbulb : X} size={18} strokeWidth={2.5} />
             </span>
             <strong className="media-score-num">{pct}%</strong>
-            <span>{verdict(result.al.score, result.revealed)}</span>
+            <span>
+              {verdict(result.al.score, result.revealed, result.once)}
+              {result.heard && !result.revealed ? ` · ${result.heard}` : ''}
+            </span>
           </div>
 
           <p className="media-diff" lang="en" aria-label="So sánh câu của bạn với câu gốc">

@@ -7,6 +7,7 @@ import {
   clampIndex,
   createItem,
   donePercent,
+  markHeard,
   findYouTubeDuplicate,
   guessFileType,
   isMediaFile,
@@ -149,6 +150,20 @@ describe('progress updates', () => {
     it = resetProgress(it);
     expect(averageScore(it)).toBeNull();
     expect(it.progress).toEqual({ unitIndex: 0, done: [], scores: {} });
+  });
+
+  it('markHeard remembers played lines; "Luyện lại từ đầu" keeps them; stored junk is repaired', () => {
+    let it = yt();
+    expect(it.progress.heard).toBeUndefined();
+    it = markHeard(markHeard(it, 2), 0);
+    expect(it.progress.heard).toEqual([0, 2]);
+    expect(markHeard(it, 2)).toBe(it);
+    expect(markHeard(it, 99)).toBe(it);
+    expect(markHeard(it, 0.5)).toBe(it);
+    it = resetProgress(recordScore(it, 0, 1));
+    expect(it.progress).toEqual({ unitIndex: 0, done: [], scores: {}, heard: [0, 2] });
+    const stored = sanitizeLibrary({ items: [{ ...it, progress: { ...it.progress, heard: [2, 2, 'x', -1, 99, 1] } }], prefs: {} });
+    expect(stored.items[0].progress.heard).toEqual([1, 2]);
   });
 });
 

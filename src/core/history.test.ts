@@ -222,6 +222,28 @@ describe('live recording', () => {
     expect(history.firstListenTotals(history.historyDays(merged))).toEqual({ n: 7, ok: 6, pct: 86 });
   });
 
+  it('keeps real-speech first listens (Video thật) apart from the app-voice ones', async () => {
+    const map = stubWindow();
+    const { history, stats } = await fresh();
+    const line = (itemId: string) => ({ module: 'media' as const, itemId, seen: [], missed: [] });
+    stats.recordAttempt({ ...line('v:0'), correct: true, at: NOW }, { once: true });
+    stats.recordAttempt({ ...line('v:1'), correct: false, at: NOW + 1 }, { once: true });
+    stats.recordAttempt({ ...line('v:2'), correct: true, at: NOW + 2 }, { once: false });
+    stats.recordAttempt({ ...line('v:3'), correct: true, at: NOW + 3 }); // a line met before: not measured
+    stats.recordAttempt({ module: 'dictation', itemId: 's1', correct: true, seen: [], missed: [], at: NOW + 4 }, { once: true });
+    const s = history.loadHistory(NOW + 9);
+    const day = s.devices[JSON.parse(map.get(P + 'device-id')!)]['2026-11-06'];
+    expect(day.onceReal).toEqual({ n: 3, ok: 1 });
+    expect(day.once).toEqual({ n: 1, ok: 1 });
+    const days = history.historyDays(s);
+    expect(history.firstListenTotals(days, undefined, undefined, 'onceReal')).toEqual({ n: 3, ok: 1, pct: 33 });
+    expect(history.firstListenTotals(days)).toEqual({ n: 1, ok: 1, pct: 100 });
+    const other = parseHistory({ version: 1, devices: { 'd-z': { '2026-11-06': { onceReal: { n: 2, ok: 5 } } } }, base: null });
+    const merged = mergeHistoryStores(other, s);
+    expect(mergeHistoryStores(s, other)).toEqual(merged);
+    expect(history.firstListenTotals(history.historyDays(merged), undefined, undefined, 'onceReal')).toEqual({ n: 5, ok: 3, pct: 60 });
+  });
+
   it('records review grades: retention on graduated cards, split for Ôn tập, first word graduation', async () => {
     stubWindow();
     const { history } = await fresh();
