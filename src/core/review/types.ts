@@ -4,12 +4,13 @@ import type { CardState, Grade } from '../srs';
 
 export type { CardState, Grade };
 
-export type ReviewKind = 'dict' | 'pair' | 'lesson' | 'media' | 'chunk' | 'word';
+export type ReviewKind = 'dict' | 'pair' | 'lesson' | 'media' | 'chunk' | 'word' | 'talk';
 /** Kinds stored in KEYS.review. 'chunk' is virtual (state lives in the drill store). */
 export type StoredKind = Exclude<ReviewKind, 'chunk'>;
 /**
  * '<kind>:<ref>' — dict:s012, dict:u-lx3k9, pair:can-cant, lesson:linking, media:m1abc2:14, chunk:gonna,
- * word:colonel~KER-nəl (core/review/words wordRef: normalised word + '~' + respelling key).
+ * word:colonel~KER-nəl (core/review/words wordRef: normalised word + '~' + respelling key), talk:cafe-1-03 (a line of
+ * "Chuyện ở thị trấn" missed in town, core/town/storyLines).
  */
 export type CardId = `${ReviewKind}:${string}`;
 

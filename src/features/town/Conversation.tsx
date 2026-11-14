@@ -6,16 +6,18 @@ import SpokenSentence from '../../components/SpokenSentence';
 import type { ListenTally } from '../../core/dictation/listens';
 import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_TITLE, CONNECTED_SLOW_TITLE, CONNECTED_TITLE } from '../../core/playback';
 import { recordTownAnswer, type TownAnswerResult, type TownTurn } from '../../core/town/store';
+import type { SpeakVoice } from '../../core/tts';
 import type { TownPlace } from '../../core/town/types';
 import { canAnswer, lineOutcome, notePlay } from '../../core/town/visit';
 import type { PlaceId } from '../../data/townWorld';
 import { NEXT_GUARD_MS } from '../dictation/constants';
-import { dictationAudio, safeDecode } from '../dictation/decodeCache';
+import { dictationAudio, safeDecode, type DictationAudio } from '../dictation/decodeCache';
 import { reviewNoteVi } from '../dictation/pageModel';
 import type { PortraitMood } from './art/characters';
 import { Coin, Hearts, Portrait, SoundBars } from './art';
 import { talkSummary, verdictOf, type Verdict } from './shellModel';
 import { stopSfx } from './sfx';
+import { ignoredKeyTarget, SPEAK_DELAY_MS } from './talkKeys';
 import { useLinePlayer, type LinePlay } from './useLinePlayer';
 
 /** The resident's portrait in the panel: big enough to read the face, a little smaller on a phone. */
@@ -27,16 +29,6 @@ function portraitSize(): number {
   }
 }
 
-/** The camera needs a moment to reach the resident before they speak. */
-const SPEAK_DELAY_MS = 700;
-
-function ignoredKeyTarget(t: EventTarget | null): boolean {
-  if (!(t instanceof HTMLElement)) return false;
-  if (t.isContentEditable) return true;
-  const tag = t.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
-  return !!t.closest('[data-popover], [role="dialog"]');
-}
 
 export interface ConversationProps {
   place: TownPlace;
@@ -119,7 +111,7 @@ export default function Conversation({ place, turns, met, hearts, onSpeaking, on
   );
 
   return (
-    <section ref={setBox} className={'town-talk' + (done ? ' is-result' : '')} role="group" aria-label={`Trò chuyện với ${place.resident}`} tabIndex={-1}>
+    <section ref={setBox} className={'town-talk' + (done ? ' is-result' : '')} role="group" aria-label={`Trò chuyện nhanh với ${place.resident}`} tabIndex={-1}>
       <header className="town-talk-head">
         <Portrait placeId={placeId} size={faceSize} mood={mood} />
         <div className="town-talk-who">
@@ -131,13 +123,16 @@ export default function Conversation({ place, turns, met, hearts, onSpeaking, on
           {hearts > 0 && <Hearts value={hearts} fresh={done ? Math.max(0, hearts - (results[0]?.heartsBefore ?? hearts)) : 0} name={place.resident} />}
           {/* the five steps on their own line: on the name's line they squeezed the place name onto two */}
           {!done && (
-            <ol className="town-steps" aria-label={`Câu ${index + 1} trên ${turns.length}`}>
-              {turns.map((t, i) => {
-                const r = results[i];
-                const cls = r ? (r.outcome === 'wrong' ? ' is-bad' : ' is-ok') : i === index ? ' is-now' : '';
-                return <li key={t.line.id} className={'town-step' + cls} aria-hidden="true" />;
-              })}
-            </ol>
+            <div className="town-talk-meta">
+              <ol className="town-steps" aria-label={`Câu ${index + 1} trên ${turns.length}`}>
+                {turns.map((t, i) => {
+                  const r = results[i];
+                  const cls = r ? (r.outcome === 'wrong' ? ' is-bad' : ' is-ok') : i === index ? ' is-now' : '';
+                  return <li key={t.line.id} className={'town-step' + cls} aria-hidden="true" />;
+                })}
+              </ol>
+              <span className="town-talk-kind">Trò chuyện nhanh</span>
+            </div>
           )}
         </div>
         <button type="button" className="btn btn-ghost btn-sm btn-icon town-talk-close" onClick={onLeave} aria-label="Rời cuộc trò chuyện" title="Rời cuộc trò chuyện (Esc)" aria-keyshortcuts="Escape">
@@ -151,25 +146,36 @@ export default function Conversation({ place, turns, met, hearts, onSpeaking, on
       {done || !turn ? (
         <TalkResult place={place} results={results} met={met} onLeave={onLeave} onAgain={onAgain} />
       ) : (
-        <Turn key={turn.line.id} turn={turn} resident={place.resident} met={met[index] ?? false} last={index + 1 >= turns.length} onSpeaking={onSpeaking} onAnswered={answered} onNext={next} />
+        <Turn key={turn.line.id} turn={turn} speaker={place.resident} met={met[index] ?? false} last={index + 1 >= turns.length} onSpeaking={onSpeaking} onAnswered={answered} onNext={next} />
       )}
     </section>
   );
 }
 
-interface TurnProps {
+export interface TurnProps {
   turn: TownTurn;
-  resident: string;
+  /** Who says the line ("Emma vừa nói gì?"; 'Bạn' for the learner's own character in an episode). */
+  speaker: string;
   met: boolean;
   last: boolean;
   onSpeaking: (on: boolean) => void;
   onAnswered: (result: TownAnswerResult, verdict: Verdict) => void;
   onNext: () => void;
+  /** What to speak (an episode line: core/town/storyAudio's text); omitted = what Chép chính tả sends for the line. */
+  audio?: DictationAudio;
+  /** The speaker's voice (an episode line); omitted = the app's voice. */
+  voice?: SpeakVoice | null;
+  /** Records the answer (an episode line: recordEpisodeLine); omitted = recordTownAnswer. */
+  record?: (line: TownTurn['line'], outcome: NonNullable<ReturnType<typeof lineOutcome>>) => TownAnswerResult;
+  /** The last line's button (default "Xem kết quả"). */
+  lastLabel?: string;
 }
 
-function Turn({ turn, resident, met, last, onSpeaking, onAnswered, onNext }: TurnProps) {
+/** One line: heard (never read) and answered by picking what it meant, then shown the way it was said. */
+export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext, audio: given, voice, record = recordTownAnswer, lastLabel = 'Xem kết quả' }: TurnProps) {
+  const resident = speaker;
   const { line, choices } = turn;
-  const audio = useMemo(() => dictationAudio(line), [line]);
+  const audio = useMemo(() => given ?? dictationAudio(line), [given, line]);
   const decoded = useMemo(() => safeDecode(line.text), [line.text]);
   const [tally, setTally] = useState<ListenTally | null>(null);
   const tallyRef = useRef<ListenTally | null>(null);
@@ -189,6 +195,7 @@ function Turn({ turn, resident, met, last, onSpeaking, onAnswered, onNext }: Tur
       tallyRef.current = notePlay(tallyRef.current, mode, rate);
       setTally(tallyRef.current);
     }, []),
+    voice,
   );
   const { canSpeak, playing, pending, play, stop } = player;
 
@@ -214,13 +221,13 @@ function Turn({ turn, resident, met, last, onSpeaking, onAnswered, onNext }: Tur
       if (!outcome) return;
       answeredAt.current = Date.now();
       stop();
-      const r = recordTownAnswer(line, outcome);
+      const r = record(line, outcome);
       setPicked(i);
       setResult(r);
       setNote(reviewNoteVi(r.review, answeredAt.current));
       onAnswered(r, verdictOf(r.outcome, met));
     },
-    [choices, line, met, onAnswered, stop],
+    [choices, line, met, onAnswered, stop, record],
   );
 
   const goNext = useCallback(() => {
@@ -392,7 +399,7 @@ function Turn({ turn, resident, met, last, onSpeaking, onAnswered, onNext }: Tur
       {result && (
         <div className="town-talk-foot">
           <button ref={nextRef} type="button" className="btn btn-primary" onClick={goNext} aria-keyshortcuts="Enter">
-            {last ? 'Xem kết quả' : 'Câu tiếp'}
+            {last ? lastLabel : 'Câu tiếp'}
             <Icon icon={ArrowRight} size={16} />
           </button>
         </div>

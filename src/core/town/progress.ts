@@ -3,12 +3,13 @@
 //
 // Stored under KEYS.town ('town-progress', synced):
 //   {
-//     version: 2,
+//     version: 3,
 //     lines:  { [lineId]: { best, tries, at } },
 //     earned: { [deviceId]: xu },
 //     bought: [id, …],
 //     daily:  { [day]: { [deviceId]: { talks, lines, first, met: [placeId, …], paid: [taskId, …] } } },
 //     days:   [day, …],
+//     episodes: { [episodeId]: { stage, at, okAt, firstGist, bestLines } },
 //   }
 // - lines.best: 0 = answered, not understood yet; 1 = understood with replays or a slower play; 2 = understood on
 //   the first listen. It only ever grows: a wrong answer later never takes a line away.
@@ -24,10 +25,16 @@
 //   sets as unions. A write keeps the DAILY_KEEP_DAYS days up to today; a read or a merge keeps at most the newest
 //   DAILY_MAX_DAYS (so a few days written by a machine with a wrong clock cannot push today out).
 // - days: local days with at least one answered line (for the town streak), a union, newest DAYS_KEEP kept.
+// - episodes ("Chuyện ở thị trấn", ./episodes): per episode, `stage` 0 = begun, 1 = finished, +1 per spaced
+//   re-listen whose gist was right (at most EPISODE_MAX_STAGE); `at` = the last whole listen that counted (the finish
+//   or a re-listen), `okAt` = the last one whose gist was right (the finish counts as right); `firstGist` 0 = not
+//   asked yet, 1 = not right on the very first listen, 2 = right on it; `bestLines` = most lines understood in one
+//   run. Every field only grows (max per field); the next re-listen is derived (./episodes episodeDueDay).
 // Every field only grows, so the merge (core/syncMerge mergeTown) is idempotent, commutative and associative. The
 // caps keep those laws: "the newest N keys of a union" does not depend on the order of merging.
 //
-// A version 1 value ({ version: 1, lines }) reads as the same lines with nothing earned or bought.
+// A version 1 value ({ version: 1, lines }) reads as the same lines with nothing earned or bought; a version 2 value
+// (no episodes) reads as it was, with no episode begun.
 //
 // This file imports no content: core/syncMerge uses it and must stay light. Counts per place are in ./overview.
 
@@ -55,14 +62,35 @@ export interface DailyCount {
   paid: string[];
 }
 
+/** The gist of an episode on its very first listen: 0 = not asked yet, 1 = not right, 2 = right. */
+export type GistMark = 0 | 1 | 2;
+
+export interface EpisodeProgress {
+  /** 0 = begun, not finished; 1 = finished; +1 per re-listen with the gist right, at most EPISODE_MAX_STAGE. */
+  stage: number;
+  /** The last whole listen that counted (the finish or a re-listen), epoch ms; 0 before the finish. */
+  at: number;
+  /** The last of those whose gist was right (the finish counts as right), epoch ms. */
+  okAt: number;
+  firstGist: GistMark;
+  /** Most lines understood in one run of the episode. */
+  bestLines: number;
+}
+
 export interface TownProgress {
-  version: 2;
+  version: 3;
   lines: Record<string, LineProgress>;
   earned: Record<string, number>;
   bought: string[];
   daily: Record<string, Record<string, DailyCount>>;
   days: string[];
+  episodes: Record<string, EpisodeProgress>;
 }
+
+/** Stage 1 is the finish, stages 2..5 come with the four re-listens (./episodes RELISTEN_DAYS); at 5 nothing is due. */
+export const EPISODE_MAX_STAGE = 5;
+const MAX_EPISODES = 400;
+const MAX_EPISODE_LINES = 50;
 
 /** Days of daily counters a write keeps (today included). */
 export const DAILY_KEEP_DAYS = 14;
@@ -89,7 +117,7 @@ const own = <T>(o: Record<string, T>, k: string): T | undefined => (Object.proto
 const safeKey = (k: string): boolean => !UNSAFE.has(k);
 
 export function emptyTownProgress(): TownProgress {
-  return { version: 2, lines: {}, earned: {}, bought: [], daily: {}, days: [] };
+  return { version: 3, lines: {}, earned: {}, bought: [], daily: {}, days: [], episodes: {} };
 }
 
 export function emptyDailyCount(): DailyCount {
@@ -169,10 +197,36 @@ function parseEarned(raw: unknown): Record<string, number> {
   return out;
 }
 
+const clampInt = (v: unknown, max: number): number => Math.min(max, count(v));
+const time = (v: unknown): number => (finite(v) && v > 0 ? v : 0);
+
+/** One stored episode, or null when nothing in it says the episode was ever begun. */
+function parseEpisode(raw: unknown): EpisodeProgress | null {
+  if (!isObj(raw)) return null;
+  const e: EpisodeProgress = {
+    stage: clampInt(raw.stage, EPISODE_MAX_STAGE),
+    at: time(raw.at),
+    okAt: time(raw.okAt),
+    firstGist: clampInt(raw.firstGist, 2) as GistMark,
+    bestLines: clampInt(raw.bestLines, MAX_EPISODE_LINES),
+  };
+  return e.stage || e.at || e.okAt || e.firstGist || e.bestLines ? e : null;
+}
+
+function parseEpisodes(raw: unknown): Record<string, EpisodeProgress> {
+  const out: Record<string, EpisodeProgress> = {};
+  if (!isObj(raw)) return out;
+  for (const id of Object.keys(raw).filter(isEpisodeId).sort().slice(0, MAX_EPISODES)) {
+    const e = parseEpisode(raw[id]);
+    if (e) out[id] = e;
+  }
+  return out;
+}
+
 /**
  * Defensive parse of whatever storage, a backup or the synced folder holds: junk reads as "nothing understood,
  * nothing earned", never as a crash. Keys come out sorted (equal content gives equal JSON). Any version is read:
- * a version 1 value simply has no earned / bought / daily / days.
+ * a version 1 value simply has no earned / bought / daily / days, a version 2 value no episodes.
  */
 export function parseTownProgress(raw: unknown): TownProgress {
   const out = emptyTownProgress();
@@ -188,6 +242,7 @@ export function parseTownProgress(raw: unknown): TownProgress {
   out.bought = idSet(raw.bought, isItemId, MAX_BOUGHT);
   out.daily = parseDaily(raw.daily);
   out.days = newest(idSet(raw.days, isDay, Number.MAX_SAFE_INTEGER), DAYS_KEEP);
+  out.episodes = parseEpisodes(raw.episodes);
   return out;
 }
 
@@ -205,9 +260,20 @@ function mergeDailyCount(a: DailyCount | undefined, b: DailyCount | undefined): 
   };
 }
 
+function mergeEpisode(x: EpisodeProgress, y: EpisodeProgress): EpisodeProgress {
+  return {
+    stage: Math.max(x.stage, y.stage),
+    at: Math.max(x.at, y.at),
+    okAt: Math.max(x.okAt, y.okAt),
+    firstGist: Math.max(x.firstGist, y.firstGist) as GistMark,
+    bestLines: Math.max(x.bestLines, y.bestLines),
+  };
+}
+
 /**
  * Sync merge of two copies (both already parsed): union of lines with the max of each field, max per device of the
- * xu earned, union of what was bought, max / union per day and device of the daily counters, union of the days.
+ * xu earned, union of what was bought, max / union per day and device of the daily counters, union of the days,
+ * union of the episodes with the max of each field.
  */
 export function mergeTownProgress(a: TownProgress, b: TownProgress): TownProgress {
   const out = emptyTownProgress();
@@ -231,6 +297,11 @@ export function mergeTownProgress(a: TownProgress, b: TownProgress): TownProgres
     out.daily[day] = bucket;
   }
   out.days = newest([...a.days, ...b.days], DAYS_KEEP);
+  for (const id of [...new Set([...Object.keys(a.episodes), ...Object.keys(b.episodes)])].sort().slice(0, MAX_EPISODES)) {
+    const x = own(a.episodes, id);
+    const y = own(b.episodes, id);
+    out.episodes[id] = x && y ? mergeEpisode(x, y) : { ...(x ?? y)! };
+  }
   return out;
 }
 
@@ -320,6 +391,37 @@ export function updateDaily(progress: TownProgress, day: string, device: string,
 export function daysBefore(day: string, n: number): string {
   const [y, m, d] = day.split('-').map(Number);
   return townDay(new Date(y, m - 1, d - n, 12).getTime());
+}
+
+// ───────────────────────── episodes (plain updates: the rules are in ./episodes) ─────────────────────────
+
+const NO_EPISODE: EpisodeProgress = { stage: 0, at: 0, okAt: 0, firstGist: 0, bestLines: 0 };
+
+/** The stored record of an episode, if it was ever begun. */
+export function episodeProgress(progress: TownProgress, id: string): EpisodeProgress | undefined {
+  return own(progress.episodes, id);
+}
+
+/** A storable episode id: lower case letters, digits and hyphens ('cafe-1'). */
+export function isEpisodeId(id: unknown): id is string {
+  return typeof id === 'string' && isItemId(id) && safeKey(id);
+}
+
+/**
+ * The progress with the record of episode `id` replaced by `change(current)`, kept monotone: no field ever goes
+ * down, whatever `change` returns (a write can never undo what the merge would bring back). A bad id, or a change
+ * that changes nothing, returns the same progress.
+ */
+export function updateEpisode(progress: TownProgress, id: string, change: (e: EpisodeProgress) => EpisodeProgress): TownProgress {
+  if (!isEpisodeId(id)) return progress;
+  const stored = episodeProgress(progress, id);
+  const prev = stored ?? NO_EPISODE;
+  const next = parseEpisode(mergeEpisode(prev, change({ ...prev })));
+  if (!next) return progress;
+  if (stored && next.stage === prev.stage && next.at === prev.at && next.okAt === prev.okAt && next.firstGist === prev.firstGist && next.bestLines === prev.bestLines) {
+    return progress;
+  }
+  return { ...progress, episodes: { ...progress.episodes, [id]: next } };
 }
 
 // ───────────────────────── counts ─────────────────────────

@@ -4,7 +4,9 @@ import type { CardId } from '../../core/review/types';
 import { PAIR_SETS } from '../../data/pairs';
 import type { MediaItem } from '../media/library';
 import { emptyProgress, type PairsProgress } from '../pairs/game';
-import { ALL_CHUNKS, createResolver, hashSeed, mediaSentence, pairReviewQuestions } from './resolve';
+import { speakerName } from '../../core/town/episodes';
+import { TOWN_STORIES } from '../../data/townStories';
+import { ALL_CHUNKS, createResolver, hashSeed, mediaSentence, pairReviewQuestions, talkSentence } from './resolve';
 
 const NOW = new Date(2026, 10, 6, 12).getTime();
 
@@ -41,6 +43,21 @@ describe('createResolver', () => {
     const m = resolver.resolve('media:m1abc:0' as CardId);
     expect(m?.kind === 'media' && m.itemId).toBe('m1abc');
     expect(m?.kind === 'media' && m.unit).toBe(0);
+  });
+
+  it('talk: a line of a town episode as a dictation, with who says it', () => {
+    const ep = TOWN_STORIES[0];
+    const line = ep.lines[0];
+    const t = resolver.resolve(`talk:${line.id}` as CardId);
+    if (t?.kind !== 'talk') throw new Error('not resolved');
+    expect(t.sentence).toMatchObject({ id: `talk:${line.id}`, text: line.text, vi: line.vi, level: ep.level, topic: ep.title });
+    expect(t.sentence.say).toBe(line.say);
+    expect([t.who, t.placeId, t.episodeOrder, t.episodeTitle]).toEqual([line.who, ep.placeId, ep.order, ep.title]);
+    expect(t.speaker).toBe(line.who === 'you' ? 'Bạn' : speakerName(line.who, ep.placeId));
+    expect(resolver.resolve('talk:nope-1-01' as CardId)).toBeNull();
+    const s = talkSentence('talk:x' as CardId, { text: 'Gotta go.', vi: 'Phải đi rồi.', say: 'Godda go.' }, { level: 2, title: 'T' });
+    expect(s).toMatchObject({ id: 'talk:x', text: 'Gotta go.', say: 'Godda go.', level: 2, topic: 'T' });
+    expect('say' in talkSentence('talk:x' as CardId, { text: 'Hi.', vi: 'Chào.' }, { level: 1, title: 'T' })).toBe(false);
   });
 
   it('returns null for orphans and junk', () => {

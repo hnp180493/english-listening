@@ -47,8 +47,8 @@ export interface TownStageProps {
   onNear?: (near: Near) => void;
   /** Enter / E / Space was pressed with nobody beside the player. */
   onIdleAct?: () => void;
-  /** The resident whose line is sounding now: a bubble with moving bars over their head. */
-  speaking?: PlaceId | null;
+  /** Whose line is sounding now (a resident, or 'player' for the learner's own lines of an episode): a bubble with moving bars over their head. */
+  speaking?: PlaceId | 'player' | null;
   /** CSS pixels of the stage covered by a panel, from its right and bottom edges: the camera centres in the rest. */
   inset?: { right?: number; bottom?: number };
   /** Input off (a conversation or a dialog is open). The town keeps moving. */

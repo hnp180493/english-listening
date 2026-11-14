@@ -459,13 +459,36 @@ function catModel() {
 addRecipes({
   ...RECIPES,
   /**
-   * The cat: poses = walk (6 frames) and sit (4 frames, the tail swaying), each in the directions `dirs`
-   * (yaw as the people: render.js DIR_YAW). Keys `walk/<dir>/<i>`, `sit/<dir>/<i>`.
+   * The cat: poses = walk, sit (the tail swaying; frame counts from world.mjs CAT_ANIMS) and down (sitting down, from
+   * standing (frame 0, the same pose as walk frame 0) to seated (the last frame, the same as sit frame 0); played
+   * backwards it stands up), each in the directions `dirs` (yaw as the people: render.js DIR_YAW). Keys
+   * `walk/<dir>/<i>`, `sit/<dir>/<i>`, `down/<dir>/<i>`.
    */
-  async cat({ dirs, walkFrames = 6, sitFrames = 4, yaw }) {
+  async cat({ dirs, walkFrames = 6, sitFrames = 4, downFrames = 8, yaw }) {
     const m = catModel();
     const outer = group(m.root);
     const poses = [];
+    const lerp = (a, b, k) => a + (b - a) * k;
+    const ease = (a, b, x) => {
+      const k = Math.min(1, Math.max(0, (x - a) / (b - a)));
+      return k * k * (3 - 2 * k);
+    };
+    // the two ends of sitting down (stand = walk frame 0, seated = sit frame 0) as plain numbers to blend:
+    // body / head = [x, y, z, x rotation]; front / back legs = [z, y, x rotation]
+    const STAND = {
+      body: [0, 0.2, 0, 0],
+      head: [0, 0.32, 0.2, 0],
+      front: [0.12, 0.15, 0],
+      back: [-0.12, 0.15, 0],
+      tail: [[0, 0.24, -0.16], [0, 0.34, -0.24], [0, 0.46, -0.24], [0, 0.52, -0.18]],
+    };
+    const SEAT = {
+      body: [0, 0.2, -0.04, -0.75],
+      head: [0, 0.42, 0.06, 0.1],
+      front: [0.06, 0.15, 0],
+      back: [-0.1, 0.08, -1.4],
+      tail: [[0, 0.05, -0.16], [0.12, 0.03, -0.12], [0.16, 0.03, 0.02], [0.1, 0.04, 0.14]],
+    };
     for (const dir of dirs) {
       for (let i = 0; i < walkFrames; i++) {
         const ph = (i / walkFrames) * Math.PI * 2;
@@ -506,6 +529,33 @@ addRecipes({
               }
             });
             m.setTail([[0, 0.05, -0.16], [0.12 + sw * 0.02, 0.03, -0.12], [0.16, 0.03, 0.02], [0.1 + sw * 0.03, 0.04, 0.14]]);
+          },
+        });
+      }
+      // sitting down: the haunches go down first (the back legs fold, the body tips up), the head rises and the front
+      // paws step in a moment later, the tail curls round last
+      for (let i = 0; i < downFrames; i++) {
+        const u = i / (downFrames - 1);
+        const kb = ease(0, 0.75, u);
+        const kh = ease(0.2, 1, u);
+        const kt = ease(0.35, 1, u);
+        poses.push({
+          key: `down/${dir}/${i}`,
+          apply() {
+            m.root.rotation.set(0, yaw[dir], 0);
+            const b = STAND.body.map((v, j) => lerp(v, SEAT.body[j], kb));
+            // a little dip as the haunches drop, gone by the time it sits
+            m.body.position.set(b[0], b[1] - Math.sin(Math.PI * kb) * 0.012, b[2]);
+            m.body.rotation.set(b[3], 0, 0);
+            const h = STAND.head.map((v, j) => lerp(v, SEAT.head[j], kh));
+            m.head.position.set(h[0], h[1], h[2]);
+            m.head.rotation.set(h[3], 0, 0);
+            m.legs.forEach((l, k) => {
+              const [from, to, kk] = k < 2 ? [STAND.front, SEAT.front, kh] : [STAND.back, SEAT.back, kb];
+              l.position.set(m.legBase[k][0], lerp(from[1], to[1], kk), lerp(from[0], to[0], kk));
+              l.rotation.set(lerp(from[2], to[2], kk), 0, 0);
+            });
+            m.setTail(STAND.tail.map((pt, j) => pt.map((v, c) => lerp(v, SEAT.tail[j][c], kt))));
           },
         });
       }

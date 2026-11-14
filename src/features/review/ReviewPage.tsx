@@ -144,6 +144,7 @@ const TYPE_KEYS: readonly Shortcut[] = [
 const SHORTCUTS: Readonly<Record<ReviewKind, readonly Shortcut[]>> = {
   dict: TYPE_KEYS,
   media: TYPE_KEYS,
+  talk: TYPE_KEYS,
   pair: [
     { keys: ['1–2'], text: 'Chọn câu bạn nghe được' },
     { keys: ['R'], text: 'Nghe lại' },
@@ -519,6 +520,7 @@ function SessionView({ run, now, setRun, undo, setUndo }: SessionViewProps) {
     switch (item.kind) {
       case 'dict':
       case 'media':
+      case 'talk':
         view = <DictItem key={itemKey} item={item} {...common} onRetry={onRetry} onSkip={onSkip} />;
         break;
       case 'pair':

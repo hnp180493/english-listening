@@ -16,6 +16,7 @@
 import { placeLines, TOWN_DECORATIONS, TOWN_PLACES, townDecoration, townPlace } from '../../data/town';
 import { noteConversation, noteLine, type TaskPayout } from './daily';
 import { addBought, addEarned, earnedTotal, hasBought, isLineId, lineProgress, linesStats, recordLine, type LineBest, type TownProgress, type TownStats } from './progress';
+import { allStoryLines } from './storyLines';
 import { VISIT_SIZE, type LineOutcome, type TownPlace } from './types';
 
 // ───────────────────────── earning ─────────────────────────
@@ -189,8 +190,17 @@ export function townTotals(progress: TownProgress): TownStats {
   return out;
 }
 
+/**
+ * Counts over the lines of "Chuyện ở thị trấn" (./storyLines). They count for xp like any line; hearts and lit
+ * windows stay on the place's own sentences (a new episode never takes a heart away).
+ */
+export function storyTotals(progress: TownProgress): TownStats {
+  return linesStats(progress, allStoryLines());
+}
+
+/** Xp of every line understood: the places' sentences and the episodes' lines. */
 export function townXp(progress: TownProgress): number {
-  return xpOf(townTotals(progress));
+  return xpOf(townTotals(progress)) + xpOf(storyTotals(progress));
 }
 
 export function townLevel(progress: TownProgress): TownLevel {

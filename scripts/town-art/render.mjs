@@ -35,7 +35,7 @@ const CHAR_DIR = join(OUT_DIR, 'characters');
  * Output pixels per world pixel (world pixel = a CSS pixel at camera zoom 1, engine/iso.ts). The game's normal zoom
  * on a phone is about 1.25 on a 2× screen (2.5 device px per world px), so 2.5 draws them 1:1 there instead of
  * enlarging a 2× atlas by a quarter (soft faces); the conversation zoom on a phone stays close to it (camera.ts).
- * With WebP quality 0.74 all fourteen people stay near 4 MB.
+ * With WebP quality 0.74 the fourteen people take about 7.8 MB (the budget is 8 MB with the portraits: README.md).
  */
 const RES = Number(process.env.TOWN_ART_RES ?? 2.5);
 /** Rendered this many times bigger, then scaled down (clean edges). */
@@ -69,13 +69,45 @@ const LOOK = {
 
 /** Rendered directions; the other three are these mirrored (see characters.ts). */
 const DIRS5 = ['S', 'SE', 'E', 'NE', 'N'];
-/** Animations: name in the game, Kenney clip, frames per cycle, loop, directions. */
+/**
+ * Facing the viewer: where people stand (sim.ts `face` / `settle` only ever turn a person standing still to S, SE
+ * or SW; SW is SE mirrored). Anybody standing another way is drawn with walk frame 0, the same pose as idle frame 0.
+ */
+const DIRS_FRONT = ['S', 'SE'];
+/**
+ * The emotes play in a conversation, where the two stand side by side three-quarter on (SE / SW): rendered SE only,
+ * and somebody facing S turns to SE for one (sim.ts turns them, one step of 45°). Keeps the atlases in budget.
+ */
+const DIRS_EMOTE = ['SE'];
+/**
+ * Two gaits of Kenney's walk (render.js gaitClip): the player walks briskly, the residents stroll (smaller steps,
+ * calmer arms). The arms hang and swing forward and back (render.js walkArms, `armSwing` degrees), not Kenney's
+ * A-pose swing out to the side. Each person's atlas holds one of them as 'walk'; the manifest carries what the feet
+ * cover per cycle (`noSlip`), and the game drives the cycle by the distance walked (engine/gait.ts). The body rides
+ * at one height through the cycle (no hop at a step): `ground` (0..1) of how deep a rocking box shoe's corner would
+ * dig at most (render.js measureStride `dig`), so the soles float about as much with the legs together as a corner
+ * sinks mid-stride, hidden by the outline and the contact shadow. The manifest carries that `lift` and the game
+ * lowers the walk by it as a walk slows to a stand (engine.ts walkDrop), so a stop meets the idle's ground line.
+ */
+const GAITS = {
+  brisk: { leg: 0.9, arm: 0.85, torso: 0.8, head: 0.6, ground: 0.5, armSwing: 26 },
+  stroll: { leg: 0.66, arm: 0.6, torso: 0.6, head: 0.5, ground: 0.5, armSwing: 17 },
+};
+const gaitOf = (id) => (id === 'player' ? 'brisk' : 'stroll');
+/**
+ * Animations: name in the game, Kenney clip (or `proc`: a pose made in render.js procPose, `seconds` long),
+ * frames, loop, directions. Loops are sampled evenly over exactly one cycle (frame i at i / n of it); a one-shot from
+ * its first pose to its last (i / (n - 1)), so it ends on its rest pose. The idle is slow and small (breathing, the
+ * weight from foot to foot, a look to the side: under half a world pixel between two frames); the walk is driven by
+ * the distance walked and shows each frame at about 24 fps (docs/town.md §7).
+ */
 const ANIMS = [
-  { name: 'idle', clip: 'idle', frames: 6, loop: true, dirs: DIRS5 },
-  { name: 'walk', clip: 'walk', frames: 8, loop: true, dirs: DIRS5 },
-  { name: 'yes', clip: 'emote-yes', frames: 6, loop: false, dirs: ['SE', 'NE'] },
-  { name: 'no', clip: 'emote-no', frames: 6, loop: false, dirs: ['SE', 'NE'] },
-  { name: 'wave', clip: 'interact-right', frames: 6, loop: false, dirs: ['SE', 'NE'] },
+  { name: 'idle', proc: 'idle', seconds: 2, frames: 30, loop: true, dirs: DIRS_FRONT },
+  { name: 'walk', clip: 'walk', frames: 16, loop: true, dirs: DIRS5, gait: true },
+  // the emotes play at a tempo of 1 ± 0.1 (characters.ts ACT_TEMPO): 15 frames a second or more at the slowest
+  { name: 'yes', proc: 'yes', seconds: 0.7, frames: 13, loop: false, dirs: DIRS_EMOTE },
+  { name: 'no', proc: 'no', seconds: 0.8, frames: 15, loop: false, dirs: DIRS_EMOTE },
+  { name: 'wave', proc: 'wave', seconds: 1.1, frames: 20, loop: false, dirs: DIRS_EMOTE },
 ];
 
 /** Portraits: square, `PORTRAIT` px (2× for a 96 px use; also fine at 56 px). */
@@ -150,11 +182,25 @@ async function writeBase64(file, b64) {
   return buf.length;
 }
 
-function frameItems() {
+/**
+ * Where frame i of n sits in an animation of `duration` s: one loop evenly, or a one-shot first to last pose. The
+ * walk (`pass` = when the legs cross again, render.js measureStride): its first half of the frames evenly up to
+ * `pass`, the second half from there, so frames 0 and n / 2 are both legs together (the game stops on either).
+ */
+function sampleTime(a, i, pass) {
+  if (a.gait && pass !== undefined) {
+    const h = a.frames / 2;
+    return i < h ? (i / h) * pass : pass + ((i - h) / h) * (a.duration - pass);
+  }
+  return (a.loop ? i / a.frames : i / (a.frames - 1)) * a.duration;
+}
+
+function frameItems(gait, pass) {
   const items = [];
   for (const a of ANIMS) {
+    const clip = a.proc ? { proc: a.proc, duration: a.seconds } : a.gait ? { clip: a.clip, gait: GAITS[gait] } : a.clip;
     for (const dir of a.dirs) {
-      for (let i = 0; i < a.frames; i++) items.push({ key: `${a.name}/${dir}/${i}`, clip: a.clip, dir, t: (i / a.frames) * a.duration });
+      for (let i = 0; i < a.frames; i++) items.push({ key: `${a.name}/${dir}/${i}`, clip, dir, t: sampleTime(a, i, pass) });
     }
   }
   return items;
@@ -228,8 +274,20 @@ async function renderAll(browser, opts) {
       `TA.loadCharacter(${js({ glb: modelUrl(`character-${c.model}.glb`), props, look: LOOK, swaps: c.swaps ?? [], ...MODEL_FIXES[c.model] })})`,
     );
     for (const cl of clips) durations.set(cl.name, cl.duration);
-    for (const a of ANIMS) a.duration = durations.get(a.clip);
-    const items = frameItems();
+    for (const a of ANIMS) a.duration = a.seconds ?? durations.get(a.clip);
+    const gait = gaitOf(id);
+    if (!gaitStride.has(gait)) {
+      const m = await browser.evaluate(`TA.measureStride(${js({ clip: 'walk', gait: GAITS[gait], scale: CHAR_SCALE, frames: ANIMS.find((a) => a.name === 'walk').frames })})`);
+      // the walk's one height (render.js pose): a share of the deepest dig of a shoe corner
+      GAITS[gait].lift = GAITS[gait].ground * m.dig;
+      gaitStride.set(gait, m);
+      const px = (u) => (u * UNIT_UP).toFixed(2);
+      console.log(`gait ${gait}: no-slip stride ${m.stride.toFixed(3)} tiles per cycle, lift ${px(GAITS[gait].lift)} world px (deepest dig ${px(m.dig)})`);
+      console.log(`  legs cross again at ${((m.pass / m.duration) * 100).toFixed(1)}% of the clip`);
+      console.log(`  dig by frame, world px: ${m.digs.map(px).join(' ')}`);
+      console.log(`  head by frame, world px: ${m.heads.map((h) => px(h - m.heads[0])).join(' ')}`);
+    }
+    const items = frameItems(gait, gaitStride.get(gait).pass);
     const frames = await browser.evaluate(
       `TA.renderFrames(${js({ prefix: id, scale: CHAR_SCALE, res: RES, ss: SS, cell: CELL, look: LOOK, items })})`,
     );
@@ -245,7 +303,7 @@ async function renderAll(browser, opts) {
       const at = pack.at.get(f.key);
       flat.push(at.x, at.y, f.w, f.h, round1(f.ax), round1(f.ay));
     }
-    chars[id] = { w: pack.width, h: pack.height, frames: flat };
+    chars[id] = { w: pack.width, h: pack.height, gait, frames: flat };
     // for the mirror check only: the three mirrored directions rendered for real
     const native = opts.noSheet
       ? []
@@ -284,6 +342,11 @@ async function renderAll(browser, opts) {
 }
 
 const round1 = (n) => Math.round(n * 10) / 10;
+const round3 = (n) => Math.round(n * 1000) / 1000;
+/** World px per model unit straight up on the screen (the camera looks down 30°; a tile is 64 / √2 units across). */
+const UNIT_UP = (64 / Math.SQRT2) * Math.cos(Math.PI / 6);
+/** Per gait: the no-slip stride measured on the rig (render.js measureStride). */
+const gaitStride = new Map();
 /** The shadow sprite's size and centre, once rendered. */
 let shadow = null;
 
@@ -306,9 +369,15 @@ async function writeManifest(chars) {
     `  /** About how tall a person stands, in world pixels (feet to the top of the head). */`,
     `  height: ${Math.round(0.78 * CHAR_SCALE * Math.cos(Math.PI / 6) * (64 / Math.SQRT2))},`,
     `  anims: ${js(anims)},`,
+    '  /**',
+    '   * The walks (render.mjs GAITS), per gait: `noSlip` = ground tiles the feet cover in one walk cycle on the rig (the',
+    '   * game drives the cycle by the distance walked, engine/gait.ts); `lift` = how far the walk rides over the idle\'s',
+    '   * ground line, the same in every frame (world px): the game lowers it by that much as a walk slows to a stand.',
+    '   */',
+    `  gaits: ${js(Object.fromEntries([...gaitStride].map(([g, m]) => [g, { noSlip: round3(m.stride), lift: round3(GAITS[g].lift * UNIT_UP) }])))},`,
     '  /** Per character: its atlas (url, size) and every frame as [x, y, w, h, anchorX, anchorY] (anchor = the feet), in the order anim → direction → frame. */',
     '  chars: {',
-    ...CHARACTER_IDS.map((id) => `    ${js(id)}: { url: ${varName(id)}, w: ${chars[id].w}, h: ${chars[id].h}, frames: ${js(chars[id].frames)} },`),
+    ...CHARACTER_IDS.map((id) => `    ${js(id)}: { url: ${varName(id)}, w: ${chars[id].w}, h: ${chars[id].h}, gait: ${js(chars[id].gait)}, frames: ${js(chars[id].frames)} },`),
     '  },',
     `  /** The contact shadow, drawn under every person before the frame: centre (ax, ay) at the feet. */`,
     `  shadow: { url: shadowUrl, w: ${shadow.w}, h: ${shadow.h}, ax: ${shadow.ax}, ay: ${shadow.ay} },`,
@@ -320,7 +389,8 @@ async function writeManifest(chars) {
     '  height: number;',
     '  /** Per animation: frames per cycle, seconds per cycle, whether it loops, the directions rendered (the others are mirrored). */',
     '  anims: Readonly<Record<string, { frames: number; duration: number; loop: boolean; dirs: readonly string[] }>>;',
-    '  chars: Readonly<Record<CharacterId, { url: string; w: number; h: number; frames: readonly number[] }>>;',
+    '  gaits: Readonly<Record<string, { noSlip: number; lift: number }>>;',
+    '  chars: Readonly<Record<CharacterId, { url: string; w: number; h: number; gait: string; frames: readonly number[] }>>;',
     '  shadow: { url: string; w: number; h: number; ax: number; ay: number };',
     '  portraits: { url: string; size: number; moods: readonly string[]; order: readonly CharacterId[] };',
     '}',
@@ -386,7 +456,7 @@ async function contactSheet(browser, rows, file) {
   const emotes = ANIMS.filter((a) => !a.loop);
   for (let p = 0; p * 7 < rows.length; p++) {
     await sheet(browser, rows.slice(p * 7, p * 7 + 7), `${base}-emotes${p + 1}.png`, {
-      dirs: ['SE', 'SW', 'NE'],
+      dirs: ['S', 'SE', 'SW'],
       shown: emotes.flatMap((a) => [[a.name, Math.floor(a.frames * 0.25)], [a.name, Math.floor(a.frames * 0.5)]]),
     });
   }
@@ -395,7 +465,7 @@ async function contactSheet(browser, rows, file) {
   // mirrored (as the game draws SW, W, NW) next to the same direction rendered for real
   await sheet(browser, rows, `${base}-mirror.png`, {
     dirs: ['SW', 'W', 'NW'],
-    shown: [['idle', 0], ['native', 0]],
+    shown: [['walk', 0], ['native', 0]],
     scale: 1.4 / RES * 1.5,
     nativeKeys: true,
   });

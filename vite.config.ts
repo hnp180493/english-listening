@@ -84,7 +84,7 @@ const webBuild: UserConfig['build'] = {
       codeSplitting: {
         groups: [
           { name: 'react', test: /node_modules[/\\](react|react-dom|scheduler)[/\\]/ },
-          { name: 'content', test: /src[/\\]data[/\\](courses[/\\]|lessons|sentences|chunks|realClips)/ },
+          { name: 'content', test: /src[/\\]data[/\\](courses[/\\]|lessons|sentences|chunks|realClips|townStories)/ },
         ],
       },
     },

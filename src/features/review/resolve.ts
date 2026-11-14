@@ -6,6 +6,9 @@ import { parseCardId, parseMediaRef } from '../../core/review/ids';
 import { PAIR_REVIEW_SIZE } from '../../core/review/constants';
 import type { CardId } from '../../core/review/types';
 import { wordIndex, type WordSource } from '../../core/review/words';
+import { speakerName } from '../../core/town/episodes';
+import type { StorySpeaker } from '../../core/town/story';
+import { storyLineById } from '../../core/town/storyLines';
 import type { Chunk, Sentence } from '../../core/types';
 import { CHUNKS } from '../../data/chunks';
 import { LESSONS, type Lesson } from '../../data/lessons';
@@ -29,7 +32,9 @@ export type Resolved =
   | { kind: 'pair'; id: CardId; ref: string; set: PairSet }
   | { kind: 'lesson'; id: CardId; ref: string; lesson: Lesson }
   | { kind: 'chunk'; id: CardId; ref: string; chunk: Chunk }
-  | { kind: 'word'; id: CardId; ref: string; source: WordSource };
+  | { kind: 'word'; id: CardId; ref: string; source: WordSource }
+  /** A line of "Chuyện ở thị trấn" missed in town: a dictation of it, said in its speaker's voice. */
+  | { kind: 'talk'; id: CardId; ref: string; sentence: Sentence; who: StorySpeaker; placeId: string; speaker: string; episodeTitle: string; episodeOrder: number };
 
 export interface ResolveSources {
   customs: readonly CustomSentence[];
@@ -52,6 +57,13 @@ export function mediaSentence(id: CardId, item: Pick<MediaItem, 'title'>, text: 
     topic: item.title,
     focus: detectedPhenomena(text),
   };
+}
+
+/** A line of a town episode served as a dictation: its text, authored connected spelling and meaning. */
+export function talkSentence(id: CardId, line: { text: string; vi: string; say?: string }, episode: { level: Sentence['level']; title: string }): Sentence {
+  const s: Sentence = { id, text: line.text, vi: line.vi, level: episode.level, topic: episode.title, focus: detectedPhenomena(line.text) };
+  if (line.say) s.say = line.say;
+  return s;
 }
 
 export function createResolver(src: ResolveSources): Resolver {
@@ -102,6 +114,22 @@ export function createResolver(src: ResolveSources): Resolver {
         const source = wordIndex().byId.get(id);
         return source ? { kind, id, ref, source } : null;
       }
+      case 'talk': {
+        const found = storyLineById(ref);
+        if (!found || !found.line.text.trim()) return null;
+        const { line, episode } = found;
+        return {
+          kind,
+          id,
+          ref,
+          sentence: talkSentence(id, line, episode),
+          who: line.who,
+          placeId: episode.placeId,
+          speaker: speakerName(line.who, episode.placeId),
+          episodeTitle: episode.title,
+          episodeOrder: episode.order,
+        };
+      }
     }
   };
 
@@ -116,6 +144,7 @@ export function createResolver(src: ResolveSources): Resolver {
     switch (r.kind) {
       case 'dict':
       case 'media':
+      case 'talk':
         return r.sentence.focus[0];
       case 'pair':
         return r.set.phenomenon;

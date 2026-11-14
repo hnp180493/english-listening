@@ -3,7 +3,8 @@
 
 import { placeLines, TOWN_DECORATIONS, TOWN_PLACES } from '../../data/town';
 import { dailyTasks, playedToday, townStreak, type TownTaskView } from './daily';
-import { isBuilt, levelFor, placeHearts, placeLit, placeMarker, rawBalance, xpOf, type PlaceMarker, type TownLevel } from './economy';
+import { isBuilt, levelFor, placeHearts, placeLit, placeMarker, rawBalance, storyTotals, xpOf, type PlaceMarker, type TownLevel } from './economy';
+import { nextEpisode, type EpisodeMode } from './episodes';
 import { earnedTotal, hasBought, linesStats, townDay, type TownProgress, type TownStats } from './progress';
 import type { TownDecoration, TownPlace } from './types';
 
@@ -30,6 +31,18 @@ export interface PlaceView {
   lit: number;
   /** What waits there (economy placeMarker); null for an empty lot. */
   marker: PlaceMarker | null;
+  /**
+   * The episode a conversation there would be now (./episodes nextEpisode): a re-listen that is due, or the next
+   * episode to hear; null = the quick five-line chat (or an empty lot).
+   */
+  episode: PlaceEpisodeView | null;
+}
+
+export interface PlaceEpisodeView {
+  id: string;
+  order: number;
+  title: string;
+  mode: EpisodeMode;
 }
 
 export interface DecorationView {
@@ -75,6 +88,7 @@ export function townOverview(progress: TownProgress, now: number, device: string
     totals.understood += stats.understood;
     totals.first += stats.first;
     const built = isBuilt(progress, place.id);
+    const next = built ? nextEpisode(progress, place.id, now) : null;
     return {
       place,
       built,
@@ -85,6 +99,7 @@ export function townOverview(progress: TownProgress, now: number, device: string
       hearts: placeHearts(stats),
       lit: placeLit(stats),
       marker: built ? placeMarker(stats) : null,
+      episode: next ? { id: next.episode.id, order: next.episode.order, title: next.episode.title, mode: next.mode } : null,
     };
   });
   const decorations = TOWN_DECORATIONS.map((decoration): DecorationView => {
@@ -94,7 +109,7 @@ export function townOverview(progress: TownProgress, now: number, device: string
   return {
     balance: Math.max(0, raw),
     earned: earnedTotal(progress),
-    level: levelFor(xpOf(totals)),
+    level: levelFor(xpOf(totals) + xpOf(storyTotals(progress))),
     streak: townStreak(progress, now),
     playedToday: playedToday(progress, now),
     tasks: dailyTasks(progress, townDay(now), device),

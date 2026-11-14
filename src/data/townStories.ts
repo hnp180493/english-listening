@@ -1,0 +1,622 @@
+// "Chuyện ở thị trấn": the episodes, two per place (contract and rules in core/town/story.ts, docs/town.md).
+// Every line is real everyday English as people say it, short enough to hear in one go; the decoder shows how it is
+// actually spoken. Ids are stable: they are stored in progress and review cards.
+//
+// One small story per place over its two episodes (a problem or a plan in episode 1, the follow-up in episode 2), and
+// the residents know each other: they mention one another and sometimes step into a scene (`who` = their place id).
+// Cast: Leo (square, organiser), Emma (cafe, chatty), Mia (friend), Grace (home, older British neighbour), Ben (shop,
+// jokes), Sarah (office, busy), Daniel (school, British teacher), Sam (station), Kim (clinic), Zoe (cinema, film fan),
+// Max (phone, Australian), Lily (park), Tom (board, events). Checks: townStories.test.ts.
+
+import type { StoryEpisode } from '../core/town/story';
+
+export const TOWN_STORIES: readonly StoryEpisode[] = [
+  // ── Quảng trường · Leo ────────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'square-1',
+    placeId: 'square',
+    order: 1,
+    title: 'Người mới đến',
+    scene: 'Bạn đi ngang quảng trường lần đầu, có người vẫy tay chào.',
+    level: 1,
+    lines: [
+      { id: 'square-1-01', who: 'them', text: "Hey there! I haven't seen you before.", vi: 'Chào bạn! Hình như tôi chưa gặp bạn bao giờ.' },
+      { id: 'square-1-02', who: 'you', text: 'Yeah, I just moved in last week.', vi: 'Ừ, tôi mới chuyển đến tuần trước.' },
+      { id: 'square-1-03', who: 'them', text: "Oh, nice! I'm Leo. Welcome to town.", vi: 'Ồ, hay quá! Tôi là Leo. Chào mừng bạn đến thị trấn.' },
+      { id: 'square-1-04', who: 'you', text: 'Thanks. Is there a good place to get coffee?', vi: 'Cảm ơn. Quanh đây có chỗ nào uống cà phê ngon không?' },
+      { id: 'square-1-05', who: 'them', text: 'Go see Emma. Her place is right over there.', vi: 'Đến chỗ Emma ấy. Quán ngay đằng kia.' },
+      { id: 'square-1-06', who: 'them', text: "Tell her Leo sent you. She'll take care of you.", vi: 'Cứ nói là Leo giới thiệu. Emma sẽ lo cho bạn.' },
+      { id: 'square-1-07', who: 'you', text: "Great, I'll check it out. See you around!", vi: 'Tuyệt, để tôi ghé thử. Gặp lại sau nhé!' },
+    ],
+    gist: {
+      q: 'Leo và bạn nói chuyện gì?',
+      options: ['Leo nhờ bạn treo đèn ở quảng trường', 'Leo chào người mới và chỉ chỗ uống cà phê', 'Bạn hỏi Leo đường đến bến xe'],
+      answer: 1,
+    },
+  },
+  {
+    id: 'square-2',
+    placeId: 'square',
+    order: 2,
+    title: 'Sáng thứ Bảy',
+    scene: 'Leo đang đếm mấy cái chổi cạnh đài phun nước.',
+    level: 2,
+    lines: [
+      { id: 'square-2-01', who: 'them', text: 'Hey, are you doing anything on Saturday morning?', vi: 'Này, sáng thứ Bảy bạn có bận gì không?' },
+      { id: 'square-2-02', who: 'you', text: "Not really. Why, what's up?", vi: 'Không hẳn. Sao thế, có chuyện gì à?' },
+      { id: 'square-2-03', who: 'them', text: "We're going to clean up the square. Want to help?", vi: 'Bọn tôi định dọn dẹp quảng trường. Bạn muốn giúp không?' },
+      { id: 'square-2-04', who: 'you', text: 'Sure, count me in. What time?', vi: 'Được chứ, tính cả tôi. Mấy giờ?' },
+      { id: 'square-2-05', who: 'them', text: "Around nine. Tom's putting a notice up on the board.", vi: 'Khoảng chín giờ. Tom đang dán thông báo lên bảng tin.' },
+      { id: 'square-2-06', who: 'them', text: "And Emma said she'd bring coffee for everyone.", vi: 'Còn Emma nói sẽ mang cà phê cho mọi người.' },
+      { id: 'square-2-07', who: 'you', text: "Free coffee? Okay, now I'm definitely coming.", vi: 'Cà phê miễn phí à? Thế thì chắc chắn tôi đến.' },
+    ],
+    gist: {
+      q: 'Leo rủ bạn làm gì?',
+      options: ['Uống cà phê ở quán Emma sáng thứ Bảy', 'Dán thông báo lên bảng tin cùng Tom', 'Dọn dẹp quảng trường sáng thứ Bảy'],
+      answer: 2,
+    },
+  },
+
+  // ── Quán cà phê · Emma ────────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'cafe-1',
+    placeId: 'cafe',
+    order: 1,
+    title: 'Ly cà phê đầu tiên',
+    scene: 'Bạn ghé quán của Emma lần đầu, quán đang vắng.',
+    level: 1,
+    lines: [
+      { id: 'cafe-1-01', who: 'them', text: 'Hi there! What can I get you?', vi: 'Chào bạn! Bạn dùng gì?' },
+      { id: 'cafe-1-02', who: 'you', text: 'Can I get a latte, please?', vi: 'Cho tôi một ly latte nhé.' },
+      { id: 'cafe-1-03', who: 'them', text: 'Sure. Do you want it hot or iced?', vi: 'Được. Bạn muốn nóng hay đá?' },
+      { id: 'cafe-1-04', who: 'you', text: "Iced, please. It's so hot today.", vi: 'Đá nhé. Hôm nay nóng quá.' },
+      { id: 'cafe-1-05', who: 'them', text: "Tell me about it. That's three fifty.", vi: 'Đúng thật. Của bạn ba đô năm mươi.' },
+      { id: 'cafe-1-06', who: 'them', text: 'Are you new around here?', vi: 'Bạn mới đến khu này à?' },
+      { id: 'cafe-1-07', who: 'you', text: 'Yes. Leo told me to come here.', vi: 'Ừ. Leo bảo tôi ghé quán này.' },
+    ],
+    gist: {
+      q: 'Bạn gọi đồ uống thế nào?',
+      options: ['Latte đá, vì hôm nay trời nóng', 'Latte nóng, vì trời hơi lạnh', 'Trà đá, vì Leo giới thiệu'],
+      answer: 0,
+    },
+  },
+  {
+    id: 'cafe-2',
+    placeId: 'cafe',
+    order: 2,
+    title: 'Như mọi khi',
+    scene: 'Sáng sớm, bạn quay lại quán Emma. Tủ lạnh sau quầy đang mở toang.',
+    level: 1,
+    lines: [
+      { id: 'cafe-2-01', who: 'them', text: 'Morning! The usual? An iced latte?', vi: 'Chào buổi sáng! Như mọi khi nhé? Latte đá?' },
+      { id: 'cafe-2-02', who: 'you', text: 'You remembered! Yes, please.', vi: 'Bạn nhớ luôn à! Ừ, cho tôi ly đó nhé.' },
+      { id: 'cafe-2-03', who: 'them', text: 'Oh no. I just ran out of milk.', vi: 'Ôi không. Tôi vừa hết sữa mất rồi.' },
+      { id: 'cafe-2-04', who: 'them', text: 'Ben was supposed to drop some off an hour ago.', vi: 'Đáng lẽ Ben phải mang sữa tới từ một tiếng trước.' },
+      { id: 'cafe-2-05', who: 'shop', text: "Sorry, Emma! The van wouldn't start.", vi: 'Xin lỗi nha Emma! Cái xe tải không nổ máy.' },
+      { id: 'cafe-2-06', who: 'them', text: 'Finally! I was starting to worry.', vi: 'May quá! Tôi bắt đầu lo rồi đấy.' },
+      { id: 'cafe-2-07', who: 'you', text: 'So does that mean I get my latte?', vi: 'Vậy là tôi có latte uống rồi chứ?' },
+      { id: 'cafe-2-08', who: 'them', text: "Coming right up. This one's on me.", vi: 'Có ngay. Ly này tôi mời.' },
+    ],
+    gist: {
+      q: 'Vì sao bạn phải chờ ly latte?',
+      options: ['Máy pha cà phê bị hỏng', 'Emma quên bạn hay gọi gì', 'Quán hết sữa, Ben mang tới muộn'],
+      answer: 2,
+    },
+  },
+
+  // ── Nhà bạn · Mia ─────────────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'friend-1',
+    placeId: 'friend',
+    order: 1,
+    title: 'Rủ xem phim',
+    scene: 'Mia thò đầu ra cửa sổ khi thấy bạn đi ngang.',
+    level: 1,
+    lines: [
+      { id: 'friend-1-01', who: 'them', text: 'Hey, you! What are you up to this weekend?', vi: 'Ê, bạn ơi! Cuối tuần này bạn định làm gì?' },
+      { id: 'friend-1-02', who: 'you', text: 'Nothing much. Just relaxing, I guess.', vi: 'Chẳng có gì. Chắc nghỉ ngơi thôi.' },
+      { id: 'friend-1-03', who: 'them', text: "Come over Friday night. Let's have a movie night!", vi: 'Tối thứ Sáu qua nhà mình đi. Mình xem phim nhé!' },
+      { id: 'friend-1-04', who: 'you', text: 'Sounds fun. Should I bring anything?', vi: 'Nghe vui đấy. Mình có cần mang gì không?' },
+      { id: 'friend-1-05', who: 'them', text: "Just snacks. I'll order pizza.", vi: 'Mang đồ ăn vặt thôi. Mình sẽ gọi pizza.' },
+      { id: 'friend-1-06', who: 'them', text: 'Oh, and you get to pick the movie.', vi: 'À, còn bạn được chọn phim nhé.' },
+      { id: 'friend-1-07', who: 'you', text: "Oh no. That's a lot of pressure.", vi: 'Ôi trời. Thế thì áp lực quá.' },
+    ],
+    gist: {
+      q: 'Mia rủ bạn làm gì?',
+      options: ['Đi rạp xem phim vào cuối tuần', 'Xem phim ở nhà Mia tối thứ Sáu', 'Đi ăn pizza tối thứ Sáu'],
+      answer: 1,
+    },
+  },
+  {
+    id: 'friend-2',
+    placeId: 'friend',
+    order: 2,
+    title: 'Tối xem phim',
+    scene: 'Tối thứ Sáu ở nhà Mia, ti vi đã bật, bàn còn trống trơn.',
+    level: 2,
+    lines: [
+      { id: 'friend-2-01', who: 'them', text: 'So, what are we watching? Did you pick one?', vi: 'Thế xem phim gì đây? Bạn chọn được chưa?' },
+      { id: 'friend-2-02', who: 'you', text: "Zoe told me about a comedy. It's supposed to be really funny.", vi: 'Zoe có kể về một phim hài. Nghe nói buồn cười lắm.' },
+      { id: 'friend-2-03', who: 'them', text: 'A comedy? Perfect. I need a good laugh.', vi: 'Phim hài à? Tuyệt. Mình đang cần cười một trận.' },
+      { id: 'friend-2-04', who: 'them', text: "Wait, where's the pizza? I ordered it an hour ago.", vi: 'Khoan, pizza đâu nhỉ? Mình gọi từ một tiếng trước rồi.' },
+      { id: 'friend-2-05', who: 'you', text: 'Do you want me to call them?', vi: 'Có cần mình gọi cho họ không?' },
+      { id: 'friend-2-06', who: 'them', text: "No, it's fine. Let's just start without it.", vi: 'Thôi, không sao. Cứ xem trước đi.' },
+      { id: 'friend-2-07', who: 'them', text: "Oh, that's the door! Can you get it?", vi: 'Ồ, có người gõ cửa! Bạn ra mở giúp nhé?' },
+    ],
+    gist: {
+      q: 'Tối đó có chuyện gì?',
+      options: ['Hai bạn xem phim hài, pizza tới muộn', 'Hai bạn xem phim kinh dị, quên gọi pizza', 'Hai bạn ra rạp xem phim Zoe giới thiệu'],
+      answer: 0,
+    },
+  },
+
+  // ── Nhà · Grace ───────────────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'home-1',
+    placeId: 'home',
+    order: 1,
+    title: 'Bà hàng xóm',
+    scene: 'Một bà cụ bên cạnh gõ cửa nhà bạn, tay ôm một cái hộp.',
+    level: 1,
+    lines: [
+      { id: 'home-1-01', who: 'them', text: "Hello, dear. You're the new neighbor, aren't you?", vi: 'Chào cháu. Cháu là hàng xóm mới phải không?' },
+      { id: 'home-1-02', who: 'you', text: "Yes, I'm at number six. Nice to meet you.", vi: 'Dạ, cháu ở số sáu. Rất vui được gặp bà.' },
+      { id: 'home-1-03', who: 'them', text: "I'm Grace. A parcel came for you this morning.", vi: 'Bà là Grace. Sáng nay có bưu kiện gửi cho cháu đấy.' },
+      { id: 'home-1-04', who: 'them', text: 'Nobody was home, so I took it in.', vi: 'Không có ai ở nhà nên bà cầm vào giúp.' },
+      { id: 'home-1-05', who: 'you', text: "Oh, thank you so much! That's really kind of you.", vi: 'Ôi, cháu cảm ơn bà nhiều! Bà tốt quá.' },
+      { id: 'home-1-06', who: 'them', text: 'Not at all. Would you like a cup of tea?', vi: 'Có gì đâu. Cháu uống tách trà nhé?' },
+      { id: 'home-1-07', who: 'you', text: "I'd love one, thanks.", vi: 'Dạ, cháu xin ạ.' },
+    ],
+    gist: {
+      q: 'Vì sao Grace sang gặp bạn?',
+      options: ['Bà muốn mượn bạn một thứ', 'Bà nhờ bạn nhận bưu kiện giúp', 'Bà giữ giúp bưu kiện của bạn'],
+      answer: 2,
+    },
+  },
+  {
+    id: 'home-2',
+    placeId: 'home',
+    order: 2,
+    title: 'Bóng đèn trong bếp',
+    scene: 'Trời vừa tối, bà Grace đứng ở cửa nhà bạn.',
+    level: 2,
+    lines: [
+      { id: 'home-2-01', who: 'them', text: 'Sorry to bother you, dear. Have you got a minute?', vi: 'Xin lỗi làm phiền cháu. Cháu rảnh một chút không?' },
+      { id: 'home-2-02', who: 'you', text: "Of course. What's wrong?", vi: 'Dạ được ạ. Có chuyện gì thế bà?' },
+      { id: 'home-2-03', who: 'them', text: "The kitchen light's gone out, and I can't reach it.", vi: 'Đèn bếp cháy rồi, mà bà với không tới.' },
+      { id: 'home-2-04', who: 'you', text: 'No problem. Have you got a new bulb?', vi: 'Không sao ạ. Bà có bóng đèn mới không?' },
+      { id: 'home-2-05', who: 'them', text: "I bought one at Ben's shop yesterday. Here you are.", vi: 'Hôm qua bà mua ở tiệm Ben rồi. Đây cháu.' },
+      { id: 'home-2-06', who: 'you', text: 'There you go. Try the switch now.', vi: 'Xong rồi ạ. Bà bật công tắc thử xem.' },
+      { id: 'home-2-07', who: 'them', text: 'Oh, lovely! Now sit down and have a biscuit.', vi: 'Ôi, tốt quá! Giờ ngồi xuống ăn miếng bánh đã.' },
+    ],
+    gist: {
+      q: 'Grace nhờ bạn việc gì?',
+      options: ['Ra tiệm Ben mua bóng đèn', 'Thay bóng đèn trong bếp', 'Sửa công tắc đèn trong bếp'],
+      answer: 1,
+    },
+  },
+
+  // ── Cửa hàng · Ben ────────────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'shop-1',
+    placeId: 'shop',
+    order: 1,
+    title: 'Đi mua pin',
+    scene: 'Cửa hàng của Ben, đồ xếp chật kín các kệ.',
+    level: 1,
+    lines: [
+      { id: 'shop-1-01', who: 'them', text: 'Hi there. Can I help you find something?', vi: 'Chào bạn. Bạn cần tìm gì không?' },
+      { id: 'shop-1-02', who: 'you', text: 'Yeah, do you have batteries? The small ones.', vi: 'Có, ở đây có pin không? Loại nhỏ ấy.' },
+      { id: 'shop-1-03', who: 'them', text: "Double A? They're right by the checkout.", vi: 'Pin tiểu hả? Ngay cạnh quầy tính tiền.' },
+      { id: 'shop-1-04', who: 'you', text: "Great. I'll take a pack of four.", vi: 'Tốt quá. Tôi lấy một vỉ bốn viên.' },
+      { id: 'shop-1-05', who: 'them', text: "That's five dollars. Cash or card?", vi: 'Năm đô. Tiền mặt hay thẻ?' },
+      { id: 'shop-1-06', who: 'you', text: 'Card, please. Can I get a bag too?', vi: 'Thẻ nhé. Cho tôi xin cái túi luôn được không?' },
+      { id: 'shop-1-07', who: 'them', text: "Sure, bags are free. Batteries aren't, sadly.", vi: 'Được. Túi thì miễn phí. Pin thì tiếc là không.' },
+    ],
+    gist: {
+      q: 'Bạn mua bán thế nào ở tiệm Ben?',
+      options: ['Mua pin nhỏ và trả bằng thẻ', 'Mua pin lớn và trả tiền mặt', 'Hỏi mua pin nhưng tiệm hết hàng'],
+      answer: 0,
+    },
+  },
+  {
+    id: 'shop-2',
+    placeId: 'shop',
+    order: 2,
+    title: 'Ổ bánh mì cuối cùng',
+    scene: 'Gần giờ đóng cửa, kệ bánh mì trong tiệm Ben trống trơn.',
+    level: 2,
+    lines: [
+      { id: 'shop-2-01', who: 'you', text: 'Hi, Ben. Do you have any bread left?', vi: 'Chào Ben. Còn bánh mì không?' },
+      { id: 'shop-2-02', who: 'them', text: 'Sorry, we sold out about ten minutes ago.', vi: 'Tiếc quá, hết từ mười phút trước rồi.' },
+      { id: 'shop-2-03', who: 'you', text: 'Oh, no. I needed it for breakfast tomorrow.', vi: 'Ôi không. Tôi cần để ăn sáng mai.' },
+      { id: 'shop-2-04', who: 'them', text: 'Hang on. I put one aside for Grace.', vi: 'Khoan đã. Tôi có để riêng một ổ cho bà Grace.' },
+      { id: 'shop-2-05', who: 'them', text: "But she called and said she's not coming in today.", vi: 'Nhưng bà ấy gọi bảo hôm nay không ghé.' },
+      { id: 'shop-2-06', who: 'them', text: "So it's yours. Just don't tell her I gave it away.", vi: 'Vậy ổ này của bạn. Đừng kể với bà là tôi đưa người khác nhé.' },
+      { id: 'shop-2-07', who: 'you', text: "I won't say a word. Thanks, Ben!", vi: 'Tôi không hé răng đâu. Cảm ơn Ben!' },
+    ],
+    gist: {
+      q: 'Cuối cùng bạn có bánh mì không?',
+      options: ['Không, tiệm đã bán hết', 'Có, bà Grace nhường lại cho bạn', 'Có, Ben đưa ổ để dành cho Grace'],
+      answer: 2,
+    },
+  },
+
+  // ── Văn phòng · Sarah ─────────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'office-1',
+    placeId: 'office',
+    order: 1,
+    title: 'Năm phút thôi',
+    scene: 'Sarah ôm một chồng giấy, vừa đi vừa nhìn đồng hồ.',
+    level: 2,
+    lines: [
+      { id: 'office-1-01', who: 'them', text: "Hey, sorry, I've only got about five minutes.", vi: 'Này, xin lỗi, tôi chỉ có tầm năm phút thôi.' },
+      { id: 'office-1-02', who: 'you', text: "That's okay. What do you need?", vi: 'Không sao. Bạn cần gì?' },
+      { id: 'office-1-03', who: 'them', text: 'Could you print this out for me? Two copies.', vi: 'Bạn in giúp tôi cái này được không? Hai bản.' },
+      { id: 'office-1-04', who: 'them', text: 'Oh, and the meeting got moved to three, not four.', vi: 'À, cuộc họp dời sang ba giờ, không phải bốn giờ.' },
+      { id: 'office-1-05', who: 'you', text: 'Got it. Should I tell the others?', vi: 'Hiểu rồi. Tôi có cần báo mọi người không?' },
+      { id: 'office-1-06', who: 'them', text: "Yes, please. I'll send an email, but nobody reads those.", vi: 'Có, nhờ bạn. Tôi sẽ gửi email, nhưng chẳng ai đọc đâu.' },
+    ],
+    gist: {
+      q: 'Sarah nhờ bạn những việc gì?',
+      options: ['Gửi email và dời cuộc họp', 'In tài liệu và báo giờ họp mới', 'In tài liệu và đi mua cà phê'],
+      answer: 1,
+    },
+  },
+  {
+    id: 'office-2',
+    placeId: 'office',
+    order: 2,
+    title: 'Máy chiếu',
+    scene: 'Ba giờ chiều, phòng họp đã đủ người, màn chiếu vẫn tối đen.',
+    level: 2,
+    lines: [
+      { id: 'office-2-01', who: 'them', text: "Okay, everyone's here. Can you turn on the projector?", vi: 'Được rồi, mọi người đủ cả rồi. Bạn bật máy chiếu giúp nhé?' },
+      { id: 'office-2-02', who: 'you', text: "I'm trying. It says no signal.", vi: 'Đang bật đây. Nó báo không có tín hiệu.' },
+      { id: 'office-2-03', who: 'them', text: 'Seriously? Not today. Did you plug it in right?', vi: 'Thật hả? Hôm nay thì đừng mà. Bạn cắm dây đúng chưa?' },
+      { id: 'office-2-04', who: 'you', text: 'I think so. Want me to call Max?', vi: 'Chắc rồi. Có cần tôi gọi Max không?' },
+      { id: 'office-2-05', who: 'phone', text: "Hi, it's Max. Try turning it off and on again.", vi: 'Chào, Max đây. Thử tắt đi bật lại xem.' },
+      { id: 'office-2-06', who: 'you', text: "Oh, it's working now. Thanks, Max!", vi: 'Ồ, chạy rồi. Cảm ơn Max!' },
+      { id: 'office-2-07', who: 'them', text: 'Great. Remind me to buy you a coffee later.', vi: 'Tuyệt. Lát nhắc tôi mời bạn ly cà phê nhé.' },
+    ],
+    gist: {
+      q: 'Chuyện gì xảy ra trước cuộc họp?',
+      options: ['Máy chiếu hỏng, Max chỉ cách sửa qua điện thoại', 'Max chạy tới văn phòng sửa máy chiếu', 'Sarah quên mang máy tính đến phòng họp'],
+      answer: 0,
+    },
+  },
+
+  // ── Trường học · Daniel ───────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'school-1',
+    placeId: 'school',
+    order: 1,
+    title: 'Đăng ký lớp tối',
+    scene: 'Bạn bước vào văn phòng nhỏ của trường, thầy Daniel đang pha trà.',
+    level: 1,
+    lines: [
+      { id: 'school-1-01', who: 'you', text: "Hi. I'd like to sign up for the evening class.", vi: 'Chào thầy. Em muốn đăng ký lớp buổi tối.' },
+      { id: 'school-1-02', who: 'them', text: 'Lovely. Have you done any classes with us before?', vi: 'Tốt quá. Em đã học lớp nào ở đây chưa?' },
+      { id: 'school-1-03', who: 'you', text: 'No, this is my first time.', vi: 'Chưa ạ, đây là lần đầu.' },
+      { id: 'school-1-04', who: 'them', text: "No worries. It's every Tuesday at seven.", vi: 'Không sao. Lớp học bảy giờ tối thứ Ba hàng tuần.' },
+      { id: 'school-1-05', who: 'them', text: 'Just bring a notebook and something to write with.', vi: 'Em chỉ cần mang vở và bút.' },
+      { id: 'school-1-06', who: 'you', text: 'Great. Do I need to pay now?', vi: 'Hay quá. Em có phải đóng tiền luôn không ạ?' },
+      { id: 'school-1-07', who: 'them', text: "Pay on the first night. And please don't be late.", vi: 'Buổi đầu đóng cũng được. Và nhớ đừng đến muộn nhé.' },
+    ],
+    gist: {
+      q: 'Thầy Daniel cho bạn biết gì về lớp học?',
+      options: ['Học tối thứ Năm, đóng tiền ngay hôm nay', 'Học tối thứ Ba, đóng tiền ngay hôm nay', 'Học tối thứ Ba, đóng tiền vào buổi đầu'],
+      answer: 2,
+    },
+  },
+  {
+    id: 'school-2',
+    placeId: 'school',
+    order: 2,
+    title: 'Buổi học đầu tiên',
+    scene: 'Tối thứ Ba, bạn chạy vội vào lớp, cả lớp đã ngồi kín.',
+    level: 2,
+    lines: [
+      { id: 'school-2-01', who: 'you', text: "Sorry I'm late! The bus didn't show up.", vi: 'Em xin lỗi đến muộn! Xe buýt không tới.' },
+      { id: 'school-2-02', who: 'them', text: 'Ah, the famous number nine. Happens all the time.', vi: 'À, tuyến số chín nổi tiếng. Chuyện thường ngày ấy mà.' },
+      { id: 'school-2-03', who: 'them', text: "Grab a seat. We've only just started.", vi: 'Ngồi đi em. Lớp mới bắt đầu thôi.' },
+      { id: 'school-2-04', who: 'you', text: 'What page are we on?', vi: 'Mình đang ở trang mấy ạ?' },
+      { id: 'school-2-05', who: 'friend', text: "Here, look at mine. You didn't miss much.", vi: 'Nè, xem chung sách với mình. Bạn chưa lỡ gì nhiều đâu.' },
+      { id: 'school-2-06', who: 'them', text: 'For homework, write five sentences about your week.', vi: 'Bài tập về nhà: viết năm câu về tuần của các em.' },
+      { id: 'school-2-07', who: 'you', text: 'Only five? I can do that.', vi: 'Có năm câu thôi ạ? Em làm được.' },
+    ],
+    gist: {
+      q: 'Buổi học đầu tiên của bạn thế nào?',
+      options: ['Bạn đến sớm và ngồi cạnh Mia', 'Bạn đến muộn vì xe buýt, Mia cho xem chung sách', 'Bạn đến muộn vì quên vở, thầy cho mượn sách'],
+      answer: 1,
+    },
+  },
+
+  // ── Bến xe · Sam ──────────────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'station-1',
+    placeId: 'station',
+    order: 1,
+    title: 'Xe vào trung tâm',
+    scene: 'Bến xe buổi sáng, bảng giờ chạy bị ai đó dán đè tờ quảng cáo.',
+    level: 2,
+    lines: [
+      { id: 'station-1-01', who: 'you', text: 'Excuse me. Which bus goes into town?', vi: 'Xin lỗi. Xe nào đi vào trung tâm vậy?' },
+      { id: 'station-1-02', who: 'them', text: 'The number nine. It leaves from over there, by the bench.', vi: 'Xe số chín. Xe chạy từ chỗ kia, cạnh cái ghế đá.' },
+      { id: 'station-1-03', who: 'you', text: "When's the next one?", vi: 'Chuyến tiếp theo lúc mấy giờ?' },
+      { id: 'station-1-04', who: 'them', text: 'Let me check. It should be here in ten minutes.', vi: 'Để tôi xem. Chắc mười phút nữa xe tới.' },
+      { id: 'station-1-05', who: 'them', text: "But it's running a bit late today.", vi: 'Nhưng hôm nay xe hơi trễ.' },
+      { id: 'station-1-06', who: 'you', text: 'Can I buy a ticket on the bus?', vi: 'Tôi mua vé trên xe được không?' },
+      { id: 'station-1-07', who: 'them', text: "Yeah, but you'll need the exact change.", vi: 'Được, nhưng bạn phải đưa đúng số tiền lẻ.' },
+    ],
+    gist: {
+      q: 'Sam cho bạn biết gì?',
+      options: ['Đi xe số chín, mua vé trên xe được', 'Đi xe số chín, phải mua vé ở quầy', 'Đi xe số năm, mua vé trên xe được'],
+      answer: 0,
+    },
+  },
+  {
+    id: 'station-2',
+    placeId: 'station',
+    order: 2,
+    title: 'Cái ba lô bỏ quên',
+    scene: 'Sáng hôm sau, bạn tới bến xe với vẻ mặt lo lắng.',
+    level: 3,
+    lines: [
+      { id: 'station-2-01', who: 'you', text: 'Sam, I think I left my bag on the bus last night.', vi: 'Sam ơi, hình như tối qua tôi để quên túi trên xe buýt.' },
+      { id: 'station-2-02', who: 'them', text: 'Which one? The number nine?', vi: 'Xe nào? Xe số chín à?' },
+      { id: 'station-2-03', who: 'you', text: "Yeah. It's a black backpack with my laptop in it.", vi: 'Ừ. Cái ba lô màu đen, trong có máy tính xách tay.' },
+      { id: 'station-2-04', who: 'them', text: 'Hold on, let me check the lost and found.', vi: 'Chờ chút, để tôi xem chỗ giữ đồ thất lạc.' },
+      { id: 'station-2-05', who: 'them', text: 'Is this it? The driver dropped it off this morning.', vi: 'Có phải cái này không? Sáng nay tài xế mang tới.' },
+      { id: 'station-2-06', who: 'you', text: "That's it! You just saved my life.", vi: 'Đúng nó rồi! Bạn đúng là cứu tinh của tôi!' },
+      { id: 'station-2-07', who: 'them', text: 'Next time, maybe keep it on your lap.', vi: 'Lần sau chắc bạn nên ôm nó trong lòng.' },
+    ],
+    gist: {
+      q: 'Cái ba lô của bạn đang ở đâu?',
+      options: ['Vẫn còn trên xe số chín', 'Bạn để quên nó ở trường học', 'Tài xế đã mang nó đến bến xe'],
+      answer: 2,
+    },
+  },
+
+  // ── Phòng khám · Kim ──────────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'clinic-1',
+    placeId: 'clinic',
+    order: 1,
+    title: 'Đau họng',
+    scene: 'Phòng khám yên tĩnh, Kim gọi tên bạn vào.',
+    level: 2,
+    lines: [
+      { id: 'clinic-1-01', who: 'them', text: 'Hi, come on in. What seems to be the problem?', vi: 'Chào bạn, vào đi. Bạn thấy không khỏe chỗ nào?' },
+      { id: 'clinic-1-02', who: 'you', text: "I've had a sore throat for three days.", vi: 'Tôi bị đau họng ba ngày nay rồi.' },
+      { id: 'clinic-1-03', who: 'them', text: 'Any fever? Or a cough?', vi: 'Có sốt không? Hay bị ho?' },
+      { id: 'clinic-1-04', who: 'you', text: 'A little cough, but no fever.', vi: 'Ho một chút, nhưng không sốt.' },
+      { id: 'clinic-1-05', who: 'them', text: "Okay. Let me take a look. Open wide.", vi: 'Được rồi. Để tôi xem. Há miệng to ra nào.' },
+      { id: 'clinic-1-06', who: 'them', text: "It's just a cold. Get some rest and drink lots of water.", vi: 'Chỉ là cảm thường thôi. Nghỉ ngơi và uống nhiều nước nhé.' },
+      { id: 'clinic-1-07', who: 'you', text: 'Can I still go to work?', vi: 'Tôi vẫn đi làm được chứ?' },
+      { id: 'clinic-1-08', who: 'them', text: 'Take a day off if you can. Come back on Friday.', vi: 'Nghỉ một hôm nếu được. Thứ Sáu quay lại khám nhé.' },
+    ],
+    gist: {
+      q: 'Kim nói gì về bệnh của bạn?',
+      options: ['Bị sốt, phải uống thuốc ngay', 'Chỉ cảm thường, nên nghỉ ngơi', 'Không sao, cứ đi làm bình thường'],
+      answer: 1,
+    },
+  },
+  {
+    id: 'clinic-2',
+    placeId: 'clinic',
+    order: 2,
+    title: 'Tái khám',
+    scene: 'Thứ Sáu, bạn quay lại phòng khám như đã hẹn.',
+    level: 2,
+    lines: [
+      { id: 'clinic-2-01', who: 'them', text: 'Hi again. How are you feeling today?', vi: 'Chào bạn. Hôm nay thấy trong người thế nào?' },
+      { id: 'clinic-2-02', who: 'you', text: "Much better, thanks. My throat doesn't hurt anymore.", vi: 'Đỡ nhiều rồi, cảm ơn. Họng hết đau rồi.' },
+      { id: 'clinic-2-03', who: 'them', text: 'Good. Did you get some rest like I told you?', vi: 'Tốt. Bạn có nghỉ ngơi như tôi dặn không?' },
+      { id: 'clinic-2-04', who: 'you', text: 'Mostly. I stayed home for two days.', vi: 'Gần như thế. Tôi ở nhà hai ngày.' },
+      { id: 'clinic-2-05', who: 'them', text: 'And not too much coffee, I hope?', vi: 'Còn cà phê thì không uống nhiều quá chứ?' },
+      { id: 'clinic-2-06', who: 'you', text: 'Well, Emma kept bringing me iced lattes.', vi: 'À thì... Emma cứ mang latte đá cho tôi suốt.' },
+      { id: 'clinic-2-07', who: 'them', text: "Of course she did. Okay, you're good to go.", vi: 'Đúng kiểu Emma. Thôi được, bạn khỏe rồi, về được rồi.' },
+    ],
+    gist: {
+      q: 'Lần tái khám này kết thúc thế nào?',
+      options: ['Bạn đã khỏe và được về', 'Bạn vẫn đau họng, phải nghỉ thêm', 'Bạn khỏe rồi nhưng phải bỏ cà phê'],
+      answer: 0,
+    },
+  },
+
+  // ── Rạp phim · Zoe ────────────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'cinema-1',
+    placeId: 'cinema',
+    order: 1,
+    title: 'Mua vé',
+    scene: 'Quầy vé rạp phim, Zoe đang ăn dở một hộp bỏng ngô.',
+    level: 2,
+    lines: [
+      { id: 'cinema-1-01', who: 'them', text: 'Hi! What are you going to see tonight?', vi: 'Chào! Tối nay bạn định xem phim gì?' },
+      { id: 'cinema-1-02', who: 'you', text: 'Two tickets for the horror movie, please.', vi: 'Cho tôi hai vé phim kinh dị.' },
+      { id: 'cinema-1-03', who: 'them', text: "Ooh, are you sure? It's really scary.", vi: 'Ồ, bạn chắc chưa? Phim đó đáng sợ lắm đấy.' },
+      { id: 'cinema-1-04', who: 'them', text: "I watched it last night and couldn't sleep.", vi: 'Tối qua tôi xem xong mà mất ngủ luôn.' },
+      { id: 'cinema-1-05', who: 'you', text: 'Hmm. Is there anything a bit lighter?', vi: 'Hừm. Có phim nào nhẹ nhàng hơn không?' },
+      { id: 'cinema-1-06', who: 'them', text: "The new comedy is great. I've seen it three times.", vi: 'Phim hài mới hay lắm. Tôi xem ba lần rồi.' },
+      { id: 'cinema-1-07', who: 'you', text: "Okay, let's go with that. Two for the comedy.", vi: 'Được, chọn phim đó vậy. Hai vé phim hài.' },
+    ],
+    gist: {
+      q: 'Cuối cùng bạn mua vé phim nào, vì sao?',
+      options: ['Phim kinh dị, vì Zoe khen hay', 'Phim hài, vì phim kinh dị hết vé', 'Phim hài, vì Zoe bảo phim kia đáng sợ'],
+      answer: 2,
+    },
+  },
+  {
+    id: 'cinema-2',
+    placeId: 'cinema',
+    order: 2,
+    title: 'Sau suất chiếu',
+    scene: 'Đèn rạp vừa bật sáng, Zoe chờ sẵn ở cửa ra.',
+    level: 3,
+    lines: [
+      { id: 'cinema-2-01', who: 'them', text: 'So? What did you think? Tell me everything!', vi: 'Sao? Bạn thấy thế nào? Kể hết đi!' },
+      { id: 'cinema-2-02', who: 'you', text: "It was so funny. I couldn't stop laughing.", vi: 'Buồn cười lắm. Tôi cười không dừng được.' },
+      { id: 'cinema-2-03', who: 'them', text: 'Right? What about the part with the dog?', vi: 'Đúng không? Thế còn đoạn con chó thì sao?' },
+      { id: 'cinema-2-04', who: 'you', text: 'Best part. Mia spilled her popcorn everywhere.', vi: 'Hay nhất luôn. Mia làm đổ bỏng ngô tung tóe.' },
+      { id: 'cinema-2-05', who: 'them', text: "Don't worry about it. That happens every night.", vi: 'Đừng lo. Tối nào cũng có người làm đổ.' },
+      { id: 'cinema-2-06', who: 'them', text: 'Are you coming to the late show next week?', vi: 'Tuần sau bạn có đi suất chiếu khuya không?' },
+      { id: 'cinema-2-07', who: 'you', text: "Maybe. But only if it's not a horror movie.", vi: 'Có thể. Nhưng chỉ khi không phải phim kinh dị.' },
+    ],
+    gist: {
+      q: 'Bạn kể gì với Zoe về buổi xem phim?',
+      options: ['Phim hơi chán, bạn ngủ quên', 'Phim rất vui, Mia làm đổ bỏng ngô', 'Phim rất vui, nhưng bạn làm đổ bỏng ngô'],
+      answer: 1,
+    },
+  },
+
+  // ── Tiệm điện thoại · Max ─────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'phone-1',
+    placeId: 'phone',
+    order: 1,
+    title: 'Pin tụt nhanh',
+    scene: 'Tiệm của Max đầy dây sạc, Max đang tháo một cái máy.',
+    level: 2,
+    lines: [
+      { id: 'phone-1-01', who: 'them', text: "Hey, mate! What's up with your phone?", vi: 'Chào bạn! Điện thoại bạn bị sao thế?' },
+      { id: 'phone-1-02', who: 'you', text: 'The battery dies really fast. Like, by lunchtime.', vi: 'Pin tụt nhanh lắm. Tầm trưa là hết.' },
+      { id: 'phone-1-03', who: 'them', text: 'How old is it? Two or three years?', vi: 'Máy dùng bao lâu rồi? Hai hay ba năm?' },
+      { id: 'phone-1-04', who: 'you', text: 'About three years, I think.', vi: 'Chắc khoảng ba năm.' },
+      { id: 'phone-1-05', who: 'them', text: "Yeah, that's your problem. It needs a new battery.", vi: 'Ừ, vấn đề là ở đó. Máy cần thay pin mới.' },
+      { id: 'phone-1-06', who: 'you', text: 'How long will that take?', vi: 'Thay mất bao lâu?' },
+      { id: 'phone-1-07', who: 'them', text: "About an hour. Go grab a coffee at Emma's.", vi: 'Tầm một tiếng. Đi uống cà phê ở quán Emma đi.' },
+    ],
+    gist: {
+      q: 'Max nói gì về điện thoại của bạn?',
+      options: ['Cần thay pin, mất khoảng một tiếng', 'Cần thay màn hình, mất một ngày', 'Pin không thay được, nên mua máy mới'],
+      answer: 0,
+    },
+  },
+  {
+    id: 'phone-2',
+    placeId: 'phone',
+    order: 2,
+    title: 'Lấy máy',
+    scene: 'Một tiếng sau, bạn quay lại tiệm của Max.',
+    level: 3,
+    lines: [
+      { id: 'phone-2-01', who: 'them', text: "Perfect timing. Your phone's all done.", vi: 'Đúng lúc lắm. Điện thoại của bạn xong rồi.' },
+      { id: 'phone-2-02', who: 'you', text: 'Already? That was quick.', vi: 'Xong rồi à? Nhanh thế.' },
+      { id: 'phone-2-03', who: 'them', text: 'I also cleaned out the charging port. It was full of dust.', vi: 'Tôi làm sạch luôn cổng sạc. Bụi bám đầy trong đó.' },
+      { id: 'phone-2-04', who: 'you', text: "Oh, so that's why it wouldn't charge sometimes.", vi: 'À, hèn chi lâu lâu nó không sạc được.' },
+      { id: 'phone-2-05', who: 'them', text: 'Yep. It should last all day now.', vi: 'Đúng rồi. Giờ pin dùng cả ngày luôn.' },
+      { id: 'phone-2-06', who: 'them', text: "By the way, tell Mia her phone's ready too.", vi: 'Nhân tiện, bảo Mia là máy của Mia cũng xong rồi.' },
+      { id: 'phone-2-07', who: 'you', text: 'Will do. How much do I owe you?', vi: 'Được thôi. Tôi phải trả bao nhiêu?' },
+      { id: 'phone-2-08', who: 'them', text: "Forty dollars. The cleaning's free.", vi: 'Bốn mươi đô. Làm sạch thì miễn phí.' },
+    ],
+    gist: {
+      q: 'Max đã làm gì cho điện thoại của bạn?',
+      options: ['Thay pin và tặng thêm ốp lưng', 'Chỉ làm sạch cổng sạc, pin vẫn tốt', 'Thay pin và làm sạch cổng sạc'],
+      answer: 2,
+    },
+  },
+
+  // ── Công viên · Lily ──────────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'park-1',
+    placeId: 'park',
+    order: 1,
+    title: 'Một ngày dài',
+    scene: 'Chiều muộn, Lily ngồi một mình trên ghế đá cạnh hồ.',
+    level: 2,
+    lines: [
+      { id: 'park-1-01', who: 'you', text: 'Hey, Lily. Are you okay? You look a bit down.', vi: 'Này Lily. Bạn ổn không? Trông bạn hơi buồn.' },
+      { id: 'park-1-02', who: 'them', text: "Yeah, I'm fine. Just a long day, I guess.", vi: 'Ừ, mình ổn. Chắc chỉ là một ngày dài thôi.' },
+      { id: 'park-1-03', who: 'them', text: 'I had a job interview, and I think it went badly.', vi: 'Mình đi phỏng vấn xin việc, mà chắc là hỏng rồi.' },
+      { id: 'park-1-04', who: 'you', text: 'Why? What happened?', vi: 'Sao thế? Có chuyện gì à?' },
+      { id: 'park-1-05', who: 'them', text: 'I got so nervous I forgot my own phone number.', vi: 'Mình run quá nên quên cả số điện thoại của mình.' },
+      { id: 'park-1-06', who: 'you', text: 'But hey, that happens to everyone.', vi: 'Nhưng mà này, ai cũng từng bị thế.' },
+      { id: 'park-1-07', who: 'them', text: 'Thanks. It helps to talk about it, you know?', vi: 'Cảm ơn bạn. Nói ra thấy nhẹ lòng hơn hẳn.' },
+    ],
+    gist: {
+      q: 'Vì sao Lily buồn?',
+      options: ['Lily làm mất điện thoại ở công viên', 'Lily nghĩ buổi phỏng vấn không tốt', 'Lily vừa bị công ty cho nghỉ việc'],
+      answer: 1,
+    },
+  },
+  {
+    id: 'park-2',
+    placeId: 'park',
+    order: 2,
+    title: 'Tin vui',
+    scene: 'Lily chạy về phía bạn, tay vẫy rối rít.',
+    level: 2,
+    lines: [
+      { id: 'park-2-01', who: 'them', text: 'Guess what? They called me back!', vi: 'Đoán xem? Họ gọi lại cho mình rồi!' },
+      { id: 'park-2-02', who: 'you', text: 'No way! The job you were worried about?', vi: 'Thật á? Công việc bạn lo hôm trước ấy hả?' },
+      { id: 'park-2-03', who: 'them', text: "Yes! I start next Monday. I still can't believe it.", vi: 'Ừ! Thứ Hai tuần sau mình bắt đầu. Vẫn chưa tin nổi.' },
+      { id: 'park-2-04', who: 'you', text: "See? I told you it wasn't that bad.", vi: 'Thấy chưa? Mình đã bảo là không tệ thế đâu mà.' },
+      { id: 'park-2-05', who: 'them', text: 'They said they liked how honest I was.', vi: 'Họ bảo họ thích vì mình thật thà.' },
+      { id: 'park-2-06', who: 'them', text: 'Even about forgetting my phone number!', vi: 'Kể cả chuyện quên số điện thoại!' },
+      { id: 'park-2-07', who: 'them', text: 'Let me buy you lunch this weekend, okay?', vi: 'Cuối tuần này để mình mời bạn ăn trưa nhé?' },
+      { id: 'park-2-08', who: 'you', text: "Deal. I'm so happy for you.", vi: 'Chốt nhé. Mình mừng cho bạn lắm.' },
+    ],
+    gist: {
+      q: 'Lily báo tin gì?',
+      options: ['Lily được nhận, tuần sau đi làm', 'Lily bị từ chối nhưng không buồn', 'Lily được hẹn phỏng vấn lần hai'],
+      answer: 0,
+    },
+  },
+
+  // ── Bảng tin · Tom ────────────────────────────────────────────────────────────────────────────────────────────────
+  {
+    id: 'board-1',
+    placeId: 'board',
+    order: 1,
+    title: 'Hội chợ thị trấn',
+    scene: 'Tom đang loay hoay ghim một tờ giấy to lên bảng tin.',
+    level: 2,
+    lines: [
+      { id: 'board-1-01', who: 'them', text: 'Hey, could you hold this for a second?', vi: 'Này, bạn giữ giúp tôi cái này một chút được không?' },
+      { id: 'board-1-02', who: 'you', text: "Sure. What's it for?", vi: 'Được. Cái này để làm gì thế?' },
+      { id: 'board-1-03', who: 'them', text: "The town fair. It's next Saturday, all day.", vi: 'Hội chợ thị trấn. Thứ Bảy tuần sau, cả ngày.' },
+      { id: 'board-1-04', who: 'them', text: "There's food, music, and a dog show at noon.", vi: 'Có đồ ăn, nhạc, và màn trình diễn chó lúc trưa.' },
+      { id: 'board-1-05', who: 'you', text: "A dog show? Okay, I'm not missing that.", vi: 'Trình diễn chó á? Thế thì không thể bỏ lỡ.' },
+      { id: 'board-1-06', who: 'them', text: 'We still need people to help set up. Interested?', vi: 'Bọn tôi vẫn cần người phụ dựng gian hàng. Bạn muốn không?' },
+      { id: 'board-1-07', who: 'you', text: 'Why not? Put my name down.', vi: 'Sao lại không? Ghi tên tôi vào đi.' },
+    ],
+    gist: {
+      q: 'Tom đang làm gì và cần gì?',
+      options: ['Dán thông báo tìm chó lạc, cần người tìm giúp', 'Bán vé hội chợ, cần người mua vé', 'Dán thông báo hội chợ, cần người phụ dựng'],
+      answer: 2,
+    },
+  },
+  {
+    id: 'board-2',
+    placeId: 'board',
+    order: 2,
+    title: 'Đổi ngày',
+    scene: 'Trời bắt đầu kéo mây, Tom đứng nhìn tờ thông báo hôm trước.',
+    level: 3,
+    lines: [
+      { id: 'board-2-01', who: 'them', text: "Bad news. They're saying it's going to rain on Saturday.", vi: 'Tin xấu đây. Người ta bảo thứ Bảy trời sẽ mưa.' },
+      { id: 'board-2-02', who: 'you', text: 'Wait, so is the fair canceled?', vi: 'Khoan, vậy hội chợ bị hủy à?' },
+      { id: 'board-2-03', who: 'them', text: "Not canceled, just moved. We're doing it on Sunday instead.", vi: 'Không hủy, chỉ dời thôi. Bọn tôi chuyển sang Chủ nhật.' },
+      { id: 'board-2-04', who: 'square', text: "I just told Emma. She's already making a new sign.", vi: 'Tôi vừa báo Emma rồi. Emma đang làm tấm biển mới.' },
+      { id: 'board-2-05', who: 'them', text: "Thanks, Leo. Now I've got to change all these notices.", vi: 'Cảm ơn Leo. Giờ tôi phải sửa hết đống thông báo này.' },
+      { id: 'board-2-06', who: 'you', text: "Want a hand? I'm free all afternoon.", vi: 'Cần giúp không? Cả chiều nay tôi rảnh.' },
+      { id: 'board-2-07', who: 'them', text: "You're the best. Grab that pen, and let's get started.", vi: 'Bạn tuyệt nhất. Cầm cây bút kia, mình bắt đầu thôi.' },
+    ],
+    gist: {
+      q: 'Hội chợ có thay đổi gì?',
+      options: ['Bị hủy vì trời mưa', 'Dời sang Chủ nhật vì trời mưa', 'Dời sang thứ Bảy tuần sau nữa'],
+      answer: 1,
+    },
+  },
+];
+
+export function storiesOfPlace(placeId: string): readonly StoryEpisode[] {
+  return TOWN_STORIES.filter((e) => e.placeId === placeId).sort((a, b) => a.order - b.order);
+}
+
+export function storyEpisode(id: string): StoryEpisode | undefined {
+  return TOWN_STORIES.find((e) => e.id === id);
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { residentTile, walkable } from '../../core/town/map';
-import { townOverview } from '../../core/town/overview';
+import { townOverview, type PlaceView } from '../../core/town/overview';
 import { emptyTownProgress, type TownProgress } from '../../core/town/progress';
 import type { TownAnswerResult } from '../../core/town/store';
 import type { LineOutcome } from '../../core/town/types';
@@ -14,10 +14,12 @@ import {
   lotLabelsOf,
   lotsOnOffer,
   lotRows,
+  markerOf,
   primaryBuy,
   stageStateOf,
   suggestedPlace,
   talkLabel,
+  talkPrompt,
   talkStartTile,
   talkSummary,
   taskCount,
@@ -47,7 +49,8 @@ describe('what the stage is told', () => {
     expect(s.decorations).toEqual([]);
     expect(s.theme).toBe('night');
     expect(s.lit).toEqual({ square: 0, cafe: 0, friend: 0 });
-    expect(s.marker).toEqual({ square: 'new', cafe: 'new', friend: 'new' });
+    // an episode waiting at a place shows its own marker (the stories grow on their own: see the next test)
+    expect(s.marker).toEqual(Object.fromEntries(o.places.filter((p) => p.built).map((p) => [p.place.id, p.episode ? 'story' : 'new'])));
     expect(s.sites).toEqual(['home', 'shop', 'office']);
     const labels = lotLabelsOf(o);
     expect(labels).toEqual({ home: '20 xu', shop: '30 xu', office: '40 xu' });
@@ -66,14 +69,56 @@ describe('what the stage is told', () => {
   });
 });
 
+describe('markers of "Chuyện ở thị trấn"', () => {
+  it('a due re-listen or an episode to hear before what waits among the lines', () => {
+    const base = { marker: 'heart' as const };
+    expect(markerOf({ ...base, episode: null })).toBe('heart');
+    expect(markerOf({ ...base, episode: { id: 'cafe-1', order: 1, title: 'T', mode: 'new' } })).toBe('story');
+    expect(markerOf({ ...base, episode: { id: 'cafe-1', order: 1, title: 'T', mode: 'relisten' } })).toBe('relisten');
+    expect(markerOf({ marker: null, episode: null })).toBeNull();
+  });
+});
+
+/** The places as if no story waited anywhere: the lines alone decide. */
+const plain = (o: ReturnType<typeof view>): PlaceView[] => o.places.map((p) => ({ ...p, episode: null }));
+
 describe('whom to talk to next', () => {
   it('a new learner is sent to Leo on the square', () => {
-    expect(suggestedPlace(view(progress()).places)?.place.id).toBe('square');
+    expect(suggestedPlace(plain(view(progress())))?.place.id).toBe('square');
+  });
+
+  it('a due re-listen first, then an episode to hear (episode 1 before 2), then lines', () => {
+    const o = view({ ...progress(), lines: { ...understood('square', 5) } });
+    const places = plain(o);
+    const at = (id: string) => places.findIndex((p) => p.place.id === id);
+    const story = (id: string, order: number, mode: 'new' | 'relisten') => ({ id: `${id}-${order}`, order, title: 'T', mode });
+    places[at('friend')] = { ...places[at('friend')], episode: story('friend', 2, 'new') };
+    expect(suggestedPlace(places)?.place.id).toBe('friend');
+    places[at('cafe')] = { ...places[at('cafe')], episode: story('cafe', 1, 'new') };
+    expect(suggestedPlace(places)?.place.id).toBe('cafe');
+    places[at('square')] = { ...places[at('square')], episode: story('square', 1, 'relisten') };
+    expect(suggestedPlace(places)?.place.id).toBe('square');
+    // an empty lot never, whatever it would hold
+    places[at('shop')] = { ...places[at('shop')], episode: story('shop', 1, 'relisten') };
+    expect(suggestedPlace(places)?.place.id).toBe('square');
+  });
+
+  it('the main button names the episode or the re-listen', () => {
+    const cafe = plain(view(progress())).find((p) => p.place.id === 'cafe')!;
+    expect(talkPrompt(cafe, true)).toBe('Bắt chuyện với Emma');
+    expect(talkPrompt(cafe, false)).toBe('Tới gặp Emma');
+    const ep = { ...cafe, episode: { id: 'cafe-1', order: 1, title: 'Ly cà phê đầu tiên', mode: 'new' as const } };
+    expect(talkPrompt(ep, true)).toBe('Bắt chuyện với Emma · Tập 1');
+    expect(talkPrompt(ep, false)).toBe('Tới gặp Emma · Tập 1');
+    expect(talkLabel(ep)).toBe('Tới chỗ Emma ở Quán cà phê và nghe Tập 1: Ly cà phê đầu tiên');
+    const again = { ...ep, episode: { ...ep.episode, mode: 'relisten' as const } };
+    expect(talkPrompt(again, false)).toBe('Nghe lại chuyện với Emma');
+    expect(talkLabel(again)).toBe('Tới chỗ Emma ở Quán cà phê và nghe lại Tập 1: Ly cà phê đầu tiên');
   });
 
   it('never an empty lot, and the least known place first', () => {
     const o = view({ ...progress(), lines: { ...understood('square', 5), ...understood('cafe', 2) } });
-    const s = suggestedPlace(o.places);
+    const s = suggestedPlace(plain(o));
     expect(s?.place.id).toBe('friend');
     expect(s?.built).toBe(true);
   });
@@ -81,7 +126,7 @@ describe('whom to talk to next', () => {
   it('a place with lines still to understand comes before one that is only worth hearing again', () => {
     const all = (id: string) => understood(id, placeLines(id).length, 1);
     const o = view({ ...progress(), lines: { ...all('square'), ...all('cafe'), ...understood('friend', 3) } });
-    expect(suggestedPlace(o.places)?.place.id).toBe('friend');
+    expect(suggestedPlace(plain(o))?.place.id).toBe('friend');
   });
 });
 
@@ -215,7 +260,7 @@ describe('words', () => {
     const o = view(progress());
     const cafe = o.places.find((p) => p.place.id === 'cafe')!;
     const shop = o.places.find((p) => p.place.id === 'shop')!;
-    expect(talkLabel(cafe)).toBe('Tới chỗ Emma ở Quán cà phê và bắt chuyện');
+    expect(talkLabel({ ...cafe, episode: null })).toBe('Tới chỗ Emma ở Quán cà phê và bắt chuyện');
     expect(lotLabel(shop)).toBe('Xây Cửa hàng, 30 xu');
     expect(new Set(o.places.map((p) => (p.built ? talkLabel(p) : lotLabel(p)))).size).toBe(TOWN_PLACES.length);
   });

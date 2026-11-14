@@ -39,6 +39,10 @@ export function formatCounts(counts, inv, kbps = DEFAULT_KBPS) {
   for (const [k, v] of Object.entries(counts.byMode)) lines.push(`  ${pad(k, 11)}${num(v.clips)} clip ${num(v.chars)} ký tự`)
   lines.push('Theo phần:')
   for (const [k, v] of Object.entries(counts.byPart)) lines.push(`  ${pad(k, 11)}${num(v.clips)} clip ${num(v.chars)} ký tự`)
+  if (counts.byVoice && Object.keys(counts.byVoice).length > 1) {
+    lines.push('Theo giọng (gemini-kore = giọng mặc định; các giọng khác: người trong Thị trấn):')
+    for (const [k, v] of Object.entries(counts.byVoice)) lines.push(`  ${pad(k, 36)}${num(v.clips)} clip ${num(v.chars)} ký tự`)
+  }
   lines.push(
     `Chỉ dùng ở "Từng cụm" (chép chính tả, browserOnly): ${counts.browserOnly.clips} clip, ${counts.browserOnly.chars} ký tự ` +
       '(có tạo; generate-audio --skip-browser-only để bỏ)',

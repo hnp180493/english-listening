@@ -31,6 +31,15 @@ export function lotsOnOffer(places: readonly Pick<PlaceView, 'place' | 'built' |
     .map(({ p }) => p.place.id);
 }
 
+/**
+ * What floats over a resident: an episode due for its re-listen or one to hear comes before the lines (its own
+ * markers, 'relisten' / 'story'), then what waits among the place's lines.
+ */
+export function markerOf(p: Pick<PlaceView, 'marker' | 'episode'>): Marker | null {
+  if (p.episode) return p.episode.mode === 'relisten' ? 'relisten' : 'story';
+  return p.marker;
+}
+
 /** What the canvas draws, from what the learner has understood, built and bought. */
 export function stageStateOf(o: Pick<TownOverview, 'places' | 'decorations'>, theme: TownTheme): StageState {
   const lit: Record<string, number> = {};
@@ -40,7 +49,8 @@ export function stageStateOf(o: Pick<TownOverview, 'places' | 'decorations'>, th
     if (!p.built) continue;
     built.push(p.place.id);
     lit[p.place.id] = p.lit;
-    if (p.marker) marker[p.place.id] = p.marker;
+    const m = markerOf(p);
+    if (m) marker[p.place.id] = m;
   }
   return { built, sites: lotsOnOffer(o.places), decorations: o.decorations.filter((d) => d.bought).map((d) => d.decoration.id), lit, marker, theme };
 }
@@ -55,25 +65,39 @@ export function lotLabelsOf(o: Pick<TownOverview, 'places'>): Record<string, str
   return out;
 }
 
-const MARKER_RANK: Readonly<Record<string, number>> = { new: 0, repeat: 1, heart: 2 };
+const MARKER_RANK: Readonly<Record<Marker, number>> = { relisten: 0, story: 1, new: 2, repeat: 3, heart: 4 };
 
 /**
- * Whom to talk to next: somebody with lines not understood yet before somebody worth hearing again, and among
- * those the one the learner knows least. Null only when nothing is built (never: three places are free).
+ * Whom to talk to next: a re-listen that is due first (spaced re-listening only works on its day), then an episode
+ * to hear, then somebody with lines not understood yet, then somebody worth hearing again; among equals the place
+ * the learner knows least (an episode: the lowest episode number first). Null only when nothing is built (never:
+ * three places are free).
  */
 export function suggestedPlace(places: readonly PlaceView[]): PlaceView | null {
   let best: PlaceView | null = null;
   for (const p of places) {
-    if (!p.built || p.stats.total === 0) continue;
+    if (!p.built || (p.stats.total === 0 && !p.episode)) continue;
     if (!best) {
       best = p;
       continue;
     }
-    const a = MARKER_RANK[p.marker ?? 'heart'];
-    const b = MARKER_RANK[best.marker ?? 'heart'];
-    if (a < b || (a === b && p.lit < best.lit)) best = p;
+    const a = MARKER_RANK[markerOf(p) ?? 'heart'];
+    const b = MARKER_RANK[markerOf(best) ?? 'heart'];
+    const order = (p.episode?.order ?? 0) - (best.episode?.order ?? 0);
+    if (a < b || (a === b && (order < 0 || (order === 0 && p.lit < best.lit)))) best = p;
   }
   return best;
+}
+
+/**
+ * The words of the main button for a resident: `near` = the player stands beside them ("Bắt chuyện"), else walk
+ * there first ("Tới gặp"). An episode says which one; a re-listen says so.
+ */
+export function talkPrompt(p: Pick<PlaceView, 'place' | 'episode'>, near: boolean): string {
+  const who = p.place.resident;
+  if (p.episode?.mode === 'relisten') return `Nghe lại chuyện với ${who}`;
+  if (p.episode) return `${near ? 'Bắt chuyện với' : 'Tới gặp'} ${who} · Tập ${p.episode.order}`;
+  return `${near ? 'Bắt chuyện với' : 'Tới gặp'} ${who}`;
 }
 
 /** Neighbours of a resident, best place to stand first: beside them on the screen, then in front, never hidden behind when it can be helped. */
@@ -207,8 +231,11 @@ export function primaryBuy(lots: readonly PlaceView[], decorations: readonly Dec
 
 // ───────────────────────── words ─────────────────────────
 
-export function talkLabel(p: Pick<PlaceView, 'place'>): string {
-  return `Tới chỗ ${p.place.resident} ở ${p.place.name} và bắt chuyện`;
+export function talkLabel(p: Pick<PlaceView, 'place'> & Partial<Pick<PlaceView, 'episode'>>): string {
+  const at = `Tới chỗ ${p.place.resident} ở ${p.place.name}`;
+  if (p.episode?.mode === 'relisten') return `${at} và nghe lại Tập ${p.episode.order}: ${p.episode.title}`;
+  if (p.episode) return `${at} và nghe Tập ${p.episode.order}: ${p.episode.title}`;
+  return `${at} và bắt chuyện`;
 }
 
 export function lotLabel(p: Pick<PlaceView, 'place' | 'cost'>): string {

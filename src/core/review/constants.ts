@@ -52,9 +52,9 @@ export const NOTICE_MIN = 5;
  */
 export const WORD_NEW_PER_DAY = 6;
 
-export const KIND_ORDER: readonly ReviewKind[] = ['dict', 'pair', 'chunk', 'lesson', 'media', 'word'];
+export const KIND_ORDER: readonly ReviewKind[] = ['dict', 'pair', 'chunk', 'lesson', 'media', 'word', 'talk'];
 export const TAP_KINDS: readonly ReviewKind[] = ['pair', 'chunk', 'word', 'lesson'];
-export const TYPING_KINDS: readonly ReviewKind[] = ['dict', 'media'];
+export const TYPING_KINDS: readonly ReviewKind[] = ['dict', 'media', 'talk'];
 
 export const KIND_LABEL: Readonly<Record<ReviewKind, string>> = {
   dict: 'Chép chính tả',
@@ -63,6 +63,7 @@ export const KIND_LABEL: Readonly<Record<ReviewKind, string>> = {
   lesson: 'Bài học',
   media: 'Câu từ video',
   word: 'Từ đã học',
+  talk: 'Câu ở thị trấn',
 };
 
 export const KIND_SHORT: Readonly<Record<ReviewKind, string>> = {
@@ -72,6 +73,7 @@ export const KIND_SHORT: Readonly<Record<ReviewKind, string>> = {
   lesson: 'Bài học',
   media: 'Câu video',
   word: 'Từ',
+  talk: 'Câu thị trấn',
 };
 
 export const KIND_ROUTE: Readonly<Record<ReviewKind, RouteId>> = {
@@ -81,6 +83,7 @@ export const KIND_ROUTE: Readonly<Record<ReviewKind, RouteId>> = {
   lesson: 'lessons',
   media: 'media',
   word: 'lessons',
+  talk: 'town',
 };
 
 /** Time estimate per item (seconds). */
@@ -91,7 +94,8 @@ export const KIND_SECONDS: Readonly<Record<ReviewKind, number>> = {
   chunk: 12,
   lesson: 75,
   word: 15, // one tap (listen → choose) or read aloud + flip + self-grade
+  talk: 40, // a dictation of one line of a town episode, in its speaker's voice
 };
 
 /** Kinds whose successful enrolments count against NEW_ENROL_PER_DAY. */
-export const BUDGETED_KINDS: readonly StoredKind[] = ['dict', 'pair'];
+export const BUDGETED_KINDS: readonly StoredKind[] = ['dict', 'pair', 'talk'];

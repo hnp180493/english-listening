@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AUDIO_STYLE_VERSION, AUDIO_VOICE, audioKey, fnv1a64, type AudioClipMode } from './audioKey';
-import { buildAudioInventory, defaultInventoryContent, inventoryCounts, styleForMode, type InventoryContent } from './audioInventory';
+import { buildAudioInventory, clipStyle, defaultInventoryContent, inventoryCounts, styleForMode, type InventoryContent } from './audioInventory';
 import { decode } from './decoder';
 import { annotationSpeech, CAREFUL_STYLE, carefulPlan, compareCarefulPlan, CONNECTED_STYLE, connectedPlan, connectedText, sayOf } from './playback';
 import { BENCHMARK_FORMS } from '../data/benchmark';
@@ -17,9 +17,16 @@ import { CUSTOM_EXAMPLES, resolveSource, sentenceSource } from '../features/shad
 import { buildSteps } from '../features/shadowing/steps';
 import { PAIR_SETS } from '../data/pairs';
 import type { Sentence } from './types';
+import { TOWN_STORIES } from '../data/townStories';
+import type { StoryEpisode } from './town/story';
+import { storyLinePlayback } from './town/storyAudio';
+import { CAST_VOICES, voiceOf } from './town/voices';
+import { GEMINI_VOICES } from './ai/defaults';
+import { CAREFUL_RATE } from './playback';
 
 const inv = buildAudioInventory();
 const keys = new Set(inv.clips.map((c) => c.key));
+const byKey = new Map(inv.clips.map((c) => [c.key, c]));
 /** The clip the router would look up for this playback is in the inventory. */
 const has = (mode: AudioClipMode, text: string) => keys.has(audioKey(mode, text));
 
@@ -29,10 +36,12 @@ describe('audio inventory: shape', () => {
     expect(inv.styleVersion).toBe(AUDIO_STYLE_VERSION);
     expect(keys.size).toBe(inv.clips.length);
     for (const c of inv.clips) {
-      expect(c.key).toBe(audioKey(c.mode, c.text));
+      expect(c.key).toBe(audioKey(c.mode, c.text, c.voice ? { voice: c.voice, accent: c.accent } : undefined));
       expect(c.text).toBe(c.text.trim());
       expect(c.text).toMatch(/[\p{L}\p{N}]/u);
-      expect(c.style).toBe(styleForMode(c.mode));
+      expect(c.style).toBe(clipStyle(c.mode, c.accent));
+      if (!c.accent) expect(c.style).toBe(styleForMode(c.mode));
+      if (c.voice) expect(c.source).toBe('town');
       expect(c.refs[0]).toBe(`${c.source}:${c.ref}`);
       expect(c.sources[0]).toBe(c.source);
     }
@@ -57,6 +66,8 @@ describe('audio inventory: shape', () => {
     expect(n.byMode.plain.clips).toBeGreaterThan(500);
     expect(Object.values(n.bySource).reduce((s, v) => s + (v?.clips ?? 0), 0)).toBe(n.clips);
     expect(Object.values(n.byPart).reduce((s, v) => s + (v?.chars ?? 0), 0)).toBe(n.chars);
+    expect(Object.values(n.byVoice).reduce((s, v) => s + v.clips, 0)).toBe(n.clips);
+    expect(n.byVoice[AUDIO_VOICE].clips).toBeGreaterThan(5000);
   });
 });
 
@@ -187,6 +198,7 @@ describe('audio inventory: fixture', () => {
     guideSays: ['...', 'gonna'],
     settingsSample: 'Hello.',
     shadowSuggestions: ['Let me get back to you on that.'],
+    stories: [],
   };
   const small = buildAudioInventory(content);
 
@@ -213,5 +225,71 @@ describe('audio inventory: fixture', () => {
       if (c.browserOnly) expect(c.sources).toEqual(['dictation']);
       if (c.part !== 'chunk') expect(c.browserOnly).toBe(false);
     }
+  });
+});
+
+describe('audio inventory: "Thị trấn" stories (one voice per speaker)', () => {
+  it("every story line has a connected and a careful clip in its speaker's voice, keyed as the UI plays it", () => {
+    expect(TOWN_STORIES.length).toBeGreaterThan(0);
+    for (const ep of TOWN_STORIES) {
+      for (const line of ep.lines) {
+        for (const mode of ['connected', 'careful'] as const) {
+          const p = storyLinePlayback(line, ep, mode);
+          expect(p.voice).toEqual(voiceOf(line.who, ep.placeId));
+          const clip = byKey.get(audioKey(p.mode, p.text, p.voice));
+          expect(clip, `${line.id} ${mode}`).toBeDefined();
+          expect(clip!.refs).toContain(`town:${line.id}`);
+          expect(clip!.style).toBe(clipStyle(mode, p.voice.accent));
+        }
+      }
+    }
+  });
+
+  it('every cast voice is a Gemini prebuilt voice (the generator refuses any other)', () => {
+    for (const [who, v] of Object.entries(CAST_VOICES)) expect(GEMINI_VOICES as readonly string[], who).toContain(v.voice);
+  });
+
+  it("story playback: connected = dictation's connected text, careful = the written text at CAREFUL_RATE", () => {
+    const ep = TOWN_STORIES[0];
+    const line = ep.lines[0];
+    expect(storyLinePlayback(line, ep, 'connected')).toEqual({ text: dictationAudio(line).connected, mode: 'connected', voice: voiceOf(line.who, ep.placeId) });
+    expect(storyLinePlayback(line, ep, 'careful')).toEqual({ text: line.text, mode: 'careful', rate: CAREFUL_RATE, voice: voiceOf(line.who, ep.placeId) });
+  });
+
+  const ep: StoryEpisode = {
+    id: 'x-1',
+    placeId: 'home',
+    order: 1,
+    title: '',
+    scene: '',
+    level: 1,
+    lines: [
+      { id: 'x-1-01', who: 'them', text: 'Tell him I will call him back.', vi: '' },
+      { id: 'x-1-02', who: 'you', text: 'Tell him I will call him back.', vi: '' },
+      { id: 'x-1-03', who: 'office', text: 'Tell him I will call him back.', vi: '' },
+    ],
+    gist: { q: '', options: ['', '', ''], answer: 0 },
+  };
+  const s1: Sentence = { id: 'x1', text: 'Tell him I will call him back.', vi: '', level: 1, topic: '', focus: [] };
+  const empty: InventoryContent = { sentences: [s1], chunks: [], lessons: [], forms: [], pairs: [], decoderExamples: [], exampleSay: {}, guideSays: [], settingsSample: 'Hello.', shadowSuggestions: [], stories: [ep] };
+  const small = buildAudioInventory(empty);
+
+  it('the same words by three speakers are three clips, each in its own voice', () => {
+    const town = small.clips.filter((c) => c.refs.some((r) => r.startsWith('town:')));
+    const connected = town.filter((c) => c.mode === 'connected');
+    expect(connected).toHaveLength(3);
+    const grace = connected.find((c) => c.refs.includes('town:x-1-01'))!;
+    expect(grace).toMatchObject({ voice: 'Gacrux', accent: 'light British accent', source: 'town' });
+    expect(grace.style).toContain('light British accent');
+    expect(grace.style).not.toContain('American');
+    expect(connected.find((c) => c.refs.includes('town:x-1-02'))).toMatchObject({ voice: 'Puck', style: CONNECTED_STYLE });
+    // Sarah (office) has a voice of her own (Sulafat): the same words as a dictation sentence are a different clip
+    const sarah = connected.find((c) => c.refs.includes('town:x-1-03'))!;
+    expect(sarah.voice).toBe('Sulafat');
+    expect(sarah.key).not.toBe(audioKey('connected', dictationAudio(s1).connected));
+    expect(sarah.source).toBe('town');
+    const n = inventoryCounts(small);
+    expect(n.bySource.town?.clips).toBe(6); // Grace + Puck + Sarah, connected + careful
+    expect(Object.keys(n.byVoice).sort()).toEqual(['gemini-gacrux~light British accent', 'gemini-kore', 'gemini-puck', 'gemini-sulafat']);
   });
 });

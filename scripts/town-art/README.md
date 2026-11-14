@@ -48,13 +48,32 @@ How it works:
 ## 3. What comes out (characters)
 
 - `characters/<id>.webp`: one atlas per person, at 2.5 atlas px per world px (`RES`: the phone's resting zoom on a
-  2× screen, so faces are drawn 1:1 there) and WebP quality 0.74. Each person has 106 frames:
-  - idle: 6 frames, looping;
-  - walk: 8 frames, looping;
-  - both in 5 directions (S, SE, E, NE, N). SW, W and NW are SE, E and NE mirrored. The `-mirror` contact sheet
-    shows that this matches real renders;
-  - the emotes `yes` (a nod), `no` (a head shake) and `wave` (Kenney's `interact-right`, a reach): 6 frames each,
-    facing SE and NE, so the four diagonals with mirroring.
+  2× screen, so faces are drawn 1:1 there) and WebP quality 0.74. Each person has 188 frames. In every one the arms
+  hang about 17° off the body (render.js `ARM_REST`, `setArm`): Kenney's clips hold them 45° out (an A-pose) and
+  swing them out to the side, which read as a stiff "zombie" stance from the front and the back:
+  - walk: 16 frames, looping, in 5 directions (S, SE, E, NE, N). SW, W and NW are SE, E and NE mirrored. The
+    `-mirror` contact sheet shows that this matches real renders. The player's is a brisk walk, the residents' a
+    stroll (`GAITS` in render.mjs: Kenney's walk with smaller swings; render.js `gaitClip`). The body rides at one
+    height through the cycle, `lift` (about 1.2 world px) over the idle's ground line: half of how deep a rocking
+    box shoe's corner would dig in at most, so the soles float about as much with the legs together as a corner
+    sinks mid-stride. Kenney's own root bob (a 3 px hop) is dropped, and so is the lift frame by frame by the shoe's
+    corner the walk once had: that put the body lowest with the legs together and highest mid-stride, the wrong way
+    round for a walk, a small hop at every step (about 3 atlas px, five times a second). The game lowers the walk by
+    `lift` as it slows to a stand (engine/gait.ts `walkDrop`), so legs together on the spot stands on the idle's
+    line. The frames are timed so that frames 0 and 8 are both legs together: Kenney's walk crosses its legs again at
+    45% of the clip, not half, and the game stops on either (`walkSampleTime`). `measureStride` measures what the
+    feet cover per cycle and the manifest carries it (`gaits`): the game drives the cycle by the distance walked. The arms
+    swing forward and back from the shoulder opposite to the legs (`walkArms`, `armSwing` 26° brisk / 17° stroll),
+    coming in a little towards the body as they go forward, so the swing reads from the front and the back too;
+  - idle: 30 frames over 2 s, looping, facing the viewer (S, SE; SW mirrored), made in render.js (`procPose`):
+    breathing, the weight going from foot to foot (the body rocks 1.4° on its feet), a small look to the side, the
+    arms settling. Nobody stands any other way for long, and walk frame 0 is the same pose for the moment they turn;
+  - the emotes, made in render.js (`procPose`), facing SE (SW mirrored): `yes` two nods from the first frame
+    (0.7 s, 13 frames), `no` two and a half quick head shakes with the hands coming up (0.8 s, 15 frames), `wave`
+    the near arm up beside the head, two waves, down (1.1 s, 20 frames). One-shots are sampled from their first to
+    their last pose, so they end on the rest pose.
+  - Every animation shows 15 frames a second or more at the game's speeds (20 or more walking), the emotes at the
+    slowest of their tempos too (the game plays each at 1 ± `ACT_TEMPO` 0.1): a test checks it.
 - `characters/shadow.webp`: the contact shadow. It is the same for everyone, so it is drawn once under each person
   instead of being baked into every frame. That saves about 0.9 MB.
 - `characters/portraits.webp`: a 192 px bust per person (three-quarter front), for 96 px and 56 px use, in two
@@ -63,8 +82,12 @@ How it works:
   `drawCharacterSprite`, `dirFromTileVector`, `portraitStyle`… The cast (who is which model, with glasses or a
   palette swap) is `cast.ts`.
 
-Size budget for `src/features/town/art/`: about 6 MB in total, characters about 4.4 MB, the world about 0.9 MB.
-The script prints the sizes.
+Size budget for `src/features/town/art/`: about 9 MB in total, characters under 8 MB (7.95 MB: atlases 7.82 MB,
+portraits 0.13 MB; no room left for more frames), the world about 1.1 MB (the cat: 12 walk, 24 sitting and 8 sitting-down frames per direction). WebP quality barely changes the size (the alpha channel is lossless), the
+frame count does.
+The script prints the sizes. Decoded, the pictures take far more memory than their bytes: about 130 MB of RGBA for
+the characters and 44 MB for the world (width × height × 4 of every atlas). The game keeps them as ImageBitmaps only
+while the town page is open and for 30 s after (`art/load.ts` `holdTownArt`), then closes them.
 
 **Trial runs:** `--only` still renders the world after the trial characters unless `--part characters` is given
 (`npm run art:town -- --part characters --only player,cafe`). One trial run on 2026-11-14 without it rewrote
@@ -85,7 +108,8 @@ them. `page/world.js` renders items; the recipes say how each one is built:
   with its door on +Z and turned a quarter for a door on the +X face (`face` in townWorld.ts).
 - `page/props.js`: empty lots (a construction site for the next one to build, a grass patch for the others, one per
   footprint size), trees (round ×3, pine ×2, Kenney's poplars ×2), bushes, rocks, every decoration, the café's
-  terrace, the bus, string lights between fixed points, and a low-poly cat with walk and sit poses.
+  terrace, the bus, string lights between fixed points, and a low-poly cat with walk, sit and sit-down poses (the
+  game plays sitting down backwards to stand up).
 - `page/ground.js`: the ground as ONE picture: the island (rounded slab, grassy lip, earth sides), its top painted
   in tile space (grass, round paths, the cobbled plaza, the pond, doorsteps), a plaza curb, rocks by the pond, grass
   tufts and the fixed trees' shadows. One picture rather than tiles: the round paths, plaza and pond would need many
@@ -117,7 +141,10 @@ the people: `town-day`, `town-night`, `town-start` (two places built, three cons
   copy is made for one mesh only (`body-mesh` = clothes, `head-mesh` = hair and face). To find which cells a model
   uses, read the TEXCOORD_0 values of its GLB.
 - **female-a:** her crutches are part of her body mesh. `MODEL_FIXES` in `render.mjs` removes them (the blue pieces
-  out along the arms).
+  out along the arms). They go from the index only, so the vertices stay in the position buffer: everything that
+  measures the body reads only the vertices still drawn (`drawnVertices` in `page/render.js`). Counted, the crutches
+  swung below the ground in the walk and lifted her whole walk about 4 world px over her idle; she floated and
+  dropped at every stop (`characters.test.ts` now checks every person's foot line, walking and standing).
 - **male-e (the player):** his hands and shoes share one black colour cell, so a palette swap cannot give him bare
   hands. `MODEL_FIXES` repaints only the vertices out along the arms (|x| ≥ 0.2 in the bind pose) to the skin cell
   (`paint`), and `cast.ts` swaps his hair to fair and his braces to blue.

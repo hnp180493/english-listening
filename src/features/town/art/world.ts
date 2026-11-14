@@ -17,14 +17,15 @@
 // before anything that stands, so a person walking past is never darkened).
 
 import type { DecorationId, DecorSpot, PlaceId, WorldPlace } from '../../../data/townWorld';
-import { frameAt, resolveDir, type Dir8 } from './characters';
+import { closeArtImage, frameAt, loadArtImage, resolveDir, type ArtImage, type Dir8 } from './characters';
 import { WORLD_ART, type WorldArtData, type WorldRect, type WorldSpriteKey } from './world.data';
 import { tileHash, treeSpriteKey, type TreeKindArt } from './worldPick';
 
 export type { WorldSpriteKey } from './world.data';
 export type WorldLayer = 'body' | 'lit' | 'shadow';
 export type LotLook = 'site' | 'grass';
-export type CatAnim = 'walk' | 'sit';
+/** walk, sit (a loop) and down: sitting down (frame 0 standing, the last seated; played backwards it stands up). */
+export type CatAnim = 'walk' | 'sit' | 'down';
 
 const isKey = (data: WorldArtData, key: string): key is WorldSpriteKey => key in data.sprites;
 
@@ -177,15 +178,10 @@ export function spriteTop(key: WorldSpriteKey, data: WorldArtData = WORLD_ART): 
 
 // ---- browser side: images ------------------------------------------------------------------------------------------
 
-const images = new Map<string, HTMLImageElement>();
+const images = new Map<string, ArtImage>();
 let loading: Promise<void> | null = null;
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  const img = new Image();
-  img.decoding = 'async';
-  img.src = url;
-  return img.decode().then(() => img);
-}
+/** Bumped by releaseWorldArt: a load still on its way then is not kept. */
+let generation = 0;
 
 /**
  * Load the ground and every atlas once (about 1 MB of WebP). Until it resolves, the draw functions return false,
@@ -194,12 +190,14 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 export function loadWorldArt(data: WorldArtData = WORLD_ART): Promise<void> {
   if (loading) return loading;
   const urls = [data.ground.url, ...data.atlases.map((a) => a.url)];
+  const gen = generation;
   loading = Promise.all(
     urls.map((u) =>
       images.has(u)
         ? undefined
-        : loadImage(u).then((img) => {
-            images.set(u, img);
+        : loadArtImage(u).then((img) => {
+            if (gen === generation) images.set(u, img);
+            else closeArtImage(img);
           }),
     ),
   ).then(
@@ -212,14 +210,22 @@ export function loadWorldArt(data: WorldArtData = WORLD_ART): Promise<void> {
   return loading;
 }
 
+/** Let go of the decoded ground and atlases (about 44 MB of pixels): see releaseCharacterArt. */
+export function releaseWorldArt(): void {
+  generation++;
+  for (const img of images.values()) closeArtImage(img);
+  images.clear();
+  loading = null;
+}
+
 /** The decoded image of atlas `index` (world.data.ts `atlases`), null until loaded. */
-export function worldImage(index: number, data: WorldArtData = WORLD_ART): HTMLImageElement | null {
+export function worldImage(index: number, data: WorldArtData = WORLD_ART): ArtImage | null {
   const a = data.atlases[index];
   return a ? (images.get(a.url) ?? null) : null;
 }
 
 /** The decoded ground picture, null until loaded. */
-export function groundImage(data: WorldArtData = WORLD_ART): HTMLImageElement | null {
+export function groundImage(data: WorldArtData = WORLD_ART): ArtImage | null {
   return images.get(data.ground.url) ?? null;
 }
 

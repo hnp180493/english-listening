@@ -112,6 +112,17 @@ describe('merger laws', () => {
       null,
     ]);
   const townItems = ['home', 'shop', 'park', 'lamps1', 'cat', 'Bad Id', 'constructor'];
+  // episodes (version 3): every field at different stages, junk records and ids now and then
+  const townEpisode = () =>
+    pick<unknown>([
+      { stage: ri(6), at: T0 + ri(5), okAt: T0 + ri(5), firstGist: ri(3), bestLines: ri(7) },
+      { stage: 1 + ri(3), at: T0 + ri(3), okAt: T0 + ri(3), firstGist: 2, bestLines: ri(4) },
+      { stage: 0, firstGist: 1 },
+      { stage: 9, at: -5, okAt: 'x', firstGist: 7, bestLines: 1e9 },
+      null,
+      'x',
+    ]);
+  const townEpisodes = () => Object.fromEntries(['cafe-1', 'cafe-2', 'shop-1', 'Bad Id', 'constructor'].filter(() => maybe(0.5)).map((id) => [id, townEpisode()]));
   checkLaws(
     'town progress',
     mergeTown,
@@ -121,7 +132,8 @@ describe('merger laws', () => {
       const from = ri(40);
       const span = townDays.slice(from, from + 1 + ri(70));
       return {
-        version: 2,
+        version: pick([2, 3]),
+        ...(maybe(0.7) ? { episodes: townEpisodes() } : {}),
         lines: townLines(),
         earned: Object.fromEntries([...townDevices, 'NOT A DEVICE'].filter(() => maybe(0.6)).map((d) => [d, pick([0, 3, 12, 12.5, 40, -2])])),
         bought: townItems.filter(() => maybe(0.4)),

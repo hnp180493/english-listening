@@ -4,6 +4,9 @@
  * not in public/audio yet is spoken by Gemini TTS (model + voice Kore from src/core/ai/defaults.ts, the request
  * body from the app's own buildGeminiTtsBody, style per mode from src/core/playback.ts), checked, trimmed of
  * edge silence, encoded to MP3 (pure JS, no ffmpeg) and listed in public/audio/manifest.json. docs/audio.md.
+ * A clip with a speaker of its own ("Thị trấn" story lines: inventory `voice` / `accent`, src/core/town/voices.ts) is
+ * spoken in that Gemini voice, with the accent appended to its style (audioInventory.clipStyle), in sequential and
+ * batch mode alike (each batch request carries its own voice).
  *
  *   GEMINI_API_KEY=… npm run audio:generate                      batch API (default; half price, no per-minute limit)
  *   GEMINI_API_KEY=… npm run audio:generate -- --mode sequential  one request at a time, ≤ --rpm per minute
@@ -167,9 +170,10 @@ export async function run(argv, env = process.env) {
   if (!inv || !Array.isArray(inv.clips)) throw new Error(`Không đọc được inventory ${opts.inventory ?? ''}`)
   if (inv.voice && inv.voice !== app.key.AUDIO_VOICE) throw new Error(`Inventory cho giọng ${inv.voice}, app dùng ${app.key.AUDIO_VOICE}`)
   const all = new Map()
-  for (const c of inv.clips) {
-    if (app.key.audioKey(c.mode, c.text) !== c.key) throw new Error(`Inventory cũ: key ${c.key} không khớp "${c.text}" (chạy lại npm run audio:inventory)`)
-    all.set(c.key, { ...c, style: app.inventory.styleForMode(c.mode) })
+  for (const raw of inv.clips) {
+    const c = clipWithVoice(app, raw)
+    if (app.key.audioKey(c.mode, c.text, clipVoiceOf(c)) !== c.key) throw new Error(`Inventory cũ: key ${c.key} không khớp "${c.text}" (chạy lại npm run audio:inventory)`)
+    all.set(c.key, c)
   }
   const wanted = [...all.values()].filter((c) => opts.includeBrowserOnly || !c.browserOnly)
 
@@ -202,7 +206,7 @@ export async function run(argv, env = process.env) {
       continue
     }
     const d = Number.isFinite(oldClips[key]?.d) ? oldClips[key].d : scan.durationMs
-    clips[key] = { f, d, src: c.source }
+    clips[key] = manifestEntry(c, f, d)
     presentBytes += bytes.length
     presentEst += estimateSeconds(c.text, c.mode)
   }
@@ -259,7 +263,7 @@ export async function run(argv, env = process.env) {
       await writeFileAtomic(join(opts.out, `${clip.key}.mp3`), mp3)
       // the raw clip is kept (not shipped): a later re-encode (bitrate, trim) costs no request
       if (opts.keepWav && !inline.bytes) await writeFileAtomic(join(wavDir, `${clip.key}.wav`), wavBytes)
-      clips[clip.key] = { f: `${clip.key}.mp3`, d, src: clip.source }
+      clips[clip.key] = manifestEntry(clip, `${clip.key}.mp3`, d)
       delete failed[clip.key]
       made++
       if (++sinceFlush >= MANIFEST_FLUSH_EVERY) {
@@ -293,8 +297,16 @@ export async function run(argv, env = process.env) {
   )
   if (opts.dryRun) {
     const by = {}
-    for (const c of missing) by[c.source] = (by[c.source] ?? 0) + 1
+    const byVoice = {}
+    for (const c of missing) {
+      by[c.source] = (by[c.source] ?? 0) + 1
+      const v = c.voice ? `${c.voice}${c.accent ? ` (${c.accent})` : ''}` : voiceName
+      byVoice[v] ??= { clips: 0, chars: 0 }
+      byVoice[v].clips++
+      byVoice[v].chars += c.text.length
+    }
     await log(`Còn tạo theo nguồn: ${Object.entries(by).map(([k, v]) => `${k} ${v}`).join(', ') || 'không có'}`)
+    await log(`Còn tạo theo giọng: ${Object.entries(byVoice).map(([k, v]) => `${k} ${v.clips} clip/${v.chars} ký tự`).join(', ') || 'không có'}`)
     return 0
   }
   if (reusable.length) {
@@ -377,7 +389,7 @@ export async function run(argv, env = process.env) {
   }
 
   const ttsUrl = `${baseUrl}/models/${encodeURIComponent(model)}:generateContent`
-  const requestFor = (clip) => app.gemini.buildGeminiTtsBody(model, voiceName, { text: clip.text, style: clip.style })
+  const requestFor = (clip) => ttsRequestFor(app, model, voiceName, clip)
 
   /** Sequential: each clip at most twice (a bad clip is asked for again once), then recorded as failed. */
   const sequential = async (list) => {
@@ -410,10 +422,10 @@ export async function run(argv, env = process.env) {
         }
         done++
         if (problem) {
-          failed[clip.key] = { text: clip.text, mode: clip.mode, source: clip.source, error: problem, at: new Date().toISOString() }
-          await log(`[${done}/${list.length}] LỖI ${clip.key} "${clip.text}": ${problem}`)
+          failed[clip.key] = { text: clip.text, mode: clip.mode, ...voiceFields(clip), source: clip.source, error: problem, at: new Date().toISOString() }
+          await log(`[${done}/${list.length}] LỖI ${clip.key}${clip.voice ? ` [${clip.voice}]` : ''} "${clip.text}": ${problem}`)
         } else {
-          await log(`[${done}/${list.length}] ok ${clip.key} ${(clips[clip.key].d / 1000).toFixed(1)}s "${clip.text}"`)
+          await log(`[${done}/${list.length}] ok ${clip.key}${clip.voice ? ` [${clip.voice}]` : ''} ${(clips[clip.key].d / 1000).toFixed(1)}s "${clip.text}"`)
         }
       }
     }
@@ -486,7 +498,7 @@ export async function run(argv, env = process.env) {
       const part = toSubmit.slice(i, i + opts.batchSize)
       const displayName = `nna-audio-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${i / opts.batchSize}`
       // recorded BEFORE the call: a run cut short during it finds the job again by this name
-      const job = { name: null, displayName, submitting: true, createdAt: new Date().toISOString(), state: 'SUBMITTING', collected: false, clips: part.map((c) => ({ key: c.key, text: c.text, mode: c.mode })) }
+      const job = { name: null, displayName, submitting: true, createdAt: new Date().toISOString(), state: 'SUBMITTING', collected: false, clips: part.map((c) => ({ key: c.key, text: c.text, mode: c.mode, ...voiceFields(c) })) }
       state.jobs.push(job)
       await saveState()
       const body = {
@@ -632,7 +644,7 @@ export async function run(argv, env = process.env) {
         await log(`${retry.length} clip batch trả về lỗi: thử lại từng cái (giá thường, mỗi clip tối đa 2 lần).`)
         await sequential(retry)
       } else if (retry.length) {
-        for (const c of retry) failed[c.key] ??= { text: c.text, mode: c.mode, source: c.source, error: 'batch không trả về clip hợp lệ', at: new Date().toISOString() }
+        for (const c of retry) failed[c.key] ??= { text: c.text, mode: c.mode, ...voiceFields(c), source: c.source, error: 'batch không trả về clip hợp lệ', at: new Date().toISOString() }
       }
     } else {
       await sequential(missing)
@@ -661,6 +673,50 @@ export async function run(argv, env = process.env) {
   if (code === 0 && nFailed > waiting) code = 3
   else if (code === 0 && waiting > 0) code = 4
   return code
+}
+
+// ───────────────────────────────────────────── voices
+
+/** { voice, accent } of a clip with a speaker of its own ("Thị trấn"), for audioKey; undefined = the default voice. */
+export function clipVoiceOf(clip) {
+  return clip.voice ? { voice: clip.voice, accent: clip.accent } : undefined
+}
+
+/** The voice fields to keep with a clip in batches.json / failed.json (none for the default voice). */
+function voiceFields(clip) {
+  return clip.voice ? { voice: clip.voice, ...(clip.accent ? { accent: clip.accent } : {}) } : {}
+}
+
+/** Manifest entry of a clip: { f, d, src }, plus v (the speaker's Gemini voice) for a clip with one (the app ignores it). */
+function manifestEntry(clip, f, d) {
+  return clip.voice ? { f, d, src: clip.source, v: clip.voice } : { f, d, src: clip.source }
+}
+
+/**
+ * An inventory clip ready for generation: its voice checked against the Gemini prebuilt voices (an unknown name would
+ * fail every request, so it stops the run before any is sent) and written as Gemini spells it, its accent normalised,
+ * its style the one the app sends for that mode and accent (audioInventory.clipStyle).
+ */
+export function clipWithVoice(app, c) {
+  const out = { ...c }
+  delete out.voice
+  delete out.accent
+  if (c.voice) {
+    const known = app.defaults.GEMINI_VOICES.find((v) => v.toLowerCase() === String(c.voice).trim().toLowerCase())
+    if (!known) throw new Error(`Giọng "${c.voice}" của clip ${c.key} không phải giọng Gemini có sẵn (src/core/ai/defaults.ts GEMINI_VOICES)`)
+    const accent = app.key.normalizeAccent(c.accent)
+    if (!app.key.isDefaultClipVoice({ voice: known, accent })) {
+      out.voice = known
+      if (accent) out.accent = accent
+    }
+  }
+  out.style = app.inventory.clipStyle(c.mode, out.accent)
+  return out
+}
+
+/** The generateContent body for one clip: its own voice (else `defaultVoice`, Kore) and its style (accent included). */
+export function ttsRequestFor(app, model, defaultVoice, clip) {
+  return app.gemini.buildGeminiTtsBody(model, clip.voice || defaultVoice, { text: clip.text, style: clip.style })
 }
 
 // ───────────────────────────────────────────── responses

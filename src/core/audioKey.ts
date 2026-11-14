@@ -32,13 +32,59 @@ export function fnv1a64(input: string): string {
   return h.toString(36)
 }
 
+/** Gemini prebuilt voice of every clip without a voice of its own (AUDIO_VOICE = `gemini-${lowercase}`). */
+export const DEFAULT_CLIP_VOICE = 'Kore'
+
 /**
- * Key of the clip for exactly this (mode, text). The text is normalised only
- * by trimming: any other difference (case, punctuation, respelling) is a
- * different clip, because it sounds different.
+ * Who speaks a clip: a Gemini prebuilt voice name and an optional accent note for the style prompt ("Thị trấn"
+ * residents, src/core/town/voices.ts CastVoice fits this shape). Omitted = DEFAULT_CLIP_VOICE, no accent.
  */
-export function audioKey(mode: AudioClipMode, text: string): string {
-  return fnv1a64(`${AUDIO_VOICE}|${AUDIO_STYLE_VERSION}|${mode}|${text.trim()}`)
+export interface ClipVoice {
+  voice: string
+  accent?: string
+}
+
+/** The accent note as it enters keys and style prompts: trimmed, single spaces, no '|' (the key separator). */
+export function normalizeAccent(accent: string | null | undefined): string {
+  return typeof accent === 'string' ? accent.replace(/\|/g, '/').replace(/\s+/g, ' ').trim() : ''
+}
+
+/** True when `v` is the default voice of the shipped clips (Kore, no accent), or no voice at all. */
+export function isDefaultClipVoice(v: ClipVoice | null | undefined): boolean {
+  if (!v) return true
+  const name = typeof v.voice === 'string' ? v.voice.trim() : ''
+  return (!name || name.toLowerCase() === DEFAULT_CLIP_VOICE.toLowerCase()) && !normalizeAccent(v.accent)
+}
+
+/**
+ * The voice part of the hashed string: AUDIO_VOICE ('gemini-kore') for the default voice, so every key made before
+ * voices existed is unchanged; else `gemini-<voice>` plus `~<accent>` when there is one.
+ */
+export function clipVoiceId(v: ClipVoice | null | undefined): string {
+  if (isDefaultClipVoice(v)) return AUDIO_VOICE
+  const name = (v?.voice ?? '').trim() || DEFAULT_CLIP_VOICE
+  const accent = normalizeAccent(v?.accent)
+  return `gemini-${name.toLowerCase().replace(/[|~]/g, '')}${accent ? `~${accent}` : ''}`
+}
+
+/**
+ * Key of the clip for exactly this (mode, text, voice). The text is normalised only by trimming: any other
+ * difference (case, punctuation, respelling) is a different clip, because it sounds different. Without a voice (or
+ * with the default Kore and no accent) the key is the one every shipped clip was made with.
+ */
+export function audioKey(mode: AudioClipMode, text: string, voice?: ClipVoice | null): string {
+  return fnv1a64(`${clipVoiceId(voice)}|${AUDIO_STYLE_VERSION}|${mode}|${text.trim()}`)
+}
+
+/**
+ * The delivery style a clip is made (and an AI clip requested) with, for a speaker with an accent: the mode's style
+ * with "American English" made plain "English" and the accent appended. No accent = the style unchanged (undefined
+ * stays undefined: the AI layer's default style). `defaultStyle` stands in for undefined when there is an accent.
+ */
+export function styleWithAccent(style: string | undefined, accent: string | null | undefined, defaultStyle: string): string | undefined {
+  const a = normalizeAccent(accent)
+  if (!a) return style
+  return `${(style ?? defaultStyle).replace(/American English/g, 'English')}, spoken with a ${a}`
 }
 
 /** File name of a clip inside public/audio (and <portable>/audio). */

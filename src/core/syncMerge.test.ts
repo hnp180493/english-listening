@@ -442,9 +442,10 @@ describe('town-progress (Thị trấn)', () => {
     bought: string[];
     daily: Record<string, Record<string, Daily>>;
     days: string[];
+    episodes: Record<string, { stage: number; at: number; okAt: number; firstGist: number; bestLines: number }>;
   };
   const merge = (n: unknown, o: unknown) => mergeTown(n, o) as Town;
-  const town = (p: Partial<Town>): Town => ({ version: 2, lines: {}, earned: {}, bought: [], daily: {}, days: [], ...p });
+  const town = (p: Partial<Town>): Town => ({ version: 3, lines: {}, earned: {}, bought: [], daily: {}, days: [], episodes: {}, ...p });
   const LAPTOP = 'd-laptop01';
   const PHONE = 'd-phone001';
 
@@ -524,6 +525,21 @@ describe('town-progress (Thị trấn)', () => {
     const unsafe = JSON.parse('{"lines":{"__proto__":{"best":2,"tries":1,"at":5},"constructor":{"best":2,"tries":1,"at":5}},"earned":{"__proto__":9,"constructor":9}}');
     expect(merge(unsafe, ok)).toEqual(ok);
     expect(({} as Record<string, unknown>).best).toBeUndefined();
+  });
+
+  it('episodes ("Chuyện ở thị trấn"): per episode the max of every field; a version 2 copy brings none and drops none', () => {
+    const laptop = town({ episodes: { 'cafe-1': { stage: 2, at: 900, okAt: 900, firstGist: 1, bestLines: 4 } } });
+    const phone = town({ episodes: { 'cafe-1': { stage: 1, at: 1000, okAt: 500, firstGist: 2, bestLines: 6 }, 'shop-1': { stage: 0, at: 0, okAt: 0, firstGist: 1, bestLines: 0 } } });
+    const m = merge(laptop, phone);
+    expect(m.episodes).toEqual({
+      'cafe-1': { stage: 2, at: 1000, okAt: 900, firstGist: 2, bestLines: 6 },
+      'shop-1': { stage: 0, at: 0, okAt: 0, firstGist: 1, bestLines: 0 },
+    });
+    expect(merge(phone, laptop)).toEqual(m);
+    expect(merge(m, m)).toEqual(m);
+    const v2 = { version: 2, lines: { s001: { best: 1, tries: 1, at: 5 } }, earned: {}, bought: [], daily: {}, days: [] };
+    expect(merge(v2, m).episodes).toEqual(m.episodes);
+    expect(merge(m, v2)).toEqual(merge(v2, m));
   });
 
   it('is wired into mergeData; a corrupt side loses to the readable one', () => {

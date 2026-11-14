@@ -8,6 +8,7 @@ import { buildDiff, type DiffUnit } from '../../core/dictation/diff';
 import { makeHint } from '../../core/dictation/hint';
 import { listensLabelVi, rightOnFirstListen, type ListenKind, type ListenTally } from '../../core/dictation/listens';
 import { normalizeText, splitWords } from '../../core/dictation/normalize';
+import type { SpeakVoice } from '../../core/tts';
 import type { Phenomenon, Sentence } from '../../core/types';
 import { NEXT_GUARD_MS } from './constants';
 import { chunksOf, dictationAudio, safeDecode, targetTokens } from './decodeCache';
@@ -59,6 +60,8 @@ export interface ExerciseProps {
   onListen?: (kind: ListenKind) => void;
   /** "Gợi ý" was opened: the first letters are on screen. */
   onHint?: () => void;
+  /** Who says the sentence (Ôn tập of a town episode line: its speaker, core/town/storyAudio); omitted = the app's voice. */
+  voice?: SpeakVoice | null;
 }
 
 export default function Exercise({
@@ -74,6 +77,7 @@ export default function Exercise({
   heardBefore,
   onListen,
   onHint,
+  voice,
 }: ExerciseProps) {
   const decoded = useMemo(() => safeDecode(sentence.text), [sentence.text]);
   const targetRaw = useMemo(() => targetTokens(decoded, sentence.text), [decoded, sentence.text]);
@@ -96,6 +100,7 @@ export default function Exercise({
     autoPlay,
     rootRef,
     initial: heardBefore,
+    voice,
     // only the plays before the check belong to the sentence's tally: the answer is on screen after it
     onListen: (kind) => {
       if (!checkedAtRef.current) onListen?.(kind);

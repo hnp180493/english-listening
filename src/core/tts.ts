@@ -20,14 +20,31 @@
 //  - browser voice: speechSynthesis ('browser' always). Natural/neural voices (Edge "Microsoft … Online
 //    (Natural)", Chrome "Google US English") already produce fairly natural connected speech; we prefer them.
 //
+// A playback may name its speaker (SpeakOptions.voice: "Thị trấn" residents, core/town/voices.ts): the shipped clip is
+// looked up by audioKey(mode, text, voice), the AI voice gets that Gemini voice and the accent in its style (both part
+// of the AI cache key), and the browser voice picks an installed voice of the speaker's gender (pickSpeakerVoice), so
+// two speakers stay apart even without clips. Without a voice everything is as before (Kore, the learner's voice).
+//
 // No feature in the app uses speechSynthesis boundary events (word-by-word highlighting); dictation's
 // chunk highlighting is per speak() call, so it works the same with AI audio. onStart fires when the
 // clip actually starts playing (after generation), like the utterance's 'start' event.
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { AiError, aiSpeak, aiStatus, aiVersion, defaultsFor, isAiError, useAiVersion, type AiErrorCode, type ProviderKind, type ProviderSummary } from './ai';
+import {
+  AiError,
+  aiSpeak,
+  aiStatus,
+  aiVersion,
+  DEFAULT_TTS_STYLE,
+  defaultsFor,
+  isAiError,
+  useAiVersion,
+  type AiErrorCode,
+  type ProviderKind,
+  type ProviderSummary,
+} from './ai';
 import { clampClipRate, getClipPlayer } from './audioPlayer';
-import { audioKey, type AudioClipMode } from './audioKey';
+import { audioKey, isDefaultClipVoice, styleWithAccent, type AudioClipMode, type ClipVoice } from './audioKey';
 import {
   clipFileFor,
   clipsDisabled,
@@ -60,7 +77,7 @@ export function getEnglishVoices(): SpeechSynthesisVoice[] {
   return window.speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith('en'));
 }
 
-function score(v: SpeechSynthesisVoice): number {
+function score(v: VoiceLike): number {
   let s = 0;
   const name = v.name.toLowerCase();
   if (/natural|neural|online/.test(name)) s += 10;
@@ -79,6 +96,70 @@ export function pickVoice(voiceURI: string | null): SpeechSynthesisVoice | null 
     if (v) return v;
   }
   return [...voices].sort((a, b) => score(b) - score(a))[0];
+}
+
+// ───────────────────────────────────────────── a speaker's browser voice
+
+/** A speaker of its own (CastVoice of core/town/voices.ts fits): Gemini voice, accent note, and gender for the browser voice. */
+export interface SpeakVoice extends ClipVoice {
+  gender?: 'female' | 'male';
+}
+
+/** The fields of a SpeechSynthesisVoice the choice reads (tests pass plain objects). */
+export type VoiceLike = Pick<SpeechSynthesisVoice, 'name' | 'lang' | 'voiceURI'> & { localService?: boolean };
+
+const FEMALE_VOICE =
+  /\b(female|woman|zira|aria|jenny|ava|emma|michelle|ana|sonia|libby|maisie|hazel|susan|natasha|clara|catherine|heather|linda|eva|samantha|karen|moira|tessa|fiona|victoria|allison|serena|kate|nicky|veena|joanna|salli|kimberly|kendra|ivy|amy|olivia|emily|jane|nancy|sara|elizabeth|leah|neerja|isla|imogen|hollie|ashley|cora|monica)\b/i;
+const MALE_VOICE =
+  /\b(male|man|david|mark|guy|andrew|brian|christopher|eric|roger|steffan|ryan|thomas|william|george|daniel|alex|fred|arthur|oliver|tom|aaron|rishi|james|liam|matthew|justin|joey|prabhat|davis|jason|tony|brandon|kai|luke|mitchell|ethan|gordon|lee|ralph|albert|bruce|reed|eddy|rocko|grandpa|richard|sam)\b/i;
+
+/** Gender of an installed voice, guessed from its name (Microsoft / Google / Apple naming); null when unknown. */
+export function browserVoiceGender(name: string): 'female' | 'male' | null {
+  if (FEMALE_VOICE.test(name)) return 'female';
+  if (MALE_VOICE.test(name)) return 'male';
+  if (/^google us english$/i.test(name.trim())) return 'female';
+  return null;
+}
+
+/** Language bonus for a speaker's accent note: a British speaker prefers en-GB, an Australian one en-AU … */
+function accentBonus(v: VoiceLike, accent: string | undefined): number {
+  const a = (accent ?? '').toLowerCase();
+  const lang = v.lang.toLowerCase().replace('_', '-');
+  if (/british|london/.test(a)) return lang === 'en-gb' ? 5 : 0;
+  if (/australian/.test(a)) return lang === 'en-au' ? 5 : lang === 'en-gb' ? 2 : 0;
+  if (/irish/.test(a)) return lang === 'en-ie' ? 5 : 0;
+  if (/scottish/.test(a)) return lang === 'en-gb' ? 4 : 0;
+  if (/canadian/.test(a)) return lang === 'en-ca' ? 5 : 0;
+  return 0;
+}
+
+/** Small stable hash of a speaker's voice name: spreads speakers of one gender over the good voices installed. */
+function speakerSlot(name: string, n: number): number {
+  let h = 0;
+  for (const ch of name.toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return n > 0 ? h % n : 0;
+}
+
+/**
+ * The browser voice for a playback (pure: `voices` = the installed ones). Without a speaker (or one without a gender):
+ * the learner's chosen voice (`preferredURI`), else the best English voice (as pickVoice). With a speaker: an English
+ * voice of the speaker's gender, the best-sounding first (natural / online, then the accent's language), spread over
+ * the good ones by the speaker's Gemini voice name so two residents of one gender tend to differ; the learner's own
+ * voice when no installed voice is known to be of that gender (names are guessed: browserVoiceGender).
+ */
+export function pickSpeakerVoice<V extends VoiceLike>(voices: readonly V[], speaker: SpeakVoice | null | undefined, preferredURI: string | null): V | null {
+  const english = voices.filter((v) => v.lang.toLowerCase().startsWith('en'));
+  if (english.length === 0) return null;
+  const fallback = () => (preferredURI ? english.find((v) => v.voiceURI === preferredURI) : undefined) ?? [...english].sort((a, b) => score(b) - score(a))[0];
+  if (!speaker?.gender) return fallback();
+  const ranked = english
+    .filter((v) => browserVoiceGender(v.name) === speaker.gender)
+    .map((v) => ({ v, s: score(v) + accentBonus(v, speaker.accent) }))
+    .sort((a, b) => b.s - a.s || a.v.name.localeCompare(b.v.name));
+  if (ranked.length === 0) return fallback();
+  // the good tier: within 3 points of the best (a natural voice is never traded for a robotic one)
+  const tier = ranked.filter((r) => r.s >= ranked[0].s - 3);
+  return tier[speakerSlot(speaker.voice || '', tier.length)].v;
 }
 
 /** React hook: English voices, updates when the browser finishes loading them. */
@@ -154,11 +235,11 @@ const TEXT_BLOCKS_MAX = 500;
 /** Per-text failures since the last AI success. */
 let textFailStreak = 0;
 
-const textKey = (sig: string, style: string | undefined, text: string) => `${sig}\u0000${style ?? ''}\u0000${text.trim()}`;
+const textKey = (sig: string, j: TextJob) => `${sig}\u0000${j.voice ?? ''}\u0000${j.style ?? ''}\u0000${j.text.trim()}`;
 
-/** True when this text (in this style) is kept off the AI voice after a per-text failure. */
-function aiTextBlocked(text: string, style: string | undefined): boolean {
-  const k = textKey(ttsSnapshot().sig, style, text);
+/** True when this text (in this style and voice) is kept off the AI voice after a per-text failure. */
+function aiTextBlocked(j: TextJob): boolean {
+  const k = textKey(ttsSnapshot().sig, j);
   const until = textBlocks.get(k);
   if (until === undefined) return false;
   if (Date.now() < until) return true;
@@ -208,6 +289,11 @@ export function aiVoiceLabel(p: Pick<ProviderSummary, 'kind' | 'label' | 'ttsVoi
 
 /** Voice name of the shipped clips (public/audio, generated once with Gemini Kore). */
 export const SHIPPED_VOICE_LABEL = 'Gemini · Kore (có sẵn)';
+
+/** Label of a shipped clip spoken by `voice` ("Gemini · Puck (có sẵn)"); the default voice → SHIPPED_VOICE_LABEL. */
+export function shippedVoiceLabel(voice?: ClipVoice | null): string {
+  return isDefaultClipVoice(voice) ? SHIPPED_VOICE_LABEL : `Gemini · ${voice?.voice.trim()} (có sẵn)`;
+}
 
 /**
  * Name of the voice the next playback uses: the shipped clips' voice when they are on, else "Gemini · Kore" (AI
@@ -333,10 +419,22 @@ function isSelfCap(e: unknown): boolean {
   return isAiError(e) && e.code === 'quota' && overSelfCap();
 }
 
-/** The text (and AI style) a request was made for: per-text failures keep that text off the AI voice. */
+/** The text, AI style and voice a request was made for: per-text failures keep that text off the AI voice. */
 interface TextJob {
   text: string;
   style: string | undefined;
+  /** The speaker's voice name sent to the provider (Gemini only); undefined = the provider's own voice. */
+  voice?: string;
+}
+
+/**
+ * The AI request a playback makes: the mode's style with the speaker's accent, and the speaker's Gemini voice when
+ * the provider is Gemini (another provider keeps its own voice: a Gemini name means nothing to it).
+ */
+function aiJobFor(ai: Pick<ProviderSummary, 'kind'> | null, text: string, mode: SpeechMode | undefined, voice: SpeakVoice | null | undefined): TextJob {
+  const style = styleWithAccent(styleFor(mode), voice?.accent, DEFAULT_TTS_STYLE);
+  const name = voice?.voice?.trim();
+  return { text: text.trim(), style, voice: ai?.kind === 'gemini' && name ? name : undefined };
 }
 
 /**
@@ -350,7 +448,7 @@ function tripBreaker(e: unknown, job?: TextJob): void {
   if (PER_TEXT_CODES.has(e.code)) {
     if (job) {
       // a too-short clip may come out right later; a safety block or a 400 on this text will not
-      textBlocks.set(textKey(sig, job.style, job.text), e.code === 'bad-response' ? now + AI_TEXT_RETRY_MS : Infinity);
+      textBlocks.set(textKey(sig, job), e.code === 'bad-response' ? now + AI_TEXT_RETRY_MS : Infinity);
       while (textBlocks.size > TEXT_BLOCKS_MAX) {
         const oldest = textBlocks.keys().next().value;
         if (oldest === undefined) break;
@@ -447,6 +545,12 @@ export interface SpeakOptions {
    * null when the browser picks its default): after an AI failure this is the browser fallback voice.
    */
   onVoice?: (label: string | null) => void;
+  /**
+   * Who speaks ("Thị trấn": voiceOf(line.who, placeId), core/town/voices.ts). The shipped clip is looked up for this
+   * voice (audioKey(mode, text, voice)); the AI voice speaks with it (Gemini) and its accent; the browser voice picks
+   * one of its gender (pickSpeakerVoice). Omitted = the app's voice (Kore clips, the learner's browser voice).
+   */
+  voice?: SpeakVoice | null;
 }
 
 /**
@@ -513,7 +617,7 @@ function route(text: string, opts: SpeakOptions, resolve: () => void): void {
  * voice, never the paid AI voice; a text without one takes the routes after the clips.
  */
 function speakKnown(m: AudioManifest, text: string, opts: SpeakOptions, resolve: () => void, pendingNow = false): void {
-  const key = m.size ? audioKey(clipMode(opts.mode), text) : '';
+  const key = m.size ? audioKey(clipMode(opts.mode), text, opts.voice) : '';
   if (key && hasShippedClip(m, key)) {
     const file = clipFileFor(m, key);
     if (file) return speakStatic(file, text, opts, resolve, pendingNow);
@@ -537,8 +641,8 @@ function speakDynamic(text: string, opts: SpeakOptions, resolve: () => void): vo
   const browser = speechSynthesisSupported();
   let ai = opts.browserOnly && browser ? null : aiVoiceProvider();
   if (ai) {
-    const style = styleFor(opts.mode);
-    if (aiTextBlocked(text, style) || (opts.auto && !aiClipMadeOrMaking(text, style))) ai = null;
+    const job = aiJobFor(ai, text, opts.mode, opts.voice);
+    if (aiTextBlocked(job) || (opts.auto && !aiClipMadeOrMaking(job))) ai = null;
   }
   if (ai) return speakAi(ai, text, opts, resolve);
   if (!browser) return resolve();
@@ -591,8 +695,8 @@ function clipMode(mode: SpeechMode | undefined): AudioClipMode {
 }
 
 /** The manifest lists a clip for this (mode, text): it is never worth a paid request. */
-function shippedIn(m: AudioManifest, text: string, mode: AudioClipMode): boolean {
-  return m.size > 0 && hasShippedClip(m, audioKey(mode, text));
+function shippedIn(m: AudioManifest, text: string, mode: AudioClipMode, voice?: ClipVoice | null): boolean {
+  return m.size > 0 && hasShippedClip(m, audioKey(mode, text, voice));
 }
 
 /** The first playback waits at most this long for the manifest (still loading), then plays the browser voice. */
@@ -729,7 +833,7 @@ function speakStatic(file: string, text: string, opts: SpeakOptions, resolve: ()
       reportClipSuccess();
       clearClipsNotice();
       watchdog = setTimeout(() => entry.settle(), speakWatchdogMs(text, rate) * 1.5);
-      opts.onVoice?.(SHIPPED_VOICE_LABEL);
+      opts.onVoice?.(shippedVoiceLabel(opts.voice));
       opts.onStart?.();
     })
     .then(
@@ -749,7 +853,7 @@ function speakBrowser(text: string, opts: SpeakOptions, resolve: () => void, id:
   synth.cancel();
   const settings = getSettings();
   const u = new SpeechSynthesisUtterance(text);
-  const voice = pickVoice(settings.voiceURI);
+  const voice = opts.voice ? pickSpeakerVoice(getEnglishVoices(), opts.voice, settings.voiceURI) : pickVoice(settings.voiceURI);
   if (voice) {
     u.voice = voice;
     u.lang = voice.lang;
@@ -785,7 +889,7 @@ function speakAi(ai: ProviderSummary, text: string, opts: SpeakOptions, resolve:
   const id = ++lastId;
   const owner = opts.owner ?? null;
   const player = getClipPlayer();
-  const job: TextJob = { text: text.trim(), style: styleFor(opts.mode) };
+  const job = aiJobFor(ai, text, opts.mode, opts.voice);
   current?.settle();
   if (speechSynthesisSupported()) window.speechSynthesis.cancel();
   // Still inside the click (if any): unlock audio output before the asynchronous generation.
@@ -843,7 +947,7 @@ function speakAi(ai: ProviderSummary, text: string, opts: SpeakOptions, resolve:
   // identical requests in flight are shared by aiSpeak (double click, StrictMode, prefetch).
   // The request is still bounded by AI_PLAY_TIMEOUT_MS and is not retried: a 429/5xx falls back at
   // once and pauses the AI voice, instead of sleeping through the server's retry delay inside a click.
-  const flight = aiSpeak(text, { timeoutMs: AI_PLAY_TIMEOUT_MS, retries: 0, style: job.style });
+  const flight = aiSpeak(text, { timeoutMs: AI_PLAY_TIMEOUT_MS, retries: 0, style: job.style, voice: job.voice });
   flight.then(
     (res) => {
       noteAiClipMade(job);
@@ -853,7 +957,7 @@ function speakAi(ai: ProviderSummary, text: string, opts: SpeakOptions, resolve:
       reportAiSuccess();
       sounding = true;
       watchdog = setTimeout(() => entry.settle(), speakWatchdogMs(text, rate) * 1.5);
-      opts.onVoice?.(aiVoiceLabel(ai));
+      opts.onVoice?.(aiVoiceLabel(job.voice ? { ...ai, ttsVoice: job.voice } : ai));
       opts.onStart?.();
       player.play(res.audio, rate).then(
         () => {
@@ -907,6 +1011,8 @@ export interface PrefetchOptions {
   mode?: SpeechMode;
   /** How many texts after the first to prefetch (default PREFETCH_AHEAD_DEFAULT = none). */
   ahead?: number;
+  /** The speaker of the clips (as SpeakOptions.voice): part of the shipped clip key and of the AI request. */
+  voice?: SpeakVoice | null;
   /**
    * Generate only once the learner plays THIS text (dictation: the next sentence, once the current one is played).
    * Without it, the next playback the learner starts releases the clips (checkup: the item's other lines).
@@ -921,12 +1027,12 @@ const prefetchQueue: PrefetchJob[] = [];
 const prefetchKnown = new Set<string>(); // queued or running, by jobKey
 let prefetchRunning = 0;
 /** Clips asked for by prefetchSpeech, waiting for the learner's next playback (only the latest call is kept). */
-let armed: { jobs: PrefetchJob[]; mode: AudioClipMode; after: string | null } | null = null;
+let armed: { jobs: PrefetchJob[]; mode: AudioClipMode; voice: ClipVoice | null; after: string | null } | null = null;
 /** AI clips made this session (cache hits now): auto playback may use them for free. */
 const madeThisSession = new Set<string>();
 const MADE_MAX = 500;
 
-const jobKey = (j: PrefetchJob) => `${j.style ?? ''}\u0000${j.text}`;
+const jobKey = (j: PrefetchJob) => `${j.voice ?? ''}\u0000${j.style ?? ''}\u0000${j.text}`;
 
 function noteAiClipMade(j: PrefetchJob): void {
   madeThisSession.delete(jobKey(j));
@@ -937,9 +1043,9 @@ function noteAiClipMade(j: PrefetchJob): void {
   }
 }
 
-/** An AI clip for this text was made this session or is being made: playing it costs nothing more. */
-function aiClipMadeOrMaking(text: string, style: string | undefined): boolean {
-  const k = jobKey({ text: text.trim(), style });
+/** An AI clip for this text (style, voice) was made this session or is being made: playing it costs nothing more. */
+function aiClipMadeOrMaking(j: TextJob): boolean {
+  const k = jobKey(j);
   return madeThisSession.has(k) || prefetchKnown.has(k);
 }
 
@@ -955,32 +1061,32 @@ function aiClipMadeOrMaking(text: string, style: string | undefined): boolean {
  */
 export function prefetchSpeech(texts: readonly string[], opts: PrefetchOptions = {}): void {
   if (opts.mode === 'careful') return;
-  if (!aiVoiceProvider() || overSelfCap()) return;
-  const style = styleFor(opts.mode);
+  const ai = aiVoiceProvider();
+  if (!ai || overSelfCap()) return;
   const ahead = Math.max(0, Math.floor(opts.ahead ?? PREFETCH_AHEAD_DEFAULT));
   const jobs: PrefetchJob[] = texts
     .slice(0, 1 + ahead)
     .map((t) => (typeof t === 'string' ? t.trim() : ''))
     .filter((t) => !!t)
-    .map((text) => ({ text, style }));
-  armed = jobs.length ? { jobs, mode: clipMode(opts.mode), after: opts.after?.trim() || null } : null;
+    .map((text) => aiJobFor(ai, text, opts.mode, opts.voice));
+  armed = jobs.length ? { jobs, mode: clipMode(opts.mode), voice: opts.voice ?? null, after: opts.after?.trim() || null } : null;
 }
 
 /** The learner started a playback of `text`: queue the armed clips waiting for it. */
 function releaseArmed(text: string): void {
   if (!armed) return;
   if (armed.after !== null && armed.after !== text.trim()) return;
-  const { jobs, mode } = armed;
+  const { jobs, mode, voice } = armed;
   armed = null;
-  queueUnshipped(jobs, mode);
+  queueUnshipped(jobs, mode, voice);
 }
 
 /** Queues the jobs whose text has no shipped clip; nothing while the manifest is unknown (any text may have one). */
-function queueUnshipped(jobs: readonly PrefetchJob[], mode: AudioClipMode): void {
+function queueUnshipped(jobs: readonly PrefetchJob[], mode: AudioClipMode, voice: ClipVoice | null): void {
   if (!aiVoiceProvider() || overSelfCap()) return;
   if (!staticEligible()) return enqueuePrefetch(jobs);
   const run = (m: AudioManifest | null) => {
-    if (m) enqueuePrefetch(jobs.filter((j) => !shippedIn(m, j.text, mode)));
+    if (m) enqueuePrefetch(jobs.filter((j) => !shippedIn(m, j.text, mode, voice)));
   };
   const m = peekAudioManifest();
   if (m) return run(m);
@@ -992,7 +1098,7 @@ function enqueuePrefetch(jobs: readonly PrefetchJob[]): void {
   if (!aiVoiceProvider() || overSelfCap()) return;
   for (const j of jobs) {
     const k = jobKey(j);
-    if (prefetchKnown.has(k) || aiTextBlocked(j.text, j.style)) continue;
+    if (prefetchKnown.has(k) || aiTextBlocked(j)) continue;
     prefetchKnown.add(k);
     prefetchQueue.push(j);
   }
@@ -1011,12 +1117,12 @@ function pumpPrefetch(): void {
       prefetchKnown.clear();
       return;
     }
-    if (aiTextBlocked(job.text, job.style)) {
+    if (aiTextBlocked(job)) {
       prefetchKnown.delete(jobKey(job));
       continue;
     }
     prefetchRunning++;
-    aiSpeak(job.text, { retries: 1, timeoutMs: AI_PREFETCH_TIMEOUT_MS, style: job.style })
+    aiSpeak(job.text, { retries: 1, timeoutMs: AI_PREFETCH_TIMEOUT_MS, style: job.style, voice: job.voice })
       .then(() => noteAiClipMade(job))
       .catch((e: unknown) => {
         if (!isAiError(e) || isSelfCap(e)) return;

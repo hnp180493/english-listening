@@ -14,7 +14,7 @@ const TOWN = P + 'town-progress';
 const REVIEW = P + 'review-cards';
 const DEVICE = 'd-test0001';
 const [L1, L2, L3] = placeLines('cafe');
-const EMPTY = { version: 2, lines: {}, earned: {}, bought: [], daily: {}, days: [] };
+const EMPTY = { version: 3, lines: {}, earned: {}, bought: [], daily: {}, days: [], episodes: {} };
 
 let map: Map<string, string>;
 let failNext: Set<string>;
@@ -68,7 +68,8 @@ describe('town store', () => {
     expect(r.saved).toBe(true);
     expect(r.progress.lines[L1.id]).toEqual({ best: 2, tries: 1, at: NOW });
     expect(stored(TOWN)).toEqual({
-      version: 2,
+      version: 3,
+      episodes: {},
       lines: { [L1.id]: { best: 2, tries: 1, at: NOW } },
       earned: { [DEVICE]: 3 },
       bought: [],
@@ -109,7 +110,7 @@ describe('town store', () => {
     const r = town.recordTownAnswer(L1, 'first', NOW); // already at its best: 1 xu
     expect(r).toMatchObject({ reward: 1, prevBest: 2, balance: 1 });
     expect(r.levelBefore.xp).toBe(5);
-    expect(stored(TOWN).version).toBe(2);
+    expect(stored(TOWN).version).toBe(3);
     expect(stored(TOWN).lines[L2.id]).toEqual({ best: 1, tries: 2, at: 6 });
   });
 

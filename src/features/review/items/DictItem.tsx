@@ -1,19 +1,21 @@
-// Ôn tập item: a dictation sentence (dict) or a video transcript line read by TTS (media).
+// Ôn tập item: a dictation sentence (dict), a video transcript line read by TTS (media), or a line of a town episode
+// missed in Thị trấn (talk), said in its speaker's voice.
 
 import { useRef, useState } from 'react';
-import { Clapperboard, ExternalLink } from 'lucide-react';
+import { Clapperboard, ExternalLink, MessageCircle } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import { updateProgress } from '../../../core/dictation/progress';
 import { hrefFor } from '../../../core/nav';
 import { dictationErrors, gradeDictation, recordReview } from '../../../core/review';
 import { recordAttempt } from '../../../core/stats';
 import { KEYS, saveJSON } from '../../../core/storage';
+import { voiceOf } from '../../../core/town/voices';
 import Exercise, { type CheckedInfo } from '../../dictation/Exercise';
 import { loadProgressOr } from '../../dictation/pageModel';
 import type { Resolved } from '../resolve';
 import type { ItemBaseProps } from './types';
 
-type DictLike = Extract<Resolved, { kind: 'dict' | 'media' }>;
+type DictLike = Extract<Resolved, { kind: 'dict' | 'media' | 'talk' }>;
 
 export interface DictItemProps extends ItemBaseProps {
   item: DictLike;
@@ -27,6 +29,8 @@ export default function DictItem({ item, graded, onGraded, onNext, onRetry, onSk
   // "Làm lại câu này" remounts with graded = true: the answer was just shown, so no "Nghe 1 lần là đúng" praise.
   // Read once at mount: `graded` flips in the same batch as the first check and must not change that verdict.
   const [retried] = useState(graded);
+  // a town line is said by its own speaker (the same voice, so the same shipped clip, as in the town)
+  const [voice] = useState(() => (item.kind === 'talk' ? voiceOf(item.who, item.placeId) : null));
 
   const onChecked = (info: CheckedInfo) => {
     if (graded || doneRef.current) return; // a retry is practice only
@@ -84,7 +88,19 @@ export default function DictItem({ item, graded, onGraded, onNext, onRetry, onSk
           </a>
         </div>
       )}
-      <Exercise sentence={item.sentence} known={retried} autoPlay focusOnMount onChecked={onChecked} onNext={onNext} onRetry={onRetry} onSkip={onSkip} />
+      {item.kind === 'talk' && (
+        <div className="row-between rev-media-note">
+          <span className="muted rev-media-label">
+            <Icon icon={MessageCircle} size={15} />
+            {item.speaker} · Tập {item.episodeOrder}: {item.episodeTitle} · giọng đọc máy
+          </span>
+          <a className="btn btn-ghost btn-sm" href={hrefFor('town')}>
+            <Icon icon={ExternalLink} size={14} />
+            Mở thị trấn
+          </a>
+        </div>
+      )}
+      <Exercise sentence={item.sentence} known={retried} autoPlay focusOnMount onChecked={onChecked} onNext={onNext} onRetry={onRetry} onSkip={onSkip} voice={voice} />
     </div>
   );
 }

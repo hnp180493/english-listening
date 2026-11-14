@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { addListen, NO_LISTENS, tallyKindFor, type ListenKind, type ListenTally } from '../../core/dictation/listens';
 import { useSettings } from '../../core/settings';
 import { CAREFUL_RATE, CONNECTED_SLOW_RATE, dictationRate, type SpeechMode } from '../../core/playback';
-import { speak, stopSpeaking, ttsSupported, useSpeechPending } from '../../core/tts';
+import { speak, stopSpeaking, ttsSupported, useSpeechPending, type SpeakVoice } from '../../core/tts';
 import type { DictationAudio } from './decodeCache';
 import { session } from './session';
 
@@ -78,10 +78,13 @@ export function usePlayer(
     initial?: ListenTally;
     /** Every play the tally counts, with the counter it went to (the page keeps it across remounts). */
     onListen?: (kind: ListenKind) => void;
+    /** Who says the sentence (Ôn tập of a town episode line: its speaker); omitted = the app's voice. */
+    voice?: SpeakVoice | null;
   },
 ): Player {
   const settings = useSettings();
   const { connected, careful, level } = audio;
+  const voice = opts.voice;
   const canSpeak = ttsSupported();
   const [playing, setPlaying] = useState<PlayMode | null>(null);
   const [chunkPos, setChunkPos] = useState(-1);
@@ -134,13 +137,13 @@ export function usePlayer(
             if (runRef.current !== my) return;
             setChunkPos(k);
             // browser voice even when the AI voice is on: no quota spent per chunk
-            await speak(chunks[k], { rate: dictationRate(rateRef.current, level), owner, mode: 'connected', browserOnly: true });
+            await speak(chunks[k], { rate: dictationRate(rateRef.current, level), owner, mode: 'connected', browserOnly: true, voice });
             if (runRef.current !== my) return;
             if (k < chunks.length - 1) await sleep(CHUNK_PAUSE_MS);
           }
         } else {
           const p = playbackFor(mode, { connected, careful, level }, rateRef.current);
-          await speak(p.text, { rate: p.rate, owner, mode: p.mode, slow: p.slow, auto });
+          await speak(p.text, { rate: p.rate, owner, mode: p.mode, slow: p.slow, auto, voice });
         }
       } catch {
         // speech errors end playback quietly
@@ -150,7 +153,7 @@ export function usePlayer(
       setPlaying(null);
       setChunkPos(-1);
     },
-    [canSpeak, chunks, connected, careful, level, stop, owner],
+    [canSpeak, chunks, connected, careful, level, stop, owner, voice],
   );
 
   // stop audio on unmount (sentence change, tab change)

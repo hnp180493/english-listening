@@ -11,7 +11,7 @@ export interface DictationCheck {
   hinted: boolean;
   revealed: boolean; // "Chịu, xem đáp án"
   firstTry: boolean; // no dictation attempt for this id before this check
-  kind: 'dict' | 'media';
+  kind: 'dict' | 'media' | 'talk';
 }
 
 const count = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);

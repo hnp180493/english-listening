@@ -100,8 +100,9 @@ export function screenDistance(a: Tile, b: Tile): number {
 /**
  * Shortest walk from `from` to `to` (A*, eight directions, no corner cutting): the tiles to step through, `to`
  * included, `from` not. [] when it is the same tile, when either end is not walkable, or when there is no way.
+ * `extra` adds a cost (screen px) for stepping onto a tile (e.g. where somebody stands: the walk goes round them).
  */
-export function findPath(from: Tile, to: Tile, world: TownWorld = TOWN_WORLD): Tile[] {
+export function findPath(from: Tile, to: Tile, world: TownWorld = TOWN_WORLD, extra?: (t: Tile) => number): Tile[] {
   if (sameTile(from, to) || !walkable(from, world) || !walkable(to, world)) return [];
   const size = world.size;
   const key = (t: Tile) => t.y * size + t.x;
@@ -133,7 +134,7 @@ export function findPath(from: Tile, to: Tile, world: TownWorld = TOWN_WORLD): T
       const next = { x: at.x + d.x, y: at.y + d.y };
       const nk = key(next);
       if (closed.has(nk)) continue;
-      const ng = g + stepCost(d);
+      const ng = g + stepCost(d) + (extra ? extra(next) : 0);
       if (ng >= (cost.get(nk) ?? Infinity)) continue;
       cost.set(nk, ng);
       cameFrom.set(nk, cur);

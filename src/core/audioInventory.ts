@@ -13,13 +13,18 @@
 // default style, as tts.ts looks them up (speak() without a mode → audioKey('plain', text)). Dictation "Từng cụm"
 // chunks (SpeakOptions.browserOnly) play shipped clips too; only their fallback avoids the paid AI voice.
 //
+// "Thị trấn" story lines are spoken by their own speakers: each clip carries the speaker's Gemini voice and accent
+// (core/town/voices.ts), which are part of its key (audioKey(mode, text, voice)) and of its style (clipStyle). Every
+// other clip has no voice of its own: the default Kore, with the key it always had.
+//
 // Rate is never part of a clip: the player applies playbackRate (pitch preserved) to the same file.
 // User content (custom dictation sentences, AI-generated sentences, media transcripts, typed decoder input) is not
 // built in and is not listed.
 //
 // Pure (no DOM, no storage); used by tests and by scripts/audio-inventory.mjs through Vite's module runner.
 
-import { AUDIO_STYLE_VERSION, AUDIO_VOICE, audioKey, type AudioClipMode } from './audioKey';
+import { DEFAULT_TTS_STYLE } from './ai/defaults';
+import { AUDIO_STYLE_VERSION, AUDIO_VOICE, audioKey, clipVoiceId, isDefaultClipVoice, normalizeAccent, styleWithAccent, type AudioClipMode, type ClipVoice } from './audioKey';
 import { decode, speakableFor } from './decoder';
 import { PHENOMENON_INFO } from './phenomena';
 import { annotationPlayback, CAREFUL_STYLE, carefulPlan, compareCarefulPlan, CONNECTED_STYLE, connectedPlan, connectedText, sayOf, segmentPlayback, writtenText } from './playback';
@@ -31,6 +36,9 @@ import type { Lesson, LessonExample } from '../data/lessonTypes';
 import { LESSONS } from '../data/lessons';
 import { PAIR_SETS, type PairSet } from '../data/pairs';
 import { SENTENCES } from '../data/sentences';
+import { TOWN_STORIES } from '../data/townStories';
+import type { StoryEpisode } from './town/story';
+import { storyLinePlayback } from './town/storyAudio';
 import { connectedLines } from '../features/checkup/useCheckupAudio';
 import { DEFAULT_TEXT, EXAMPLE_SAY, EXAMPLES, EXAMPLES_SHOWN } from '../features/decoder/examples';
 import { authoredSay } from '../features/decoder/pageModel';
@@ -44,7 +52,7 @@ import { chunkSource, CUSTOM_EXAMPLES, resolveSource, sentenceSource, type Shado
 import { buildSteps } from '../features/shadowing/steps';
 
 /** Where a clip is played from (first use wins when several share one clip). */
-export type ClipSource = 'dictation' | 'decoder' | 'lesson' | 'checkup' | 'chunk' | 'shadowing' | 'home' | 'guide' | 'pairs' | 'words' | 'settings';
+export type ClipSource = 'dictation' | 'decoder' | 'lesson' | 'checkup' | 'chunk' | 'shadowing' | 'home' | 'guide' | 'pairs' | 'words' | 'settings' | 'town';
 
 /**
  * What part of an item a clip is: the main connected playback, its careful twin, one decoder segment / annotation
@@ -59,8 +67,15 @@ export interface ClipEntry {
   /** Exactly what speak() gets (trimmed). */
   text: string;
   mode: AudioClipMode;
-  /** The Gemini delivery style of the mode (CONNECTED_STYLE / CAREFUL_STYLE; undefined = default), as tts.ts styleFor() sends it. */
+  /**
+   * The Gemini delivery style of the mode (CONNECTED_STYLE / CAREFUL_STYLE; undefined = default), as tts.ts styleFor()
+   * sends it, with the speaker's accent appended (clipStyle).
+   */
   style: string | undefined;
+  /** Gemini prebuilt voice of a clip with its own speaker ("Thị trấn"); absent = the default voice (Kore). */
+  voice?: string;
+  /** Accent note of that speaker (part of the key and of the style); absent = none. */
+  accent?: string;
   source: ClipSource;
   ref: string;
   part: ClipPart;
@@ -96,6 +111,8 @@ export interface InventoryContent {
   settingsSample: string;
   /** Shadowing's "Gợi ý" chips (custom tab): practised as custom sources. */
   shadowSuggestions: readonly string[];
+  /** "Chuyện ở thị trấn" episodes: every line, connected + careful, in its speaker's voice. */
+  stories: readonly StoryEpisode[];
 }
 
 export function defaultInventoryContent(): InventoryContent {
@@ -111,6 +128,7 @@ export function defaultInventoryContent(): InventoryContent {
     // src/features/settings/SettingsPage.tsx SAMPLE = DEFAULT_TEXT
     settingsSample: DEFAULT_TEXT,
     shadowSuggestions: CUSTOM_EXAMPLES,
+    stories: TOWN_STORIES,
   };
 }
 
@@ -119,6 +137,11 @@ export function styleForMode(mode: AudioClipMode): string | undefined {
   if (mode === 'connected') return CONNECTED_STYLE;
   if (mode === 'careful') return CAREFUL_STYLE;
   return undefined;
+}
+
+/** The style a clip of this mode is made with for a speaker with this accent (tts.ts sends the same to the AI voice). */
+export function clipStyle(mode: AudioClipMode, accent?: string | null): string | undefined {
+  return styleWithAccent(styleForMode(mode), accent, DEFAULT_TTS_STYLE);
 }
 
 /** A text worth a clip: has a letter or digit (a punctuation-only segment would be silence). */
@@ -149,21 +172,35 @@ class Collector {
   private byKey = new Map<string, ClipEntry>();
 
   /** A playback; `modeIn` undefined = mode-less (speak() without a mode): a 'plain' clip. */
-  add(source: ClipSource, ref: string, part: ClipPart, modeIn: AudioClipMode | undefined, raw: string | null | undefined, browserOnly = false): void {
+  add(
+    source: ClipSource,
+    ref: string,
+    part: ClipPart,
+    modeIn: AudioClipMode | undefined,
+    raw: string | null | undefined,
+    browserOnly = false,
+    voice?: ClipVoice | null,
+  ): void {
     if (!speakable(raw)) return;
     const text = raw.trim();
     const mode: AudioClipMode = modeIn ?? 'plain';
-    const key = audioKey(mode, text);
+    const key = audioKey(mode, text, voice);
     const at = `${source}:${ref}`;
     const hit = this.byKey.get(key);
     if (hit) {
-      if (hit.text !== text || hit.mode !== mode) throw new Error(`audio key collision: ${key} (${hit.text} / ${text})`);
+      const same = hit.text === text && hit.mode === mode && clipVoiceId(hit.voice ? { voice: hit.voice, accent: hit.accent } : null) === clipVoiceId(voice);
+      if (!same) throw new Error(`audio key collision: ${key} (${hit.text} / ${text})`);
       if (!hit.refs.includes(at)) hit.refs.push(at);
       if (!hit.sources.includes(source)) hit.sources.push(source);
       hit.browserOnly &&= browserOnly;
       return;
     }
-    this.byKey.set(key, { key, text, mode, style: styleForMode(mode), source, ref, part, refs: [at], sources: [source], browserOnly });
+    const own = isDefaultClipVoice(voice) ? null : voice;
+    const accent = normalizeAccent(own?.accent);
+    const entry: ClipEntry = { key, text, mode, style: clipStyle(mode, accent), source, ref, part, refs: [at], sources: [source], browserOnly };
+    if (own) entry.voice = own.voice.trim();
+    if (accent) entry.accent = accent;
+    this.byKey.set(key, entry);
   }
 
   /** A mode-less playback (speak(text) with no mode). */
@@ -309,6 +346,18 @@ function addChunks(c: Collector, chunks: readonly Chunk[]): void {
   }
 }
 
+function addStories(c: Collector, stories: readonly StoryEpisode[]): void {
+  // Thị trấn conversation: storyLinePlayback(line, episode, mode) → speak(text, { mode, voice }), both modes
+  for (const ep of stories) {
+    for (const line of ep.lines) {
+      for (const mode of ['connected', 'careful'] as const) {
+        const p = storyLinePlayback(line, ep, mode);
+        c.add('town', line.id, mode === 'careful' ? 'careful' : 'main', p.mode, p.text, false, p.voice);
+      }
+    }
+  }
+}
+
 function addShadowing(c: Collector, sentences: readonly Sentence[], chunks: readonly Chunk[], suggestions: readonly string[]): void {
   // SourcePicker: a suggestion chip fills the custom box; starting turns it into resolveSource({ text })
   const suggested = suggestions.map((text) => resolveSource({ text }, sentences, chunks)).filter((s): s is ShadowSource => !!s);
@@ -343,6 +392,7 @@ export function buildAudioInventory(content: InventoryContent = defaultInventory
   for (const set of content.pairs) for (const item of set.items) item.options.forEach((o, i) => c.addPlain('pairs', `${item.id}#${i}`, o));
   // SettingsPage "Thử giọng" with the Gemini clips: the connected sample (the same clip as decoder example 0)
   c.add('settings', 'sample', 'main', 'connected', connectedText(content.settingsSample, null, content.exampleSay[content.settingsSample]));
+  addStories(c, content.stories);
   return c.result();
 }
 
@@ -355,6 +405,8 @@ export interface InventoryCounts {
   bySource: Partial<Record<ClipSource, { clips: number; chars: number }>>;
   byPart: Partial<Record<ClipPart, { clips: number; chars: number }>>;
   browserOnly: { clips: number; chars: number };
+  /** Clips by speaker voice (clipVoiceId: 'gemini-kore' = the default voice). */
+  byVoice: Record<string, { clips: number; chars: number }>;
 }
 
 const wordCount = (s: string) => s.split(/\s+/).filter(Boolean).length;
@@ -373,6 +425,7 @@ export function inventoryCounts(inv: AudioInventory): InventoryCounts {
     bySource: {},
     byPart: {},
     browserOnly: { clips: 0, chars: 0 },
+    byVoice: {},
   };
   for (const e of inv.clips) {
     out.chars += e.text.length;
@@ -380,6 +433,7 @@ export function inventoryCounts(inv: AudioInventory): InventoryCounts {
     bump(out.byMode, e.mode, e.text.length);
     bump(out.bySource, e.source, e.text.length);
     bump(out.byPart, e.part, e.text.length);
+    bump(out.byVoice, clipVoiceId(e.voice ? { voice: e.voice, accent: e.accent } : null), e.text.length);
     if (e.browserOnly) {
       out.browserOnly.clips++;
       out.browserOnly.chars += e.text.length;

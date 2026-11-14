@@ -13,7 +13,7 @@ Two halves, with a hard line between them:
 
 | | Owns | Files |
 | --- | --- | --- |
-| **Engine** (pure, tested, no drawing) | rules, numbers, stored progress, sync merge, what a line pays, what can be bought, which lines are said, the three meanings | `src/core/town/{types,progress,economy,daily,visit,overview,store}.ts`, `src/data/town.ts` |
+| **Engine** (pure, tested, no drawing) | rules, numbers, stored progress, sync merge, what a line pays, what can be bought, which lines are said, the three meanings, the episodes and their schedule (§9) | `src/core/town/{types,progress,economy,daily,visit,overview,store,story,storyLines,episodes}.ts`, `src/data/{town,townStories}.ts` |
 | **Shell** (the game on screen, §7) | the world layout (tiles, where each place and decoration stands), walking, drawing (Canvas 2D / DOM with rendered sprites, §7 "The art"; no runtime dependency), the conversation panel, the build panel, celebrations, sound effects, all UI text | `src/data/townWorld.ts`, `src/core/town/map.ts`, `src/features/town/` |
 
 The shell never decides a number and never writes the town's progress: it calls the store (§6) and draws what the
@@ -169,14 +169,17 @@ never as a crash; `__proto__`-like keys are refused):
 
 ```ts
 {
-  version: 2,
+  version: 3,
   lines:  { [lineId]: { best: 0 | 1 | 2, tries: number, at: number } },
   earned: { [deviceId]: number },                 // xu, one bucket per browser
   bought: string[],                               // place ids + decoration ids, sorted
   daily:  { [day]: { [deviceId]: { talks, lines, first, met: string[], paid: string[] } } },
   days:   string[],                               // local days with a line answered (the streak)
+  episodes: { [episodeId]: { stage, at, okAt, firstGist: 0 | 1 | 2, bestLines } },   // §9
 }
 ```
+
+`lines` holds the lines of the episodes too (`cafe-1-03`), recorded like any line.
 
 - `lines.best`: 0 = answered, not understood yet; 1 = understood with replays or a slower play; 2 = understood on
   the first listen. It only grows. `tries`: answers given (also the seed of the meanings). `at`: when the line was
@@ -201,15 +204,21 @@ machine wrote last" anywhere.
 | `bought` | union |
 | `daily` | per day and device: max of the counters, union of `met` and `paid` (a task is never paid twice) |
 | `days` | union |
+| `episodes` | union; per episode max of `stage`, `at`, `okAt`, `firstGist`, `bestLines` (the next re-listen is derived from them, §9) |
 
 Idempotent, commutative, associative, caps included ("the newest N keys of a union" does not depend on the order of
-merging): `syncMerge.props.test.ts` checks the laws on random towns, junk and version 1 values.
+merging): `syncMerge.props.test.ts` checks the laws on random towns, junk, version 1 and version 2 values and junk
+episodes.
 
 Consequences worth knowing:
 
 - **Version 1** (`{ version: 1, lines }`, the first evening of the feature) loads and merges as it is: the lines and
   the level stay, xu start at 0. No xu are granted for lines understood before; those lines now pay 1 xu per right
   answer.
+- **Version 2** (before the episodes) loads and merges as it is, with no episode begun; the next write saves version 3.
+  A machine still on a version 2 build reads a version 3 value without its episodes and writes it back without them;
+  the folder sync merge brings them back from the other copy (a union), so nothing is lost once both machines run the
+  new build.
 - **Two machines spending the same xu before a sync:** both purchases stay (union), the raw balance goes below 0, the
   balance shows 0, and the learner earns the difference back before the next purchase (`canBuy` → `poor` with the
   full `missing`). Nothing is taken away.
@@ -228,7 +237,8 @@ One selector with everything the game screen shows (`useTownOverview()` in the s
   streak, playedToday,
   tasks: [{ id, label, goal, reward, done, reached, paid }],   // the three, today, this browser
   totals: { total, understood, first },
-  places: [{ place, built, cost, affordable, missing, stats, hearts, lit, marker }],   // in listed order
+  places: [{ place, built, cost, affordable, missing, stats, hearts, lit, marker, episode }],   // in listed order
+  // episode: { id, order, title, mode: 'new' | 'relisten' } | null: what a talk there is now (§9)
   decorations: [{ decoration, bought, cost, affordable, missing }],
   built, decorated, canBuySomething,
 }
@@ -257,6 +267,7 @@ One selector with everything the game screen shows (`useTownOverview()` in the s
   `recordTownAnswer` already paid, so a summary screen can call it as often as it renders.
 - `buyTownItem(id)` → `{ ok: true, item, balance, progress, saved }` or `{ ok: false, reason, item, missing, balance }`.
   A refused purchase writes nothing.
+- `startTownEpisode`, `recordEpisodeGist`, `recordEpisodeLine`, `finishTownEpisode`: an episode (§9).
 
 Guards the shell gets for free: a line answered twice within one started conversation (a double click, a React
 effect run twice) is recorded once and returns the first result; answers made without `startTownConversation` still
@@ -276,7 +287,9 @@ closes), `build=<placeId | 1>` opens the build panel (on that lot).
 | `art/` | the rendered pictures (§7 "The art"): WebP atlases, generated manifests (`characters.data.ts`, `world.data.ts`), their loaders (`characters.ts`, `world.ts`, `load.ts`), the cast (`cast.ts`), `LICENSE-kenney.txt` |
 | `useTownArt.ts` | loads the pictures once per session: `loading` / `ready` / `error` + `retry` |
 | `TownHud.tsx` | what floats over the town: the title with its xp bar (top-left); streak (from 2 days), xu, "Việc hôm nay" (shared `Popover`), "Xây", sound on/off, "Toàn màn hình" (top-right; on a phone the four buttons go down the right edge) |
-| `Conversation.tsx` | the conversation panel (docked right on a stage ≥ 900 px wide, over the bottom below that): five lines, then the result card |
+| `Conversation.tsx` | the quick chat panel ("Trò chuyện nhanh", docked right on a stage ≥ 900 px wide, over the bottom below that): five lines, then the result card; its `Turn` (one line heard and answered) is shared with the episodes |
+| `Episode.tsx`, `episodeModel.ts` (tested), `useStoryPass.ts` | an episode of "Chuyện ở thị trấn" (§9) in the same panel: the three steps or a re-listen, the transcript; what each line sends, the pauses, the words; the whole exchange in one go |
+| `talkKeys.ts` | what both panels share: the delay before a resident speaks, which key presses are not theirs |
 | `BuildSheet.tsx` | "Công trình" (empty lots) and "Trang trí": a side sheet on a wide stage, a bottom sheet under 720px |
 | `shellModel.ts` (tested) | the shell's own small decisions: what the stage is told, whom to suggest, the verdict words, the result sums, the labels |
 | `sfx.ts` | sound effects as short Web Audio tones (no files) |
@@ -289,8 +302,9 @@ the conversation; clicking a lot on offer (a construction site, see "Lots on off
 walks to its gate and opens the build panel on it; E / Enter / Space acts on
 whoever the player stands beside, and with nobody near walks to the suggested resident. One primary button sits at
 the bottom of the stage and always offers the next thing: "Bắt chuyện với Emma" beside a resident, "Xây Cửa hàng ·
-30 xu" at the gate of a lot on offer, otherwise "Tới gặp Leo" (`suggestedPlace`: lines not understood yet first, the least known
-place first). The first visit shows one welcome bubble from Leo (closed for good by its ✕, by a conversation or by
+30 xu" at the gate of a lot on offer, otherwise "Tới gặp Leo" (`suggestedPlace`: a due re-listen first, then an
+episode to hear, then lines not understood yet, the least known place first; an episode names itself: "Tới gặp Emma ·
+Tập 1", "Nghe lại chuyện với Emma", §9). The first visit shows one welcome bubble from Leo (closed for good by its ✕, by a conversation or by
 opening the build panel).
 
 **Names over heads.** Not everybody, all the time: a name tag shows over the resident the main button suggests
@@ -299,11 +313,20 @@ in a conversation nobody has a tag (the panel says who it is), only the speaking
 ("!", "…", a heart) comes with it. Tags are placed most important first and never cover one another
 (`placeTags` in `draw/overlay.ts`, tested); they stay out of the stage's edges and of what the HUD and the panels
 cover (`safe`, measured on the page by `useStageInsets`); a person too near the top gets the tag under the feet,
-without its marker. Somebody off the stage has no tag.
+without its marker. Somebody off the stage has no tag. An episode waiting at a place puts its own marker there instead
+(`markerOf`): a violet bubble with three dots (an episode to hear), a green one with a round arrow (a re-listen due).
 
 **The camera.** It follows the player and, while the suggested resident is close enough, frames the two of them
-together. It keeps to the island: the view's corners may show a little sky, never a wedge of it (`Camera.island`),
-and never at the price of losing the player. What it looks at goes to the middle of what the HUD and a panel leave
+together. While it follows the walking player it moves with them frame by frame (`Camera.carry`: no lag behind a
+walker at a start, no world sliding on under a player who has stopped); only a change of what it looks at (a
+conversation, a new building, the overview) is eased, by a critically damped spring that starts from rest (ease in
+and out, about 0.6 s, no overshoot; `springStep`), never faster than 1,200 screen px a second, and never more in one
+drawn frame than 1.5 of the display's usual frames (`cameraDt`, at least 1/50 s: a frame the browser is late with
+shows as a pause, not a jump; a flat 1/50 s cap once ran every eased move in slow motion on a 30 Hz screen). When
+a conversation begins or ends the camera holds still for 3 frames and 0.12 s while the page paints the panel. It keeps to the island: the view's corners may show a little sky, never a wedge of it (`Camera.island`),
+and never at the price of losing the player: whatever it aims at (the point between the player and the suggested
+resident, the island's pull, the world's edges), the player's feet and head stay at least 15% of the half view
+inside the edges (`Camera.keep`, tested at every corner of the island; while the camera eases, 6%). What it looks at goes to the middle of what the HUD and a panel leave
 free (on a phone the column of buttons down the right edge counts too). With the build panel open it shows the lot
 the panel is about (the one clicked, else the cheapest on offer). In full screen on a big screen it zooms out to
 the whole built town (`builtFit`, never below 0.62 of the resting zoom).
@@ -338,14 +361,115 @@ keys or clicks, the hidden action list is disabled, the HUD "Xây" does nothing 
 a link (`?talk=`, `?build=`) opens only once they load, so "Thử lại" is the screen's one primary button and no
 conversation runs over an empty sky.
 
-**People.** Every person is a sprite with idle (breathing) and walk loops in eight directions (five rendered, three
-mirrored): the direction is the step being walked (`heading` in `sim.ts`). Nobody rests with their back to the
-viewer (with these blocky heads a back view is a box of hair): standing, a person turns three-quarters towards the
-viewer on the side of whatever they look at (`face`), and at the end of any walk (`settle`; the player too once no
+**People.** Every person is a sprite with a walk loop in eight directions (five rendered, three mirrored), an idle
+(breathing) loop facing the viewer (S, SE, SW) and three emotes. Nobody rests with their back to the viewer (with
+these blocky heads a back view is a box of hair): standing, a person turns three-quarters towards the viewer on the
+side of whatever they look at (`face`), and `SETTLE_AFTER` (0.12 s) after any walk (`settle`; the player too once no
 key is held), so in a conversation the two face each other and the viewer. Residents stand by their door most of
-the time (a stroll every 6–14 s, at most two tiles, usually back home). The walk cycle follows the walk phase, so
-the feet do not slide. Short animations played once (`act`): the player waves when a conversation starts, the
-resident nods after a right answer and shakes their head after a wrong one. People stand about a ninth of the stage
+the time: every 6–14 s a stroll of a few tiles (2–3 tiles out, never onto a doorstep or onto somebody), a stand of
+2–5 s there, then home; standing about they now and then look round (straight at the viewer or across to the other
+side, never the back of the head) and turn to the player when the player is near (at most every 0.35 s, so a player
+pacing past does not make them flicker). Short animations played once (`act`): the player waves when a
+conversation starts, the resident nods after a right answer and shakes their head after a wrong one.
+
+**Motion** (rebuilt 2026-11-14 after the owner said the people moved "giật giật như ma cà rồng", like hopping
+vampires; a second pass the same day after an animation review; measured in headless Edge, before and after in the
+table below):
+- speeds are ground speeds, tiles per second, the same whichever way on the screen (`PLAYER_SPEED` 2.2, residents
+  `RESIDENT_SPEED` 0.8 each ±10%, the cat 0.75). Before, they were screen pixels, so walking up the screen was three
+  times faster over the ground than across it;
+- the walk cycle follows the distance walked (`phase` += distance × 2π / stride; `engine/gait.ts`): the stride is
+  what the feet cover on the rig (`gaits` in the manifest, measured by `render.js measureStride`) times
+  `GAIT_SLIP` (player 1.4: brisk with a little slide; residents 1.05). A resident's cycle runs about 1.6 times a
+  second, the player's about 2.4, so a 16-frame walk shows 25–40 new frames a second;
+- the arms hang by the body and swing forward and back against the legs (scripts/town-art `ARM_REST`,
+  `walkArms`): Kenney's own pose held them 45° out and swung them out to the side, the stiff "zombie" stance the
+  owner saw; standing, people breathe, shift their weight from foot to foot and glance aside (a 2 s idle loop);
+- a click walk follows the A* path pulled straight wherever the way is clear with room to spare (`smoothPath`,
+  `lineClear`): one line across the plaza instead of a staircase of 45° steps, and the last corner cut when the
+  way is clear (`cutLastCorner`: no walking along a row and then a sharp turn for the last tile);
+- nobody walks through anybody. Paths go round people (`findPath` with a detour cost of `DETOUR`, four steps, on
+  their tiles: it once was 8 screen px, under a quarter of a step, so walks went straight through somebody's tile and
+  shoved them aside even on the open plaza; every straight line keeps `PASS` 0.55 tile from them). Every walker looks `LOOK` 0.9 tile ahead along its
+  path, round its corners, and 0.4 s ahead in time for somebody walking across (`blocker`); behind somebody going
+  the same way it follows at their pace (`following`), otherwise it slows to a stand and waits, legs together and
+  breathing (the idle loop) where it faces the viewer. A resident or the cat gives the walk up after 0.4 s behind
+  somebody standing, 1.2 s behind somebody walking, and leaves that heading alone for 4 s (`giveWay`, `giveUp`;
+  `canSetOff`: a stroll that would set off straight into somebody is not begun). The player's click walk looks for
+  a way round every 0.35 s (`playerWay`); on a narrow way with no way round, the one standing in it steps aside to
+  the nearest free spot clear of the walk, a few tiles on if need be (`stepAside`; never somebody held for a
+  conversation); a held key at somebody standing in the way does the same after 0.5 s (`keysBlocked`). Last, one
+  hard rule over all of that: a step that would bring anybody nearer than `MIN_GAP` 0.5 tile to somebody (and
+  nearer than they were) is not taken (`TownSim.step`). One way out of it: a click walk that has stood
+  `SQUEEZE_AFTER` 1.5 s behind somebody with no way round and nobody making way (a one-tile road with people in it,
+  the cat getting up and sitting down again in it) squeezes past that one person (`squeeze`); before, the player
+  could be boxed in for good (in a stress run, 20 of about 430 random walks never arrived). Walking up to talk never
+  picks a spot right by somebody standing near the edge of their tile (closer than 0.85 tile);
+- a walker sees somebody walking across its way where it will be at its FULL pace 0.4 s on (`blocker`): at its pace
+  of the moment, slowing for them made it stop seeing them, so it sped up, saw them again, and its speed went up
+  and down every frame behind the cat or a strolling resident (178 such frames in a 100,000-frame stress run, 1 now);
+- a walk cut short (keys taking over a click walk, a resident called to talk) stops at the next tile centre AHEAD on
+  the line (within 45° of it: `stopAhead`); it once took the tile under a point half a tile on, which early in a
+  diagonal step is still the tile being left, so the walker turned round, walked back a few hundredths of a tile and
+  turned again;
+- personal space: a stroll's end and the cat's seat are chosen with `SPACE` 1 tile round them; a resident standing
+  nearer than 0.8 tile to somebody for 0.6 s goes home; the cat gets up and goes when somebody stands right by it
+  for 1.2 s;
+- a walk eases in (`START_TIME` 0.14 s; the first step lifts at once, at least `START_CADENCE` while the body is
+  slow, instead of gliding on closed legs) and out (`STOP_TIME` 0.28 s, braking on the distance left); the last
+  stride is fitted to the distance left (`land`: the cycle a little faster or slower) so the legs come together
+  just as the body stops, and the person keeps that pose (frame 0 or the middle frame, both legs together: the
+  frames are timed so that both are, Kenney's walk crossing its legs again at 45% of the clip); a body
+  stopped by somebody in the way closes the step at once (a stride barely begun goes back down: `closeTarget`), never
+  a stride held mid-air; held keys walk on from tile to tile without slowing (the distance left in a frame carries
+  over);
+- a person turns 45° per `TURN_STEP` (0.07 s) walking and per `TURN_STEP_STAND` (0.12 s) standing, never a whole
+  turn in one frame, a half turn round through the front (the face); a walk the other way first turns on the spot,
+  0.09 s per 45° (`TURN_STEP_START`), and sets off once the way is within 45°: no spin while already moving. Walking, the sprite takes a new direction at once when the
+  way is clearly in it (12° past the octant's edge), otherwise once it has been the nearest for `HYSTERESIS_TIME`
+  (0.14 s): no flicker on a zig-zag, and no walking crabwise along a long straight line;
+- after a walk the person turns three-quarters to the viewer `SETTLE_AFTER` (0.12 s) after the step lands, an
+  easy turn of 0.12 s per 45°; coming from a way the idle loop is not made for (N, NE, E…), they stand 0.1 s on the
+  legs-together frame before the idle starts (`IDLE_AFTER_TURN`): the turn and the change of animation are two
+  moments, not one pop;
+- the cat gets up before a walk and sits down after it through 8 in-between frames (`down`, 0.5 s, played
+  backwards to stand up; `CAT_SIT_TIME`), turns only standing (to the front first, then it sits), never rotates
+  while seated, and its tail loop starts from the moment it sat;
+- the walk rides at one height through the cycle (`lift`, about 1.2 world px over the idle's ground line), lowered
+  by it as the walk slows to a stand (`walkDrop`): the body once rose mid-stride and dropped with the legs together,
+  a small hop at every step and a drop at every stop (scripts/town-art/README.md);
+- each emote plays ±10% faster or slower (`ACT_TEMPO`), so two head shakes in a row are not the same one (enough
+  frames for 15 a second at the slowest);
+- an emote waits until its person has turned three-quarters to the viewer (at most 0.8 s): the conversation's wave
+  never jumps from a back view;
+- night copies of people's frames: at most a few new ones per drawn frame (`beginSpriteFrame`), past that a shared
+  scratch canvas, so a walk at night does not allocate a canvas for every new frame.
+
+| (headless Edge, all 13 residents and the cat) | before | first pass | second pass | third pass |
+|---|---|---|---|---|
+| resident walk: new frames a second (p50) | 4.7 | 23.6 | 24 | 24 |
+| player walk: new frames a second | 13–16 | 27–40 | 38 | 38 |
+| cat walk / sit: new frames a second | 5.1 / – | 24.8 / 5.1 | 25 / 10 | 25 / 10; sits down and gets up through 8 frames |
+| idle / emotes: new frames a second | 4.5 / 8.6 | 15 / 15–17 | 15 / 16–17 | the same; emotes ±10% tempo |
+| arms | 45° out (A-pose), swung sideways | the same | hanging, swung forward and back | the same |
+| Grace's walk over her idle (lowest pixel of the walk / idle, S, atlas px) | – | – | −3 / 9 (she floated) | 5 / 9, like everybody |
+| legs moving after the body stopped | – | 0.2–0.7 s, then a snap to frame 0 | none (the step lands) | none |
+| standing turned away after a stroll, then the turn | – | 0.4 s, then 90–135° in 0.13 s | 0.12 s, then 0.12 s per 45° | the same |
+| player walking > 25° off its sprite's direction | – | 18% of walking time (runs up to 1.8 s) | 4% (runs up to 0.2 s) | 2.4–4.3% (runs up to 0.2 s) |
+| player off the canvas (keys walk, suggested resident far) | – | 77 of 222 frames | never | never |
+| two people's feet nearer than 0.55 tile | – | – | the player through Leo (0.00); the cat on feet 11–19 s | once in all runs: the cat passing, 0.50, 0.6 s |
+| the two after walking up to talk | – | – | 6 of 11 overlapping | 0 of 15 overlapping (9 side by side) |
+| camera at a conversation's start: first frame / largest move a frame | – | – | full speed / 129 px | 0.3–7 px / 43 px |
+| night, frames over 20 ms (1600×900 / 390×844) | – | 8–37% / 27–49% | 0–2.5% / 0–1.4% | not re-measured at 60 Hz (see below) |
+| longest engine frame, 390×844 by day | – | 70–125 ms (pictures decoded mid-frame) | under 8 ms | the same |
+
+The third pass's final runs came out at a steady 17.7 ms frame interval (p95 18.4 ms: about 56 Hz, even pacing) where
+every earlier run had 16.7 ms; the code that changed in between cannot account for it, so it was the machine. A
+pass at 16.7 ms on the same code less one change (how a stopped stride closes) had dt p95 16.9–17.7 ms and 0.04–0.45%
+of frames over 34 ms in every view, day and night.
+
+Only numbers and filmstrips were checked (headless Edge, 1600×900 and 390×844, day and night): nobody has watched
+it move yet. People stand about a ninth of the stage
 tall (`baseZoom`: the stage height / 460, bounded by the width on a tall phone, 0.8…1.8). Whatever stands in front
 of a person (a tree, a lamp, a house, the bus) is drawn see-through over them (`COVER_ALPHA`), so nobody disappears.
 A resident standing still always shows a face (the engine turns a back or side view to three-quarters front). The
@@ -363,7 +487,11 @@ The town dims a little around them (less at night) and the pair is drawn again o
 nobody else strolls; a resident within two tiles of either walks off to three tiles or more (home when that is far
 enough) and comes home afterwards (`keepClear` in `sim.ts`); a small thing in front of them or poking up at their
 feet (a lamp's head) goes see-through. The player never walks up to stand where somebody else stands
-(`walkToResident`, and `talkStartTile` for a linked conversation). The panel comes in. On a stage at least 900 px wide (a container query on the stage, so full screen
+(`walkToResident`, and `talkStartTile` for a linked conversation), and stands where the two figures do not overlap
+on the screen: side by side first (a diagonal step across: 64 world px apart and level), then two tiles off a little
+up or down the screen, then two tiles along a row; one tile along a row (the figures, about 29 px wide, would
+overlap) or straight in front or behind only when nothing else is free (`TALK_SPOTS`, `talkSpotCost`); never a spot
+whose way leads past the resident. The panel comes in. On a stage at least 900 px wide (a container query on the stage, so full screen
 counts) it docks to the right like the build panel, as tall as what it holds, and the two stand in the town on the left; below
 that it covers the bottom but always leaves a strip of about 170 px above it where the camera frames them, so the
 nod, the shake and the coins are seen on a phone too. What does not fit scrolls inside the panel with "Câu tiếp"
@@ -412,31 +540,47 @@ one polite live region; the build panel is a `role="dialog"` that returns focus 
 lays 30% of each picture's own colour back with a 'color' blend (`NIGHT_KEEP_COLOUR`: blossom stays pink, grass
 green, not one lavender wash). The world's atlases are
 tinted whole while the browser is idle as soon as night is on (`prepareNight`), so the first night frames do not
-stall; a person's frame is tinted the first time it is drawn; all of it is dropped back in the day (the ground is
-tinted in place each frame). The "lit" layers are warmed to amber (`LIT_WARM`) and painted over the body, then added
+stall; a person's frame is tinted the first time it is drawn (a few new copies per frame, the rest in a shared
+scratch canvas until their turn); all of it is dropped back in the day. Every night copy is drawn on the CPU and
+kept as an ImageBitmap (`freeze`, `SOFT`): a copy made on the graphics card had its smaller sizes made again in
+every frame it was drawn shrunk, so a night frame cost four times a day frame (headless Edge: 8–49% of frames over
+20 ms; now as smooth as the day). The pictures themselves are kept decoded as ImageBitmaps (`loadArtImage`): an
+`<img>` was decoded again in the middle of a frame (40–125 ms) whenever the browser had dropped its decoded copy.
+A bitmap is never dropped by the browser, and decoded they take about 175 MB (people 130 MB, world 44 MB, plus the
+night copies), so they are kept only while the town page is open and for 30 s after it closes (`holdTownArt`:
+coming straight back draws at once), then closed; the next visit decodes them again from the browser's cache. A
+sprite with a light layer is drawn at night from one baked picture (the dusk body with its warm light already on,
+`litSprite`); the pools of lamp light are painted once into the night ground (`groundWithPools`); the faint glow
+over standing things is drawn only round lamps somebody stands or walks near (`drawLampGlow`); the sky is drawn
+into its own picture 15 times a second (`skyLayer`). Enlarged (a conversation), the atlases are drawn with plain
+bilinear filtering: the same look at 1.1×, and the bicubic one stalled the first frames of a conversation. The "lit" layers are warmed to amber (`LIT_WARM`) and painted over the body, then added
 once more so they glow: a place's windows at `windowGlow(lit)` (a faint glow from the first day, full when every line
 is understood), lamps, the stall, the construction lights and the string lights at full. Every lamp lays a warm pool
 of light on the ground and a faint glow over whoever stands in it (`lampLights` in `scene.ts`); the string lights a
 wide faint one over the plaza. The pools are an amber 'color-dodge', which gives the ground under a lamp its own
 colours back, warmed, instead of a pale haze. Shadows are softer at night; fireflies by night (no butterflies by day:
 at the game's zoom they read as stray pixels). Under reduced motion: no camera travel, no particles, no pop, the xu count changes at once;
-people hold one still frame (no breathing, no walk cycle, no nod / shake / wave); emotes and the "+N" stand still
-for a moment instead of rising.
+people hold one still frame (no breathing, no walk cycle, no nod / shake / wave; walking, they glide in that
+frame); emotes and the "+N" stand still for a moment instead of rising.
 
 **The art.** Kenney's CC0 packs (Mini Characters, City Kit Suburban, City Kit Roads; licences in
 `src/features/town/art/LICENSE-kenney.txt`) rendered offline by `scripts/town-art` (`npm run art:town`, about 25 s;
 `-- --part world` or `-- --part characters` for one half; `scripts/town-art/README.md`) through the game's own
 orthographic 2:1 camera, with one light, outline and colour filter, into WebP atlases and generated manifests. Only
-the rendered images are in the repo; the 3D files stay in the git-ignored `art-src/kenney/`. Sizes: people 4.45 MB (14
-atlases of 106 frames: idle, walk, nod, shake, wave; 2.5 px per world px, WebP quality 0.74) + portraits 137 KB + a
-shared contact shadow;
-world 0.9 MB (places, lots, nature, decorations, the cat, the bus, light and shadow layers at 3 px per world px, and
-the whole ground as one picture at 2 px). The game adds a few touches at draw time: the bus is drawn 1.3× (`BUS_SCALE`:
+the rendered images are in the repo; the 3D files stay in the git-ignored `art-src/kenney/`. Sizes: people 7.82 MB (14
+atlases of 188 frames: walk 16 frames × 5 directions, idle 30 × 2, nod 13, shake 15, wave 20, the emotes
+three-quarters only; 2.5 px per world px, WebP quality 0.74) + portraits 128 KB + a shared contact shadow: 7.95 MB
+(7.6 MiB, under the 8 MB budget with 0.05 MB to spare: no room for more frames); world 1.13 MB (places, lots, nature, decorations, the cat with a
+12-frame walk and a 24-frame sitting tail, the bus, light and shadow layers at 3 px per world px, and the whole ground as one picture
+at 2 px). The player's atlas holds a brisk walk, the residents' a stroll (smaller steps, calmer arms); both carry the
+body at one height (about a pixel over the idle's line, `lift`) instead of Kenney's 3 px hop (render.js `gaitClip`).
+The idle, the nod, the head shake and the wave are made in render.js (`procPose`) on Kenney's rest pose, and the
+arms hang in every pose (`ARM_REST`). The game adds a few touches at draw time: the bus is drawn 1.3× (`BUS_SCALE`:
 it must look like it holds people) and only once the bus stop is built (it pops in with it; its two tiles stay
 blocked either way); a street lamp can be mirrored (`DecorSpot.flip`) so its arm reaches over the path beside it
 (tested in `townWorld.test.ts`); the flags show their pole and pennant only (`flagClip`), the rendered bunting pegged
-to the ground read like a fallen tent. All 22 WebP files together: 5,496,718 bytes (about 5.5 MB / 5.2 MiB: people
-atlases 4.45 MB, portraits 0.14 MB, world 0.9 MB). In the web build they are hashed /assets/ files that the service
+to the ground read like a fallen tent. All 22 WebP files together: 9,074,980 bytes (about 9.1 MB / 8.7 MiB: people
+atlases 7.82 MB, portraits 0.13 MB, world 1.13 MB). In the web build they are hashed /assets/ files that the service
 worker does NOT precache: it stores them in their own cache (`nghe-noi-am-art`) the first time the town draws them,
 keeps that cache across deploys (a picture's hashed name changes only with its content) and drops pictures the
 current build no longer has. The portable build does not inline them either: `npm run portable` copies them to
@@ -447,7 +591,7 @@ and the code loads them as `./art/<file>` (an `<img>` loads a sibling file on fi
 What the stage offers the shell beyond the first engine (`TownStageHandle` / props): `focusOn`, `emote`, `act(target,
 'yes' | 'no' | 'wave')`, `burst`, `walkTo`, `pointOf` (the top of the sprite's head), `float(target, text)`,
 `celebrate(id)`, `focus()`, `box()`, `rect()`; state `sites` (the lots on offer); props `speaking` (the bubble
-with bars over a resident), `inset` (pixels a panel covers at the right / bottom: the camera centres in the rest),
+with bars over a resident, or over the player with `'player'`: the learner's own lines of an episode), `inset` (pixels a panel covers at the right / bottom: the camera centres in the rest),
 `safe` (what the HUD covers along each edge: no tags there, the camera centres in the rest), `hint` (the suggested
 resident), `peek` (the lot the build panel is about), `full`, `onIdleAct`.
 
@@ -455,7 +599,7 @@ Not there (know it before you promise it): no walking sound, no music; no pinch 
 than about 640 px the strip above the conversation is thin (the panel scrolls); the bus does not drive in, it pops
 up with the bus stop; the player wears no hard hat when building; the build animation is skipped entirely under
 reduced motion; balloons, flags, the fountain and the string bulbs are still pictures (no sway, no twinkle); offline,
-the town works only after one online visit to it (its pictures, about 5.5 MB, are cached on first use, not at
+the town works only after one online visit to it (its pictures, about 9.1 MB, are cached on first use, not at
 install: every other page works offline after the first visit of the app); nothing was checked by ear or on a real
 phone (see AGENTS.md §9).
 
@@ -479,22 +623,119 @@ phone (see AGENTS.md §9).
 - **It complements, it does not replace.** Thị trấn is the pull to come back and listen every day; decoding is
   learned in Bài học / Giải mã câu / Chép chính tả, and real listening is real video and real hours (Video thật,
   Nhật ký nghe). Time in town is not logged as real listening.
+- The episodes have their own limits (§9 "Honest limits of episodes"): app voices, a 1-of-3 gist, a line of step 2
+  was heard once already in the whole exchange.
 - Daily tasks are per browser (§4); a day written by a machine with a wrong clock can stay in `days` and bend the
   streak; a town reset on one machine also drops another machine's town it had not synced yet (the price of making
   resets stick, as for every synced key).
 
-## 9. Next step (not built): daily-life mini-dialogues per place
+## 9. "Chuyện ở thị trấn": episodes
 
-Today a conversation is five unrelated sentences of one topic. The step that would make residents feel like people:
+A single sentence heard on its own, with replays, is not how speech arrives. An **episode** is a short everyday
+exchange at a place (5 to 8 lines) between its resident and the learner's own character ("Bạn"), sometimes with a
+neighbour dropping by; each one speaks in their own voice (`core/town/voices.ts`). Contract `core/town/story.ts`,
+content `data/townStories.ts` (two episodes per place, stable ids), rules `core/town/episodes.ts`, the panel
+`features/town/Episode.tsx`.
 
-- author a few short dialogues per place (ordering at Quán cà phê, asking the way at Bến xe, a call at Văn phòng…) as
-  `TownLine`s with their own ids, an authored `say` where the decoder has no safe spelling (the SAPI-safe rules of
-  `src/core/decoder/sapiMisread.ts` apply), a Vietnamese meaning per line, and wrong meanings written for the line
-  (near-sounding or near-meaning) instead of drawn from the pool;
-- a conversation then plays one dialogue turn by turn. The types already allow it: a `TownLine` without `sentenceId`
-  is recorded and paid like any other and gets no dictation card;
-- these lines need **new clips**: add their texts to the audio inventory (`docs/audio.md`) and let the owner run
-  `npm run audio:generate` (the key comes only from `GEMINI_API_KEY`; never handle it). Until the clips exist those
-  lines would play the browser voice, so do not ship the dialogues before the clips;
-- decide then whether a missed dialogue line gets a review card of its own, and whether xp should count dialogue
-  lines (today xp counts the lines of `placeLines` only).
+### When a conversation is an episode
+
+Talking to a resident (`startTownEpisode` → `nextEpisode`): a **re-listen that is due** comes first (the one due longest
+first), else the **next episode** of the place not finished yet (episode 1 is open from the start, episode n + 1 once
+episode n is finished), else the old five unrelated lines, now called **"Trò chuyện nhanh"**. The result card of an
+episode offers "Trò chuyện nhanh" with the same resident.
+
+### The three steps of a new episode
+
+1. **Nghe cả đoạn.** The title "Tập n · <title>", the scene in one Vietnamese line, then the whole exchange in one go:
+   every line connected (`storyLinePlayback(line, episode, 'connected')`, `core/town/storyAudio.ts`: the same text and
+   voice the clip generator uses), at the learner's rate (level 1 a little slower, as in dictation), a pause of 450 ms
+   when the speaker changes and 220 ms when the same one goes on (`passGap`). No text. The speaker gets the bubble in
+   the town: the resident, or the player for the learner's own lines (`TownStage` `speaking: 'player'`); a neighbour
+   who drops by is only heard. It starts by itself 0.7 s after the panel opens (`auto`: never a paid request); where
+   the browser does not let a page speak by itself (a link opened the talk, the first audio on an iPhone) nothing is
+   counted and "Nghe cả đoạn" is the primary button. Then the **gist** question with 3 cards (keys 1–3), answerable
+   once one whole listen has sounded (heard through, or stopped by the learner after something sounded). The right
+   gist after exactly ONE whole listen, on the episode's very first listen ever, is the honest win: "Hiểu ý chính ngay
+   lần đầu!", +5 xu, confetti. A replay ("Nghe lại cả đoạn") before answering takes the win away (the gist then only
+   counts as "Đúng ý chính rồi."). The gist's options are shown in a seeded order (`gistChoices`).
+2. **Từng câu.** Every line as in a quick chat (`Turn` of `Conversation.tsx`): played by itself, "Nghe lại" and "Chậm"
+   (still connected), counted with `notePlay` / `lineOutcome`, 1 of 3 Vietnamese meanings (`storyChoices`: the wrong
+   ones from the other lines of the same place's stories, the same episode included, ranked by `choicesFor`), then
+   the decoded line (`SpokenSentence`) with "Nghe lại" and "Rõ từng từ" (careful, in the speaker's voice). The ask
+   names the speaker ("Emma vừa nói gì?", "Bạn vừa nói gì?" for the learner's own line). A miss enrols its own review
+   card `talk:<line id>` (docs/review-system.md §14) when it has none.
+3. **Nghe lại liền mạch.** The whole exchange once more without stopping (it starts on the click of the last line's
+   button), then the result card and the transcript: the gist on the first listen ✓ / ✗, "Hiểu x/n câu" (✓ all, ✗
+   none, a neutral mark in between), the xu with where they came from, when the episode comes back ("Emma sẽ kể lại
+   chuyện này ngày mai để bạn nghe lại."), then every line with its speaker, decoded, its meaning and a ▶, "Nghe lại cả
+   đoạn", and one muted honest line: "Đây là giọng đọc của app: rõ hơn người thật nói ngoài đời…". Leaving during the
+   last listen leaves the episode unfinished (its answered lines are saved); the next talk starts it again from step 1.
+
+### Re-listens (spaced re-listening)
+
+A finished episode comes back for a short **re-listen**: the whole exchange once and the gist, nothing else, then the
+transcript. Due after 1, 3, 7 and 21 days (`RELISTEN_DAYS`), counted in local days from the day of the last whole
+listen that counted (due from the start of its day). A right gist moves it a stage on; a wrong one brings it back the
+next day at the same stage (`RETRY_DAYS`). After the fourth right re-listen nothing more is scheduled. A due re-listen
+has its own marker over the resident (a green bubble with a round arrow; an episode to hear has a violet bubble with
+three dots) and the main button says "Nghe lại chuyện với Emma"; an episode to hear says "Tới gặp Emma · Tập 1" /
+"Bắt chuyện với Emma · Tập 1" (`talkPrompt`). The suggested resident (`suggestedPlace`): a due re-listen first, then an
+episode to hear (episode 1 before 2), then lines not understood, then repeats.
+
+### Rewards
+
+| What | Xu |
+| --- | --- |
+| a line of an episode | as any line (3 / 2 / 1 / 0, §3) |
+| the gist right after one whole listen, on the episode's very first listen | +5, once per episode |
+| the first finish of an episode | +10 |
+| a re-listen with the gist right | +3 |
+
+A finish and a re-listen count as a conversation for "Trò chuyện với 2 người dân"; every line counts for "Hiểu 8 câu"
+and "Hiểu 4 câu ngay lần nghe đầu" like a line of a quick chat. Lines of the episodes count for xp (the level) like any
+line (`storyTotals`); hearts and lit windows stay on the place's own sentences, so a new episode never takes a heart
+away. A perfect first run of a 6-line episode pays 6 × 3 + 5 + 10 = 33 xu without the daily tasks.
+
+### Stored
+
+`episodes[episodeId] = { stage, at, okAt, firstGist, bestLines }` in the town progress (§4): `stage` 0 = begun (the gist
+answered), 1 = finished, +1 per re-listen whose gist was right (at most 5); `at` = the last whole listen that counted
+(the finish or a re-listen); `okAt` = the last of those whose gist was right (the finish counts); `firstGist` 0 = not
+asked, 1 = not right on the very first listen, 2 = right on it; `bestLines` = most lines understood in one run. The
+next re-listen is derived (`episodeDueDay`: `at > okAt` → the next day, else `RELISTEN_DAYS[stage − 1]` days after
+`at`), never stored, so the merge stays a max per field.
+
+### Store calls (`core/town/store.ts`)
+
+- `startTownEpisode(placeId)` → `{ ok: true, place, episode, mode: 'new' | 'relisten', turns: [{ line, choices, who,
+  speaker }], gist: { options, answer }, met, firstListen }` or `{ ok: false, reason: 'unknown' | 'empty-lot' | 'none' }`
+  ('none': nothing waits, the quick chat). Writes nothing.
+- `recordEpisodeGist(right, passes)` → `{ right, firstWin, reward, tasksPaid, earned, balance, result, progress, saved }`;
+  a re-listen ends with it (`result` set). Answered twice: the first answer is returned.
+- `recordEpisodeLine(line, outcome)` → a `TownAnswerResult` (as `recordTownAnswer`; `review` = the `talk` card
+  enrolled, `conversation` null). A line answered twice in one run is recorded once.
+- `finishTownEpisode()` → `{ episodeId, placeId, mode, gistRight, gistFirstWin, lines, linesRight, lineXu, gistXu,
+  finishXu, tasksPaid, earned, balance, firstFinish, stage, nextDue, daysToNext, levelTitle }` once every line is
+  answered (null before); the second call returns the same result.
+
+### Audio
+
+Each line sends `storyLinePlayback` (the connected text: authored `say`, else the decoder's speakText, else the
+written text; "Rõ từng từ": the written text at `CAREFUL_RATE`) with the speaker's voice (`SpeakOptions.voice`), so
+the shipped clip for that text AND voice plays (`audioKey(mode, text, voice)`, docs/audio.md). Until the owner runs
+`npm run audio:generate` for the episodes, their lines play the browser voice of the speaker's gender: never a paid
+request unless Settings chose the AI voice.
+
+### Honest limits of episodes
+
+- **App voices, not people.** Several voices are better than one, but they are still studio-clean TTS. The result card
+  says so; nothing promises native-like listening.
+- **The gist is 1 of 3.** The first-listen win has a 33% chance floor like every pick here; it is a game moment, not a
+  measurement.
+- **A line in step 2 was heard once already** in the whole exchange (without text): its "first" outcome means one play
+  of that line on its own after that, and the verdict may still say "nghe một lần đã hiểu".
+- **Re-listening knows the story.** By the first re-listen the learner has read the transcript; a right gist then says
+  the exchange is still followed at speed, not that it was decoded from scratch.
+- **Two machines** that each finish an episode before a sync are each paid its first finish (+10), as each would be
+  for a new line. The merge keeps the higher of everything, including `firstGist`.
+- Not checked by ear: the pauses between turns, the voices and the clips themselves (none are generated yet).

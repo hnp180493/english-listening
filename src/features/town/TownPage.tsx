@@ -7,14 +7,26 @@ import { parseHash } from '../../core/nav';
 import { useSettings } from '../../core/settings';
 import { resolveTheme, systemPrefersDark } from '../../core/theme';
 import { lineProgress } from '../../core/town/progress';
-import { buyTownItem, loadTownProgress, startTownConversation, useTownOverview, type TownAnswerResult, type TownTurn } from '../../core/town/store';
+import {
+  buyTownItem,
+  loadTownProgress,
+  startTownConversation,
+  startTownEpisode,
+  useTownOverview,
+  type TownAnswerResult,
+  type TownEpisodeGistResult,
+  type TownEpisodeResult,
+  type TownEpisodeStart,
+  type TownTurn,
+} from '../../core/town/store';
 import type { TownPlace } from '../../core/town/types';
 import { PLACE_IDS, type PlaceId } from '../../data/townWorld';
 import { Portrait } from './art';
 import BuildSheet from './BuildSheet';
 import Conversation from './Conversation';
+import Episode from './Episode';
 import TownStage, { type Near, type SafeInsets, type TownStageHandle, type TownTheme } from './engine/TownStage';
-import { lotLabel, lotLabelsOf, lotsOnOffer, stageStateOf, suggestedPlace, talkLabel, talkStartTile, xu, type Verdict } from './shellModel';
+import { lotLabel, lotLabelsOf, lotsOnOffer, stageStateOf, suggestedPlace, talkLabel, talkPrompt, talkStartTile, xu, type Verdict } from './shellModel';
 import { playSfx } from './sfx';
 import TownHud from './TownHud';
 import { inertOutside } from './inertOutside';
@@ -191,25 +203,34 @@ function useStageInsets(box: () => HTMLElement | null, key: string): { safe: Saf
   return { safe, panel };
 }
 
-interface Talk {
-  /** A new number for every conversation: the panel starts afresh. */
-  key: number;
-  place: TownPlace;
-  turns: TownTurn[];
-  met: boolean[];
-}
+type Talk =
+  | {
+      kind: 'quick';
+      /** A new number for every conversation: the panel starts afresh. */
+      key: number;
+      place: TownPlace;
+      turns: TownTurn[];
+      met: boolean[];
+    }
+  /** "Chuyện ở thị trấn": an episode (or its re-listen) waits at the place. */
+  | { kind: 'episode'; key: number; place: TownPlace; start: Extract<TownEpisodeStart, { ok: true }> };
 
 const TOAST_MS = 4200;
 
 /**
- * Begin a conversation at a place (core/town/store): its five lines with their meanings, and for each line
- * whether the learner had answered it before. Null for an empty lot or an unknown place.
+ * Begin a conversation at a place (core/town/store): the episode that waits there (a due re-listen, else the next
+ * episode to hear), else the quick chat: five lines with their meanings, and for each line whether the learner had
+ * answered it before. `quick`: the quick chat whatever waits. Null for an empty lot or an unknown place.
  */
-function beginTalk(placeId: string, key: number): Talk | null {
+function beginTalk(placeId: string, key: number, quick = false): Talk | null {
+  if (!quick) {
+    const e = startTownEpisode(placeId);
+    if (e.ok) return { kind: 'episode', key, place: e.place, start: e };
+  }
   const progress = loadTownProgress();
   const r = startTownConversation(placeId);
   if (!r.ok) return null;
-  return { key, place: r.place, turns: r.turns, met: r.turns.map((t) => (lineProgress(progress, t.line.id)?.tries ?? 0) > 0) };
+  return { kind: 'quick', key, place: r.place, turns: r.turns, met: r.turns.map((t) => (lineProgress(progress, t.line.id)?.tries ?? 0) > 0) };
 }
 
 /**
@@ -239,7 +260,8 @@ export default function TownPage() {
     return isPlaceId(params.talk) && !linked ? { wanted: params.talk } : null;
   });
   const [near, setNear] = useState<Near>(null);
-  const [speaking, setSpeaking] = useState(false);
+  // who speaks now in a conversation: the resident's place id, 'player' (an episode's own lines), or null
+  const [speaking, setSpeaking] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const soundRef = useRef(ui.sound);
   useEffect(() => {
@@ -257,9 +279,9 @@ export default function TownPage() {
 
   // ───────────────────────── a conversation ─────────────────────────
 
-  const startTalk = useCallback((placeId: string) => {
+  const startTalk = useCallback((placeId: string, quick = false) => {
     talkCount.current += 1;
-    const next = beginTalk(placeId, talkCount.current);
+    const next = beginTalk(placeId, talkCount.current, quick);
     if (!next) {
       // an empty lot has nobody to talk to yet: offer to build it
       if (!overviewRef.current.places.find((p) => p.place.id === placeId)?.built) setBuild({ wanted: placeId });
@@ -275,7 +297,7 @@ export default function TownPage() {
 
   const endTalk = useCallback(() => {
     setTalk(null);
-    setSpeaking(false);
+    setSpeaking(null);
     stage.current?.focusOn(null);
     stage.current?.focus();
     // a link that opened the conversation is used up: a reload shows the town
@@ -359,7 +381,47 @@ export default function TownPage() {
     [talkPlace],
   );
 
-  const onSpeaking = useCallback((on: boolean) => setSpeaking(on), []);
+  const onSpeaking = useCallback((on: boolean) => setSpeaking(on ? (talkPlace ?? null) : null), [talkPlace]);
+  const onStorySpeaking = useCallback((who: string | null) => setSpeaking(who), []);
+
+  const onGist = useCallback(
+    (r: TownEpisodeGistResult, v: Verdict) => {
+      const s = stage.current;
+      const id = talkPlace as PlaceId | undefined;
+      if (!s || !id) return;
+      s.emote(id, v.emote);
+      s.act(id, v.tone === 'ok' ? 'yes' : 'no');
+      sfx(v.sfx);
+      if (r.reward > 0) {
+        s.float(id, `+${r.reward}`);
+        s.burst('coins', id, xuPoint());
+        later(520, () => sfx('coin'));
+      }
+      // the honest win: the main point understood on the very first listen
+      if (r.firstWin) later(350, () => stage.current?.burst('confetti', id));
+      if (r.tasksPaid.length > 0) later(900, () => sfx('task'));
+    },
+    [talkPlace, sfx, xuPoint, later],
+  );
+
+  const onEpisodeFinished = useCallback(
+    (r: TownEpisodeResult) => {
+      const s = stage.current;
+      const id = talkPlace as PlaceId | undefined;
+      if (!s || !id) return;
+      if (r.finishXu > 0) {
+        s.float(id, `+${r.finishXu}`);
+        s.burst('coins', id, xuPoint());
+        later(520, () => sfx('coin'));
+      }
+      if (r.firstFinish || r.levelTitle) {
+        s.burst('confetti', id);
+        s.emote(id, 'heart');
+        later(400, () => sfx(r.levelTitle ? 'level' : 'task'));
+      }
+    },
+    [talkPlace, sfx, xuPoint, later],
+  );
 
   // ───────────────────────── building ─────────────────────────
 
@@ -401,11 +463,11 @@ export default function TownPage() {
   const nearPlace = near ? overview.places.find((p) => p.place.id === near.placeId) : undefined;
   const prompt: { icon: typeof Hammer; text: string; build: boolean; id: string } | null =
     near?.kind === 'resident' && nearPlace?.built
-      ? { icon: MessageCircle, text: `Bắt chuyện với ${nearPlace.place.resident}`, build: false, id: nearPlace.place.id }
+      ? { icon: MessageCircle, text: talkPrompt(nearPlace, true), build: false, id: nearPlace.place.id }
       : near?.kind === 'lot' && nearPlace && !nearPlace.built
         ? { icon: Hammer, text: `Xây ${nearPlace.place.name} · ${xu(nearPlace.cost)}`, build: true, id: nearPlace.place.id }
         : suggested
-          ? { icon: Footprints, text: `Tới gặp ${suggested.place.resident}`, build: false, id: suggested.place.id }
+          ? { icon: Footprints, text: talkPrompt(suggested, false), build: false, id: suggested.place.id }
           : null;
   const promptId = prompt?.id;
   const promptBuilds = prompt?.build ?? false;
@@ -444,8 +506,8 @@ export default function TownPage() {
             items={[
               { keys: ['← ↑ ↓ →'], text: 'Đi quanh thị trấn (W A S D cũng được)' },
               { keys: ['E'], text: 'Bắt chuyện với người đứng cạnh (Enter cũng được)' },
-              { keys: ['1–3'], text: 'Chọn nghĩa của câu vừa nghe' },
-              { keys: ['R'], text: 'Nghe lại câu' },
+              { keys: ['1–3'], text: 'Chọn nghĩa của câu, hoặc ý chính của cả đoạn' },
+              { keys: ['R'], text: 'Nghe lại câu (hoặc cả đoạn)' },
               { keys: ['Enter'], text: 'Câu tiếp' },
               { keys: ['Esc'], text: 'Rời cuộc trò chuyện, đóng bảng xây' },
             ]}
@@ -460,7 +522,7 @@ export default function TownPage() {
         onLot={openBuild}
         onNear={setNear}
         onIdleAct={onIdleAct}
-        speaking={speaking && shownTalk ? (shownTalk.place.id as PlaceId) : null}
+        speaking={shownTalk && speaking ? (speaking === 'player' ? 'player' : speaking === shownTalk.place.id ? (speaking as PlaceId) : null) : null}
         inset={insets.panel}
         safe={insets.safe}
         hint={!talk && suggested ? (suggested.place.id as PlaceId) : null}
@@ -542,7 +604,7 @@ export default function TownPage() {
 
         {shownBuild && <BuildSheet overview={overview} wanted={shownBuild.wanted} onBuy={onBuy} onClose={closeBuild} />}
 
-        {shownTalk && (
+        {shownTalk?.kind === 'quick' && (
           <Conversation
             key={shownTalk.key}
             place={shownTalk.place}
@@ -556,6 +618,20 @@ export default function TownPage() {
             onAgain={() => startTalk(shownTalk.place.id)}
           />
         )}
+        {shownTalk?.kind === 'episode' && (
+          <Episode
+            key={shownTalk.key}
+            place={shownTalk.place}
+            start={shownTalk.start}
+            hearts={talkView?.hearts ?? 0}
+            onSpeaking={onStorySpeaking}
+            onAnswered={onAnswered}
+            onGist={onGist}
+            onFinished={onEpisodeFinished}
+            onLeave={endTalk}
+            onQuick={() => startTalk(shownTalk.place.id, true)}
+          />
+        )}
       </TownStage>
 
       <details className="how">
@@ -567,6 +643,10 @@ export default function TownPage() {
           <p>
             Để bạn có thêm một lý do nghe tiếng Anh nói nhanh mỗi ngày. Người dân nói một câu, bạn không thấy chữ, chỉ nghe rồi chọn nghĩa. Xu chỉ đến từ việc hiểu câu đó:
             nghe một lần mà hiểu thì được nhiều nhất, không mua được bằng cách nào khác.
+          </p>
+          <p>
+            Người dân còn kể chuyện theo từng tập: bạn nghe cả đoạn một lần để nắm ý chính, rồi nghe từng câu, rồi nghe lại liền mạch. Sau 1, 3, 7 và 21 ngày họ kể lại để bạn
+            nghe lại, vì nghe lại đúng lúc thì mới nhớ lâu.
           </p>
           <p>
             Nói thật với nhau: giọng trong app rõ hơn người thật nhiều, và chọn 1 trong 3 nghĩa dễ hơn hẳn việc tự nghe ra ngoài đời. Xây xong cả thị trấn nghĩa là bạn đã quen

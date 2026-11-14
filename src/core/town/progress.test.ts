@@ -25,7 +25,7 @@ import {
 import type { LineOutcome } from './types';
 
 const T = 1_800_000_000_000;
-const EMPTY = { version: 2, lines: {}, earned: {}, bought: [], daily: {}, days: [] };
+const EMPTY = { version: 3, lines: {}, earned: {}, bought: [], daily: {}, days: [], episodes: {} };
 const make = (p: Partial<TownProgress>): TownProgress => ({ ...emptyTownProgress(), ...p });
 /** 'YYYY-MM-DD' `n` days after 2026-11-01. */
 const dayN = (n: number): string => daysBefore('2026-11-01', -n);
@@ -92,7 +92,8 @@ describe('parseTownProgress', () => {
       days: ['2026-11-13', '2026-11-10', '2026-11-13', 'tomorrow', 5, '2026-1-1'],
     });
     expect(p).toEqual({
-      version: 2,
+      version: 3,
+      episodes: {},
       lines: {},
       earned: { 'd-aaaa0001': 12, 'd-dddd0004': 10_000_000 },
       bought: ['home', 'lamps1', 'shop'],
@@ -150,7 +151,7 @@ describe('recordLine', () => {
   it('touches the lines only: xu, purchases and days are carried over as they are', () => {
     const p = make({ earned: { 'd-aaaa0001': 9 }, bought: ['home'], days: ['2026-11-13'] });
     const q = recordLine(p, 's001', 'first', T);
-    expect(q).toMatchObject({ version: 2, earned: p.earned, bought: p.bought, daily: {}, days: p.days });
+    expect(q).toMatchObject({ version: 3, earned: p.earned, bought: p.bought, daily: {}, days: p.days });
     expect(q.earned).toBe(p.earned);
   });
 
@@ -316,6 +317,50 @@ describe('mergeTownProgress', () => {
     const m = mergeTownProgress(v1, v2);
     expect(m).toEqual({ ...EMPTY, lines: { s001: { best: 2, tries: 3, at: 100 } }, earned: { 'd-aaaa0001': 7 }, bought: ['home'] });
     expect(mergeTownProgress(v2, v1)).toEqual(m);
+  });
+
+  it('episodes: union, the max of every field (a version 2 copy has none and takes nothing away)', () => {
+    const a = make({ episodes: { 'cafe-1': { stage: 2, at: 500, okAt: 300, firstGist: 1, bestLines: 4 }, 'shop-1': { stage: 0, at: 0, okAt: 0, firstGist: 2, bestLines: 0 } } });
+    const b = make({ episodes: { 'cafe-1': { stage: 1, at: 400, okAt: 400, firstGist: 2, bestLines: 6 } } });
+    const m = mergeTownProgress(a, b);
+    expect(m.episodes).toEqual({
+      'cafe-1': { stage: 2, at: 500, okAt: 400, firstGist: 2, bestLines: 6 },
+      'shop-1': { stage: 0, at: 0, okAt: 0, firstGist: 2, bestLines: 0 },
+    });
+    expect(mergeTownProgress(b, a)).toEqual(m);
+    expect(mergeTownProgress(m, m)).toEqual(m);
+    const v2 = parseTownProgress({ version: 2, lines: { s001: { best: 1, tries: 1, at: 5 } } });
+    expect(mergeTownProgress(a, v2).episodes).toEqual(a.episodes);
+    expect(mergeTownProgress(v2, a)).toEqual(mergeTownProgress(a, v2));
+  });
+});
+
+describe('episodes in the stored value', () => {
+  it('a version 2 value loads as it was, with no episode begun', () => {
+    const v2 = { version: 2, lines: { s001: { best: 2, tries: 1, at: T } }, earned: { 'd-aaaa0001': 9 }, bought: ['home'], daily: {}, days: ['2026-11-13'] };
+    expect(parseTownProgress(v2)).toEqual({ ...EMPTY, lines: v2.lines, earned: v2.earned, bought: ['home'], days: ['2026-11-13'] });
+  });
+
+  it('reads episodes defensively: clamped, floored, junk and unsafe ids dropped, empty records dropped', () => {
+    const p = parseTownProgress({
+      version: 3,
+      episodes: JSON.parse(
+        JSON.stringify({
+          'cafe-1': { stage: 2.7, at: T, okAt: T - 5, firstGist: 2, bestLines: 6, extra: 1 },
+          'cafe-2': { stage: 9, at: -1, okAt: 'x', firstGist: 7, bestLines: 1e9 },
+          'shop-1': { stage: 0, at: 0, okAt: 0, firstGist: 0, bestLines: 0 },
+          'Bad Id': { stage: 1, at: T, okAt: T, firstGist: 2, bestLines: 1 },
+          'park-1': 'x',
+          'home-1': [1],
+        }),
+      ),
+    });
+    expect(p.episodes).toEqual({
+      'cafe-1': { stage: 2, at: T, okAt: T - 5, firstGist: 2, bestLines: 6 },
+      'cafe-2': { stage: 5, at: 0, okAt: 0, firstGist: 2, bestLines: 50 },
+    });
+    const unsafe = parseTownProgress(JSON.parse('{"episodes":{"__proto__":{"stage":1},"constructor":{"stage":1}}}'));
+    expect(unsafe.episodes).toEqual({});
   });
 });
 

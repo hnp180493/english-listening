@@ -358,6 +358,7 @@ describe('summarize', () => {
       lesson: 0,
       media: 0,
       word: 0,
+      talk: 0,
     });
     expect(sum.backlogClears).toBe(true);
   });
@@ -558,7 +559,7 @@ describe('forecast / kindCounts / estimateMinutes / nextAvailable / statesByRef'
 
   it('kindCounts has every kind', () => {
     const k = kindCounts(list, NOW);
-    expect(Object.keys(k).sort()).toEqual(['chunk', 'dict', 'lesson', 'media', 'pair', 'word']);
+    expect(Object.keys(k).sort()).toEqual(['chunk', 'dict', 'lesson', 'media', 'pair', 'talk', 'word']);
     expect(k.dict).toEqual({ tracked: 2, due: 1, learning: 2, mature: 0 });
     expect(k.media).toEqual({ tracked: 1, due: 0, learning: 0, mature: 1 });
   });

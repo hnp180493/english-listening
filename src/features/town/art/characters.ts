@@ -14,7 +14,7 @@ import { CHARACTER_ART, type CharacterArtData } from './characters.data';
 export type { CharacterId } from './cast';
 
 export type Dir8 = 'S' | 'SE' | 'E' | 'NE' | 'N' | 'NW' | 'W' | 'SW';
-/** idle and walk loop; yes (a nod), no (a head shake) and wave (a reach with one arm) play once. */
+/** idle and walk loop; yes (two nods), no (a head shake) and wave (the near arm up beside the head) play once. */
 export type CharacterAnim = 'idle' | 'walk' | 'yes' | 'no' | 'wave';
 export type PortraitMood = 'neutral' | 'happy';
 
@@ -31,6 +31,11 @@ export function dirFromTileVector(dx: number, dy: number): Dir8 | null {
   if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return null;
   const turn = Math.atan2(dy, dx) / (Math.PI / 4);
   return BY_TILE_ANGLE[((Math.round(turn) % 8) + 8) % 8];
+}
+
+/** The direction of octant `k` of the tile grid (sim.ts OCTANTS: 0 = +x … by angle). */
+export function dirFromOctant(k: number): Dir8 {
+  return BY_TILE_ANGLE[((Math.round(k) % 8) + 8) % 8];
 }
 
 /** The direction of a move on the screen (world pixels, y down); null for no move. */
@@ -54,7 +59,7 @@ function ringDistance(a: Dir8, b: Dir8): number {
 
 /**
  * Which rendered direction to draw for `dir`, and whether flipped. An animation rendered in fewer directions (the
- * emotes: SE and NE) uses the nearest it has, mirrored ones included; on a tie the one that shows more of the face.
+ * emotes: SE only) uses the nearest it has, mirrored ones included; on a tie the one that shows more of the face.
  */
 export function resolveDir(rendered: readonly string[], dir: Dir8): { dir: Dir8; flip: boolean } {
   const has = (d: Dir8) => rendered.includes(d);
@@ -72,12 +77,18 @@ export function resolveDir(rendered: readonly string[], dir: Dir8): { dir: Dir8;
   return { dir: best.dir, flip: best.flip };
 }
 
-/** Frame number at time `t` seconds: looping animations wrap, the others hold their last frame. */
+/**
+ * Frame number at time `t` seconds. A loop's n frames are spread evenly over one cycle and wrap; a one-shot's run
+ * from its first pose (t = 0) to its last (t = duration, the rest pose) and then hold it.
+ */
 export function frameAt(spec: { frames: number; duration: number; loop: boolean }, t: number): number {
   const n = spec.frames;
-  const k = Math.floor((t / spec.duration) * n);
-  if (spec.loop) return ((k % n) + n) % n;
-  return Math.max(0, Math.min(n - 1, k));
+  if (spec.loop) {
+    // (a hair over: a time that is a whole number of frames in exact maths is that frame, not the one before)
+    const k = Math.floor((t / spec.duration) * n + 1e-6);
+    return ((k % n) + n) % n;
+  }
+  return Math.max(0, Math.min(n - 1, Math.round((t / spec.duration) * (n - 1))));
 }
 
 /** A frame inside an atlas: source rect, and the feet (ax, ay) inside it as drawn (flipped when `flip`). */
@@ -115,17 +126,27 @@ export function frameRect(data: CharacterArtData, id: CharacterId, anim: Charact
   return { index, sx: f[o], sy: f[o + 1], sw, sh: f[o + 3], ax: r.flip ? sw - ax : ax, ay: f[o + 5], flip: r.flip };
 }
 
+/**
+ * The engine plays each emote a little faster or slower, 1 ± this (a second head shake is never the very same one):
+ * the emotes have frames enough for 15 a second at the slowest (characters.test.ts).
+ */
+export const ACT_TEMPO = 0.1;
+
 /** How long one cycle (loop) or one play (emote) of an animation lasts, in seconds. */
 export function animDuration(anim: CharacterAnim, data: CharacterArtData = CHARACTER_ART): number {
   return data.anims[anim].duration;
 }
 
 /**
- * The walk cycle in step with the engine's walk phase (sim.ts: `phase` grows while walking, one cycle per 2π), so
- * the feet do not slide: pass the result as `t` with anim 'walk'.
+ * The walk cycle in step with the engine's walk phase (sim.ts: `phase` grows with the distance walked, one cycle per
+ * 2π = one stride, engine/gait.ts), so the feet do not slide: pass the result as `t` with anim 'walk'.
  */
 export function walkTime(phase: number, data: CharacterArtData = CHARACTER_ART): number {
-  return (phase / (Math.PI * 2)) * data.anims.walk.duration;
+  // legs together (a multiple of π) a hair short of it in floating point is still that frame, not the one before
+  const k = phase / Math.PI;
+  const r = Math.round(k);
+  const p = Math.abs(k - r) < 1e-6 ? r * Math.PI : phase;
+  return (p / (Math.PI * 2)) * data.anims.walk.duration;
 }
 
 /**
@@ -155,29 +176,46 @@ export function characterName(id: CharacterId): string {
 
 // ---- browser side: images ------------------------------------------------------------------------------------------
 
-const images = new Map<string, HTMLImageElement>();
-let loading: Promise<void> | null = null;
+/** A decoded picture of the art: an ImageBitmap where the browser has them, else the image element. */
+export type ArtImage = HTMLImageElement | ImageBitmap;
 
-function loadImage(url: string): Promise<HTMLImageElement> {
-  const img = new Image();
-  img.decoding = 'async';
-  img.src = url;
-  return img.decode().then(() => img);
+const images = new Map<string, ArtImage>();
+let loading: Promise<void> | null = null;
+/** Bumped by releaseCharacterArt: a load still on its way then is not kept. */
+let generation = 0;
+
+/** Free a decoded picture now (an ImageBitmap holds its pixels until closed; an image element is left to the browser). */
+export function closeArtImage(img: ArtImage): void {
+  if (typeof ImageBitmap !== 'undefined' && img instanceof ImageBitmap) img.close();
 }
 
 /**
- * Load every atlas once (about 3.5 MB of WebP, see LICENSE-kenney.txt). Resolves when all are decoded; until then
+ * Load and decode a picture of the art, kept as an ImageBitmap: an <img> is decoded lazily, and the canvas decoded the
+ * whole WebP again (40–100 ms in one frame) whenever the browser had dropped its decoded copy or the zoom asked for a
+ * new scale of it (the start of a conversation); a bitmap stays decoded.
+ */
+export function loadArtImage(url: string): Promise<ArtImage> {
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = url;
+  return img.decode().then(() => (typeof createImageBitmap === 'function' ? createImageBitmap(img).catch(() => img) : img));
+}
+
+/**
+ * Load every atlas once (about 7 MB of WebP, see LICENSE-kenney.txt). Resolves when all are decoded; until then
  * getFrame returns null, so the game can draw something simpler. A failed load can be retried by calling again.
  */
 export function loadCharacterArt(data: CharacterArtData = CHARACTER_ART): Promise<void> {
   if (loading) return loading;
   const urls = [...Object.values(data.chars).map((c) => c.url), data.shadow.url, data.portraits.url];
+  const gen = generation;
   loading = Promise.all(
     urls.map((u) =>
       images.has(u)
         ? undefined
-        : loadImage(u).then((img) => {
-            images.set(u, img);
+        : loadArtImage(u).then((img) => {
+            if (gen === generation) images.set(u, img);
+            else closeArtImage(img);
           }),
     ),
   ).then(
@@ -190,18 +228,30 @@ export function loadCharacterArt(data: CharacterArtData = CHARACTER_ART): Promis
   return loading;
 }
 
+/**
+ * Let go of the decoded atlases (about 130 MB of pixels as bitmaps, which the browser cannot drop by itself under
+ * memory pressure): the town page calls this a while after the learner leaves it (load.ts holdTownArt). The next
+ * visit loads them again (from the browser's cache).
+ */
+export function releaseCharacterArt(): void {
+  generation++;
+  for (const img of images.values()) closeArtImage(img);
+  images.clear();
+  loading = null;
+}
+
 /** True once loadCharacterArt has finished (the images stay cached for the session, across visits of the page). */
 export function characterArtReady(data: CharacterArtData = CHARACTER_ART): boolean {
   return images.has(data.shadow.url) && Object.values(data.chars).every((c) => images.has(c.url));
 }
 
 /** The shared contact shadow drawn under every person (and, smaller, under the cat); null until loaded. */
-export function characterShadowImage(data: CharacterArtData = CHARACTER_ART): HTMLImageElement | null {
+export function characterShadowImage(data: CharacterArtData = CHARACTER_ART): ArtImage | null {
   return images.get(data.shadow.url) ?? null;
 }
 
 export interface SpriteFrame extends FrameRect {
-  image: HTMLImageElement;
+  image: ArtImage;
   /** World px per atlas px (1 / res): draw sw × scale wide at camera zoom 1. */
   scale: number;
 }

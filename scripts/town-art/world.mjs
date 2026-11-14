@@ -36,7 +36,8 @@ const WORLD_RES = Number(process.env.TOWN_WORLD_RES ?? 3);
 
 const CAT_DIRS = ['S', 'SE', 'E', 'NE', 'N'];
 const CAT_YAW = { SW: 0, S: 45, SE: 90, E: 135, NE: 180, N: 225, NW: 270, W: 315 };
-const CAT_ANIMS = { walk: { frames: 6, duration: 0.5, loop: true }, sit: { frames: 4, duration: 2.4, loop: true } };
+/** down = sitting down (frame 0 standing, the last frame seated); the game plays it backwards to stand up. */
+const CAT_ANIMS = { walk: { frames: 12, duration: 0.5, loop: true }, sit: { frames: 24, duration: 2.4, loop: true }, down: { frames: 8, duration: 0.5, loop: false } };
 
 /** A place's recipe arguments: the door face is built along X (front) and turned for face 'x'. */
 export function placeArgs(p) {
@@ -80,7 +81,7 @@ function plan() {
     { key: 'prop/bus', recipe: 'bus' },
   ];
   const yaw = Object.fromEntries(Object.entries(CAT_YAW).map(([k, v]) => [k, (v * Math.PI) / 180]));
-  const cat = [{ key: 'cat', recipe: 'cat', args: { dirs: CAT_DIRS, walkFrames: CAT_ANIMS.walk.frames, sitFrames: CAT_ANIMS.sit.frames, yaw }, layers: ['body'] }];
+  const cat = [{ key: 'cat', recipe: 'cat', args: { dirs: CAT_DIRS, walkFrames: CAT_ANIMS.walk.frames, sitFrames: CAT_ANIMS.sit.frames, downFrames: CAT_ANIMS.down.frames, yaw }, layers: ['body'] }];
   return { places, lots, nature, decor, cat };
 }
 
@@ -307,10 +308,11 @@ export async function gridSheet(browser, ctx, cells, file, { cols = 6, cellW = 2
 async function characterFrames(ctx) {
   const src = await readFile(join(ctx.OUT_DIR, 'characters.data.ts'), 'utf8');
   const out = {};
-  for (const m of src.matchAll(/"(\w+)": \{ url: \w+, w: \d+, h: \d+, frames: \[([\d.,]+)\] \}/g)) {
+  // idle comes first in the manifest, direction S then SE: SE frame 0 is frame number (idle frames)
+  const n = Number(/"idle":\{"frames":(\d+)/.exec(src)?.[1] ?? 6);
+  for (const m of src.matchAll(/"(\w+)": \{ url: \w+, w: \d+, h: \d+,(?: gait: "\w+",)? frames: \[([\d.,]+)\] \}/g)) {
     const f = m[2].split(',').map(Number);
-    // idle: dirs S, SE, E, NE, N × 6 frames; SE frame 0 = frame 6
-    out[m[1]] = f.slice(6 * 6, 6 * 6 + 6);
+    out[m[1]] = f.slice(n * 6, n * 6 + 6);
   }
   return out;
 }

@@ -852,6 +852,155 @@
   font-weight: 500;
 }
 
+/* what kind of talk this is ("Trò chuyện nhanh", "Tập 1 · …"), beside the steps */
+.town-talk-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+.town-talk-kind {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+/* ───────────────────────── an episode ("Chuyện ở thị trấn") ───────────────────────── */
+
+.town-ep-scene {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-style: italic;
+}
+.town-ep-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-ep-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.town-ep-dots > i {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+}
+.town-ep-dots > i.is-now {
+  background: var(--accent);
+}
+.town-ep-dots > i.is-ok {
+  background: var(--ok);
+}
+.town-ep-dots > i.is-bad {
+  background: var(--bad);
+}
+.town-ep-verdict {
+  display: grid;
+  gap: var(--space-1);
+}
+.town-ep-checks {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-weight: 500;
+}
+.town-ep-checks > li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.town-ep-checks > li.is-ok .town-verdict-icon {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.town-ep-checks > li.is-bad .town-verdict-icon {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.town-ep-checks > li.is-part .town-verdict-icon {
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+.town-ep-transcript {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--hairline);
+}
+.town-ep-transcript-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.town-ep-transcript-title {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+.town-ep-lines {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-ep-line {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.town-ep-line.is-on {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.town-ep-line-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.town-ep-who {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-ep-vi {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-ep-honest {
+  margin: 0;
+  color: var(--text-subtle);
+  font-size: var(--fs-sm);
+}
+.town-ep-line .btn-ghost:hover:not(:disabled) {
+  background: var(--surface);
+}
+/* an episode holds more than a quick chat: the next step stays in view at the panel's foot on a wide stage too */
+.town-ep .town-talk-foot {
+  position: sticky;
+  bottom: calc(-1 * var(--space-5));
+  z-index: 1;
+  margin: 0 calc(-1 * var(--space-5)) calc(-1 * var(--space-5));
+  padding: var(--space-3) var(--space-5) var(--space-5);
+  background: var(--surface);
+}
+
 /* A wide stage: the conversation docks to the right (like the build panel) and the two who talk stand in the
  * town on the left, at full height, instead of in a strip above a panel across the middle. */
 @container town (min-width: 900px) {
@@ -1073,12 +1222,16 @@
     padding: var(--space-3) var(--space-3) var(--space-3);
     border-radius: var(--radius-lg);
   }
-  .town-talk-foot {
+  .town-talk-foot,
+  .town-ep .town-talk-foot {
     position: sticky;
     bottom: calc(-1 * var(--space-3));
     margin: 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3));
     padding: var(--space-2) var(--space-3) var(--space-3);
     background: var(--surface);
+  }
+  .town-ep-scene {
+    font-size: var(--fs-sm);
   }
   .town-bubble {
     min-height: 0;
@@ -1095,6 +1248,10 @@
   }
   .town-turn .town-note {
     display: none;
+  }
+  /* the gist follow-up ("Nghe từng câu sẽ rõ hơn.") is short and is the only next step: keep it on a phone */
+  .town-turn .town-ep-verdict .town-note {
+    display: block;
   }
   .town-said-actions > .btn:first-child {
     padding-inline: var(--space-2);

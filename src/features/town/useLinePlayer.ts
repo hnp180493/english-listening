@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSettings } from '../../core/settings';
-import { speak, stopSpeakingIfOwner, ttsSupported, useSpeechPending } from '../../core/tts';
+import { speak, stopSpeakingIfOwner, ttsSupported, useSpeechPending, type SpeakVoice } from '../../core/tts';
 import type { DictationAudio } from '../dictation/decodeCache';
 import { playbackFor } from '../dictation/usePlayer';
 
@@ -28,9 +28,10 @@ export interface LinePlayer {
 /**
  * `onPlay(mode, rate)`: called once per play that counts as a listen (a press: at the press; the automatic play:
  * when it starts to sound), with Settings → Tốc độ đọc at the moment the play was asked for (the tally needs it: a
- * normal play below normal speed counts as a slowed one).
+ * normal play below normal speed counts as a slowed one). `voice`: who says it (a line of an episode: its speaker's
+ * voice, core/town/storyAudio); omitted = the app's voice (a dictation sentence of the quick chat).
  */
-export function useLinePlayer(audio: DictationAudio, onPlay: (mode: LinePlay, rate: number) => void): LinePlayer {
+export function useLinePlayer(audio: DictationAudio, onPlay: (mode: LinePlay, rate: number) => void, voice?: SpeakVoice | null): LinePlayer {
   const settings = useSettings();
   const { connected, careful, level } = audio;
   const canSpeak = ttsSupported();
@@ -80,6 +81,7 @@ export function useLinePlayer(audio: DictationAudio, onPlay: (mode: LinePlay, ra
           mode: p.mode,
           slow: p.slow,
           auto: o.auto,
+          voice,
           onStart: o.auto
             ? () => {
                 if (runRef.current === my) note();
@@ -93,7 +95,7 @@ export function useLinePlayer(audio: DictationAudio, onPlay: (mode: LinePlay, ra
       playingRef.current = null;
       setPlaying(null);
     },
-    [canSpeak, connected, careful, level, owner, stop],
+    [canSpeak, connected, careful, level, owner, stop, voice],
   );
 
   // the line leaves the screen: its audio stops (whatever the next line or page starts is not touched)

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { WORLD_PLACES } from '../../../data/townWorld';
 import { toWorld } from '../engine/iso';
-import { keysToDelta } from '../engine/sim';
+import { CAT_STRIDE, personStride } from '../engine/gait';
+import { CAT_SPEED, keysToDelta, PLAYER_SPEED, RESIDENT_SPEED } from '../engine/sim';
+import { WORLD_ART } from './world.data';
 import { CAST, CHARACTER_IDS } from './cast';
 import {
+  ACT_TEMPO,
   DIRS8,
   dirFromFacing,
   dirFromScreen,
@@ -156,11 +159,38 @@ describe('frameRect', () => {
 describe('the rendered manifest', () => {
   const total = Object.values(CHARACTER_ART.anims).reduce((s, a) => s + a.dirs.length * a.frames, 0);
 
-  it('has every animation the game uses, idle and walk in five directions', () => {
+  it('has every animation the game uses: walk in five directions, idle facing the viewer, emotes three-quarters', () => {
     for (const a of ['idle', 'walk', 'yes', 'no', 'wave']) expect(CHARACTER_ART.anims[a]).toBeDefined();
-    expect(CHARACTER_ART.anims.idle.dirs).toEqual(['S', 'SE', 'E', 'NE', 'N']);
+    expect(CHARACTER_ART.anims.idle.dirs).toEqual(['S', 'SE']);
     expect(CHARACTER_ART.anims.walk.dirs).toEqual(['S', 'SE', 'E', 'NE', 'N']);
+    for (const a of ['yes', 'no', 'wave']) expect(CHARACTER_ART.anims[a].dirs).toEqual(['SE']);
     expect(CHARACTER_ART.anims.idle.loop && CHARACTER_ART.anims.walk.loop).toBe(true);
+    // every person has a gait the manifest describes
+    for (const id of CHARACTER_IDS) expect(CHARACTER_ART.gaits[CHARACTER_ART.chars[id].gait], id).toBeDefined();
+    expect(CHARACTER_ART.chars.player.gait).toBe('brisk');
+  });
+
+  it('plays every animation at 15 frames a second or more at the speeds of the game (20 for walking)', () => {
+    // walking: the cycle follows the distance, so its rate is speed / stride cycles a second
+    const walkFps = (speed: number, stride: number, frames: number) => (speed / stride) * frames;
+    const walk = CHARACTER_ART.anims.walk.frames;
+    expect(walkFps(PLAYER_SPEED, personStride('player'), walk)).toBeGreaterThanOrEqual(20);
+    // residents walk at RESIDENT_SPEED ± 10%
+    for (const p of WORLD_PLACES) expect(walkFps(RESIDENT_SPEED * 0.9, personStride(p.id), walk), p.id).toBeGreaterThanOrEqual(20);
+    expect(walkFps(CAT_SPEED, CAT_STRIDE, WORLD_ART.cat.anims.walk.frames)).toBeGreaterThanOrEqual(20);
+    const idle = CHARACTER_ART.anims.idle;
+    expect(idle.frames / idle.duration).toBeGreaterThanOrEqual(15);
+    // an emote plays at a tempo of 1 ± ACT_TEMPO (engine.ts act): 15 a second at the slowest
+    for (const a of ['yes', 'no', 'wave']) {
+      const s = CHARACTER_ART.anims[a];
+      expect(((s.frames - 1) / s.duration) * (1 - ACT_TEMPO), a).toBeGreaterThanOrEqual(15);
+    }
+    // the feet: the game moves a resident at most a little further per cycle than their feet cover
+    for (const p of WORLD_PLACES) {
+      const g = CHARACTER_ART.gaits[CHARACTER_ART.chars[p.id].gait];
+      expect(personStride(p.id) / g.noSlip).toBeLessThanOrEqual(1.1);
+    }
+    expect(personStride('player') / CHARACTER_ART.gaits.brisk.noSlip).toBeLessThanOrEqual(1.45);
   });
 
   it('has a full frame list inside its atlas for every person', () => {
@@ -196,6 +226,62 @@ describe('the rendered manifest', () => {
     const dur = CHARACTER_ART.anims.walk.duration;
     expect(walkTime(0)).toBe(0);
     expect(walkTime(Math.PI * 2)).toBeCloseTo(dur);
+    // a step landed a hair short of legs together shows the legs-together frame, not the last frame of the cycle
+    expect(frameRect(CHARACTER_ART, 'player', 'walk', 'S', walkTime(Math.PI * 2 - 1e-9)).index).toBe(frameRect(CHARACTER_ART, 'player', 'walk', 'S', 0).index);
+  });
+
+  it('stands everybody on the same ground walking and standing (nobody floats over their shadow in the walk)', () => {
+    // per frame, atlas px: the lowest drawn pixel (the soles, outline included) below the feet anchor, and the top of
+    // the head above it; the walk is rendered `lift` world px high and drawn that much lower at a stand (walkDrop)
+    const measure = (id: (typeof CHARACTER_IDS)[number], anim: CharacterAnim, dir: Dir8) => {
+      const spec = CHARACTER_ART.anims[anim];
+      const lift = anim === 'walk' ? CHARACTER_ART.gaits[CHARACTER_ART.chars[id].gait].lift * CHARACTER_ART.res : 0;
+      const foot: number[] = [];
+      const head: number[] = [];
+      for (let i = 0; i < spec.frames; i++) {
+        const r = frameRect(CHARACTER_ART, id, anim, dir, ((i + 0.5) / spec.frames) * spec.duration);
+        foot.push(r.sh - r.ay + lift);
+        head.push(r.ay - lift);
+      }
+      return { foot, head };
+    };
+    const median = (v: number[]) => [...v].sort((a, b) => a - b)[v.length >> 1];
+    const half = CHARACTER_ART.anims.walk.frames / 2;
+    for (const id of CHARACTER_IDS) {
+      for (const dir of ['S', 'SE'] as const) {
+        const walk = measure(id, 'walk', dir);
+        const idle = measure(id, 'idle', dir);
+        // the stride lifts the lowest pixel a little: a rigid box shoe swung forward rocks onto its heel and its toe
+        // (the lowest point seen from the front) comes up; about 4 atlas px in a stroll, up to 7 in the player's brisk
+        // walk. Grace's walk once sat 11-12 px over her idle (her crutches lifted it: render.js drawnVertices)
+        const most = CHARACTER_ART.chars[id].gait === 'brisk' ? 8 : 5;
+        expect(Math.abs(median(walk.foot) - median(idle.foot)), `${id} ${dir}`).toBeLessThanOrEqual(most);
+        // legs together (walk frame 0, and frame n / 2 where a stop lands on an odd multiple of π) is the idle's first
+        // pose: the same foot line and head (within rounding), so a stop never drops the body nor a start lifts it
+        for (const i of [0, half]) {
+          expect(Math.abs(walk.foot[i] - idle.foot[0]), `${id} ${dir} frame ${i} feet`).toBeLessThanOrEqual(1.5);
+          expect(Math.abs(walk.head[i] - idle.head[0]), `${id} ${dir} frame ${i} head`).toBeLessThanOrEqual(1.5);
+        }
+      }
+    }
+  });
+
+  it('carries the body at one height through the walk (no hop at a step), every direction', () => {
+    // the head's top over the feet anchor, frame by frame: it once sat about 3 atlas px higher mid-stride than with the
+    // legs together, a little hop five times a second (render.js pose: the walk now rides at one height)
+    for (const id of CHARACTER_IDS) {
+      for (const dir of ['S', 'SE', 'E', 'NE', 'N'] as const) {
+        const spec = CHARACTER_ART.anims.walk;
+        const ay: number[] = [];
+        for (let i = 0; i < spec.frames; i++) ay.push(frameRect(CHARACTER_ART, id, 'walk', dir, ((i + 0.5) / spec.frames) * spec.duration).ay);
+        expect(Math.max(...ay) - Math.min(...ay), `${id} ${dir}`).toBeLessThanOrEqual(2);
+      }
+    }
+    // the lift itself is small: about a world pixel
+    for (const g of Object.values(CHARACTER_ART.gaits)) {
+      expect(g.lift).toBeGreaterThanOrEqual(0);
+      expect(g.lift).toBeLessThanOrEqual(2);
+    }
   });
 });
 

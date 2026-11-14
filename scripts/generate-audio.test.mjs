@@ -8,8 +8,8 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
-import { createLimiter, encodeMp3, importApp, parseWav, redact, resolveBaseUrl, scanMp3, tmpNameFor, trimSilence, writeJsonAtomic } from './audio-lib.mjs'
-import { batchState, inlinedResponses, run } from './generate-audio.mjs'
+import { createLimiter, encodeMp3, importApp, loadAppModules, parseWav, redact, resolveBaseUrl, scanMp3, tmpNameFor, trimSilence, writeJsonAtomic } from './audio-lib.mjs'
+import { batchState, clipWithVoice, inlinedResponses, run, ttsRequestFor } from './generate-audio.mjs'
 
 const FAKE_KEY = 'AIzaFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAK' // fake, shaped like a key so redaction is exercised
 const SR = 24000
@@ -386,6 +386,72 @@ describe('generate-audio (mock Gemini on 127.0.0.1)', () => {
     }
     assert.equal(genCalls() - gen0, 1, 'no retry after a per-day quota error')
     assert.match(await readFile(join(work, 'generate.log'), 'utf8'), /ngày mai/)
+  })
+
+  test('speakers of their own: each request (sequential and batch) carries the clip\'s voice and accent style', async () => {
+    const app = await loadAppModules()
+    const grace = { voice: 'Gacrux', accent: 'light British accent' }
+    const lines = [
+      { text: 'Lovely to see you again dear', mode: 'connected', voice: grace },
+      { text: 'Lovely to see you again dear', mode: 'careful', voice: grace },
+      { text: 'What can I get you today', mode: 'connected', voice: { voice: 'Puck' } },
+      { text: 'Same words in the app voice', mode: 'connected', voice: undefined },
+      { text: 'Sarah talks like the app', mode: 'connected', voice: { voice: 'Kore' } },
+    ]
+    const clips = lines.map((l, i) => ({
+      key: audioKey(l.mode, l.text, l.voice),
+      text: l.text,
+      mode: l.mode,
+      ...(l.voice && l.voice.voice !== 'Kore' ? { voice: l.voice.voice } : {}),
+      ...(l.voice?.accent ? { accent: l.voice.accent } : {}),
+      source: 'town',
+      ref: `v${i}`,
+      part: l.mode === 'careful' ? 'careful' : 'main',
+      sources: ['town'],
+      refs: [],
+      browserOnly: false,
+    }))
+    // pure: the body the generator would send (no network)
+    const ready = clips.map((c) => clipWithVoice(app, c))
+    const bodies = ready.map((c) => ttsRequestFor(app, 'gemini-3.8-flash-tts', 'Kore', c))
+    const voiceOf = (b) => b.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName
+    const styleOf = (b) => b.contents[0].parts[0].speechMetadata.style
+    assert.deepEqual(bodies.map(voiceOf), ['Gacrux', 'Gacrux', 'Puck', 'Kore', 'Kore'])
+    assert.equal(styleOf(bodies[0]), `${styles.CONNECTED_STYLE.replace(/American English/g, 'English')}, spoken with a light British accent`)
+    assert.equal(styleOf(bodies[1]), `${styles.CAREFUL_STYLE.replace(/American English/g, 'English')}, spoken with a light British accent`)
+    assert.equal(styleOf(bodies[2]), styles.CONNECTED_STYLE)
+    assert.equal(styleOf(bodies[3]), styles.CONNECTED_STYLE)
+    // an inventory with an unknown voice stops before any request
+    assert.throws(() => clipWithVoice(app, { ...clips[2], voice: 'Nobody' }), /Nobody/)
+    // a clip whose key was made for another voice is refused (stale inventory)
+    const badPath = join(dir, 'voices-bad.json')
+    await writeFile(badPath, JSON.stringify({ voice, styleVersion: 1, clips: [{ ...clips[2], voice: 'Charon' }] }))
+    await assert.rejects(run(args(badPath, join(dir, 'vbad-out'), join(dir, 'vbad-work'), ['--dry-run']), {}), /không khớp/)
+
+    const path = join(dir, 'voices.json')
+    await writeFile(path, JSON.stringify({ voice, styleVersion: 1, clips }))
+    // batch: one job, every request with its own voice
+    const out = join(dir, 'voices-out')
+    const work = join(dir, 'voices-work')
+    const jobs0 = mock.m.jobs.size
+    assert.equal(await run(args(path, out, work), env()), 0)
+    assert.equal(mock.m.jobs.size, jobs0 + 1)
+    const job = [...mock.m.jobs.values()].at(-1)
+    const sent = Object.fromEntries(job.requests.map((r) => [r.metadata.key, voiceOf(r.request)]))
+    assert.deepEqual(clips.map((c) => sent[c.key]), ['Gacrux', 'Gacrux', 'Puck', 'Kore', 'Kore'])
+    const man = await checkClips(out, clips)
+    assert.equal(man.clips[clips[0].key].v, 'Gacrux')
+    assert.equal(man.clips[clips[3].key].v, undefined)
+    const state = JSON.parse(await readFile(join(work, 'batches.json'), 'utf8'))
+    assert.deepEqual(state.jobs[0].clips[0], { key: clips[0].key, text: clips[0].text, mode: 'connected', voice: 'Gacrux', accent: 'light British accent' })
+    // sequential: the same voices
+    const seqOut = join(dir, 'voices-seq-out')
+    const gen0 = mock.m.calls.length
+    assert.equal(await run(args(path, seqOut, join(dir, 'voices-seq-work'), ['--mode', 'sequential']), env()), 0)
+    const seqVoices = mock.m.calls.slice(gen0).filter((c) => c.path.endsWith(':generateContent')).map((c) => [c.body.contents[0].parts[0].text, voiceOf(c.body)])
+    assert.equal(seqVoices.length, clips.length)
+    for (const [text, v] of seqVoices) assert.ok(['Gacrux', 'Puck', 'Kore'].includes(v), `${text}: ${v}`)
+    assert.ok(seqVoices.some(([t, v]) => t === 'What can I get you today' && v === 'Puck'))
   })
 
   test('only the fake key was ever sent', () => {

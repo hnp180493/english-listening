@@ -112,6 +112,42 @@ export function drawTag(ctx: CanvasRenderingContext2D, pal: TownPalette, x: numb
     ctx.stroke();
     return;
   }
+  if (o.marker === 'story' || o.marker === 'relisten') {
+    // "Chuyện ở thị trấn": a violet bubble with a talk in it (an episode to hear), a green one with a round arrow
+    // (an episode due for its re-listen)
+    const story = o.marker === 'story';
+    ctx.beginPath();
+    ctx.arc(x, my, 11, 0, Math.PI * 2);
+    ctx.moveTo(x - 4, my + 9);
+    ctx.lineTo(x, my + 15);
+    ctx.lineTo(x + 4, my + 9);
+    ctx.closePath();
+    ctx.fillStyle = story ? '#6d6af0' : '#1f9d6b';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    if (story) {
+      for (const dx of [-4.4, 0, 4.4]) oval(ctx, x + dx, my, 1.7, 1.7, '#ffffff');
+    } else {
+      ctx.beginPath();
+      ctx.arc(x, my, 5, -Math.PI * 0.35, Math.PI * 1.25);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // the arrow head at the open end of the circle
+      const ax = x + 5 * Math.cos(-Math.PI * 0.35);
+      const ay = my + 5 * Math.sin(-Math.PI * 0.35);
+      ctx.beginPath();
+      ctx.moveTo(ax - 3.4, ay - 2.2);
+      ctx.lineTo(ax + 1.2, ay - 3.4);
+      ctx.lineTo(ax + 1.4, ay + 1.4);
+      ctx.closePath();
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+    return;
+  }
   // a speech bubble with "!" (new lines) or "…" (repeats only)
   const fresh = o.marker === 'new';
   ctx.beginPath();

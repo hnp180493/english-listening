@@ -38,6 +38,7 @@ that were rejected or only partly accepted are listed in §12.
 | D16 | Orphans (content gone) are never deleted, only ignored. A learner can **suspend** an item ("Không ôn mục này nữa"). A custom sentence whose words changed is reset, only if it has a card. | Deleting would come back after a sync union (no tombstones). Suspension is a per-card field that follows the card's merge. |
 | D17 | **No-op writes are skipped.** Any review write path saves only when something changed. `last` is monotonic per card (`max(now, prev.last + 1)`). | A brand-new browser must not look like it has data (folder-sync guard); a fast clock must not freeze a card. |
 | D18 | **Word cards** (`word`, §13): one card per word + respelling of the `words` tables of passed lessons (irregular, loanwords; spelling rows with `review: true`). Seeded by reconcile, at most `WORD_NEW_PER_DAY` = 6 new words admitted a day, after everything else. Two modes: Nghe → nhận ra (auto-graded) and Đọc → nói (self-graded). | The lesson card re-asks 4 quiz items and retires at 21 days, so most words of a lesson never came back. The learner's weak skill is listening. |
+| D19 | **Town episode lines** (`talk`, §14): a line of "Chuyện ở thị trấn" (Thị trấn, docs/town.md §9) whose meaning was missed gets its own card `talk:<line id>`, served as a dictation of the line in its speaker's voice. Budgeted like `dict`. | The episode lines are not dictation sentences (no `dict` card to fall back on), and a missed line must come back to be decoded word by word, said by the same character. |
 
 ---
 
@@ -46,10 +47,10 @@ that were rejected or only partly accepted are listed in §12.
 ```ts
 import type { CardState, Grade } from '../srs';
 
-export type ReviewKind = 'dict' | 'pair' | 'lesson' | 'media' | 'chunk' | 'word'; // 'word': §13
+export type ReviewKind = 'dict' | 'pair' | 'lesson' | 'media' | 'chunk' | 'word' | 'talk'; // 'word': §13, 'talk': §14
 /** Kinds stored in KEYS.review. 'chunk' is virtual (state lives in the drill store). */
 export type StoredKind = Exclude<ReviewKind, 'chunk'>;
-/** '<kind>:<ref>' — dict:s012, dict:u-lx3k9, pair:can-cant, lesson:linking, media:m1abc2:14, chunk:gonna */
+/** '<kind>:<ref>' — dict:s012, dict:u-lx3k9, pair:can-cant, lesson:linking, media:m1abc2:14, chunk:gonna, talk:cafe-1-03 */
 export type CardId = `${ReviewKind}:${string}`;
 
 export type ReviewContext = 'practice' | 'review';
@@ -188,13 +189,13 @@ folder sync enumerate keys by prefix, so they carry it automatically. Only `sync
 | `AUTO_HARD_MIN_EASE` | 2.0 | An auto `hard` never pushes ease below this. |
 | `SEED_PER_DAY` | 8 | Max reconciled (never graded) cards per day. Tuned from 12: with 12 a large migrated history kept back-pressure on for weeks (8 × 40 s ≈ half the default budget). |
 | `NOTICE_MIN` | 5 | A reconcile run that creates at least this many cards raises the seed notice. |
-| `KIND_ORDER` | `['dict','pair','chunk','lesson','media','word']` | Tie-break order. |
-| `TAP_KINDS` / `TYPING_KINDS` | `['pair','chunk','word','lesson']` / `['dict','media']` | Session block order. |
-| `KIND_LABEL` | dict 'Chép chính tả', pair 'Phân biệt âm', chunk 'Cụm từ', lesson 'Bài học', media 'Câu từ video', word 'Từ đã học' | UI labels. |
-| `KIND_SHORT` | dict 'Câu', pair 'Nhóm âm', chunk 'Cụm từ', lesson 'Bài học', media 'Câu video', word 'Từ' ("12 từ") | Badge counts. |
-| `KIND_ROUTE` | dict→'dictation', pair→'pairs', chunk→'drill', lesson→'lessons', media→'media', word→'lessons' | Icon/tint via `ROUTE_ICON`/`routeTint`. |
-| `KIND_SECONDS` | dict 40, media 40, pair 45, chunk 12, lesson 75, word 15 | Time estimate per item. |
-| `BUDGETED_KINDS` | `['dict','pair']` | Kinds whose successful enrolments count against `NEW_ENROL_PER_DAY` (media enrols only failures; lessons are exempt). |
+| `KIND_ORDER` | `['dict','pair','chunk','lesson','media','word','talk']` | Tie-break order. |
+| `TAP_KINDS` / `TYPING_KINDS` | `['pair','chunk','word','lesson']` / `['dict','media','talk']` | Session block order. |
+| `KIND_LABEL` | dict 'Chép chính tả', pair 'Phân biệt âm', chunk 'Cụm từ', lesson 'Bài học', media 'Câu từ video', word 'Từ đã học', talk 'Câu ở thị trấn' | UI labels. |
+| `KIND_SHORT` | dict 'Câu', pair 'Nhóm âm', chunk 'Cụm từ', lesson 'Bài học', media 'Câu video', word 'Từ' ("12 từ"), talk 'Câu thị trấn' | Badge counts. |
+| `KIND_ROUTE` | dict→'dictation', pair→'pairs', chunk→'drill', lesson→'lessons', media→'media', word→'lessons', talk→'town' | Icon/tint via `ROUTE_ICON`/`routeTint`. |
+| `KIND_SECONDS` | dict 40, media 40, pair 45, chunk 12, lesson 75, word 15, talk 40 | Time estimate per item. |
+| `BUDGETED_KINDS` | `['dict','pair','talk']` | Kinds whose successful enrolments count against `NEW_ENROL_PER_DAY` (media enrols only failures; lessons are exempt). |
 | `WORD_NEW_PER_DAY` | 6 | New word cards (never answered) admitted per local day (§13.3). They also count against `NEW_ENROL_PER_DAY`. |
 
 `core/settings.ts` (CORE) gains `reviewMinutes: number` (default `DEFAULT_REVIEW_MINUTES`; any value not in
@@ -712,6 +713,9 @@ describe the state before this answer (`prevAttempts`) are captured before that 
 | Lesson quiz finished (LessonView `finish`) | `lesson:<lessonId>` | `gradeLessonScore(score)` | `score >= PASS_SCORE` | `'good'` |
 | Shadowing take saved for a `sentence` source with score < 0.7 (auto score, or self rating `ok`/`bad`) | `dict:<sentence id>` | `enrolSeen` (never grades) | – | – |
 | Shadowing of `chunk`/`custom` sources | – | nothing | – | – |
+| Thị trấn, quick chat: a line's meaning missed, the sentence has no card (`core/town/store` `recordTownAnswer`) | `dict:<sentence id>` | `'again'`, `ctx: 'practice'` (an existing card is never touched) | true | – |
+| Thị trấn, an episode line's meaning missed, no card yet (`recordEpisodeLine`) | `talk:<line id>` | `'again'`, `ctx: 'practice'` (an existing card is never touched) | true | – |
+| Ôn tập check of a `talk` item (`DictItem`) | `talk:<line id>` | `gradeDictation({ …, firstTry: false, kind: 'talk' })`, `ctx: 'review'` | true | – |
 | Drill page grading | – | unchanged (drill store) | – | – |
 
 Dictation: `prevAttempts = loadProgressOr(progress)[id]?.attempts ?? 0`, read **before** `updateProgress`. The pure
@@ -1283,3 +1287,28 @@ forecast, 60-day simulations), `reconcile.ts` (`WORD` template, `lessonWords`, `
 distractor safety over the whole content), `items/WordItem.tsx`, `resolve.ts`, `ReviewPage.tsx`;
 `data/lessonTypes.ts` (`review?`); `features/lessons/QuizResult.tsx` (one line); `features/stats/StatsPage.tsx`
 (forecast with words, one line); `core/syncMerge.ts` (`newWords`).
+
+
+## 14. Lines of a town episode (`talk`)
+
+"Chuyện ở thị trấn" (Thị trấn, docs/town.md §9) plays short everyday dialogues. Their lines are not dictation
+sentences, so a line whose meaning the learner missed in town has no `dict` card to fall back on. It gets its own:
+
+- Id: `talk:<line id>` (`talk:cafe-1-03`; line ids are stable, `<episode id>-<nn>`, src/core/town/story.ts).
+- Enrolled by `recordEpisodeLine` (core/town/store) on a wrong meaning, with `'again'` in context `practice`, only when
+  the card does not exist yet (a schedule earned in Ôn tập is never moved by a 1-of-3 pick). Budgeted
+  (`BUDGETED_KINDS`), like `dict`.
+- Content: the catalog knows every line of `data/townStories` (`staticContentIds().storyLineIds`); a line taken out of
+  the content leaves an orphan card (ignored, as for every kind).
+- Served as a dictation (`DictItem`, typing kind, 40 s): `resolve.ts` builds a `Sentence` from the line (its text, its
+  authored `say`, its meaning, the episode's level, the episode title as topic) and the speaker; the exercise plays it
+  in the speaker's voice (`Exercise` / `usePlayer` `voice`, `voiceOf(who, placeId)`), so the same shipped clip as in
+  the town plays. A muted line names who says it and the episode ("Emma · Tập 1: … · giọng đọc máy") with "Mở thị
+  trấn".
+- Graded like `dict` (`gradeDictation` with `kind: 'talk'`); the attempt is a dictation attempt (`module:
+  'dictation'`, `itemId` = the line id; in review: no daily archive counter).
+- An older build that does not know the kind keeps the cards untouched (`foreignCards` in `api.ts`).
+
+Files: `core/review/{types,constants,ids,catalog,grading}.ts`, `core/town/{storyLines,store}.ts`,
+`features/review/{resolve.ts,items/DictItem.tsx,ReviewPage.tsx}`, `features/dictation/{Exercise.tsx,usePlayer.ts}` (the
+`voice` prop); tests in `catalog.test.ts`, `resolve.test.ts`, `queue.test.ts`, `core/town/store.episodes.test.ts`.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { placeLines, TOWN_DECORATIONS, TOWN_PLACES } from '../../data/town';
+import { storiesOfPlace } from '../../data/townStories';
 import { DAILY_TASKS_XU } from './daily';
 import {
   applyAnswer,
@@ -255,7 +256,8 @@ describe('applyAnswer', () => {
     expect(p0).toEqual(emptyTownProgress());
     expect(r).toMatchObject({ reward: 3, tasksPaid: [], prevBest: 0 });
     expect(r.progress).toEqual({
-      version: 2,
+      version: 3,
+      episodes: {},
       lines: { [l1.id]: { best: 2, tries: 1, at: NOW } },
       earned: { [DEV]: 3 },
       bought: [],
@@ -350,7 +352,11 @@ describe('townOverview', () => {
     ]);
     expect(o.places.map((v) => v.place.id)).toEqual(TOWN_PLACES.map((p) => p.id));
     expect(o.places.filter((v) => v.built).map((v) => v.place.id)).toEqual(['square', 'cafe', 'friend']);
-    expect(o.places[0]).toEqual({
+    const { episode: squareEpisode, ...square } = o.places[0];
+    // episode 1 of the place waits there (when the place has stories)
+    const firstStory = storiesOfPlace('square')[0];
+    expect(squareEpisode).toEqual(firstStory ? { id: firstStory.id, order: 1, title: firstStory.title, mode: 'new' } : null);
+    expect(square).toEqual({
       place: TOWN_PLACES[0],
       built: true,
       cost: 0,
@@ -362,7 +368,7 @@ describe('townOverview', () => {
       marker: 'new',
     });
     const home = o.places.find((v) => v.place.id === 'home')!;
-    expect(home).toMatchObject({ built: false, cost: 20, affordable: false, missing: 20, hearts: 0, lit: 0, marker: null });
+    expect(home).toMatchObject({ built: false, cost: 20, affordable: false, missing: 20, hearts: 0, lit: 0, marker: null, episode: null });
     expect(o.decorations.map((d) => d.decoration.id)).toEqual(TOWN_DECORATIONS.map((d) => d.id));
     expect(o.decorations[0]).toEqual({ decoration: TOWN_DECORATIONS[0], bought: false, cost: 10, affordable: false, missing: 10 });
   });

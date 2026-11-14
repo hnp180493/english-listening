@@ -28,6 +28,48 @@ public/audio/manifest.json  { version, voice, styleVersion, model, voiceName, fo
 - The manifest is rebuilt from the files on disk on every generator run: a valid `<key>.mp3` whose key is in the
   current inventory is listed, anything else is not.
 
+## Voices: "Thị trấn" speakers (since 2026-11-14)
+
+Everything above is spoken by Kore. In the town game every resident and the learner's character speak with their
+own Gemini voice, so the learner hears many speakers instead of one.
+
+- **Cast**: `src/core/town/voices.ts`. `CAST_VOICES` maps a place id (the resident who lives there) and `'player'` to
+  a `CastVoice { voice, gender, accent? }`: `voice` is a Gemini prebuilt voice (`GEMINI_VOICES` in
+  `src/core/ai/defaults.ts`), `accent` an optional short English note ("light British accent"; omitted = General
+  American), `gender` picks a browser voice when no clip exists. `voiceOf(line.who, episode.placeId)` gives the voice
+  of a story line ('them' = the place's resident, 'you' = the player, a place id = that resident).
+- **Key**: `audioKey(mode, text, voice?)`. The hashed string is `<voice id>|<style version>|<mode>|<text>`. The voice
+  id is `gemini-kore` for no voice, or for Kore with no accent, so **every key made before voices existed is
+  unchanged** (pinned in `audioKey.test.ts` against real keys from `public/audio/manifest.json`). Any other voice is
+  `gemini-<voice lowercased>`, plus `~<accent>` when there is one (`clipVoiceId`). The same words by two speakers
+  are two clips. Sarah (office) speaks with Kore and no accent, so her lines share any clip the app already ships
+  for those words.
+- **Style**: `clipStyle(mode, accent)` (`audioInventory.ts`) = the mode's style; with an accent, "American English"
+  becomes "English" and ", spoken with a <accent>" is appended (`styleWithAccent` in `audioKey.ts`). The generator
+  and the app's live AI voice send the same string, so an AI clip made in the app and a shipped clip sound alike.
+- **What a story line plays**: `storyLinePlayback(line, episode, mode)` in `src/core/town/storyAudio.ts` returns
+  `{ text, mode, rate?, voice }`. `connected` = the same text dictation plays for a sentence (`dictationAudio`: `say`,
+  else the decoder's `speakText`, else the text); `careful` = the written text at `CAREFUL_RATE`. The town UI calls
+  `speak(p.text, { mode: p.mode, rate: p.rate, voice: p.voice })`; the inventory lists exactly these (source `town`,
+  part `main` / `careful`, entries carry `voice` / `accent` when not the default), so the two cannot disagree.
+- **Routing with a voice** (`SpeakOptions.voice`, `src/core/tts.ts`): the shipped clip for `(mode, text, voice)`;
+  else, only with voiceEngine `'ai'` and on a click, `aiSpeak` with the speaker's Gemini voice (a non-Gemini provider
+  keeps its own voice; the accent still goes into the style) — the voice and style are part of the AI cache key and
+  of the per-text breaker key; else the browser voice, chosen by `pickSpeakerVoice` (an English voice of the
+  speaker's gender guessed from its name, natural voices first, the accent's language preferred, speakers of one
+  gender spread over the good voices; the learner's own voice when none is known to match). Every rule above holds
+  per voice: a shipped text is never paid for, auto playback never makes a new request (a clip made for another
+  speaker does not count), `prefetchSpeech(texts, { mode, voice, after })` arms clips for that voice only.
+- **Manifest**: entries of a voiced clip also carry `v: "<voice>"` (for people reading the file; the app ignores
+  it). The header's `voiceName` stays Kore, the default voice.
+
+**Adding a character**: add a `CAST_VOICES` entry (a voice from `GEMINI_VOICES`, the gender, an accent note if any)
+and its lines in `src/data/townStories.ts`; run `npm run audio:inventory` (counts per voice) and
+`npm run audio:generate -- --dry-run`, then the owner runs the generator with his key. Changing a voice or accent
+changes the keys of every line that character says: the old files drop out of the manifest (`--prune` deletes them)
+and new clips are made. The generator stops before any request when an inventory voice is not a Gemini prebuilt
+voice.
+
 ## Inventory (`src/core/audioInventory.ts`)
 
 `buildAudioInventory()` lists every clip the built-in content can request: `{ key, text, mode, style, source, ref,
@@ -52,6 +94,7 @@ SpokenSentence, HomePage, PhenomenaGuide), the expression is copied with a comme
 | guide | phenomenon cheat-sheet examples |
 | pairs, words, lesson (`plain`) | mode-less playbacks: minimal pairs, word rows and Ôn tập word cards, story words, "Nghe" in courses spelling / irregular / loanwords. Default AI style; the router looks them up as `audioKey('plain', text)` |
 | settings | "Thử giọng": with the Gemini clips it plays the connected sample, the same clip as decoder example 0 |
+| town | every line of `TOWN_STORIES`: connected + careful, in the speaker's voice (`storyLinePlayback`, section Voices) |
 
 - **browserOnly**: dictation "Từng cụm" chunks (`SpeakOptions.browserOnly`) play shipped clips too; browserOnly only
   keeps the paid AI voice out when there is no clip. The 391 chunk texts used nowhere else are marked
@@ -68,6 +111,10 @@ Counts on 2026-11-07 (after the review fixes): **5,526 clips** (3,898 connected,
 90,270 characters and 18,989 words, all generated by default. By first source: dictation 2,081, shadowing 1,157,
 lesson 577, chunk 516, words 417, decoder 417, pairs 249, checkup 111, guide 1. By part: chunk 996, main 917,
 careful 873, step 804, plain 755, annotation 648, segment 533.
+
+Counts on 2026-11-14 (town stories added, still being written): **5,900 clips**, 104,860 characters. The 5,530
+shipped clips are all still current; the 370 `town` clips (14,554 characters: 356 in 13 voices of their own, 14 by
+Sarah in Kore) are missing. `--dry-run`: ~23 min of audio, ~6.1 MB MP3, 8 batch jobs of 50.
 
 ## Commands
 
@@ -88,7 +135,7 @@ shipped clips are therefore requested exactly like the app's live AI voice.
 |---|---|---|
 | `--mode batch\|sequential` | batch | Batch API (half price, no per-minute limit), or one request at a time |
 | `--limit N` | all | only the first N missing clips (main, careful and plain first, then annotations, steps, segments, chunks) |
-| `--only a,b` | all | clip sources: dictation, checkup, lesson, chunk, shadowing, decoder, home, guide, pairs, words, settings |
+| `--only a,b` | all | clip sources: dictation, checkup, lesson, chunk, shadowing, decoder, home, guide, pairs, words, settings, town |
 | `--part a,b` | all | main, careful, plain, annotation, step, segment, chunk |
 | `--rpm N` | 10 | sequential request starts per minute (the paid key allows about 10 TTS requests per minute) |
 | `--concurrency N` | 2 | sequential requests in flight |
@@ -100,7 +147,7 @@ shipped clips are therefore requested exactly like the app's live AI voice.
 | `--no-fallback` | | after a batch run, do not retry per-request failures one by one |
 | `--skip-browser-only` | | leave out the "Từng cụm"-only clips (they play the browser voice then) |
 | `--prune` | | delete `.mp3` files that are no longer in the inventory |
-| `--model ID` | defaults.ts | another TTS model (the voice stays Kore: it is part of the key) |
+| `--model ID` | defaults.ts | another TTS model (voices stay as listed: Kore, or a clip's own speaker; they are part of the key) |
 | `--out DIR` / `--work DIR` | `public/audio` / `.audio-gen` | clips + manifest / log and state |
 | `--inventory FILE` | built fresh | read the clip list from a JSON file (tests); every key is re-checked |
 
@@ -237,7 +284,15 @@ to listen to a few clips and calibrate before the full batch.
   - a create call whose answer is lost (503) found again by display name, not resubmitted;
   - a create recorded but never made, dropped and submitted again;
   - temp files from a run cut short removed;
-  - a daily quota stopping the run with exit 2.
+  - a daily quota stopping the run with exit 2;
+  - speakers of their own: the request body per clip (voice, accent in the style), an unknown voice refused before
+    any request, a key made for another voice refused as a stale inventory, a batch job and a sequential run whose
+    requests each carry their clip's voice, `v` in the manifest, the voice kept in `batches.json`.
+- `src/core/audioKey.test.ts`: real shipped keys unchanged with no voice / the default voice; a voice or accent
+  changes the key; `styleWithAccent`.
+- `src/core/tts.voice.test.ts`: `pickSpeakerVoice` (gender from names, natural first, accent language, speakers
+  spread, fallback to the learner's voice) and `speak` with a voice (its own shipped clip, never another speaker's,
+  the AI request's voice + accent, a non-Gemini provider, a shipped text never paid, auto and prefetch per voice).
 
 
   It never calls the real API.

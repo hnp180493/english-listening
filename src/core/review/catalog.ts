@@ -10,6 +10,7 @@ import { SENTENCES } from '../../data/sentences';
 import { sanitizeChunks } from '../../features/drill/chunkData';
 import { sanitizeLibrary } from '../../features/media/library';
 import { parseCardId, parseMediaRef } from './ids';
+import { allStoryLines } from '../town/storyLines';
 import { wordIndex } from './words';
 import type { CardId } from './types';
 
@@ -26,6 +27,8 @@ export interface CatalogInput {
   media: ReadonlyMap<string, number>; // itemId → unitCount
   /** Refs of word cards ('<word>~<sound>', core/review/words). Absent → no word card has content. */
   wordRefs?: ReadonlySet<string>;
+  /** Ids of the lines of "Chuyện ở thị trấn" (core/town/storyLines). Absent → no talk card has content. */
+  storyLineIds?: ReadonlySet<string>;
 }
 
 export function buildCatalog(input: CatalogInput): Catalog {
@@ -50,6 +53,8 @@ export function buildCatalog(input: CatalogInput): Catalog {
         }
         case 'word':
           return !!input.wordRefs?.has(p.ref);
+        case 'talk':
+          return !!input.storyLineIds?.has(p.ref);
       }
     },
   };
@@ -63,6 +68,7 @@ interface StaticIds {
   chunkIds: ReadonlySet<string>;
   pairSetIds: ReadonlySet<string>;
   wordRefs: ReadonlySet<string>;
+  storyLineIds: ReadonlySet<string>;
 }
 
 let staticIds: StaticIds | null = null;
@@ -74,6 +80,7 @@ export function staticContentIds(): StaticIds {
     chunkIds: new Set(sanitizeChunks(CHUNKS).map((c) => c.id)),
     pairSetIds: new Set(Object.keys(PAIR_SET_ITEMS)),
     wordRefs: new Set(wordIndex().all.map((w) => w.ref)),
+    storyLineIds: new Set(allStoryLines().map((l) => l.id)),
   };
   return staticIds;
 }

@@ -4,8 +4,8 @@
 import { prefersReducedMotion } from '../../../core/motion';
 import { sameTile } from '../../../core/town/map';
 import { TOWN_WORLD, type PlaceId, type Tile, type TownWorld } from '../../../data/townWorld';
-import { baseZoom, Camera } from './camera';
-import { animDuration, dirFromTileVector, walkTime, type CharacterAnim, type CharacterId, type Dir8 } from '../art/characters';
+import { baseZoom, Camera, cameraDt } from './camera';
+import { ACT_TEMPO, animDuration, dirFromOctant, walkTime, type CharacterAnim, type CharacterId, type Dir8 } from '../art/characters';
 import { CHARACTER_ART } from '../art/characters.data';
 import { townArtReady } from '../art/load';
 import { catFrame, decorSpriteKey, stringLights } from '../art/world';
@@ -15,6 +15,7 @@ import { drawPondShimmer } from './draw/ground';
 import { drawEmote, drawFloat, drawParticles, drawSky, drawTag, drawTalkBubble, drawVignette, EMOTE_SECONDS, FLOAT_SECONDS, placeTags, tagSize, type EmoteKind, type TagBox } from './draw/overlay';
 import { drawDuck, drawFirefly, drawGoal, drawHoverTile } from './draw/props';
 import type { G } from './draw/util';
+import { walkDrop } from './gait';
 import { depthOfPoint, toWorld, worldBounds, type Pt } from './iso';
 import { paletteFor, type TownPalette } from './palette';
 import { Particles } from './particles';
@@ -22,8 +23,8 @@ import { clipInside, clipOutside, coverShare, grow } from './cover';
 import { pickAt, type Hit } from './pick';
 import { lotHeight, placeHeight } from './places';
 import { buildScene, fireflySpots, lampLights, POP_SECONDS, POP_STAGGER, popped, sceneKey, sortByDepth, type Box, type Drawable, type FrameInfo, type LampLight } from './scene';
-import { gridDistance, keysToDelta, TownSim, type Actor, type StageState } from './sim';
-import { clearNightCache, drawContactShadow, drawGroundArt, drawPerson, drawSprite, nightArtReady, prepareNight } from './sprites';
+import { gridDistance, keysToDelta, TownSim, type Actor, type Cat, type StageState } from './sim';
+import { beginSpriteFrame, clearNightCache, drawContactShadow, drawGroundArt, drawPerson, drawSprite, nightArtReady, paintPools, prepareNight } from './sprites';
 
 export type BurstKind = 'confetti' | 'coins' | 'sparkle';
 /** Who or where: the player, a place's resident, or a point of the stage in CSS pixels. */
@@ -58,11 +59,26 @@ const NAME_NEAR = 118;
 const COVER_ALPHA = 0.3;
 /** Feet to the top of the head, world pixels: bubbles, tags and "+N" hang above it. */
 const HEAD = CHARACTER_ART.height;
-/** A nod, a head shake or a wave stays on its last frame this long before the person goes back to idle. */
-const ACT_HOLD = 0.35;
+/** Directions people stand in with the idle loop (rendered S and SE; SW is SE mirrored); any other way: walk frame 0. */
+const IDLE_DIRS: ReadonlySet<Dir8> = new Set(['S', 'SE', 'SW']);
 
 /** A short animation a person plays once: a nod (yes), a head shake (no), a wave. */
 export type ActKind = Extract<CharacterAnim, 'yes' | 'no' | 'wave'>;
+/** An emote waits at most this long (seconds) for its person to turn three-quarters to the viewer. */
+const ACT_WAIT_MAX = 0.8;
+/**
+ * Having turned to face the viewer, a person stands this long (seconds) on the walk's legs-together frame before the
+ * idle loop starts: the turn and the change of animation are two moments, not one pop.
+ */
+const IDLE_AFTER_TURN = 0.1;
+/**
+ * A conversation begins or ends: the camera holds still for this many frames while the page draws (or removes) the
+ * conversation panel, so the panel's first (slow) paint never lands inside the camera's move.
+ */
+const TALK_HOLD_FRAMES = 3;
+const TALK_HOLD_SECONDS = 0.12;
+/** How often the sky picture is drawn again (seconds): the clouds drift and the stars twinkle slowly. */
+const SKY_EVERY = 1 / 15;
 /** How fast the town dims around a conversation (per second, exponential). */
 const DIM_RATE = 5;
 /** A new thing: the camera sets off, the dust rises, and it appears this many seconds later; then the camera stays a while. */
@@ -124,8 +140,8 @@ export class TownEngine {
   private focus: PlaceId | null = null;
   private emotes: Emote[] = [];
   private floats: Float[] = [];
-  /** The resident whose line is sounding now: a bubble with moving bars over their head. */
-  private speaking: PlaceId | null = null;
+  /** Whose line is sounding now (a resident, or 'player' in an episode): a bubble with moving bars over their head. */
+  private speaking: PlaceId | 'player' | null = null;
   /** 0..1: how far the town has dimmed around the conversation. */
   private dim = 0;
   /** When (engine seconds) a thing just bought appears, by place / decoration id. */
@@ -140,16 +156,28 @@ export class TownEngine {
   private peek: PlaceId | null = null;
   private full = false;
   private lamps: LampLight[] = [];
+  /** The sky, drawn into its own canvas now and then (skyLayer). */
+  private sky: HTMLCanvasElement | null = null;
+  private skyAt = -1;
+  private skyFor: TownPalette | null = null;
+  private skyPic: ImageBitmap | null = null;
   private nightReady = false;
   private near: Near = null;
   private readonly keys = { up: false, down: false, left: false, right: false };
   private font = 'system-ui, sans-serif';
   private first = true;
   private frames = 0;
+  /** The display's own frame time, smoothed (seconds): the camera's clock follows it (cameraDt). */
+  private frameDt = 1 / 60;
   private overview = false;
   private lotLabels: Readonly<Record<string, string>> = {};
   /** A nod, a head shake or a wave being played, by actor id (player / place id). */
-  private acts = new Map<string, { anim: ActKind; born: number }>();
+  private acts = new Map<string, { anim: ActKind; born: number; asked: number; wait: boolean; tempo: number }>();
+  /** Frames the camera still holds still (TALK_HOLD_FRAMES), and until when (engine seconds, TALK_HOLD_SECONDS). */
+  private camHold = 0;
+  private camHoldUntil = 0;
+  /** Per person: sim time they last faced a way the idle loop is not made for (IDLE_AFTER_TURN). */
+  private turnedAt = new Map<string, number>();
   /** The name on the player's tag. */
   playerName = 'Bạn';
 
@@ -304,7 +332,12 @@ export class TownEngine {
 
   /** Zoom in on a resident (and the player beside them); null zooms back out to follow the player. */
   focusOn(placeId: PlaceId | null): void {
+    const was = this.focus;
     this.focus = placeId && this.sim.residents.has(placeId) ? placeId : null;
+    if (this.focus !== was && !this.still) {
+      this.camHold = TALK_HOLD_FRAMES;
+      this.camHoldUntil = this.t + TALK_HOLD_SECONDS;
+    }
     this.sim.engage(this.focus);
     this.camera.targetZoom = this.restZoom();
   }
@@ -332,9 +365,9 @@ export class TownEngine {
     this.peek = placeId;
   }
 
-  /** The resident whose line is being played (null = nobody): they get a bubble with moving sound bars. */
-  setSpeaking(placeId: PlaceId | null): void {
-    this.speaking = placeId;
+  /** Whose line is being played (a resident, 'player', null = nobody): they get a bubble with moving sound bars. */
+  setSpeaking(who: PlaceId | 'player' | null): void {
+    this.speaking = who;
   }
 
   /**
@@ -434,39 +467,90 @@ export class TownEngine {
    */
   act(target: 'player' | PlaceId, anim: ActKind): void {
     if (this.still || !this.sim.actor(target)) return;
-    this.acts.set(target, { anim, born: this.t });
+    // the emotes are rendered three-quarters on: somebody facing straight out (or turning to the other person) turns
+    // first, and the emote starts once the turn is done (never in a direction it was not made for)
+    this.sim.turnForEmote(target);
+    this.acts.set(target, { anim, born: this.t, asked: this.t, wait: true, tempo: 1 + (Math.random() * 2 - 1) * ACT_TEMPO });
   }
 
-  /** How a person stands this frame: which animation, which way, which moment of it. */
-  private pose(a: Actor, seed: number): { anim: CharacterAnim; dir: Dir8; t: number } {
-    let dir = dirFromTileVector(a.heading.x, a.heading.y) ?? 'S';
-    // a resident standing still always shows a face: never the back or a flat side view of the head
-    if (a.kind === 'resident' && (!a.moving || this.still) && dir !== 'S' && dir !== 'SE' && dir !== 'SW') dir = a.facing > 0 ? 'SE' : 'SW';
-    if (this.still) return { anim: 'idle', dir, t: 0 };
+  /**
+   * How a person stands this frame: which animation, which way, which moment of it. Walking (or closing the last
+   * step) plays the walk at the distance walked; an emote plays to its last frame, the rest pose, and the idle loop
+   * starts again from its first frame (the same pose), so nothing pops; standing turned away from the viewer (in the
+   * middle of a turn) is walk frame 0, legs together, the same pose as idle frame 0.
+   */
+  private pose(a: Actor): { anim: CharacterAnim; dir: Dir8; t: number } {
+    const dir = dirFromOctant(a.oct);
+    if (this.still) return IDLE_DIRS.has(dir) ? { anim: 'idle', dir, t: 0 } : { anim: 'walk', dir, t: 0 };
     const act = this.acts.get(a.id);
-    if (act) {
-      const age = this.t - act.born;
-      if (!a.moving && age < animDuration(act.anim) + ACT_HOLD) return { anim: act.anim, dir, t: age };
-      this.acts.delete(a.id);
+    const legsTogether = Math.abs(a.phase / Math.PI - Math.round(a.phase / Math.PI)) < 1e-3;
+    const waiting = a.moving && a.v === 0 && a.waited > 0 && legsTogether && a.oct === a.want;
+    if ((a.moving || a.stepping) && !waiting) {
+      // a step of walking cuts an emote short; one asked for while the last step closes waits for it
+      if (a.moving) this.acts.delete(a.id);
+      else if (act) act.born = this.t;
+      if (!IDLE_DIRS.has(dir)) this.turnedAt.set(a.id, this.sim.time);
+      return { anim: 'walk', dir, t: walkTime(a.phase) };
     }
-    if (a.moving) return { anim: 'walk', dir, t: walkTime(a.phase) };
-    // everybody breathes at their own moment
-    return { anim: 'idle', dir, t: this.t + seed * 0.37 };
+    if (waiting) {
+      // waiting for somebody in the way, legs together: breathing (the idle loop, from when the wait began) where it
+      // is made for the way they face; otherwise the legs-together frame (the wait is short: WAIT_STILL)
+      if (!IDLE_DIRS.has(dir)) return { anim: 'walk', dir, t: walkTime(a.phase) };
+      const since = Number.isNaN(a.restSince) ? this.sim.time : a.restSince;
+      return { anim: 'idle', dir, t: Math.max(0, this.sim.time - since) };
+    }
+    if (act?.wait) {
+      // still turning to face the other person: the emote waits for the turn
+      if ((a.oct === a.want && IDLE_DIRS.has(dir) && dir !== 'S') || this.t - act.asked > ACT_WAIT_MAX) act.wait = false;
+      act.born = this.t;
+    }
+    if (act && !act.wait) {
+      const age = (this.t - act.born) * act.tempo;
+      if (age < animDuration(act.anim)) return { anim: act.anim, dir, t: age };
+      this.acts.delete(a.id);
+      a.restSince = this.sim.time;
+    }
+    if (!IDLE_DIRS.has(dir)) {
+      // the idle loop starts from its first frame once they face the viewer; meanwhile the walk's legs-together pose
+      // the step closed on (frame 0 or the middle one: no snap from one to the other)
+      a.restSince = this.sim.time;
+      this.turnedAt.set(a.id, this.sim.time);
+      return { anim: 'walk', dir, t: walkTime(a.phase) };
+    }
+    // just turned to the viewer: a beat on the legs-together frame, then the idle loop (from its first frame)
+    const turned = this.turnedAt.get(a.id);
+    if (turned !== undefined && this.sim.time - turned < IDLE_AFTER_TURN) {
+      a.restSince = this.sim.time;
+      return { anim: 'walk', dir, t: walkTime(a.phase) };
+    }
+    const since = Number.isNaN(a.restSince) ? this.sim.time : a.restSince;
+    return { anim: 'idle', dir, t: Math.max(0, this.sim.time - since) };
   }
 
-  private drawActor(g: G, a: Actor, seed: number): void {
+  private drawActor(g: G, a: Actor): void {
     const feet = toWorld(a.x, a.y);
     if (a.kind === 'cat') {
-      const dir = dirFromTileVector(a.heading.x, a.heading.y) ?? 'SE';
-      const walking = a.moving && !this.still;
-      const spec = WORLD_ART.cat.anims.walk;
-      const f = catFrame(walking ? 'walk' : 'sit', dir, walking ? (a.phase / (Math.PI * 2)) * spec.duration : this.still ? 0 : this.t);
+      const cat = a as Cat;
+      const dir = dirFromOctant(a.oct);
+      const walkT = (a.phase / (Math.PI * 2)) * WORLD_ART.cat.anims.walk.duration;
+      // seated: the tail's loop from the moment it sat; sitting down or getting up: the in-between frames; standing
+      // or walking: the walk (legs together when it stands)
+      const f = this.still
+        ? catFrame(cat.sit >= 0.5 ? 'sit' : 'walk', dir, 0)
+        : cat.sit >= 1
+          ? catFrame('sit', dir, Math.max(0, this.sim.time - cat.sitSince))
+          : cat.sit > 0
+            ? catFrame('down', dir, cat.sit * WORLD_ART.cat.anims.down.duration)
+            : catFrame('walk', dir, walkT);
       drawContactShadow(g, feet.x, feet.y, 0.6);
       drawSprite(g, f.key, feet.x, feet.y, { flip: f.flip });
       return;
     }
-    const p = this.pose(a, seed);
-    drawPerson(g, (a.kind === 'player' ? 'player' : a.id) as CharacterId, p.anim, p.dir, p.t, feet.x, feet.y);
+    const p = this.pose(a);
+    const id = (a.kind === 'player' ? 'player' : a.id) as CharacterId;
+    // the walk is rendered riding a little high (one height through the cycle); slowing to a stand it comes down
+    const drop = p.anim === 'walk' ? walkDrop(id, a.moving ? a.v : 0, a.speed) : 0;
+    drawPerson(g, id, p.anim, p.dir, p.t, feet.x, feet.y, drop);
   }
 
   emote(target: 'player' | PlaceId, kind: EmoteKind): void {
@@ -602,7 +686,10 @@ export class TownEngine {
     this.particles.update(dt);
     this.updateNear();
     this.aim();
-    this.camera.update(dt, this.still || this.first);
+    // a conversation's panel is being drawn: the camera waits for it (TALK_HOLD_FRAMES), then eases
+    if ((this.camHold > 0 || this.t < this.camHoldUntil) && !this.first) this.camHold = Math.max(0, this.camHold - 1);
+    else this.camera.update(cameraDt(dt, this.frameDt), this.still || this.first);
+    if (dt > 0) this.frameDt += (dt - this.frameDt) * 0.1;
     this.first = false;
     this.spawnPetals(dt);
     this.render();
@@ -613,6 +700,9 @@ export class TownEngine {
   private aim(): void {
     // only a conversation frames its two people past the island's rim; every other view keeps to it
     this.camera.loose = false;
+    // following the player (below): the camera walks with them, and keeps them in the picture
+    this.camera.carry = false;
+    this.camera.keep = null;
     if (this.overview && !this.focus) {
       const b = this.bounds;
       const fit = Math.min(this.viewW / (b.x1 - b.x0 - 60), this.viewH / (b.y1 - b.y0 - 70));
@@ -630,6 +720,8 @@ export class TownEngine {
     }
     const p = this.sim.player;
     let at = toWorld(p.x, p.y);
+    // whatever is framed below, the player never leaves the picture
+    this.camera.keep = { x: at.x, y: at.y, up: HEAD + 6 };
     const r = this.focus ? this.sim.residents.get(this.focus) : null;
     if (r) {
       this.camera.loose = true;
@@ -650,6 +742,7 @@ export class TownEngine {
         at = { x: at.x + (o.x - at.x) * w, y: at.y + (o.y - at.y) * w };
       }
     }
+    this.camera.carry = true;
     this.camera.lookAt({ x: at.x, y: at.y - 26 }, this.camera.targetZoom);
   }
 
@@ -718,28 +811,59 @@ export class TownEngine {
   }
 
   /**
-   * Night: warm light round every lamp. First a pool on the ground (under everything that stands), then a faint
-   * glow over what stands near it, so a person under a lamp is lit too. World space.
+   * Night: warm light round every lamp. The pool on the ground is part of the night ground picture (sprites.ts
+   * drawGroundArt); this is the faint glow over what stands near a lamp, so a person under it is lit too. Only the
+   * lamps somebody stands or walks near: the houses' own walls are lit by their windows, and a colour-dodge over the
+   * whole lit area every frame was most of what made the night slow.
    */
-  private drawLampLight(ctx: CanvasRenderingContext2D, over: boolean): void {
-    ctx.save();
-    // colour-dodge by an amber undoes the dusk blue where the light falls: the ground under a lamp gets its own
-    // colours back, warmed, instead of a pale haze laid over the blue
-    ctx.globalCompositeOperation = 'color-dodge';
-    for (const l of this.lamps) {
-      const r = over ? l.r * 0.85 : l.r;
-      ctx.save();
-      ctx.translate(l.x, l.y - (over ? 24 : 0));
-      ctx.scale(1, over ? 0.75 : 0.5);
-      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
-      grad.addColorStop(0, `rgba(150,106,0,${(over ? 0.38 : 0.92) * l.k})`);
-      grad.addColorStop(0.5, `rgba(150,106,0,${(over ? 0.18 : 0.5) * l.k})`);
-      grad.addColorStop(1, 'rgba(150,106,0,0)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(-r, -r, r * 2, r * 2);
-      ctx.restore();
+  private drawLampGlow(ctx: CanvasRenderingContext2D): void {
+    const people = [this.sim.player, ...this.sim.residents.values(), ...(this.sim.cat ? [this.sim.cat] : [])].map((a) => toWorld(a.x, a.y));
+    const near = this.lamps.filter((l) => people.some((p) => Math.abs(p.x - l.x) < l.r + 16 && Math.abs(p.y - l.y) < l.r * 0.6 + 8));
+    if (near.length > 0) paintPools(ctx, near, true);
+  }
+
+  /**
+   * The sky (clouds or stars over the gradient) in screen pixels, drawn into its own canvas about 15 times a second
+   * and laid behind the town every frame as one picture (70 twinkling stars drawn behind everything each frame were
+   * a cost of their own at night).
+   */
+  private skyLayer(): CanvasImageSource | null {
+    const W = this.canvas.width;
+    const H = this.canvas.height;
+    let c = this.sky;
+    if (!c) {
+      c = document.createElement('canvas');
+      this.sky = c;
     }
-    ctx.restore();
+    const stale = c.width !== W || c.height !== H || this.skyFor !== this.pal || this.t - this.skyAt >= SKY_EVERY || this.t < this.skyAt;
+    // the same picture until the next redraw: as a bitmap once there is one (uploaded once, not every frame)
+    if (!stale) return this.skyPic && this.skyPic.width === W && this.skyPic.height === H ? this.skyPic : c;
+    if (c.width !== W || c.height !== H) {
+      c.width = W;
+      c.height = H;
+    }
+    const x = c.getContext('2d');
+    if (!x) return null;
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    x.clearRect(0, 0, W, H);
+    x.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    x.globalCompositeOperation = 'destination-over';
+    drawSky(x, this.viewW, this.viewH, this.pal, this.t, this.still);
+    x.globalCompositeOperation = 'source-over';
+    this.skyFor = this.pal;
+    this.skyAt = this.t;
+    if (typeof createImageBitmap === 'function') {
+      const at = this.skyAt;
+      createImageBitmap(c).then(
+        (b) => {
+          if (this.skyAt !== at) return void b.close();
+          this.skyPic?.close();
+          this.skyPic = b;
+        },
+        () => undefined,
+      );
+    }
+    return c;
   }
 
   private render(): void {
@@ -752,11 +876,17 @@ export class TownEngine {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    beginSpriteFrame();
     const behind = () => {
       // the sky goes BEHIND what is drawn (the island keeps its own outline at night)
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = 'destination-over';
-      drawSky(ctx, w, h, pal, this.t, this.still);
+      const sky = this.skyLayer();
+      if (sky) ctx.drawImage(sky, 0, 0);
+      else {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawSky(ctx, w, h, pal, this.t, this.still);
+      }
       ctx.globalCompositeOperation = 'source-over';
     };
     // the pictures are still on their way: the sky alone (the stage shows its loading note over it)
@@ -770,14 +900,17 @@ export class TownEngine {
       this.nightReady = true;
     }
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    // shrinking the atlases (the usual zoom): the best filter; enlarging them (a conversation, about 1.1×): plain
+    // bilinear looks the same there, and the high-quality (bicubic) filter made the first frames of a conversation
+    // stall on slow graphics
+    ctx.imageSmoothingQuality = this.camera.zoom * dpr > CHARACTER_ART.res ? 'medium' : 'high';
 
     // ── the world, through the camera ──
     const z = cam.zoom;
     const toWorldSpace = () => ctx.setTransform(dpr * z, 0, 0, dpr * z, dpr * (w / 2 + cam.shiftX - cam.x * z), dpr * (h / 2 + cam.shiftY - cam.y * z));
     toWorldSpace();
     const g: G = { ctx, pal, t: this.t, still: this.still };
-    drawGroundArt(g);
+    drawGroundArt(g, this.lamps);
     drawPondShimmer(g, this.world);
     if (has('lilies')) {
       this.world.decorations.lilies.forEach((s, i) => {
@@ -789,15 +922,12 @@ export class TownEngine {
     if (this.pond) for (let i = 0; i < 2; i++) drawDuck(g, this.pond.x, this.pond.y, i);
     const info: FrameInfo = { lit: state.lit, hoverPlace: this.hover?.kind === 'place' ? this.hover.placeId : null, pop: this.popOf };
     for (const d of this.scene) d.shadow?.(g, info);
-    if (pal.night) this.drawLampLight(ctx, false);
     const hover = this.hover;
     if (hover?.kind === 'tile' && hover.walkable) drawHoverTile(g, hover.tile.x, hover.tile.y);
     if (this.sim.goal) drawGoal(g, this.sim.goal.x, this.sim.goal.y);
 
     // ── everything standing, far to near ──
     const people: Drawable[] = [];
-    let n = 0;
-    const seeds = new Map<string, number>();
     /** Where each person stands (world px), so what stands in front of them fades there. */
     const covers: { depth: number; box: Box }[] = [];
     const personBox = (a: Actor): Box => {
@@ -808,22 +938,20 @@ export class TownEngine {
     const talking = this.focus ? (this.sim.residents.get(this.focus) ?? null) : null;
     const pairBoxes = talking ? [talking, this.sim.player].map((a) => grow(personBox(a), 8, 18)) : [];
     const pairDepth = talking ? Math.min(depthOfPoint(talking.x, talking.y), depthOfPoint(this.sim.player.x, this.sim.player.y)) : Infinity;
-    const person = (a: Actor, seed: number) => {
-      seeds.set(a.id, seed);
+    const person = (a: Actor) => {
       const depth = depthOfPoint(a.x, a.y);
       const box = a.kind === 'cat' ? undefined : personBox(a);
       const inTheWay = !!talking && a !== talking && a !== this.sim.player && pairBoxes.some((b) => coverShare(b, box ?? personBox(a)) > 0);
-      people.push({ depth, draw: (gg) => (inTheWay ? faded(gg, () => this.drawActor(gg, a, seed)) : this.drawActor(gg, a, seed)) });
+      people.push({ depth, draw: (gg) => (inTheWay ? faded(gg, () => this.drawActor(gg, a)) : this.drawActor(gg, a)) });
       if (box) covers.push({ depth, box });
     };
     for (const r of this.sim.residents.values()) {
-      const seed = ++n;
       // somebody whose house is still on its way is not in town yet
       if (this.popOf(r.place.id) < 0) continue;
-      person(r, seed);
+      person(r);
     }
-    if (this.sim.cat) person(this.sim.cat, 0);
-    person(this.sim.player, 0);
+    if (this.sim.cat) person(this.sim.cat);
+    person(this.sim.player);
     for (const d of sortByDepth([...this.scene, ...people])) {
       if (talking && d.box && d.depth > pairDepth && pairBoxes.some((b) => coverShare(b, d.box!) > 0)) {
         // a small thing in front of the pair or poking up at their feet (a lamp's head) goes see-through for the
@@ -836,7 +964,7 @@ export class TownEngine {
       if (hidden.length > 0) drawFaded(g, d, info, hidden.map((c) => c.box));
       else d.draw(g, info);
     }
-    if (pal.night) this.drawLampLight(ctx, true);
+    if (pal.night) this.drawLampGlow(ctx);
 
     // ── things hanging high, and the little lights ──
     if (has('lights') && this.popOf('lights', 1) >= 1) {
@@ -869,8 +997,8 @@ export class TownEngine {
       }
       toWorldSpace();
       const pair: Drawable[] = [
-        { depth: depthOfPoint(talking.x, talking.y), draw: (gg) => this.drawActor(gg, talking, seeds.get(talking.id) ?? 1) },
-        { depth: depthOfPoint(this.sim.player.x, this.sim.player.y), draw: (gg) => this.drawActor(gg, this.sim.player, 0) },
+        { depth: depthOfPoint(talking.x, talking.y), draw: (gg) => this.drawActor(gg, talking) },
+        { depth: depthOfPoint(this.sim.player.x, this.sim.player.y), draw: (gg) => this.drawActor(gg, this.sim.player) },
       ];
       for (const d of sortByDepth(pair)) d.draw(g, info);
     }
@@ -883,9 +1011,10 @@ export class TownEngine {
       return { x: s.x, y: s.y - HEAD * z - 6 };
     };
     const tagOpts = { t: this.t, still: this.still, font: this.font };
-    if (talking && this.speaking === talking.place.id) {
-      // in a conversation the panel says who it is: no tag, only the bubble while they speak
-      const at = headAt(talking);
+    if (talking && (this.speaking === talking.place.id || this.speaking === 'player')) {
+      // in a conversation the panel says who it is: no tag, only the bubble while they speak (in an episode the
+      // player's own lines too)
+      const at = headAt(this.speaking === 'player' ? this.sim.player : talking);
       drawTalkBubble(ctx, pal, at.x, Math.max(this.safe.top + 44, at.y + 2), this.t, this.still);
     }
     if (!this.focus) {

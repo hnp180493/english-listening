@@ -4,7 +4,7 @@ import { KIND_ORDER, KIND_SECONDS } from './constants';
 import type { CardId, ReviewKind, StoredKind } from './types';
 
 export const REVIEW_KINDS: readonly ReviewKind[] = KIND_ORDER;
-export const STORED_KINDS: readonly StoredKind[] = ['dict', 'pair', 'lesson', 'media', 'word'];
+export const STORED_KINDS: readonly StoredKind[] = ['dict', 'pair', 'lesson', 'media', 'word', 'talk'];
 
 const KIND_SET = new Set<string>(KIND_ORDER);
 const UNSAFE = new Set(['__proto__', 'constructor', 'prototype']);

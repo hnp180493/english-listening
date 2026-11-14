@@ -158,7 +158,7 @@ describe('string lights', () => {
 
 describe('the cat', () => {
   it('has a frame for every direction, mirrored where not rendered', () => {
-    for (const anim of ['walk', 'sit'] as const) {
+    for (const anim of ['walk', 'sit', 'down'] as const) {
       for (const dir of DIRS8) {
         const f = catFrame(anim, dir, 0.1);
         expect(KEYS).toContain(f.key);
@@ -172,6 +172,15 @@ describe('the cat', () => {
     const d = WORLD_ART.cat.anims.walk.duration;
     expect(catFrame('walk', 'S', 0).key).toBe(catFrame('walk', 'S', d).key);
     expect(catFrame('walk', 'S', 0).key).not.toBe(catFrame('walk', 'S', d / 2).key);
+  });
+
+  it('sits down and stands up through in-between frames (never from standing to seated in one frame)', () => {
+    const spec = WORLD_ART.cat.anims.down;
+    // at least 13 frames a second, and 6 poses between standing and seated
+    expect(spec.frames / spec.duration).toBeGreaterThanOrEqual(13);
+    expect(spec.frames).toBeGreaterThanOrEqual(8);
+    expect(catFrame('down', 'S', 0).key).toBe('cat/down/S/0');
+    expect(catFrame('down', 'S', spec.duration).key).toBe(`cat/down/S/${spec.frames - 1}`);
   });
 });
 
