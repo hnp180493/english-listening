@@ -116,14 +116,18 @@ describe('moduleBreakdown', () => {
   });
   it('lists untouched modules after practised ones, without the unscored decoder', () => {
     const rows = moduleBreakdown([att({ module: 'media' })], NOW);
-    expect(rows.map((r) => r.module)).toEqual(['media', 'dictation', 'drill', 'lesson', 'pairs', 'shadowing']);
+    expect(rows.map((r) => r.module)).toEqual(['media', 'dictation', 'drill', 'lesson', 'pairs', 'shadowing', 'town']);
     expect(rows[1]).toMatchObject({ all: { total: 0, correct: 0, pct: null }, lastAt: null });
     expect(rows.find((r) => r.module === 'lesson')?.route).toBe('lessons');
   });
   it('shows the decoder once it has data', () => {
     const rows = moduleBreakdown([att({ module: 'decoder' })], NOW);
     expect(rows[0].module).toBe('decoder');
-    expect(rows).toHaveLength(7);
+    expect(rows).toHaveLength(8);
+  });
+  it('Thị trấn is a module like the others: its own row, label and page', () => {
+    const rows = moduleBreakdown([att({ module: 'town' }), att({ module: 'town', correct: false })], NOW);
+    expect(rows[0]).toMatchObject({ module: 'town', label: 'Thị trấn', route: 'town', all: { total: 2, correct: 1, pct: 50 } });
   });
 });
 

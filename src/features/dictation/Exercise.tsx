@@ -6,7 +6,7 @@ import { align, type AlignResult } from '../../core/dictation/align';
 import { classify, type ClassifyResult } from '../../core/dictation/classify';
 import { buildDiff, type DiffUnit } from '../../core/dictation/diff';
 import { makeHint } from '../../core/dictation/hint';
-import { listensLabelVi, rightOnFirstListen, type ListenTally } from '../../core/dictation/listens';
+import { listensLabelVi, rightOnFirstListen, type ListenKind, type ListenTally } from '../../core/dictation/listens';
 import { normalizeText, splitWords } from '../../core/dictation/normalize';
 import type { Phenomenon, Sentence } from '../../core/types';
 import { NEXT_GUARD_MS } from './constants';
@@ -48,11 +48,33 @@ export interface ExerciseProps {
   onSkip: () => void;
   /** The card's top row (the session goal bar). */
   top?: ReactNode;
-  /** "Làm lại câu này": the answer was just shown, so one listen proves nothing (no first-listen praise). */
-  retry?: boolean;
+  /**
+   * The learner already knew the words when this exercise started ("Làm lại câu này", an answer or hint shown
+   * earlier, "Điền từ", their own sentence): one listen proves nothing, so no first-listen praise.
+   */
+  known?: boolean;
+  /** Plays of this sentence before this mount that no check followed (read once, at mount). */
+  heardBefore?: ListenTally;
+  /** A play made before the check (replays of the shown answer are not reported). */
+  onListen?: (kind: ListenKind) => void;
+  /** "Gợi ý" was opened: the first letters are on screen. */
+  onHint?: () => void;
 }
 
-export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, onNext, onRetry, onSkip, top, retry = false }: ExerciseProps) {
+export default function Exercise({
+  sentence,
+  autoPlay,
+  focusOnMount,
+  onChecked,
+  onNext,
+  onRetry,
+  onSkip,
+  top,
+  known = false,
+  heardBefore,
+  onListen,
+  onHint,
+}: ExerciseProps) {
   const decoded = useMemo(() => safeDecode(sentence.text), [sentence.text]);
   const targetRaw = useMemo(() => targetTokens(decoded, sentence.text), [decoded, sentence.text]);
   const chunks = useMemo(() => chunksOf(decoded, targetRaw), [decoded, targetRaw]);
@@ -66,8 +88,19 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
   const [activeAnn, setActiveAnn] = useState<string | null>(null);
 
   const rootRef = useRef<HTMLElement>(null);
+  // Time of the check (0 = not checked). A ref, not just state: two checks in the same tick must not record two
+  // attempts.
+  const checkedAtRef = useRef(0);
   const audio = useMemo(() => dictationAudio(sentence), [sentence]);
-  const player = usePlayer(audio, chunks, { autoPlay, rootRef });
+  const player = usePlayer(audio, chunks, {
+    autoPlay,
+    rootRef,
+    initial: heardBefore,
+    // only the plays before the check belong to the sentence's tally: the answer is on screen after it
+    onListen: (kind) => {
+      if (!checkedAtRef.current) onListen?.(kind);
+    },
+  });
   const { canSpeak, plays, listens, play, stop } = player;
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -76,8 +109,6 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
   }, [focusOnMount]);
 
   // ---------------------------------------------------------------- checking
-  // A ref, not just state: two checks in the same tick must not record two attempts.
-  const checkedAtRef = useRef(0);
   const check = (reveal = false) => {
     if (outcome || checkedAtRef.current) return;
     // punctuation-only / whitespace answers count as empty
@@ -128,7 +159,7 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
   // one primary action at a time: "Nghe" until the learner has listened or typed, then "Kiểm tra"
   const listenFirst = plays === 0 && !answer.trim();
   const heardLabel = listensLabelVi(heard);
-  const firstListen = !!outcome && !retry && rightOnFirstListen({ score: outcome.al.score, hinted: hintShown, listens: heard ?? undefined });
+  const firstListen = !!outcome && !known && rightOnFirstListen({ score: outcome.al.score, hinted: hintShown, listens: heard ?? undefined });
   const verdict = !outcome
     ? ''
     : firstListen
@@ -204,7 +235,15 @@ export default function Exercise({ sentence, autoPlay, focusOnMount, onChecked, 
         )}
         {!outcome && (
           <div className="dict-tools">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setHintShown(true)} disabled={hintShown}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                setHintShown(true);
+                onHint?.();
+              }}
+              disabled={hintShown}
+            >
               <Icon icon={Lightbulb} size={15} />
               Gợi ý
             </button>

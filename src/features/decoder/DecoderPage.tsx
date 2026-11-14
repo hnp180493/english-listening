@@ -17,6 +17,8 @@ import SpokenSentence from '../../components/SpokenSentence';
 import AnnotationList, { AnnotationCard } from './AnnotationList';
 import PhenomenaGuide from './PhenomenaGuide';
 import { MAX_CUSTOM_LENGTH as SHADOW_TEXT_MAX } from '../shadowing/sources';
+import { session } from '../dictation/session';
+import { noteShown } from '../../core/dictation/listens';
 import { EXAMPLE_SAY, EXAMPLES, EXAMPLES_SHOWN } from './examples';
 import {
   addSentenceForDictation,
@@ -235,6 +237,8 @@ export default function DecoderPage() {
     const builtinId = findBuiltin(current, SENTENCES);
     if (builtinId) {
       remember(current);
+      // its words are on screen here: in Chép chính tả it is not a first listen (core/dictation/listens)
+      noteShown(session.listenMemory, builtinId);
       navigate('dictation', { mode: 'normal', id: builtinId });
       return;
     }

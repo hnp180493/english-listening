@@ -17,7 +17,7 @@ import {
 import type { RouteId } from './nav';
 import { PHENOMENA, type Phenomenon } from './types';
 
-export const MODULE_IDS: readonly ModuleId[] = ['dictation', 'drill', 'decoder', 'lesson', 'pairs', 'shadowing', 'media'];
+export const MODULE_IDS: readonly ModuleId[] = ['dictation', 'drill', 'decoder', 'lesson', 'pairs', 'shadowing', 'media', 'town'];
 
 export const GOAL_MIN = 10;
 export const GOAL_MAX = 100;

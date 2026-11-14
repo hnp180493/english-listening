@@ -1,6 +1,7 @@
 // Module-level session state: survives tab switches (the page unmounts) but not reloads.
 
 import type { SessionCheck } from '../../core/dictation/goal';
+import { newListenMemory, type ListenMemory } from '../../core/dictation/listens';
 import type { DictMode } from '../../core/dictation/modes';
 import type { LevelFilter } from '../../core/dictation/progress';
 import type { Phenomenon } from '../../core/types';
@@ -23,6 +24,9 @@ export interface SessionState {
   checks: SessionCheck[]; // every check made in this session, in order
   goalStart: number; // index into checks where the current goal round began
   summaryOpen: boolean; // the end-of-round summary card is showing
+  // Per sentence: the plays not yet followed by a check, and whether its words were already on screen. Here, not in
+  // the exercise, so a remount (leaving the page and coming back, a skipped sentence returning) continues the count.
+  listenMemory: ListenMemory;
 }
 
 export const session: SessionState = {
@@ -37,6 +41,7 @@ export const session: SessionState = {
   checks: [],
   goalStart: 0,
   summaryOpen: false,
+  listenMemory: newListenMemory(),
 };
 
 const MAX_CHECKS = 500;

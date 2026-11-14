@@ -24,6 +24,7 @@ const PAGES = {
   drill: lazyPage(() => import('./features/drill/DrillPage')),
   shadowing: lazyPage(() => import('./features/shadowing/ShadowingPage')),
   media: lazyPage(() => import('./features/media/MediaPage')),
+  town: lazyPage(() => import('./features/town/TownPage')),
   stats: lazyPage(() => import('./features/stats/StatsPage')),
   listening: lazyPage(() => import('./features/listening/ListeningPage')),
   checkup: lazyPage(() => import('./features/checkup/CheckupPage')),
@@ -75,6 +76,10 @@ function Page({ id }: { id: RouteId }) {
     }
     case 'media': {
       const C = PAGES.media.current;
+      return <C />;
+    }
+    case 'town': {
+      const C = PAGES.town.current;
       return <C />;
     }
     case 'stats': {

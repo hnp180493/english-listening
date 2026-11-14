@@ -70,7 +70,7 @@ export interface HistoryStore {
   base: HistoryBase | null;
 }
 
-export const HISTORY_MODULES: readonly ModuleId[] = ['dictation', 'drill', 'decoder', 'lesson', 'pairs', 'shadowing', 'media'];
+export const HISTORY_MODULES: readonly ModuleId[] = ['dictation', 'drill', 'decoder', 'lesson', 'pairs', 'shadowing', 'media', 'town'];
 const GRADES: readonly Grade[] = ['again', 'hard', 'good', 'easy'];
 /** The first-listen counters of a day: app voice (Chép chính tả) and real speech (Video thật). */
 export type OnceKey = 'once' | 'onceReal';

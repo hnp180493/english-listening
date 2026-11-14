@@ -46,6 +46,18 @@ describe('listening log and checkup routes', () => {
     expect(NAV_ROUTES.length).toBe(ROUTES.length - 1);
   });
 
+  it('lists Thị trấn right after Video thật in the practice group; talk / build params travel as they are', () => {
+    const i = ROUTES.findIndex((r) => r.id === 'town');
+    expect(ROUTES[i - 1].id).toBe('media');
+    expect(ROUTES[i]).toMatchObject({ label: 'Thị trấn', group: 'practice', hint: 'Đi quanh thị trấn, nghe người dân nói gì' });
+    expect(isNavRoute('town')).toBe(true);
+    expect(parseHash('#/town')).toEqual({ id: 'town', params: {} });
+    expect(hrefFor('town')).toBe('#/town');
+    expect(hrefFor('town', { talk: 'cafe' })).toBe('#/town?talk=cafe');
+    expect(parseHash('#/town?talk=cafe')).toEqual({ id: 'town', params: { talk: 'cafe' } });
+    expect(parseHash(hrefFor('town', { build: 'shop' }))).toEqual({ id: 'town', params: { build: 'shop' } });
+  });
+
   it('parses the report view of Tiến độ', () => {
     expect(parseHash(hrefFor('stats', { view: 'report' }))).toEqual({ id: 'stats', params: { view: 'report' } });
   });

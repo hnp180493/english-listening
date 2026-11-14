@@ -6,6 +6,7 @@ import {
   Headphones,
   History,
   Layers,
+  Map as MapIcon, // "Map" would shadow the global Map
   Mic,
   PencilLine,
   ScanText,
@@ -27,6 +28,7 @@ export const ROUTE_ICON: Record<RouteId, LucideIcon> = {
   drill: Layers,
   shadowing: Mic,
   media: Clapperboard,
+  town: MapIcon,
   stats: TrendingUp,
   listening: Headphones,
   checkup: ClipboardCheck,

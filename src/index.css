@@ -73,6 +73,15 @@
   --mod-review: light-dark(#4d7c0f, #a3e635);
   --mod-listening: light-dark(#0e7490, #22d3ee);
   --mod-checkup: light-dark(#a16207, #facc15);
+  --mod-town: light-dark(#a21caf, #e879f9);
+
+  /* ── Thị trấn map (src/features/town): flat, calm tiles. Used only by .town-* ── */
+  --town-grass: light-dark(#dff0dc, #17271d);
+  --town-path: light-dark(#f1e9d8, #2b2c3a);
+  --town-tree: light-dark(#3f8f5a, #4c9a68);
+  --town-water: light-dark(#cfe5f6, #16293d);
+  --town-lit: light-dark(#fff1bf, #4a3a12); /* a place whose lines are all understood: lights on */
+  --town-lit-ink: light-dark(#7a5200, #fcd679); /* icon on --town-lit, ≥ 4.5:1 */
 
   /* ── Shape ── */
   --radius-xs: 6px;
@@ -651,6 +660,9 @@ button.tile:hover {
 }
 .mod-checkup {
   --tile: var(--mod-checkup);
+}
+.mod-town {
+  --tile: var(--mod-town);
 }
 
 /* ───────────────────────── Chips & badges ───────────────────────── */

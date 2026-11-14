@@ -13,6 +13,7 @@ export type RouteId =
   | 'drill'
   | 'shadowing'
   | 'media'
+  | 'town'
   | 'stats'
   | 'listening'
   | 'checkup'
@@ -40,6 +41,7 @@ export const ROUTES: readonly RouteInfo[] = [
   { id: 'drill', label: 'Cụm từ', hint: 'Ôn các cụm hay bị nói nhanh', icon: '🃏', group: 'practice' },
   { id: 'shadowing', label: 'Nói nhại', hint: 'Nghe, nói theo, so sánh', icon: '🎙', group: 'practice' },
   { id: 'media', label: 'Video thật', hint: 'Luyện với YouTube / podcast có phụ đề', icon: '🎬', group: 'practice' },
+  { id: 'town', label: 'Thị trấn', hint: 'Đi quanh thị trấn, nghe người dân nói gì', icon: '🗺', group: 'practice' },
   { id: 'stats', label: 'Tiến độ', hint: 'Bạn đang yếu phần nào', icon: '📈', group: 'track' },
   { id: 'listening', label: 'Nhật ký nghe', hint: 'Ghi lại giờ nghe tiếng Anh thật mỗi ngày', icon: '🎧', group: 'track' },
   // Reached from Home / Nhật ký nghe / Báo cáo, never from the menu: a test is not something to open by habit.
@@ -69,6 +71,9 @@ export interface Route {
 /**
  * Query params each page understands (all optional; keep in sync with what each page reads):
  * - home, listening, checkup: none
+ * - town:      talk=<placeId> (opens straight into a conversation with that place's resident when it is built;
+ *              the param is dropped from the address when the conversation closes) | build=<placeId | 1> (opens the
+ *              build panel, on that empty lot). Place ids: data/town.ts. The character's tile is kept for the session.
  * - settings:  section=ai (scrolls to the "Trợ lý AI" card; anything else → top of the page)
  * - stats:     view=report (the "Báo cáo" view; anything else → the default "Tổng quan" view)
  * - review:    none

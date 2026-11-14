@@ -36,10 +36,24 @@ import { scrollBehavior } from '../../core/motion';
 import { hrefFor, navigate, useRoute } from '../../core/nav';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import { formatDueVi, makeCardId, nextAvailable, recordReview, resetCard, statesOfKind, useReview } from '../../core/review';
-import { firstListenOutcome, rightOnFirstListen, totalListens } from '../../core/dictation/listens';
+import {
+  carriedListens,
+  firstListenOutcome,
+  forgetSentence,
+  knownAtStart,
+  NO_LISTENS,
+  noteChecked,
+  noteListen,
+  noteShown,
+  rightOnFirstListen,
+  totalListens,
+  type ListenTally,
+} from '../../core/dictation/listens';
 import { recordAttempt } from '../../core/stats';
 import { KEYS, loadJSON, saveJSON } from '../../core/storage';
 import { recordTombstone } from '../../core/syncMarkers';
+import { lineProgress } from '../../core/town/progress';
+import { loadTownProgress } from '../../core/town/store';
 import { prefetchSpeech } from '../../core/tts';
 import { PHENOMENA, type Phenomenon, type Sentence } from '../../core/types';
 import { SENTENCES } from '../../data/sentences';
@@ -118,6 +132,22 @@ function syncUrl(v: DictView) {
     if (window.location.hash !== next) window.history.replaceState(window.history.state, '', next);
   } catch {
     // history API unavailable: the filters still work, only the URL is stale
+  }
+}
+
+// What the session remembers of a sentence when an exercise of it starts (core/dictation/listens ListenMemory).
+// Module-level readers: the component only reads through them while rendering, and writes in handlers / effects.
+const playsSoFar = (id: string): ListenTally => carriedListens(session.listenMemory, id);
+const startsKnown = (id: string, retry: boolean): boolean =>
+  knownAtStart(session.listenMemory, id, { retry, own: isCustomId(id) }) || metInTown(id);
+
+/** Answered in Thị trấn: its words and meaning were on screen there, so it is no first listen here (docs/town.md). */
+function metInTown(id: string): boolean {
+  if (isCustomId(id)) return false;
+  try {
+    return (lineProgress(loadTownProgress(), id)?.tries ?? 0) > 0;
+  } catch {
+    return false;
   }
 }
 
@@ -357,6 +387,22 @@ export default function DictationPage() {
   }, [nav]);
 
   const current = byId.get(currentId) ?? null;
+  const exerciseKey = current ? `${current.id}:${nav.nonce}` : ''; // the exercise's React key
+
+  // Did the learner already know the words when THIS exercise started? A retry, a sentence they wrote themselves,
+  // or one whose answer / "Điền từ" text / hint was on screen earlier in the session. Such a sentence is never
+  // praised or archived as a first listen. Decided once per exercise: its own check marks the sentence as shown,
+  // and that must not change the verdict already on screen.
+  // Keyed by the MOUNT, not only the exercise key: the summary card unmounts the exercise, and when it closes
+  // without advancing, the same sentence comes back already checked (so known again).
+  const startKey = summaryOpen ? '' : exerciseKey;
+  const [started, setStarted] = useState({ key: '', known: false });
+  if (started.key !== startKey) {
+    setStarted({ key: startKey, known: !!current && startsKnown(current.id, !!nav.retry) });
+  }
+  const known = started.known;
+  // plays of this sentence that no check followed yet: the exercise starts its count from them (read at its mount)
+  const heardBefore = current ? playsSoFar(current.id) : NO_LISTENS;
 
   // AI voice (no-op with the browser voice and for built-in sentences, which ship their clips): once the learner
   // PLAYS this sentence, make the next one in the background, so its auto-play is instant. Nothing is made for a
@@ -367,6 +413,12 @@ export default function DictationPage() {
   useEffect(() => {
     if (currentText && nextText) prefetchSpeech([nextText], { mode: 'connected', after: currentText });
   }, [currentText, nextText]);
+
+  // "Điền từ" puts the sentence on screen: later in this session it is no first listen in "Cả câu" (listens.ts)
+  const clozeShownId = mode === 'cloze' && !summaryOpen && current ? current.id : '';
+  useEffect(() => {
+    if (clozeShownId) noteShown(session.listenMemory, clozeShownId);
+  }, [clozeShownId]);
 
   // ------------------------------------------------------------ session goal
   // the goal counts distinct sentences: retrying the same sentence does not fill it
@@ -408,10 +460,11 @@ export default function DictationPage() {
 
   // the spaced-review line under the exercise it belongs to (`key` = the exercise's React key)
   const [reviewNote, setReviewNote] = useState<{ key: string; text: string } | null>(null);
-  const exerciseKey = current ? `${current.id}:${nav.nonce}` : '';
 
   const onChecked = (info: CheckedInfo) => {
     if (!current) return;
+    // the answer is on screen now: the plays so far are spent and the sentence is known for the rest of the session
+    noteChecked(session.listenMemory, current.id);
     // build on what is stored, not on the copy loaded at mount (another tab may have changed it)
     const stored = loadProgressOr(progress);
     // captured before the save below: a first-ever perfect answer grades `easy`
@@ -427,8 +480,8 @@ export default function DictationPage() {
       try {
         recordAttempt(
           { module: 'dictation', itemId: current.id, correct: outcome.correct, seen: info.seen, missed: info.missed },
-          // "nghe 1 lần là đúng" is measured on sentences never dictated before (core/dictation/listens)
-          { once: firstListenOutcome(info, { cloze: mode === 'cloze', retry: !!nav.retry, prevAttempts }) },
+          // "nghe 1 lần là đúng" is measured on sentences never dictated before and not known (core/dictation/listens)
+          { once: firstListenOutcome(info, { cloze: mode === 'cloze', retry: !!nav.retry, prevAttempts, known }) },
         );
       } catch {
         // stats are best-effort
@@ -451,8 +504,9 @@ export default function DictationPage() {
       score: info.score,
       seen: info.seen,
       missed: info.missed,
-      heard: mode !== 'cloze' && totalListens(info.listens) > 0,
-      once: mode !== 'cloze' && rightOnFirstListen(info),
+      // the round's "Nghe 1 lần là đúng: x/y" leaves out sentences the learner already knew (as the verdict does)
+      heard: mode !== 'cloze' && !known && totalListens(info.listens) > 0,
+      once: mode !== 'cloze' && !known && rightOnFirstListen(info),
     });
     setChecks([...session.checks]);
     setGoalStart(session.goalStart);
@@ -488,6 +542,7 @@ export default function DictationPage() {
     const stale = customs
       .filter((c) => c.id === removedId || next.some((n) => n.id === c.id && dedupeKey(n.text) !== dedupeKey(c.text)))
       .map((c) => c.id);
+    for (const id of stale) forgetSentence(session.listenMemory, id); // plays of the old words say nothing about the new
     if (stale.length) {
       const base = loadProgressOr(progress);
       const p = stale.reduce(removeProgress, base);
@@ -759,7 +814,10 @@ export default function DictationPage() {
                 autoPlay={nav.autoPlay}
                 focusOnMount={nav.focus}
                 top={goalBar}
-                retry={!!nav.retry}
+                known={known}
+                heardBefore={heardBefore}
+                onListen={(kind) => noteListen(session.listenMemory, current.id, kind)}
+                onHint={() => noteShown(session.listenMemory, current.id)}
                 onChecked={onChecked}
                 onNext={goNext}
                 onRetry={retry}

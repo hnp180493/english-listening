@@ -1,0 +1,1025 @@
+/* "Thị trấn" (town) module. Tokens + shared classes only (see docs/design-system.md). Prefix: town-.
+ * The picture inside the canvas is game art with its own colours (engine/palette.ts); everything around and over
+ * it, here, is UI chrome and uses the app's tokens. The few game pictures drawn as DOM (coin, hearts, portraits,
+ * thumbnails) get their colours inline from the same palette module. */
+
+.town-page {
+  min-width: 0;
+}
+
+/* ───────────────────────── the stage ───────────────────────── */
+
+/* As wide as the page column and as tall as the window allows: the town IS the screen. */
+.town-stage {
+  position: relative;
+  width: 100%;
+  height: clamp(480px, calc(100dvh - 228px), 880px);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-sm);
+}
+.town-stage-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* a finger still scrolls the page; a tap walks */
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.town-stage-canvas:focus-visible {
+  outline-offset: -3px;
+}
+
+/* Everything floating over the town shares one look: a solid chip that reads on the day and the night picture. */
+.town-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-md);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.town-coin,
+.town-heart {
+  flex: none;
+}
+
+/* ───────────────────────── what floats over it ───────────────────────── */
+
+.town-hud {
+  position: absolute;
+  inset: var(--space-3) var(--space-3) auto var(--space-3);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+.town-hud > * {
+  pointer-events: auto;
+}
+
+/* the title and the way to the next one */
+.town-level {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  min-width: 148px;
+  height: 46px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-md);
+}
+.town-level-title {
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.town-level-bar {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+}
+.town-level-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 500ms var(--ease);
+}
+
+.town-hud-end,
+.town-hud-counts,
+.town-hud-btns {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.town-xu.is-moving {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    var(--shadow-md);
+}
+.town-hud-btn {
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.town-hud-btn:hover {
+  background: var(--surface-2);
+}
+.town-hud-btn[aria-expanded='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.town-hud-icon {
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+}
+.town-hud-count {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+/* "there is something you can build" */
+.town-hud-dot {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--surface);
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+
+/* today's tasks (inside the shared Popover) */
+.town-tasks .popover-panel {
+  min-width: 320px;
+}
+.town-task-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-task {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.town-task-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 2px var(--border-strong);
+  color: var(--accent-contrast);
+}
+.town-task.is-done .town-task-mark {
+  background: var(--accent);
+  box-shadow: none;
+}
+.town-task-body {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+}
+.town-task-label {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  white-space: normal;
+}
+.town-task.is-done .town-task-label {
+  color: var(--text-muted);
+}
+.town-task-bar {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+}
+.town-task-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.town-task-end {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-task-count {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.town-task-xu {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.town-task.is-done .town-task-xu {
+  color: var(--text-muted);
+}
+.town-task-note {
+  max-width: 34ch;
+  margin: var(--space-4) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  white-space: normal;
+}
+
+/* every action of the pointer, as buttons for a keyboard or a screen reader: seen only while one has the focus */
+.town-actions {
+  position: absolute;
+  top: 68px;
+  left: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-action {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.town-action:focus-visible {
+  position: static;
+  width: auto;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-md);
+  clip-path: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+/* the one thing to do next, at the bottom of the town */
+.town-prompt {
+  position: absolute;
+  inset: auto 0 var(--space-5) 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--space-3);
+  pointer-events: none;
+}
+.town-prompt > .btn {
+  border-radius: var(--radius-full);
+  padding-inline: var(--space-6);
+  pointer-events: auto;
+}
+
+/* Leo's first words */
+.town-welcome {
+  position: absolute;
+  inset: auto 0 92px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: min(500px, calc(100% - 2 * var(--space-3)));
+  margin-inline: auto;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-lg);
+  animation: town-rise 240ms var(--ease) both;
+}
+.town-portrait {
+  display: block;
+  flex: none;
+  border-radius: var(--radius-full);
+}
+.town-welcome-text {
+  flex: 1;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.town-welcome-name {
+  display: block;
+  font-weight: 600;
+}
+
+.town-toast {
+  position: absolute;
+  inset: 68px 0 auto 0;
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  padding: 0 var(--space-3);
+  pointer-events: none;
+}
+.town-toast-box {
+  padding: 10px var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-lg);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: center;
+  animation: town-drop 220ms var(--ease) both;
+}
+
+@keyframes town-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+@keyframes town-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+@keyframes town-side {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+@keyframes town-pop {
+  from {
+    transform: scale(0.2);
+  }
+  60% {
+    transform: scale(1.35);
+  }
+}
+@keyframes town-voice {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* ───────────────────────── a conversation ───────────────────────── */
+
+.town-talk {
+  position: absolute;
+  inset: auto 0 var(--space-3) 0;
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+  width: min(780px, calc(100% - 2 * var(--space-3)));
+  max-height: calc(100% - 76px);
+  margin-inline: auto;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-lg);
+  color: var(--text);
+  animation: town-rise 240ms var(--ease) both;
+}
+.town-talk:focus {
+  outline: none;
+}
+.town-talk-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.town-talk-who {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+  margin-right: auto;
+}
+.town-talk-name {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.town-talk-place {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.town-hearts {
+  display: inline-flex;
+  gap: 2px;
+  color: var(--text-subtle);
+}
+.town-heart.is-new {
+  animation: town-pop 420ms var(--ease) both;
+}
+.town-steps {
+  display: flex;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-step {
+  width: 18px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+}
+.town-step.is-now {
+  background: var(--accent);
+}
+.town-step.is-ok {
+  background: var(--ok);
+}
+.town-step.is-bad {
+  background: var(--bad);
+}
+
+.town-turn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+/* what the resident says: bars while it sounds, the sentence once it was answered */
+.town-bubble {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+/* the bubble's tail points at the portrait above it */
+.town-bubble::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 18px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+.town-bubble.is-said {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+.town-said-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+.town-bars {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+}
+.town-bars > i {
+  width: 4px;
+  height: 28px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  transform: scaleY(0.25);
+}
+.town-bars.is-on > i {
+  background: var(--accent);
+  animation: town-voice 900ms ease-in-out infinite;
+}
+.town-bars > i:nth-child(2) {
+  animation-delay: -150ms;
+  animation-duration: 760ms;
+}
+.town-bars > i:nth-child(3) {
+  animation-delay: -420ms;
+  animation-duration: 1040ms;
+}
+.town-bars > i:nth-child(4) {
+  animation-delay: -640ms;
+  animation-duration: 820ms;
+}
+.town-bars > i:nth-child(5) {
+  animation-delay: -260ms;
+  animation-duration: 960ms;
+}
+.town-bars > i:nth-child(6) {
+  animation-delay: -540ms;
+  animation-duration: 700ms;
+}
+.town-bars > i:nth-child(7) {
+  animation-delay: -80ms;
+  animation-duration: 880ms;
+}
+.town-bubble-text {
+  flex: 1;
+  min-width: 12ch;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-bubble-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+/* a ghost button on the bubble's own grey needs a lighter hover */
+.town-bubble .btn-ghost:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.town-verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.town-verdict-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+}
+.town-verdict.is-ok .town-verdict-icon {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.town-verdict.is-bad .town-verdict-icon {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.town-gain {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px 3px 5px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.town-said {
+  max-width: 100%;
+  padding-top: var(--space-1);
+  overflow-x: auto;
+}
+.town-said-plain {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 500;
+}
+.town-note,
+.town-bonus {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-bonus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text);
+  font-weight: 500;
+}
+.town-bonus > .icon {
+  color: var(--accent);
+}
+
+/* the three meanings */
+.town-ask {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+.town-reply-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.town-reply {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: 14px var(--space-4) 14px 14px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-base);
+  line-height: 1.4;
+  text-align: left;
+  transition:
+    background var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.town-reply:hover:not(:disabled) {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.town-reply:disabled {
+  cursor: default;
+}
+/* nothing has sounded yet: there is nothing to answer */
+.town-replies:not(.is-locked) .town-reply:disabled {
+  color: var(--text-muted);
+}
+.town-replies:not(.is-locked) .town-reply:disabled .town-reply-key {
+  background: transparent;
+}
+.town-reply-key {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.town-reply-text {
+  padding-top: 2px;
+}
+.town-reply.is-right {
+  background: var(--ok-bg);
+  box-shadow: none;
+}
+.town-reply.is-right .town-reply-key {
+  background: var(--ok);
+  box-shadow: none;
+  color: var(--surface);
+}
+.town-reply.is-wrong {
+  background: var(--bad-bg);
+  box-shadow: none;
+}
+.town-reply.is-wrong .town-reply-key {
+  background: var(--bad);
+  box-shadow: none;
+  color: var(--surface);
+}
+.town-reply.is-idle {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.town-talk-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* what the conversation came to */
+.town-result {
+  display: grid;
+  gap: var(--space-4);
+}
+.town-result-title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.town-result-xu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.town-result-sum {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.town-result-unit {
+  align-self: flex-end;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  line-height: 1.5;
+}
+.town-result-lines {
+  display: grid;
+  flex: 1;
+  gap: var(--space-1);
+  min-width: 220px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-result-lines > li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.town-result-lines > li > :last-child {
+  color: var(--text);
+  font-weight: 600;
+}
+.town-result-none {
+  margin: 0;
+  color: var(--text-muted);
+}
+.town-result-extra {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+/* ───────────────────────── the build panel ───────────────────────── */
+
+.town-build {
+  position: absolute;
+  inset: 68px var(--space-3) var(--space-3) auto;
+  display: flex;
+  flex-direction: column;
+  width: 400px;
+  max-width: calc(100% - 2 * var(--space-3));
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-lg);
+  color: var(--text);
+  animation: town-side 220ms var(--ease) both;
+}
+.town-build:focus {
+  outline: none;
+}
+.town-build-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-5);
+}
+.town-build-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.town-build-body {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  min-height: 0;
+  padding: 0 var(--space-5) var(--space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.town-build-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-build-h {
+  margin: 0 0 var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.town-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 68px;
+  padding: var(--space-2) 0;
+}
+.town-row + .town-row {
+  border-top: 1px solid var(--border);
+}
+.town-thumb {
+  flex: none;
+  width: 56px;
+  height: 52px;
+}
+.town-row-body {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.town-row-title {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.town-row-meta {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-row.is-owned .town-row-title {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.town-buy {
+  flex: none;
+  gap: var(--space-2);
+}
+.town-buy-cost,
+.town-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.town-price {
+  flex: none;
+  padding-right: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-owned {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--text-muted);
+}
+
+.town-how > p {
+  max-width: var(--measure);
+  margin: 0;
+}
+
+/* ───────────────────────── small screens ───────────────────────── */
+
+@media (max-width: 720px) {
+  .town-stage {
+    height: clamp(400px, calc(100svh - 238px), 720px);
+    border-radius: var(--radius-md);
+  }
+  .town-hud {
+    inset: var(--space-2) var(--space-2) auto var(--space-2);
+  }
+  /* the counts stay on the top row; the three buttons go down the right edge */
+  .town-hud-end {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .town-hud-btns {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .town-hud-label,
+  .town-hud-count {
+    display: none;
+  }
+  .town-hud-btn {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+  .town-level {
+    min-width: 128px;
+    height: 40px;
+    padding: 0 var(--space-3);
+  }
+  .town-actions {
+    top: 56px;
+  }
+  .town-toast {
+    top: 56px;
+    padding-right: 56px;
+  }
+  .town-prompt {
+    bottom: var(--space-3);
+  }
+  .town-welcome {
+    bottom: 76px;
+  }
+  /* a conversation needs the room: the buttons step aside, the counts stay (coins fly to them) */
+  .town-stage.is-talking .town-hud-btns {
+    display: none;
+  }
+  .town-talk {
+    bottom: var(--space-2);
+    gap: var(--space-3);
+    width: calc(100% - 2 * var(--space-2));
+    max-height: calc(100% - 60px);
+    padding: var(--space-3) var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+  }
+  .town-turn {
+    gap: var(--space-3);
+  }
+  .town-talk-place {
+    display: none;
+  }
+  .town-step {
+    width: 14px;
+  }
+  .town-reply-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .town-reply {
+    min-height: 48px;
+    padding-block: 11px;
+  }
+  /* after the answer only the right meaning and the one picked stay: the sentence needs the room */
+  .town-reply.is-idle,
+  .town-replies.is-locked .town-ask {
+    display: none;
+  }
+  .town-talk-foot > .btn {
+    flex: 1 1 auto;
+    white-space: nowrap;
+  }
+  .town-result-title {
+    font-size: var(--fs-lg);
+  }
+  .town-build {
+    inset: auto var(--space-2) var(--space-2) var(--space-2);
+    width: auto;
+    max-width: none;
+    max-height: min(64%, 460px);
+    border-radius: var(--radius-lg);
+    animation-name: town-rise;
+  }
+  .town-build-head {
+    padding-left: var(--space-4);
+  }
+  .town-build-body {
+    padding: 0 var(--space-4) var(--space-4);
+  }
+}
+
+/* a finger has no number keys */
+@media (hover: none), (pointer: coarse) {
+  .town-replies:not(.is-locked) .town-reply-key {
+    display: none;
+  }
+}

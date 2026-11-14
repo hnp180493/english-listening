@@ -55,6 +55,7 @@ src/
     progressReport.ts  pure report model + rule-based Vietnamese "Nhận xét"
     goals.ts        Home daily plan
     lessons.ts      course/lesson progress
+    town/           "Thị trấn" rules: xu, daily tasks, level, synced progress `town-progress`, store, walking map (content `data/town.ts`, layout `data/townWorld.ts`, game `features/town/`, docs/town.md)
     syncMerge.ts    per-key mergers for folder sync (every synced key needs one + tests)
     folderSync*.ts, backup.ts   folder sync + JSON backup/restore, clearAll ("Xóa dữ liệu")
     tts.ts, audioPlayer.ts      all playback: shipped Gemini clip → AI voice (only voiceEngine 'ai') → browser voice
@@ -82,6 +83,7 @@ public/         icons, manifest, sw.js (service worker, never caches cross-origi
 | `#/decoder` | Giải mã câu | shows how a sentence is actually spoken; "Nghe" plays it that way (connected), "Rõ từng từ" the written text slowly, "Nghe người thật nói" opens YouGlish |
 | `#/dictation` | Chép chính tả | listen and type; rule-based "Vì sao bạn nghe sai?" + "Hỏi AI"; "Câu của tôi" with "Tạo bằng AI"; counts the plays before each check: "Nghe 1 lần là đúng" in the result, the round summary and Báo cáo (`core/dictation/listens.ts`, docs/progress-report.md §4) |
 | `#/pairs`, `#/drill`, `#/shadowing`, `#/media` | Phân biệt âm, Cụm từ, Nói nhại, Video thật | minimal pairs, chunk flashcards, shadowing, YouTube/local media with transcripts (auto-logs listening time; its dictation measures "nghe 1 lần là đúng" on real speech for lines met for the first time: `features/media/lineListens.ts`, kept apart from the app-voice number) |
+| `#/town` | Thị trấn | a small isometric town on one canvas (day / night with the theme) the learner walks around and builds: a resident SAYS a built-in dictation sentence (audio only, the same clip as Chép chính tả), the learner picks 1 of 3 Vietnamese meanings; 5 lines a conversation; understanding pays xu (3 / 2 / 1, +5 for 5 of 5, three daily tasks), xu build the ten empty lots and buy decorations; level titles, hearts, lit windows; soft Web Audio effects (device-local `town-ui`); a miss enrols the sentence's `dict` card; `?talk=<placeId>` opens a conversation, `?build=<placeId>` the build panel (docs/town.md) |
 | `#/stats` | Tiến độ | overview; `?view=report` = Báo cáo tiến bộ (4 tuần / 3 tháng / Tất cả, charts, checkup trend, "Nhận xét", AI coach) |
 | `#/listening` | Nhật ký nghe | log real listening (quick add / stopwatch), milestones (10…1000 h), listenGoal |
 | `#/checkup` | (hidden) | Kiểm tra định kỳ: 10 dictation sentences + 4 passages, 6 parallel forms A–F, every 14 days; score = 0.6 × dictation% + 0.4 × comprehension%; audio = connected version, results record `audioMode: 'connected'` (older results = 'standard', compared with a caveat) |
@@ -146,6 +148,11 @@ public/         icons, manifest, sw.js (service worker, never caches cross-origi
 - **Dictation sentences:** the 300 sentences rely on the generated text (no authored `say`); where the decoder has no safe spelling (cross-word flap after "it" like "turn it off", assimilation like "in Boston"), "Nghe" still sends the written words.
 - **Home:** the baseline-checkup suggestion is folded under "Xem thêm" for new learners (deliberate, could be revisited).
 - **Stats:** "Hôm nay" can read 1 higher than the nav badge right after a session (it counts cards due later today).
+- **Thị trấn** (rebuilt 2026-11-14 after the owner rejected the first version; docs/town.md §7–8):
+  - looked at only as screenshots from headless Edge (1600×900 and 390×844, day and night): walking, camera travel, coin flight, the build animation and every sound effect were never watched or heard by a person; touch is plain click events (no pinch / wheel zoom);
+  - picking 1 of 3 meanings has a 33% chance floor and the wrong meanings are confusable on paper, not by sound: xu / level / hearts are a game score, never a measurement;
+  - the page uses a game-art exception to the design system (docs/design-system.md → "Thị trấn: game art"): the xu counter shows 0 for a new learner, and the canvas has its own colours (`engine/palette.ts`);
+  - on a short phone the conversation panel can cover the two characters after an answer.
 - **Not tested on real devices:**
   - AI audio unlock on iOS/Safari;
   - IndexedDB on `file://`;

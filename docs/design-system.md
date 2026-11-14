@@ -609,6 +609,28 @@ show the clock: one clock per screen. Below 360px the brand name hides while the
 A meta line built from " · " segments ("Hôm qua · Phim/series · Hiểu 70–90%") renders each segment in a
 `.nowrap-seg` span, so a phone wraps only between segments and never inside a value ("Hiểu 70– / 90%").
 
+### Thị trấn: game art (the one exception)
+
+`#/town` is a game: its picture is drawn on a `<canvas>` and has its own colours, the way a photo or an
+illustration does. What that means, and where the exception stops:
+
+- **Art colours live in `src/features/town/engine/palette.ts` only** (`ART`, the day / night palettes, `HUD_ART`
+  for the coin, the hearts and the portraits drawn as DOM). They never appear in `town.css`, and they are never
+  used for buttons, cards or text. Light theme = day, dark theme = night; night is derived from the day colours by
+  one tint, so nothing is hand-picked twice.
+- **Everything around and over the canvas is ordinary chrome**: `town.css` uses tokens only, every class starts
+  with `town-`, 13px is still the floor (name tags painted on the canvas are 13px too), one `.btn-primary` per
+  screen state (the prompt at the bottom of the town; "Nghe" before a line has sounded; "Câu tiếp"; "Về thị trấn";
+  the one affordable row of the build panel).
+- **Floating chips** (`.town-pill`, `.town-level`): solid `--surface` + `--hairline` + `--shadow-md`, so they read
+  on the day and the night picture alike. No translucent glass, no backdrop blur.
+- **Allowed here and nowhere else:** the xu counter shows `0` for a new learner (coins fly to it on the first
+  answer, so it has to exist); five empty hearts; the reply cards carry a small 1 / 2 / 3 tile (hidden on touch
+  devices); entry animations of 220–240ms for the panels and a few seconds of camera travel and particles on the
+  canvas, all off under reduced motion.
+- `--ok` / `--bad` still mean right / wrong answers only (reply cards, the verdict, the step dots); phenomenon
+  colours appear only inside the `SpokenSentence` shown after an answer.
+
 ### Lesson content blocks
 
 Lesson content (word tables, "Vì sao lại thế?" stories, choose and silent-letter quiz items) is data: the shapes,

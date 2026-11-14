@@ -117,12 +117,34 @@ retention instead.
 **"Nghe 1 lần là đúng" (`DayAgg.once { n, ok }`, `core/dictation/listens.ts`).** Real speech is said once, so the
 archive also keeps how new dictation sentences went on the first listen. Measured (`n`) only for a whole-sentence
 check of a sentence never dictated before, played at least once; not for "Điền từ", a retry of the sentence on
-screen, or an answer typed without playing. `ok` = fully right, no hint, after exactly one play at the normal speed
-(no replay, no "Chậm", no "Từng cụm"; auto-play of the next sentence counts as the one play). Not backfilled. The
-report states it from 20 sentences (`MIN_FIRST_LISTEN_SAMPLE`; fewer: hedged fact, no insight), compares it with the
-previous window only when both have the sample and differ by 10 points, and always adds that the app's voice is
-clearer than real speakers. The dictation result line and the round summary show the same thing for the sentences
-of the round (those include sentences seen before: the summary counts what happened, the archive measures).
+screen, an answer typed without playing, or a sentence the learner already knew when the exercise started
+(`known`): one of their own ("Câu của tôi"), or one whose words were on screen earlier in the session (a checked
+answer, "Điền từ", the "Gợi ý" letters, "Chép chính tả câu này" from Giải mã câu), or one already answered in
+Thị trấn (its words and meaning were shown there; read from the synced `town-progress`, so it holds across days and
+machines). `ok` = fully right, no hint, after exactly one play at the normal speed
+(no replay, no "Chậm", no "Từng cụm"; auto-play of the next sentence counts as the one play). Not backfilled.
+
+- **Normal speed** means Settings → Tốc độ đọc at 0.95× or faster (`NORMAL_RATE_MIN`, the same constant as the
+  slider's "tốc độ thường" hint). Below it a press of "Nghe" is tallied as a slowed play (`tallyKindFor`), so the
+  check is measured (`n`) but is not `ok`, and the result line says "nghe 1 lần (chậm)". The rule reads the
+  Settings rate when the play starts, not the rate the clip ran at: level-1 ("Dễ") sentences play at 0.9 of the
+  learner's rate by design and still count as normal speed at 0.95× and above, so the number is a little kinder
+  on easy sentences. Video thật is stricter (below 1× = slowed). Counts archived before this rule (2026-11-13)
+  may include single plays at a slower setting and are not corrected: a learner who practises below 0.95× sees
+  the percentage fall after the change, from the rule and not from the ear.
+- **The plays are remembered per sentence for the practice session** (`ListenMemory` in the page's module-level
+  session, `features/dictation/session.ts`; not stored, not synced), not per mount of the exercise: leaving the
+  page and coming back, or a skipped sentence returning, continues the count ("nghe 4 lần", not a first listen).
+  A check spends the plays and marks the sentence as shown, so "Làm lại câu này", or the same sentence met again
+  after its answer was shown, counts its own plays from zero and is never praised or archived as a first listen.
+  Limit: a reload, or a sentence heard / shown on another day or machine without a check, starts as new.
+
+The report states it from 20 sentences (`MIN_FIRST_LISTEN_SAMPLE`; fewer: hedged fact, no insight), compares it
+with the previous window only when both have the sample and differ by 10 points, and always adds that the app's
+voice is clearer than real speakers. The dictation result line and the round summary show the same thing for the
+sentences of the round: those include sentences dictated on earlier days (the summary counts what happened, the
+archive measures), but not the ones the learner already knew when the exercise started, which are left out of
+"Nghe 1 lần là đúng: x/y" and never get the praise.
 
 **The same on real speech (`DayAgg.onceReal`, `features/media/lineListens.ts`).** "Video thật → Chép chính tả"
 counts the plays of each transcript line during a visit of the player: "Phát câu" / "Lặp lại" / the sentence loop /

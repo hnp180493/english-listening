@@ -84,7 +84,15 @@ describe('todayProgress', () => {
     const p = todayProgress(null, NOW, 30);
     expect(p).toMatchObject({ attempts: 0, goal: 30, pct: 0, done: false });
     expect(p.byModule.dictation).toBe(0);
-    expect(Object.keys(p.byModule)).toHaveLength(7);
+    expect(Object.keys(p.byModule)).toHaveLength(8);
+  });
+
+  it('lines answered in Thị trấn count toward the daily goal like any module', () => {
+    const attempts = [att('town', NOW - 1000), att('town', NOW - 2000, { correct: false }), att('dictation', NOW - 3000), att('town', YESTERDAY_LATE)];
+    const p = todayProgress({ attempts }, NOW, 10);
+    expect(p.attempts).toBe(3);
+    expect(p.byModule).toMatchObject({ town: 2, dictation: 1 });
+    expect(cleanAttempts(attempts)).toHaveLength(4);
   });
 
   it('counts only today, split by module', () => {

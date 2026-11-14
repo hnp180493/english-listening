@@ -13,6 +13,7 @@ import {
   mergeMedia,
   mergeReview,
   mergeSettings,
+  mergeTown,
   mergeValue,
 } from './syncMerge';
 import { parseDrillStore, rollDaily } from '../features/drill/drillStore';
@@ -95,6 +96,41 @@ describe('merger laws', () => {
   }));
 
   checkLaws('reset marker', mergeReset, () => ({ version: 1, all: pick([0, T0, T0 + 1]), keys: maybe() ? { stats: T0 + ri(3) } : {} }));
+
+  // Thị trấn: copies of the same town at different stages (lines, xu per device, purchases, daily counters, days),
+  // with junk parts, a junk whole value and a version 1 value (lines only) now and then. The day lists are longer
+  // than the caps a merge keeps, so the caps are under the laws too.
+  const townLine = () => pick<unknown>([{ best: ri(3), tries: 1 + ri(4), at: T0 + ri(5) }, { best: ri(3), tries: 1 + ri(4), at: T0 + ri(5) }, { best: 5, tries: -1 }, null, 'x']);
+  const townLines = () => Object.fromEntries(['s001', 's002', 's003', 's004'].filter(() => maybe(0.7)).map((id) => [id, townLine()]));
+  const townDevices = ['d-laptop01', 'd-phone001', 'd-tablet01'];
+  const townDays = Array.from({ length: 80 }, (_, i) => new Date(Date.UTC(2026, 8, 1 + i)).toISOString().slice(0, 10));
+  const townDaily = () =>
+    pick<unknown>([
+      { talks: ri(3), lines: ri(10), first: ri(5), met: ['cafe', 'square', 'friend'].filter(() => maybe()), paid: ['talk', 'lines', 'first'].filter(() => maybe()) },
+      { lines: ri(4) },
+      { talks: -1 },
+      null,
+    ]);
+  const townItems = ['home', 'shop', 'park', 'lamps1', 'cat', 'Bad Id', 'constructor'];
+  checkLaws(
+    'town progress',
+    mergeTown,
+    () => {
+      if (maybe(0.05)) return pick<unknown>([null, 'junk', [], { lines: 7 }, { earned: 'x', bought: 5, daily: [], days: {} }]);
+      if (maybe(0.1)) return { version: 1, lines: townLines() };
+      const from = ri(40);
+      const span = townDays.slice(from, from + 1 + ri(70));
+      return {
+        version: 2,
+        lines: townLines(),
+        earned: Object.fromEntries([...townDevices, 'NOT A DEVICE'].filter(() => maybe(0.6)).map((d) => [d, pick([0, 3, 12, 12.5, 40, -2])])),
+        bought: townItems.filter(() => maybe(0.4)),
+        daily: Object.fromEntries(span.filter(() => maybe(0.8)).map((day) => [day, Object.fromEntries(townDevices.filter(() => maybe(0.6)).map((d) => [d, townDaily()]))])),
+        days: span.filter(() => maybe(0.7)),
+      };
+    },
+    600,
+  );
 
   const reviewDaily = (day: string) => {
     const reviewed = ['dict:a', 'dict:b', 'dict:c'].filter(() => maybe());
@@ -220,6 +256,33 @@ describe('tombstones and reset markers in mergeData', () => {
     const m = mergeData(stale, reset, false);
     expect(m[K('stats')]).toBe(reset[K('stats')]);
     expect(m[K('lessons-progress')]).toBe(stale[K('lessons-progress')]);
+  });
+
+  it('town progress follows the same rules: dropped by a reset elsewhere, kept by "Xóa lịch sử luyện tập"', () => {
+    const town = (ids: string[]) =>
+      JSON.stringify({
+        version: 2,
+        lines: Object.fromEntries(ids.map((id) => [id, { best: 2, tries: 1, at: 5 }])),
+        earned: { 'd-laptop01': 3 * ids.length },
+        bought: ids.length > 1 ? ['home'] : [],
+        daily: {},
+        days: [],
+      });
+    const cleared = { [K('reset')]: JSON.stringify(withReset(mergeReset(null, null), T0)) };
+    const stale = { [K('town-progress')]: town(['s001', 's002']) };
+    expect(mergeData(stale, cleared, true)).toEqual(cleared);
+    expect(mergeData(cleared, stale, false)).toEqual(cleared);
+    // lines understood after the reset are merged as usual
+    const after = { ...cleared, [K('town-progress')]: town(['s009']) };
+    expect(JSON.parse(mergeData(after, cleared, true)[K('town-progress')]).lines).toHaveProperty('s009');
+    // …and the xu and the purchases from before the reset do not come back with them
+    expect(JSON.parse(mergeData(after, stale, true)[K('town-progress')])).toMatchObject({ earned: { 'd-laptop01': 3 }, bought: [] });
+    // a first connection ("Gộp") combines both copies
+    expect(Object.keys(JSON.parse(mergeData(stale, after, true, { honorReset: false })[K('town-progress')]).lines)).toEqual(['s001', 's002', 's009']);
+    // the per-key reset of the practice history does not touch what was understood in town
+    const history = { [K('reset')]: JSON.stringify(withReset(mergeReset(null, null), T0, ['stats'])), [K('stats')]: '{"attempts":[],"byPhenomenon":{},"activeDays":[]}' };
+    expect(mergeData(stale, history, false)[K('town-progress')]).toBe(stale[K('town-progress')]);
+    expect(hasUserData(stale)).toBe(true);
   });
 
   it('bookkeeping alone is not learner data', () => {

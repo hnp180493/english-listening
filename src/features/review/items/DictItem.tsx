@@ -1,6 +1,6 @@
 // Ôn tập item: a dictation sentence (dict) or a video transcript line read by TTS (media).
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Clapperboard, ExternalLink } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import { updateProgress } from '../../../core/dictation/progress';
@@ -24,6 +24,9 @@ export interface DictItemProps extends ItemBaseProps {
 export default function DictItem({ item, graded, onGraded, onNext, onRetry, onSkip }: DictItemProps) {
   // A second check in the same tick (or after a retry remount) must not grade twice.
   const doneRef = useRef(false);
+  // "Làm lại câu này" remounts with graded = true: the answer was just shown, so no "Nghe 1 lần là đúng" praise.
+  // Read once at mount: `graded` flips in the same batch as the first check and must not change that verdict.
+  const [retried] = useState(graded);
 
   const onChecked = (info: CheckedInfo) => {
     if (graded || doneRef.current) return; // a retry is practice only
@@ -81,7 +84,7 @@ export default function DictItem({ item, graded, onGraded, onNext, onRetry, onSk
           </a>
         </div>
       )}
-      <Exercise sentence={item.sentence} autoPlay focusOnMount onChecked={onChecked} onNext={onNext} onRetry={onRetry} onSkip={onSkip} />
+      <Exercise sentence={item.sentence} known={retried} autoPlay focusOnMount onChecked={onChecked} onNext={onNext} onRetry={onRetry} onSkip={onSkip} />
     </div>
   );
 }

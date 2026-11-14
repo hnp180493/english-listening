@@ -87,6 +87,7 @@ export const KEYS = {
   listeningLog: 'listening-log', // "Nhật ký nghe" entries (synced; tombstones for deletes), see core/listening.ts
   checkups: 'checkup-results', // finished "Kiểm tra định kỳ" results (synced), see core/benchmark.ts
   history: 'progress-history', // daily-aggregate archive for the progress report (synced), see core/history.ts
+  town: 'town-progress', // "Thị trấn": lines understood, xu earned per device, purchases, daily tasks (synced), see core/town/progress.ts
   tombstones: 'tombstones', // deleted custom sentences / media items (synced, pruned after a while), see core/syncMarkers.ts
   reset: 'reset', // "Xóa dữ liệu" / restore / "Xóa lịch sử" marker (synced): older data elsewhere is dropped, see core/syncMarkers.ts
   // ── device-local (never synced, never in a backup; see DEVICE_LOCAL_KEYS) ──
@@ -96,6 +97,7 @@ export const KEYS = {
   checkupAbandoned: 'checkup-abandoned', // forms whose test was left after hearing something ("Bỏ bài")
   deviceId: 'device-id', // random id of this browser (its own bucket in KEYS.history)
   voiceAi: 'voice-ai', // true: this browser chose the paid AI voice (Settings.voiceEngine 'ai' never travels)
+  townUi: 'town-ui', // "Thị trấn" on this browser: sound effects on/off (default on), welcome bubble seen (features/town/townUi.ts)
 } as const;
 
 /**
@@ -110,6 +112,7 @@ export const DEVICE_LOCAL_KEYS: ReadonlySet<string> = new Set<string>([
   KEYS.checkupAbandoned,
   KEYS.deviceId,
   KEYS.voiceAi,
+  KEYS.townUi,
 ]);
 
 /** True for a device-local key, given as a short key ('listening-timer') or a full storage key (with prefix). */

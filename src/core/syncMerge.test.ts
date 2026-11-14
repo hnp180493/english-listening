@@ -13,6 +13,7 @@ import {
   mergeReview,
   mergeShadowing,
   mergeStats,
+  mergeTown,
   mergeValue,
   STATS_MAX_ATTEMPTS,
 } from './syncMerge';
@@ -429,5 +430,112 @@ describe('listening-log (Nhật ký nghe)', () => {
     expect(JSON.parse(ck).results).toHaveLength(2);
     const h = mergeValue('progress-history', '{"devices":{"a":{"2026-11-01":{"words":1}}}}', '{"devices":{"b":{"2026-11-01":{"words":2}}}}', true);
     expect(Object.keys(JSON.parse(h).devices)).toEqual(['a', 'b']);
+  });
+});
+
+describe('town-progress (Thị trấn)', () => {
+  type Daily = { talks: number; lines: number; first: number; met: string[]; paid: string[] };
+  type Town = {
+    version: number;
+    lines: Record<string, { best: number; tries: number; at: number }>;
+    earned: Record<string, number>;
+    bought: string[];
+    daily: Record<string, Record<string, Daily>>;
+    days: string[];
+  };
+  const merge = (n: unknown, o: unknown) => mergeTown(n, o) as Town;
+  const town = (p: Partial<Town>): Town => ({ version: 2, lines: {}, earned: {}, bought: [], daily: {}, days: [], ...p });
+  const LAPTOP = 'd-laptop01';
+  const PHONE = 'd-phone001';
+
+  it('per line: the best outcome, the most tries and the latest time of both machines', () => {
+    const a = town({ lines: { s001: { best: 1, tries: 4, at: 100 }, s002: { best: 2, tries: 1, at: 50 } } });
+    const b = town({ lines: { s001: { best: 2, tries: 2, at: 300 }, s003: { best: 0, tries: 1, at: 20 } } });
+    const m = merge(a, b);
+    expect(m).toEqual(town({ lines: { s001: { best: 2, tries: 4, at: 300 }, s002: { best: 2, tries: 1, at: 50 }, s003: { best: 0, tries: 1, at: 20 } } }));
+    expect(merge(b, a)).toEqual(m);
+    expect(merge(m, m)).toEqual(m);
+    expect(merge(m, a)).toEqual(m);
+  });
+
+  it('a line understood on one machine stays understood after the other missed it', () => {
+    const understood = town({ lines: { s001: { best: 2, tries: 1, at: 100 } } });
+    const missed = town({ lines: { s001: { best: 0, tries: 3, at: 900 } } });
+    expect(merge(missed, understood).lines.s001).toEqual({ best: 2, tries: 3, at: 900 });
+  });
+
+  it('xu earned on two machines add up; a stale copy of a bucket never lowers or doubles it', () => {
+    // the laptop earned 30 and last saw the phone at 8; the phone earned 20 and last saw the laptop at 12
+    const laptop = town({ earned: { [LAPTOP]: 30, [PHONE]: 8 } });
+    const phone = town({ earned: { [LAPTOP]: 12, [PHONE]: 20 } });
+    const m = merge(laptop, phone);
+    expect(m.earned).toEqual({ [LAPTOP]: 30, [PHONE]: 20 });
+    expect(merge(phone, laptop)).toEqual(m);
+    // syncing again and again changes nothing
+    expect(merge(merge(m, laptop), phone)).toEqual(m);
+  });
+
+  it('purchases of both machines are kept: nothing bought is ever lost', () => {
+    const laptop = town({ earned: { [LAPTOP]: 60 }, bought: ['home', 'lamps1'] });
+    const phone = town({ earned: { [PHONE]: 40 }, bought: ['shop', 'home'] });
+    expect(merge(laptop, phone).bought).toEqual(['home', 'lamps1', 'shop']);
+    expect(merge(phone, laptop).bought).toEqual(['home', 'lamps1', 'shop']);
+    expect(merge(laptop, town({})).bought).toEqual(['home', 'lamps1']);
+  });
+
+  it('daily tasks: counters by max and paid flags by union per day and machine, so a task is never paid twice', () => {
+    const day = '2026-11-13';
+    const newer = town({ daily: { [day]: { [LAPTOP]: { talks: 2, lines: 9, first: 4, met: ['cafe', 'square'], paid: ['first', 'lines', 'talk'] } } }, days: [day] });
+    const stale = town({
+      daily: { [day]: { [LAPTOP]: { talks: 1, lines: 5, first: 2, met: ['cafe'], paid: [] }, [PHONE]: { talks: 0, lines: 3, first: 1, met: [], paid: [] } } },
+      days: ['2026-11-12', day],
+    });
+    const m = merge(stale, newer);
+    expect(m.daily[day][LAPTOP]).toEqual(newer.daily[day][LAPTOP]);
+    expect(m.daily[day][PHONE]).toEqual(stale.daily[day][PHONE]);
+    expect(m.days).toEqual(['2026-11-12', day]);
+    expect(merge(newer, stale)).toEqual(m);
+  });
+
+  it('a town saved by the first version (lines only) merges with a version 2 copy', () => {
+    const v1 = { version: 1, lines: { s001: { best: 2, tries: 1, at: 100 }, s002: { best: 1, tries: 2, at: 50 } } };
+    const v2 = town({ lines: { s001: { best: 1, tries: 3, at: 60 } }, earned: { [LAPTOP]: 12 }, bought: ['home'] });
+    const m = merge(v1, v2);
+    expect(m).toEqual(town({ lines: { s001: { best: 2, tries: 3, at: 100 }, s002: { best: 1, tries: 2, at: 50 } }, earned: { [LAPTOP]: 12 }, bought: ['home'] }));
+    expect(merge(v2, v1)).toEqual(m);
+    expect(merge(v1, v1)).toEqual(town({ lines: v1.lines }));
+  });
+
+  it('drops junk and unknown fields, never a valid part of the other side', () => {
+    const ok = town({ lines: { s001: { best: 1, tries: 1, at: 5 } }, earned: { [LAPTOP]: 4 }, bought: ['home'] });
+    for (const junk of [null, 'x', 7, [], { lines: null }, { lines: [1] }, { version: 3, lines: { s001: 'nope' }, earned: 'x', bought: { home: 1 }, daily: 5, days: 'all' }]) {
+      expect(merge(junk, ok)).toEqual(ok);
+      expect(merge(ok, junk)).toEqual(ok);
+    }
+    expect(merge('x', [1, 2])).toEqual(town({}));
+    const messy = {
+      version: 9,
+      extra: true,
+      lines: { s001: { best: 7, tries: 2.5, at: 'no', more: 1 }, s002: { best: 0, tries: 0 }, s003: null },
+      earned: { [LAPTOP]: 7.9, [PHONE]: -3, 'NOT A DEVICE': 5 },
+      bought: ['home', 'home', 5, 'Not An Id'],
+    };
+    expect(merge(messy, {})).toEqual(town({ lines: { s001: { best: 2, tries: 2, at: 0 } }, earned: { [LAPTOP]: 7 }, bought: ['home'] }));
+    const unsafe = JSON.parse('{"lines":{"__proto__":{"best":2,"tries":1,"at":5},"constructor":{"best":2,"tries":1,"at":5}},"earned":{"__proto__":9,"constructor":9}}');
+    expect(merge(unsafe, ok)).toEqual(ok);
+    expect(({} as Record<string, unknown>).best).toBeUndefined();
+  });
+
+  it('is wired into mergeData; a corrupt side loses to the readable one', () => {
+    const local = { [K('town-progress')]: JSON.stringify(town({ lines: { s001: { best: 1, tries: 2, at: 10 } }, earned: { [LAPTOP]: 5 }, bought: ['home'] })) };
+    const remote = { [K('town-progress')]: JSON.stringify(town({ lines: { s001: { best: 2, tries: 1, at: 5 }, s002: { best: 1, tries: 1, at: 7 } }, earned: { [PHONE]: 9 }, bought: ['cat'] })) };
+    for (const out of [mergeData(local, remote, true), mergeData(local, remote, false), mergeData(remote, local, true)]) {
+      expect(JSON.parse(out[K('town-progress')])).toEqual(
+        town({ lines: { s001: { best: 2, tries: 2, at: 10 }, s002: { best: 1, tries: 1, at: 7 } }, earned: { [LAPTOP]: 5, [PHONE]: 9 }, bought: ['cat', 'home'] }),
+      );
+    }
+    expect(mergeValue('town-progress', '{broken', remote[K('town-progress')], false)).toBe(remote[K('town-progress')]);
+    // a key only one machine has is kept as it is
+    expect(mergeData(local, {}, true)).toEqual(local);
   });
 });

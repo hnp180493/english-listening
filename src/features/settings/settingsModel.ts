@@ -2,6 +2,7 @@
 
 import type { VoiceEngine } from '../../core/settings';
 import { baseUrlAllowed } from '../../core/ai/defaults';
+import { NORMAL_RATE_MIN } from '../../core/dictation/listens';
 import type { ProviderKind } from '../../core/ai/types';
 
 export const RATE_MIN = 0.5;
@@ -66,9 +67,10 @@ export function formatRate(r: number): string {
   return `${String(Number(r.toFixed(2))).replace('.', ',')}×`;
 }
 
+/** "tốc độ thường" starts at NORMAL_RATE_MIN: below it dictation counts "Nghe" as a slowed play (core/dictation/listens). */
 export function rateHint(r: number): string {
   if (r < 0.8) return 'chậm, dễ nghe';
-  if (r < 0.95) return 'hơi chậm';
+  if (r < NORMAL_RATE_MIN) return 'hơi chậm';
   if (r <= 1.05) return 'tốc độ thường';
   if (r <= 1.25) return 'nhanh hơn bình thường';
   return 'rất nhanh, để luyện tai';

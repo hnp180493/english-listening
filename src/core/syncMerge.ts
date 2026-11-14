@@ -16,6 +16,7 @@ import {
   type TombKind,
   type Tombstones,
 } from './syncMarkers';
+import { mergeTownProgress, parseTownProgress } from './town/progress';
 
 /** Full storage key (with prefix) → raw stored JSON string, as in Backup.data. */
 export type DataMap = Record<string, string>;
@@ -574,6 +575,14 @@ export const mergeCheckups: Merger = (newer, older) => {
 /** progress-history: per-device daily buckets, max per device/day/field (core/history explains why). */
 export const mergeProgressHistory: Merger = (newer, older) => mergeHistoryStores(parseHistory(newer), parseHistory(older));
 
+/**
+ * town-progress (Thị trấn, core/town/progress): everything in it only grows, so nothing needs a change time.
+ * Lines: per line the max of best / tries / at. Xu earned: one bucket per browser, max per browser (a browser only
+ * adds to its own). Purchases: a union. Daily counters: max / union per day and browser. Active days: a union.
+ * Junk and unknown fields are dropped; a version 1 value (lines only) merges as it is.
+ */
+export const mergeTown: Merger = (newer, older) => mergeTownProgress(parseTownProgress(newer), parseTownProgress(older));
+
 /** Short key (without prefix) → merge strategy. Keys not listed (unknown): newer side wins. */
 const MERGERS: Record<string, Merger> = {
   settings: mergeSettings,
@@ -593,6 +602,7 @@ const MERGERS: Record<string, Merger> = {
   'listening-log': mergeListeningLog,
   'checkup-results': mergeCheckups,
   'progress-history': mergeProgressHistory,
+  'town-progress': mergeTown,
 };
 
 function tryParse(raw: string): { ok: true; value: unknown } | { ok: false } {

@@ -23,6 +23,7 @@ export const MODULE_ROUTE: Record<ModuleId, RouteId> = {
   pairs: 'pairs',
   shadowing: 'shadowing',
   media: 'media',
+  town: 'town',
 };
 
 /**

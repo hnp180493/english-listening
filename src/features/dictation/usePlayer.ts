@@ -7,9 +7,13 @@
 //  - 'chunks': each segment's connected form with a pause, always with the BROWSER voice: with the AI voice every
 //    chunk was one more request (a free key allows a few per minute, ~30 a day), so one press used the budget;
 //  - 'careful': the standard written text, slower: "Rõ từng từ", offered only after checking the answer.
+//
+// Every play except 'careful' is tallied for "nghe 1 lần là đúng" (core/dictation/listens.ts): a 'normal' play
+// counts as slowed when Tốc độ đọc is below normal speed, and the tally starts from the plays the page remembers
+// for the sentence (`initial`) and reports each new one (`onListen`), so it survives a remount of the exercise.
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { NO_LISTENS, type ListenTally } from '../../core/dictation/listens';
+import { addListen, NO_LISTENS, tallyKindFor, type ListenKind, type ListenTally } from '../../core/dictation/listens';
 import { useSettings } from '../../core/settings';
 import { CAREFUL_RATE, CONNECTED_SLOW_RATE, dictationRate, type SpeechMode } from '../../core/playback';
 import { speak, stopSpeaking, ttsSupported, useSpeechPending } from '../../core/tts';
@@ -46,7 +50,10 @@ export interface Player {
   chunkPos: number; // index of the chunk being spoken, -1 when not in chunk mode
   chunkCount: number;
   plays: number; // how many times playback was started
-  /** Plays started so far, per kind ("Rõ từng từ" is not one: it only exists after the check). Read at check time. */
+  /**
+   * Plays started so far, per kind ("Rõ từng từ" is not one: it only exists after the check), on top of the plays
+   * the exercise started from (`opts.initial`). Read at check time.
+   */
   listens: () => ListenTally;
   /** `auto`: not a click (auto-play of the next sentence): never a new paid AI request (SpeakOptions.auto). */
   play: (mode: PlayMode, toggle?: boolean, auto?: boolean) => Promise<void>;
@@ -64,7 +71,14 @@ export function isCoarsePointer(): boolean {
 export function usePlayer(
   audio: DictationAudio,
   chunks: readonly string[],
-  opts: { autoPlay: boolean; rootRef: RefObject<HTMLElement | null> },
+  opts: {
+    autoPlay: boolean;
+    rootRef: RefObject<HTMLElement | null>;
+    /** Plays of this sentence made before this mount (read once, when the exercise mounts). */
+    initial?: ListenTally;
+    /** Every play the tally counts, with the counter it went to (the page keeps it across remounts). */
+    onListen?: (kind: ListenKind) => void;
+  },
 ): Player {
   const settings = useSettings();
   const { connected, careful, level } = audio;
@@ -73,8 +87,12 @@ export function usePlayer(
   const [chunkPos, setChunkPos] = useState(-1);
   const [plays, setPlays] = useState(0);
   const runRef = useRef(0);
-  const tallyRef = useRef<ListenTally>(NO_LISTENS);
+  const tallyRef = useRef<ListenTally>(opts.initial ?? NO_LISTENS);
   const listens = useCallback(() => tallyRef.current, []);
+  const onListenRef = useRef(opts.onListen);
+  useEffect(() => {
+    onListenRef.current = opts.onListen;
+  }, [opts.onListen]);
   // Ownership token: lets the buttons show "generating" only for this player's own speech.
   const [owner] = useState<object>(() => ({}));
   const pending = useSpeechPending(owner);
@@ -104,7 +122,12 @@ export function usePlayer(
       playingRef.current = mode;
       setPlaying(mode);
       setPlays((n) => n + 1);
-      if (mode !== 'careful') tallyRef.current = { ...tallyRef.current, [mode]: tallyRef.current[mode] + 1 };
+      if (mode !== 'careful') {
+        // "Nghe" with Tốc độ đọc below normal speed is a slowed play, whatever the button says (listens.ts)
+        const kind = tallyKindFor(mode, rateRef.current);
+        tallyRef.current = addListen(tallyRef.current, kind);
+        onListenRef.current?.(kind);
+      }
       try {
         if (mode === 'chunks') {
           for (let k = 0; k < chunks.length; k++) {

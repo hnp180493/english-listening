@@ -3,7 +3,7 @@ import { KEYS, loadJSON, saveJSON } from './storage';
 import { recordKeyReset } from './syncMarkers';
 import { PHENOMENA, type Phenomenon } from './types';
 
-export type ModuleId = 'dictation' | 'drill' | 'decoder' | 'lesson' | 'pairs' | 'shadowing' | 'media';
+export type ModuleId = 'dictation' | 'drill' | 'decoder' | 'lesson' | 'pairs' | 'shadowing' | 'media' | 'town';
 
 export const MODULE_LABEL: Record<ModuleId, string> = {
   dictation: 'Chép chính tả',
@@ -13,6 +13,7 @@ export const MODULE_LABEL: Record<ModuleId, string> = {
   pairs: 'Phân biệt âm',
   shadowing: 'Nói nhại',
   media: 'Video thật',
+  town: 'Thị trấn',
 };
 
 export interface Attempt {
