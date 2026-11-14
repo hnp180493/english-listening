@@ -614,7 +614,7 @@ A meta line built from " · " segments ("Hôm qua · Phim/series · Hiểu 70–
 `#/town` is a game: its picture is drawn on a `<canvas>` and has its own colours, the way a photo or an
 illustration does. What that means, and where the exception stops:
 
-- **Art colours live in `src/features/town/engine/palette.ts` only** (`ART`, the day / night palettes, `HUD_ART`
+- **Art colours live in `src/features/town/engine/palette.ts` and the rendered sprites in `src/features/town/art/`** (Kenney CC0, docs/town.md §7; `ART`, the day / night palettes, the night tint in `engine/sprites.ts`, `HUD_ART`
   for the coin, the hearts and the portraits drawn as DOM). They never appear in `town.css`, and they are never
   used for buttons, cards or text. Light theme = day, dark theme = night; night is derived from the day colours by
   one tint, so nothing is hand-picked twice.

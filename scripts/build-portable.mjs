@@ -17,18 +17,25 @@
  * (file:// cannot fetch it) and the clip files it names are copied to "<out>/audio/" next to the HTML (only new
  * or changed files; clips no longer in the manifest are removed). Keep that folder next to the HTML: without it
  * the app plays the AI or browser voice, as before.
+ *
+ * The town's pictures (src/features/town/art/**.webp, several MB): not inlined (vite.config.ts), copied to
+ * "<out>/art/" next to the HTML (hashed names; an earlier build's pictures are removed) and loaded from there by
+ * <img>, which works on file://. Keep that folder next to the HTML too: without it "Thị trấn" says it cannot load
+ * its pictures; every other page works.
  */
 import { spawnSync } from 'node:child_process'
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
-import { inlineAudioManifest, normalizeAudioManifest, syncAudioFolder } from './portableAudio.mjs'
+import { inlineAudioManifest, normalizeAudioManifest, syncArtFolder, syncAudioFolder } from './portableAudio.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BUILD_DIR = join(ROOT, 'node_modules', '.portable-build') // keep in sync with vite.config.ts
 const FILE_NAME = 'Nghe-Noi-Am.html'
 const AUDIO_SRC_DIR = join(ROOT, 'public', 'audio')
+const ART_DIR = 'art' // keep in sync with PORTABLE_ART_DIR in vite.config.ts
+const ART_FILE_RE = /\.webp$/i
 
 /** public/audio/manifest.json as { key: file }, keeping only clips whose file exists; null when there is none. */
 async function readAudioClips() {
@@ -127,7 +134,8 @@ async function main() {
   const files = await readdir(assetsDir)
   const jsFiles = files.filter((f) => f.endsWith('.js'))
   const cssFiles = files.filter((f) => f.endsWith('.css'))
-  const others = files.filter((f) => !f.endsWith('.js') && !f.endsWith('.css') && !f.endsWith('.map'))
+  const artFiles = files.filter((f) => ART_FILE_RE.test(f))
+  const others = files.filter((f) => !f.endsWith('.js') && !f.endsWith('.css') && !f.endsWith('.map') && !ART_FILE_RE.test(f))
   if (jsFiles.length !== 1) fail(`Cần đúng 1 file JS, nhưng có ${jsFiles.length}: ${jsFiles.join(', ')}`)
   if (cssFiles.length > 1) fail(`Cần tối đa 1 file CSS, nhưng có ${cssFiles.length}: ${cssFiles.join(', ')}`)
   if (others.length) fail(`Còn file asset chưa được nhúng: ${others.join(', ')}`)
@@ -135,6 +143,12 @@ async function main() {
   let html = await readFile(join(BUILD_DIR, 'index.html'), 'utf8')
   const js = await readFile(join(assetsDir, jsFiles[0]), 'utf8')
   if (/\bimport\s*\(\s*["'`]\.{1,2}\//.test(js)) fail('Bundle JS vẫn còn import() tới file khác')
+  // every picture the code names is in the build, and every picture of the build is named as "./art/<file>"
+  const named = new Set([...js.matchAll(/["'`]\.\/art\/([^"'`]+)["'`]/g)].map((m) => m[1]))
+  const lost = [...named].filter((f) => !artFiles.includes(f))
+  if (lost.length) fail(`Code gọi hình không có trong build: ${lost.join(', ')}`)
+  const unnamed = artFiles.filter((f) => !named.has(f))
+  if (unnamed.length) fail(`Hình trong build mà code không gọi qua "./${ART_DIR}/": ${unnamed.join(', ')}`)
 
   // Entry script -> inline module script (inline modules have no CORS check on file://).
   html = replaceOnce(
@@ -183,6 +197,14 @@ async function main() {
   const { size } = await stat(outFile)
   console.log(`\n[portable] Đã tạo bản 1 file: ${outFile}`)
   console.log(`[portable] Kích thước: ${formatSize(size)} (${size} bytes)`)
+  if (artFiles.length) {
+    const r = await syncArtFolder(assetsDir, join(outDir, ART_DIR), artFiles)
+    console.log(
+      `[portable] Hình thị trấn: ${r.files} file (${formatSize(r.bytes)}) trong ${join(outDir, ART_DIR)}` +
+        ` — chép mới ${r.copied}, giữ nguyên ${r.kept}, xóa ${r.removed}.`,
+    )
+    console.log(`[portable] Giữ thư mục "${ART_DIR}" cạnh file HTML khi chép đi máy khác.`)
+  }
   if (audio) {
     const files = [...new Set(Object.values(audio.clips))]
     const r = await syncAudioFolder(AUDIO_SRC_DIR, join(outDir, 'audio'), files)

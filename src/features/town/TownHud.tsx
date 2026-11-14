@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type Ref } from 'react';
-import { Check, Flame, Hammer, ListChecks, Volume2, VolumeX } from 'lucide-react';
+import { Check, Flame, Hammer, ListChecks, Maximize2, Minimize2, Volume2, VolumeX } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import Popover from '../../components/Popover';
 import { prefersReducedMotion } from '../../core/motion';
@@ -37,24 +37,30 @@ export interface TownHudProps {
   onSound: (on: boolean) => void;
   onBuild: () => void;
   buildOpen: boolean;
+  /** The stage fills the whole screen. */
+  full: boolean;
+  onFull: () => void;
   /** The xu counter (coins fly to it). */
   xuRef?: Ref<HTMLSpanElement>;
   buildRef?: Ref<HTMLButtonElement>;
 }
 
 /** What floats over the town: the title with its bar on the left; xu, streak, tasks, build and sound on the right. */
-export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, xuRef, buildRef }: TownHudProps) {
+export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, full, onFull, xuRef, buildRef }: TownHudProps) {
   const { level, balance, streak, tasks } = overview;
   const shown = useCountTo(balance);
   const moving = shown !== balance;
   const tasksDone = tasks.filter((t) => t.reached).length;
   return (
     <div className="town-hud">
-      <div className="town-level" role="img" aria-label={levelLabel(level)}>
+      {/* a new learner sees the title alone: no empty bar before the first point */}
+      <div className={'town-level' + (level.xp > 0 ? '' : ' is-new')} role="img" aria-label={levelLabel(level)}>
         <span className="town-level-title">{level.title}</span>
-        <span className="town-level-bar" aria-hidden="true">
-          <i style={{ width: `${Math.round(Math.max(0, Math.min(1, level.progress)) * 100)}%` }} />
-        </span>
+        {level.xp > 0 && (
+          <span className="town-level-bar" aria-hidden="true">
+            <i style={{ width: `${Math.round(Math.max(0, Math.min(1, level.progress)) * 100)}%` }} />
+          </span>
+        )}
       </div>
 
       <div className="town-hud-end">
@@ -134,6 +140,15 @@ export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, 
             title={sound ? 'Âm thanh trò chơi: đang bật' : 'Âm thanh trò chơi: đang tắt'}
           >
             <Icon icon={sound ? Volume2 : VolumeX} size={17} />
+          </button>
+          <button
+            type="button"
+            className="town-pill town-hud-btn town-hud-icon"
+            onClick={onFull}
+            aria-label={full ? 'Thu nhỏ' : 'Toàn màn hình'}
+            title={full ? 'Thu nhỏ (Esc)' : 'Toàn màn hình'}
+          >
+            <Icon icon={full ? Minimize2 : Maximize2} size={17} />
           </button>
         </div>
       </div>

@@ -1,0 +1,87 @@
+Kenney Mini Characters (2.0), rendered into the sprites in characters/ by scripts/town-art (npm run art:town).
+Kenney City Kit (Suburban) 1.0 and City Kit (Roads) 1.1, rendered (with shapes in the same style) into world/.
+Only rendered pictures are in this repository; the 3D source models are downloaded by hand into art-src/kenney/.
+Licence of the source pack, as shipped by Kenney (art-src/kenney/mini-characters/License.txt):
+
+	
+
+	Mini Characters (2.0)
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Creation date: 07-11-2026 11:14
+	
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	You can use this content for personal, educational, and commercial purposes.
+
+	Support by crediting 'Kenney' or 'www.kenney.nl' (this is not a requirement)
+
+			------------------------------
+
+	• Website : www.kenney.nl
+	• Donate  : www.kenney.nl/donate
+
+	• Patreon : patreon.com/kenney
+	
+	Follow on social media for updates:
+
+	• Twitter:	 twitter.com/KenneyNL
+	• BlueSky:	 kenney.bsky.social
+	• Instagram: instagram.com/kenney_nl
+
+------------------------------------------------------------------------------------------------------------------
+Licence of City Kit (Suburban), as shipped by Kenney (art-src/kenney/city-kit-suburban/License.txt):
+
+	
+
+	City Kit Suburban (1.0)
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Creation date: 01-12-2020 21:38
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial projects.
+	Support us by crediting Kenney or www.kenney.nl (this is not mandatory)
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Request:  http://request.kenney.nl
+	Patreon:  http://patreon.com/kenney/
+
+	Follow on Twitter for updates:
+	http://twitter.com/KenneyNL
+
+------------------------------------------------------------------------------------------------------------------
+Licence of City Kit (Roads), as shipped by Kenney (art-src/kenney/city-kit-roads/License.txt):
+
+	
+
+	City Kit Roads (1.1)
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Creation date: 15-10-2021 00:17
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial projects.
+	Support us by crediting Kenney or www.kenney.nl (this is not mandatory)
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Request:  http://request.kenney.nl
+	Patreon:  http://patreon.com/kenney/
+
+	Follow on Twitter for updates:
+	http://twitter.com/KenneyNL

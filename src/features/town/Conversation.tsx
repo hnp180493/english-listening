@@ -12,10 +12,20 @@ import type { PlaceId } from '../../data/townWorld';
 import { NEXT_GUARD_MS } from '../dictation/constants';
 import { dictationAudio, safeDecode } from '../dictation/decodeCache';
 import { reviewNoteVi } from '../dictation/pageModel';
+import type { PortraitMood } from './art/characters';
 import { Coin, Hearts, Portrait, SoundBars } from './art';
 import { talkSummary, verdictOf, type Verdict } from './shellModel';
 import { stopSfx } from './sfx';
 import { useLinePlayer, type LinePlay } from './useLinePlayer';
+
+/** The resident's portrait in the panel: big enough to read the face, a little smaller on a phone. */
+function portraitSize(): number {
+  try {
+    return window.matchMedia('(max-width: 720px)').matches ? 56 : 88;
+  } catch {
+    return 88;
+  }
+}
 
 /** The camera needs a moment to reach the resident before they speak. */
 const SPEAK_DELAY_MS = 700;
@@ -57,12 +67,16 @@ export default function Conversation({ place, turns, met, hearts, onSpeaking, on
   const [done, setDone] = useState(false);
   // said to a screen reader (the region is always there, so a change is read out)
   const [announce, setAnnounce] = useState('');
+  // the face smiles after a right answer, until the next line
+  const [mood, setMood] = useState<PortraitMood>('neutral');
+  const [faceSize] = useState(portraitSize);
   const turn = turns[index];
   const placeId = place.id as PlaceId;
 
   const answered = useCallback(
     (r: TownAnswerResult, v: Verdict) => {
       setResults((list) => [...list, r]);
+      setMood(r.outcome === 'wrong' ? 'neutral' : 'happy');
       setAnnounce(`${v.title}${r.reward > 0 ? ` Được ${r.reward} xu.` : ''}`);
       onAnswered(r, v);
     },
@@ -71,6 +85,7 @@ export default function Conversation({ place, turns, met, hearts, onSpeaking, on
 
   const next = useCallback(() => {
     if (index + 1 < turns.length) {
+      setMood('neutral');
       setIndex(index + 1);
       return;
     }
@@ -106,23 +121,25 @@ export default function Conversation({ place, turns, met, hearts, onSpeaking, on
   return (
     <section ref={setBox} className={'town-talk' + (done ? ' is-result' : '')} role="group" aria-label={`Trò chuyện với ${place.resident}`} tabIndex={-1}>
       <header className="town-talk-head">
-        <Portrait placeId={placeId} size={48} />
+        <Portrait placeId={placeId} size={faceSize} mood={mood} />
         <div className="town-talk-who">
           <span className="town-talk-name">
             {place.resident}
             <span className="town-talk-place"> · {place.name}</span>
           </span>
-          <Hearts value={hearts} fresh={done ? Math.max(0, hearts - (results[0]?.heartsBefore ?? hearts)) : 0} name={place.resident} />
+          {/* no row of empty hearts before the first one is earned */}
+          {hearts > 0 && <Hearts value={hearts} fresh={done ? Math.max(0, hearts - (results[0]?.heartsBefore ?? hearts)) : 0} name={place.resident} />}
+          {/* the five steps on their own line: on the name's line they squeezed the place name onto two */}
+          {!done && (
+            <ol className="town-steps" aria-label={`Câu ${index + 1} trên ${turns.length}`}>
+              {turns.map((t, i) => {
+                const r = results[i];
+                const cls = r ? (r.outcome === 'wrong' ? ' is-bad' : ' is-ok') : i === index ? ' is-now' : '';
+                return <li key={t.line.id} className={'town-step' + cls} aria-hidden="true" />;
+              })}
+            </ol>
+          )}
         </div>
-        {!done && (
-          <ol className="town-steps" aria-label={`Câu ${index + 1} trên ${turns.length}`}>
-            {turns.map((t, i) => {
-              const r = results[i];
-              const cls = r ? (r.outcome === 'wrong' ? ' is-bad' : ' is-ok') : i === index ? ' is-now' : '';
-              return <li key={t.line.id} className={'town-step' + cls} aria-hidden="true" />;
-            })}
-          </ol>
-        )}
         <button type="button" className="btn btn-ghost btn-sm btn-icon town-talk-close" onClick={onLeave} aria-label="Rời cuộc trò chuyện" title="Rời cuộc trò chuyện (Esc)" aria-keyshortcuts="Escape">
           <Icon icon={X} size={18} />
         </button>
@@ -211,10 +228,19 @@ function Turn({ turn, resident, met, last, onSpeaking, onAnswered, onNext }: Tur
     onNext();
   }, [onNext]);
 
-  // after the answer the keyboard sits on the one thing left to do
+  // after the answer the keyboard sits on the one thing left to do, and the right meaning is in view: on a phone
+  // the panel scrolls, and "Câu tiếp" stays fixed at its foot
   const nextRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (result) nextRef.current?.focus({ preventScroll: true });
+    if (!result) return;
+    nextRef.current?.focus({ preventScroll: true });
+    const row = listRef.current?.querySelector<HTMLElement>('.town-reply.is-right');
+    const panel = row?.closest<HTMLElement>('.town-talk');
+    if (!row || !panel || panel.scrollHeight <= panel.clientHeight) return;
+    const foot = nextRef.current?.closest<HTMLElement>('.town-talk-foot')?.getBoundingClientRect().height ?? 0;
+    const over = row.getBoundingClientRect().bottom - (panel.getBoundingClientRect().bottom - foot - 8);
+    if (over > 0) panel.scrollTop += over;
   }, [result]);
 
   useEffect(() => {
@@ -254,7 +280,7 @@ function Turn({ turn, resident, met, last, onSpeaking, onAnswered, onNext }: Tur
         title={title}
       >
         {on ? stopIcon : <Icon icon={icon} size={15} fill={icon === Play ? 'currentColor' : 'none'} strokeWidth={icon === Play ? 1.5 : 2} />}
-        {on ? (pending ? PENDING_LABEL : 'Dừng') : label}
+        <span className="town-btn-label">{on ? (pending ? PENDING_LABEL : 'Dừng') : label}</span>
       </button>
     );
   };
@@ -289,7 +315,7 @@ function Turn({ turn, resident, met, last, onSpeaking, onAnswered, onNext }: Tur
                 </span>
               )}
             </p>
-            <div className="town-bubble-actions" role="group" aria-label="Nghe lại câu vừa rồi">
+            <div className="town-bubble-actions town-said-actions" role="group" aria-label="Nghe lại câu vừa rồi">
             {listenBtn('normal', 'Nghe lại', RotateCcw, 'btn-ghost', CONNECTED_TITLE)}
             {canSpeak && (
               <button
@@ -344,7 +370,7 @@ function Turn({ turn, resident, met, last, onSpeaking, onAnswered, onNext }: Tur
 
       <div className={'town-replies' + (result ? ' is-locked' : '')} role="group" aria-label={`${resident} vừa nói gì?`}>
         <p className="town-ask">{resident} vừa nói gì?</p>
-        <div className="town-reply-list">
+        <div className="town-reply-list" ref={listRef}>
           {choices.options.map((vi, i) => {
             const right = !!result && i === choices.answer;
             const wrong = !!result && i === picked && i !== choices.answer;
@@ -399,24 +425,27 @@ function TalkResult({ place, results, met, onLeave, onAgain }: TalkResultProps) 
             <Coin size={26} />+{s.total}
             <span className="town-result-unit"> xu</span>
           </span>
-          <ul className="town-result-lines">
-            <li>
-              <span>Các câu hiểu được</span>
-              <span className="tabular">+{s.lineXu}</span>
-            </li>
-            {s.bonus > 0 && (
+          {/* where the xu came from, only when more than one thing paid: "+9" twice says nothing */}
+          {(s.bonus > 0 || s.tasks.length > 0) && (
+            <ul className="town-result-lines">
               <li>
-                <span>Hiểu hết cả {s.lines} câu</span>
-                <span className="tabular">+{s.bonus}</span>
+                <span>Các câu hiểu được</span>
+                <span className="tabular">+{s.lineXu}</span>
               </li>
-            )}
-            {s.tasks.map((t) => (
-              <li key={t.id}>
-                <span>Việc hôm nay: {t.label}</span>
-                <span className="tabular">+{t.reward}</span>
-              </li>
-            ))}
-          </ul>
+              {s.bonus > 0 && (
+                <li>
+                  <span>Hiểu hết cả {s.lines} câu</span>
+                  <span className="tabular">+{s.bonus}</span>
+                </li>
+              )}
+              {s.tasks.map((t) => (
+                <li key={t.id}>
+                  <span>Việc hôm nay: {t.label}</span>
+                  <span className="tabular">+{t.reward}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       ) : (
         <p className="town-result-none">Lần này chưa có xu. Nghe lại từng câu rồi thử lần nữa nhé.</p>

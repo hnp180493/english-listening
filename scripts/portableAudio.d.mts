@@ -11,3 +11,5 @@ export interface AudioSyncResult {
   bytes: number;
 }
 export declare function syncAudioFolder(srcDir: string, outAudioDir: string, files: Iterable<string>): Promise<AudioSyncResult>;
+export declare const ART_LEDGER_FILE: string;
+export declare function syncArtFolder(srcDir: string, outArtDir: string, files: Iterable<string>): Promise<AudioSyncResult>;

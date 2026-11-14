@@ -20,19 +20,27 @@ const KEY_RE = /^[A-Za-z0-9_-]{1,64}$/
  */
 export const AUDIO_LEDGER_FILE = '.nna-clips.json'
 
-async function readLedger(outAudioDir) {
+/** The town's pictures next to the portable HTML ("<out>/art/"): hashed WebP names from the Vite build. */
+export const ART_LEDGER_FILE = '.nna-art.json'
+const ART_FILE_RE = /^[A-Za-z0-9_.-]{1,96}\.webp$/
+
+const AUDIO_KIND = { ledger: AUDIO_LEDGER_FILE, fileRe: FILE_RE, note: 'Danh sách clip do bản portable chép vào; đừng sửa tay.' }
+// a hashed name changes with the content: the same name and size is the same picture (each build writes fresh mtimes)
+const ART_KIND = { ledger: ART_LEDGER_FILE, fileRe: ART_FILE_RE, hashedNames: true, note: 'Danh sách hình thị trấn do bản portable chép vào; đừng sửa tay.' }
+
+async function readLedger(outDir, kind) {
   try {
-    const j = JSON.parse(await readFile(join(outAudioDir, AUDIO_LEDGER_FILE), 'utf8'))
-    return Array.isArray(j?.files) ? j.files.filter((f) => typeof f === 'string' && FILE_RE.test(f)) : null
+    const j = JSON.parse(await readFile(join(outDir, kind.ledger), 'utf8'))
+    return Array.isArray(j?.files) ? j.files.filter((f) => typeof f === 'string' && kind.fileRe.test(f)) : null
   } catch {
     return null
   }
 }
 
-async function writeLedger(outAudioDir, files) {
-  const path = join(outAudioDir, AUDIO_LEDGER_FILE)
+async function writeLedger(outDir, files, kind) {
+  const path = join(outDir, kind.ledger)
   const tmp = `${path}.${process.pid}.${Date.now().toString(36)}.tmp`
-  await writeFile(tmp, JSON.stringify({ app: 'nghe-noi-am', note: 'Danh sách clip do bản portable chép vào; đừng sửa tay.', files: [...files].sort() }) + '\n')
+  await writeFile(tmp, JSON.stringify({ app: 'nghe-noi-am', note: kind.note, files: [...files].sort() }) + '\n')
   await rename(tmp, path)
 }
 
@@ -89,7 +97,19 @@ export function inlineAudioManifest(html, clips) {
  * this function copied (listed in its ledger, AUDIO_LEDGER_FILE) and that are no longer listed; anything else in
  * the folder is left alone, also on the first run (no ledger yet). Files missing in srcDir are reported, not copied.
  */
-export async function syncAudioFolder(srcDir, outAudioDir, files) {
+export function syncAudioFolder(srcDir, outAudioDir, files) {
+  return syncFolder(srcDir, outAudioDir, files, AUDIO_KIND)
+}
+
+/**
+ * The same for the town's pictures: "<outArtDir>" holds the WebP atlases of this build (hashed names). Pictures of
+ * an earlier build that this function copied are removed; nothing else is touched (its own ledger, ART_LEDGER_FILE).
+ */
+export function syncArtFolder(srcDir, outArtDir, files) {
+  return syncFolder(srcDir, outArtDir, files, ART_KIND)
+}
+
+async function syncFolder(srcDir, outAudioDir, files, kind) {
   const wanted = new Set(files)
   const r = { copied: 0, kept: 0, removed: 0, missing: [], files: 0, bytes: 0 }
   const present = []
@@ -110,7 +130,7 @@ export async function syncAudioFolder(srcDir, outAudioDir, files) {
     } catch {
       d = null
     }
-    if (d && d.size === s.size && Math.abs(d.mtimeMs - s.mtimeMs) < 2000) r.kept++
+    if (d && d.size === s.size && (kind.hashedNames || Math.abs(d.mtimeMs - s.mtimeMs) < 2000)) r.kept++
     else {
       await copyFile(src, dst)
       await utimes(dst, s.atime, s.mtime)
@@ -120,7 +140,7 @@ export async function syncAudioFolder(srcDir, outAudioDir, files) {
     r.files++
     r.bytes += s.size
   }
-  const previous = (await readLedger(outAudioDir)) ?? []
+  const previous = (await readLedger(outAudioDir, kind)) ?? []
   for (const f of previous) {
     if (wanted.has(f)) continue
     try {
@@ -131,6 +151,6 @@ export async function syncAudioFolder(srcDir, outAudioDir, files) {
     }
   }
   // still ours: copied now, or copied earlier and still wanted (its source may be missing this time)
-  await writeLedger(outAudioDir, new Set([...present, ...previous.filter((f) => wanted.has(f))]))
+  await writeLedger(outAudioDir, new Set([...present, ...previous.filter((f) => wanted.has(f))]), kind)
   return r
 }

@@ -28,3 +28,4 @@ portable
 
 # Audio generator work files (WAVs, logs, batch state)
 .audio-gen/
+art-src/

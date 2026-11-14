@@ -1,10 +1,10 @@
 import { useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from 'react';
 import { TOWN_WORLD, type PlaceId, type Tile } from '../../../data/townWorld';
 import type { EmoteKind } from './draw/overlay';
-import { TownEngine, type BurstKind, type Near, type StageTarget } from './engine';
+import { TownEngine, type ActKind, type BurstKind, type Near, type SafeInsets, type StageTarget } from './engine';
 import type { StageState } from './sim';
 
-export type { BurstKind, Near, StageTarget } from './engine';
+export type { ActKind, BurstKind, Near, SafeInsets, StageTarget } from './engine';
 export type { EmoteKind } from './draw/overlay';
 export type { Marker, StageState } from './sim';
 export type { TownTheme } from './palette';
@@ -14,6 +14,8 @@ export interface TownStageHandle {
   focusOn: (placeId: PlaceId | null) => void;
   /** A little picture popping up over somebody's head. */
   emote: (target: 'player' | PlaceId, kind: EmoteKind) => void;
+  /** Somebody plays a short animation once: a nod ('yes'), a head shake ('no'), a wave. Nothing under reduced motion. */
+  act: (target: 'player' | PlaceId, anim: ActKind) => void;
   /** Particles at somebody or at a point of the stage (CSS pixels); coins fly on to `to`. */
   burst: (kind: BurstKind, at: StageTarget, to?: { x: number; y: number }) => void;
   /** Walk to a place's resident (or to the gate of its empty lot), then call back. False = no way there. */
@@ -29,6 +31,8 @@ export interface TownStageHandle {
   celebrate: (id: string) => number;
   /** Put the keyboard on the stage (after a panel closed). */
   focus: () => void;
+  /** The stage's own box (to put it full screen); null before it is on the page. */
+  box: () => HTMLDivElement | null;
   /** Where the stage is in the window (to place things relative to it); null before it is on the page. */
   rect: () => DOMRect | null;
 }
@@ -49,6 +53,14 @@ export interface TownStageProps {
   inset?: { right?: number; bottom?: number };
   /** Input off (a conversation or a dialog is open). The town keeps moving. */
   paused?: boolean;
+  /** CSS pixels along each edge under the game's own buttons: name tags keep out, the camera centres in the rest. */
+  safe?: SafeInsets;
+  /** The resident the page suggests next: always named, framed with the player while near. */
+  hint?: PlaceId | null;
+  /** A lot the build panel is about: the camera shows it. */
+  peek?: PlaceId | null;
+  /** The stage covers the window: on a big screen the camera shows the whole built town. */
+  full?: boolean;
   /** A short text kept over an empty lot, by place id (e.g. its price: "20 xu"). Without it a lot shows its name under the pointer only. */
   lotLabels?: Readonly<Record<string, string>>;
   /** Show the whole town at once instead of following the player. */
@@ -92,6 +104,10 @@ export default function TownStage({
   speaking = null,
   inset,
   paused = false,
+  safe,
+  hint = null,
+  peek = null,
+  full = false,
   overview = false,
   lotLabels,
   startAt,
@@ -108,6 +124,14 @@ export default function TownStage({
   const insetBottom = inset?.bottom ?? 0;
   const insetRef = useRef({ right: insetRight, bottom: insetBottom });
   const speakingRef = useRef(speaking);
+  const safeTop = safe?.top ?? 0;
+  const safeRight = safe?.right ?? 0;
+  const safeBottom = safe?.bottom ?? 0;
+  const safeLeft = safe?.left ?? 0;
+  const safeRef = useRef<SafeInsets>({ top: safeTop, right: safeRight, bottom: safeBottom, left: safeLeft });
+  const hintRef = useRef(hint);
+  const peekRef = useRef(peek);
+  const fullRef = useRef(full);
   /** Who the camera leans in on: asked for through the handle, kept so a re-made engine (React strict mode) leans in again. */
   const focusRef = useRef<PlaceId | null>(null);
   const stateRef = useRef(state);
@@ -148,6 +172,10 @@ export default function TownStage({
     engine.setLotLabels(labelsRef.current ?? {});
     engine.setInset(insetRef.current.right, insetRef.current.bottom);
     engine.setSpeaking(speakingRef.current);
+    engine.setSafe(safeRef.current);
+    engine.setHint(hintRef.current);
+    engine.setPeek(peekRef.current);
+    engine.setFull(fullRef.current);
     engine.focusOn(focusRef.current);
     const fit = () => engine.resize(box.clientWidth, box.clientHeight);
     fit();
@@ -231,6 +259,26 @@ export default function TownStage({
     engineRef.current?.setSpeaking(speaking);
   }, [speaking]);
 
+  useEffect(() => {
+    safeRef.current = { top: safeTop, right: safeRight, bottom: safeBottom, left: safeLeft };
+    engineRef.current?.setSafe(safeRef.current);
+  }, [safeTop, safeRight, safeBottom, safeLeft]);
+
+  useEffect(() => {
+    hintRef.current = hint;
+    engineRef.current?.setHint(hint);
+  }, [hint]);
+
+  useEffect(() => {
+    peekRef.current = peek;
+    engineRef.current?.setPeek(peek);
+  }, [peek]);
+
+  useEffect(() => {
+    fullRef.current = full;
+    engineRef.current?.setFull(full);
+  }, [full]);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -239,12 +287,14 @@ export default function TownStage({
         engineRef.current?.focusOn(id);
       },
       emote: (target, kind) => engineRef.current?.emote(target, kind),
+      act: (target, anim) => engineRef.current?.act(target, anim),
       burst: (kind, at, to) => engineRef.current?.burst(kind, at, to),
       walkTo: (id, then) => engineRef.current?.walkTo(id, then) ?? false,
       pointOf: (target) => engineRef.current?.screenPointOf(target) ?? null,
       float: (target, text) => engineRef.current?.float(target, text),
       celebrate: (id) => engineRef.current?.celebrate(id) ?? 0,
       focus: () => canvasRef.current?.focus({ preventScroll: true }),
+      box: () => boxRef.current,
       rect: () => boxRef.current?.getBoundingClientRect() ?? null,
     }),
     [],

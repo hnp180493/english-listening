@@ -6,13 +6,30 @@ import type { TaskPayout, TownTaskView } from '../../core/town/daily';
 import type { DecorationView, PlaceView, TownOverview } from '../../core/town/overview';
 import type { TownAnswerResult } from '../../core/town/store';
 import type { LineOutcome } from '../../core/town/types';
-import type { PlaceId, Tile } from '../../data/townWorld';
+import { PLACE_IDS, type PlaceId, type Tile } from '../../data/townWorld';
 import type { EmoteKind } from './engine/draw/overlay';
 import type { TownTheme } from './engine/palette';
 import type { Marker, StageState } from './engine/sim';
 import type { SfxName } from './sfx';
 
 export const xu = (n: number): string => `${n} xu`;
+
+/** How many empty lots the town shows as construction sites at once. */
+export const LOTS_ON_OFFER = 3;
+
+/**
+ * The empty lots the learner works toward next: the cheapest ones not built yet (ties: in the listed order), at
+ * most LOTS_ON_OFFER. Only these stand in the world as construction sites with their price; every other lot is a
+ * corner of grass and trees until one of these is built and it comes up. The build panel still lists every lot.
+ */
+export function lotsOnOffer(places: readonly Pick<PlaceView, 'place' | 'built' | 'cost'>[], max = LOTS_ON_OFFER): string[] {
+  return places
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => !p.built)
+    .sort((a, b) => a.p.cost - b.p.cost || a.i - b.i)
+    .slice(0, Math.max(0, max))
+    .map(({ p }) => p.place.id);
+}
 
 /** What the canvas draws, from what the learner has understood, built and bought. */
 export function stageStateOf(o: Pick<TownOverview, 'places' | 'decorations'>, theme: TownTheme): StageState {
@@ -25,13 +42,16 @@ export function stageStateOf(o: Pick<TownOverview, 'places' | 'decorations'>, th
     lit[p.place.id] = p.lit;
     if (p.marker) marker[p.place.id] = p.marker;
   }
-  return { built, decorations: o.decorations.filter((d) => d.bought).map((d) => d.decoration.id), lit, marker, theme };
+  return { built, sites: lotsOnOffer(o.places), decorations: o.decorations.filter((d) => d.bought).map((d) => d.decoration.id), lit, marker, theme };
 }
 
-/** The price written over every empty lot. */
+/** The price written over the lots on offer (lotsOnOffer): the others show nothing. */
 export function lotLabelsOf(o: Pick<TownOverview, 'places'>): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const p of o.places) if (!p.built) out[p.place.id] = xu(p.cost);
+  for (const id of lotsOnOffer(o.places)) {
+    const p = o.places.find((q) => q.place.id === id);
+    if (p) out[id] = xu(p.cost);
+  }
   return out;
 }
 
@@ -68,15 +88,23 @@ const BESIDE: readonly Tile[] = [
   { x: -1, y: -1 },
 ];
 
-/** The tile to stand on when a link opens straight into a conversation: beside the resident. */
+/**
+ * The tile to stand on when a link opens straight into a conversation: beside the resident, and not on or next to
+ * another resident's spot when that can be helped (two people on one spot read as one with two heads).
+ */
 export function talkStartTile(placeId: PlaceId): Tile | undefined {
   const at = residentTile(placeId);
   if (!at) return undefined;
+  const others = PLACE_IDS.filter((id) => id !== placeId).map((id) => residentTile(id));
+  const crowded = (t: Tile) => others.some((o) => Math.abs(o.x - t.x) <= 1 && Math.abs(o.y - t.y) <= 1);
+  let fallback: Tile | undefined;
   for (const d of BESIDE) {
     const t = { x: at.x + d.x, y: at.y + d.y };
-    if (walkable(t)) return t;
+    if (!walkable(t)) continue;
+    if (!crowded(t)) return t;
+    fallback ??= t;
   }
-  return undefined;
+  return fallback;
 }
 
 // ───────────────────────── after an answer ─────────────────────────

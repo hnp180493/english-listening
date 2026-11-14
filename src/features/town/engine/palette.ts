@@ -3,9 +3,9 @@
 //
 // THIS IS GAME ART, NOT UI CHROME. The colours below paint a picture on a <canvas>, the way an illustration or a
 // photo has its own colours: they are not the app's tokens and must not be used for buttons, cards or text around
-// the canvas (those keep using the CSS tokens of src/index.css). Art colours are authored once, for daylight;
-// NIGHT maps each of them through one dusk tint (`ink`), so a house never needs two hand-picked colour sets. Things
-// that give off light (windows, lamps, bulbs) are drawn with the emissive colours, untinted.
+// the canvas (those keep using the CSS tokens of src/index.css). The town itself is rendered art (art/, Kenney
+// CC0), tinted for the night by engine/sprites.ts; what is still drawn by code (sky, ducks, fireflies, tags,
+// emotes) takes its colours from here, authored once for daylight and sunk into dusk by `ink`.
 
 export type TownTheme = 'day' | 'night';
 
@@ -70,38 +70,7 @@ export interface TownPalette {
 
 /** The art colours of the ground (daylight values; pass them through `ink`). */
 export const ART = {
-  earth: '#b98a5e',
-  earthDark: '#8f6646',
-  grass: '#9ad27a',
-  grassLight: '#b4e08c',
-  grassDark: '#7fc070',
-  grassEdge: '#74b566',
-  tuft: '#63a85c',
-  path: '#eedcb0',
-  pathEdge: '#d9c28f',
-  pebble: '#cbb37f',
-  plaza: '#e6dccb',
-  plazaEdge: '#cbbfa9',
-  cobbleA: '#d6cab5',
-  cobbleB: '#f1e9da',
-  water: '#7fcfe6',
-  waterDeep: '#5fb6d9',
   waterShine: '#e9fbff',
-  bank: '#c9b98c',
-  wood: '#b07a4f',
-  woodDark: '#8a5a3a',
-  stone: '#cfd3dc',
-  stoneDark: '#a9aebb',
-  iron: '#4a4f66',
-  leaf: '#6fbf63',
-  leafDark: '#4fa15a',
-  pine: '#3f9a78',
-  pineDark: '#2f7d68',
-  blossom: '#f7a8c6',
-  blossomLight: '#ffd3e2',
-  trunk: '#8d6548',
-  cream: '#fbf1dc',
-  white: '#ffffff',
 } as const;
 
 function makeInk(night: boolean): TownPalette['ink'] {

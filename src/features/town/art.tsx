@@ -1,12 +1,8 @@
 // Small game pictures drawn as DOM over the stage: the xu coin, the friendship hearts, a resident's portrait and
 // the "somebody is speaking" bars. Their colours are game art (engine/palette HUD_ART), passed inline.
 
-import { useEffect, useRef } from 'react';
-import type { PlaceId } from '../../data/townWorld';
-import { drawCharacter, RESIDENT_LOOK } from './engine/draw/characters';
-import { HUD_ART, paletteFor } from './engine/palette';
-import { PLACE_LOOK } from './engine/places';
-import type { Actor } from './engine/sim';
+import { portraitStyle, type CharacterId, type PortraitMood } from './art/characters';
+import { HUD_ART } from './engine/palette';
 
 /** The xu coin. Decorative: the number beside it carries the meaning. */
 export function Coin({ size = 18, className }: { size?: number; className?: string }) {
@@ -43,41 +39,18 @@ export function Hearts({ value, fresh = 0, name, size = 16 }: { value: number; f
   );
 }
 
-const STILL: Pick<Actor, 'path' | 'speed' | 'moving' | 'phase'> = { path: [], speed: 0, moving: false, phase: 0 };
-
-/** A resident's face in a round frame, drawn by the same code that draws them in town (always in daylight). */
-export function Portrait({ placeId, size = 52 }: { placeId: PlaceId; size?: number }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.round(size * dpr);
-    canvas.height = Math.round(size * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, size, size);
-    const pal = paletteFor('day');
-    // a soft disc in the colour of their roof
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.fillStyle = HUD_ART.portraitSky;
-    ctx.fillRect(0, 0, size, size);
-    ctx.globalAlpha = 0.5;
-    ctx.fillStyle = pal.ink(PLACE_LOOK[placeId].roof, 0.35);
-    ctx.fillRect(0, size * 0.62, size, size);
-    ctx.globalAlpha = 1;
-    // head and shoulders: the feet are far below the frame
-    const k = size / 36;
-    ctx.translate(size / 2, size + 14.5 * k);
-    ctx.scale(k, k);
-    const actor: Actor = { id: placeId, kind: 'resident', x: 0, y: 0, tile: { x: 0, y: 0 }, facing: 1, ...STILL };
-    drawCharacter({ ctx, pal, t: 0, still: true }, actor, RESIDENT_LOOK[placeId], 1);
-    ctx.restore();
-  }, [placeId, size]);
-  return <canvas ref={ref} className="town-portrait" style={{ width: size, height: size }} aria-hidden="true" />;
+/**
+ * A person's face in a round frame: the rendered bust (art/characters.ts, Kenney Mini Characters), `happy` after a
+ * right answer. `id` is a place id (its resident) or 'player'.
+ */
+export function Portrait({ placeId, size = 52, mood = 'neutral' }: { placeId: CharacterId; size?: number; mood?: PortraitMood }) {
+  return (
+    <span
+      className={'town-portrait' + (mood === 'happy' ? ' is-happy' : '')}
+      style={{ width: size, height: size, backgroundColor: HUD_ART.portraitSky, ...portraitStyle(placeId, mood, size) }}
+      aria-hidden="true"
+    />
+  );
 }
 
 /** Bars moving like a voice: shown while a line sounds (no words before the answer). */

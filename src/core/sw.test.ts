@@ -14,25 +14,38 @@ const CLIPS_PREFIX = 'nghe-noi-am-audio-c-';
 
 class MemCache {
   map = new Map<string, Response>();
-  async match(url: string): Promise<Response | undefined> {
-    const r = this.map.get(url);
+  fetcher: (url: string) => Promise<Response>;
+  constructor(fetcher: (url: string) => Promise<Response> = async () => new Response('')) {
+    this.fetcher = fetcher;
+  }
+  /** Like the real Cache: a URL or a request (keyed by its URL). */
+  async match(req: string | { url: string }): Promise<Response | undefined> {
+    const r = this.map.get(typeof req === 'string' ? req : req.url);
     return r ? r.clone() : undefined;
   }
   /** Like Cache.put: an existing entry is replaced and moves to the end of keys(). */
-  async put(url: string, res: Response): Promise<void> {
+  async put(req: string | { url: string }, res: Response): Promise<void> {
+    const url = typeof req === 'string' ? req : req.url;
     this.map.delete(url);
     this.map.set(url, res);
   }
   async keys(): Promise<{ url: string }[]> {
     return [...this.map.keys()].map((url) => ({ url }));
   }
+  async add(url: string): Promise<void> {
+    const res = await this.fetcher(url);
+    if (!res.ok) throw new Error('add failed');
+    await this.put(url, res);
+  }
   async delete(r: { url: string }): Promise<boolean> {
     return this.map.delete(r.url);
   }
 }
 
-async function loadSw(fetchImpl: (url: string) => Promise<Response>) {
-  const src: string = await readFile(new URL('../../public/sw.js', import.meta.url), 'utf8');
+async function loadSw(fetchImpl: (url: string) => Promise<Response>, build?: { id: string; assets: string[]; art: string[] }) {
+  let src: string = await readFile(new URL('../../public/sw.js', import.meta.url), 'utf8');
+  // a stamped build (what vite.config.ts writes into the copy in dist/)
+  if (build) src = src.replace("const BUILD = { id: '', assets: [], art: [] };", () => 'const BUILD = ' + JSON.stringify(build) + ';');
   const stores = new Map<string, MemCache>();
   const handlers: Record<string, (e: any) => void> = {};
   const ctx: any = {
@@ -45,10 +58,17 @@ async function loadSw(fetchImpl: (url: string) => Promise<Response>) {
     },
     caches: {
       open: async (name: string) => {
-        if (!stores.has(name)) stores.set(name, new MemCache());
+        if (!stores.has(name)) stores.set(name, new MemCache(fetchImpl));
         return stores.get(name);
       },
       keys: async () => [...stores.keys()],
+      match: async (url: string) => {
+        for (const c of stores.values()) {
+          const r = await c.match(url);
+          if (r) return r;
+        }
+        return undefined;
+      },
       delete: async (name: string) => stores.delete(name),
     },
     fetch: (input: any) => fetchImpl(typeof input === 'string' ? input : input.url),
@@ -75,6 +95,11 @@ async function loadSw(fetchImpl: (url: string) => Promise<Response>) {
     if (wait) await Promise.all(waits);
     return res;
   };
+  const install = async () => {
+    const waits: Promise<unknown>[] = [];
+    handlers.install({ waitUntil: (p: Promise<unknown>) => waits.push(p) });
+    await Promise.all(waits);
+  };
   const activate = async () => {
     const waits: Promise<unknown>[] = [];
     handlers.activate({ waitUntil: (p: Promise<unknown>) => waits.push(p) });
@@ -82,7 +107,7 @@ async function loadSw(fetchImpl: (url: string) => Promise<Response>) {
   };
   /** The clip caches (one per manifest generation). */
   const clipStores = () => [...stores.entries()].filter(([k]) => k.startsWith(CLIPS_PREFIX));
-  return { ctx, stores, dispatch, activate, clipStores };
+  return { ctx, stores, dispatch, install, activate, clipStores };
 }
 
 const bytes = (n: number) => Uint8Array.from({ length: n }, (_, i) => i % 251);
@@ -258,5 +283,51 @@ describe('service worker: shipped clips', () => {
     expect(await stores.get(META)!.match(MANIFEST_URL)).toBeDefined();
     expect(clipStores().map(([k]) => k)).toEqual([CLIPS_PREFIX + 'g7']);
     expect([...clipStores()[0][1].map.keys()]).toEqual([`${SCOPE}audio/a.mp3`, `${SCOPE}audio/b.mp3`]);
+  });
+});
+
+describe('service worker: build assets and the town pictures', () => {
+  const BUILD = { id: 'b2', assets: ['assets/index-N.js', 'assets/town-N.js'], art: ['assets/places-N.webp', 'assets/cafe-N.webp'] };
+  const ok = (body: string) => basic(new Response(body, { status: 200, headers: { 'Content-Type': 'text/plain' } }));
+  const shell = () => basic(new Response('<script type="module" src="/assets/index-N.js"></script>', { status: 200, headers: { 'Content-Type': 'text/html' } }));
+
+  it('install precaches the code, not the pictures; a file an older deploy stored is copied, not downloaded', async () => {
+    const fetched: string[] = [];
+    const { ctx, stores, install } = await loadSw(async (url) => {
+      fetched.push(url);
+      return url === SCOPE ? shell() : ok(url);
+    }, BUILD);
+    const older = await ctx.caches.open('nghe-noi-am-v1.4.0-b1');
+    await older.put(`${SCOPE}assets/town-N.js`, ok('old copy'));
+    await install();
+    const cache = [...stores.entries()].find(([k]) => k.endsWith('-b2'))![1];
+    const keys = [...cache.map.keys()];
+    expect(keys).toContain(`${SCOPE}assets/index-N.js`);
+    expect(keys).toContain(`${SCOPE}assets/town-N.js`);
+    expect(keys.some((k) => k.endsWith('.webp'))).toBe(false);
+    expect(fetched.some((u) => u.endsWith('.webp'))).toBe(false);
+    expect(fetched).not.toContain(`${SCOPE}assets/town-N.js`);
+    expect(fetched).toContain(`${SCOPE}assets/index-N.js`);
+  });
+
+  it('a picture is stored on first use in its own cache, which survives a deploy and keeps only this build’s pictures', async () => {
+    let n = 0;
+    const { stores, dispatch, activate } = await loadSw(async (url) => {
+      n++;
+      return ok(url);
+    }, BUILD);
+    await dispatch(`${SCOPE}assets/places-N.webp`);
+    await new Promise((r) => setTimeout(r, 0)); // the copy is stored in the background
+    await dispatch(`${SCOPE}assets/places-N.webp`);
+    expect(n).toBe(1);
+    const art = stores.get('nghe-noi-am-art')!;
+    expect([...art.map.keys()]).toEqual([`${SCOPE}assets/places-N.webp`]);
+    // a picture of an earlier build, and an older deploy's code cache
+    await art.put(`${SCOPE}assets/places-OLD.webp`, ok('old'));
+    stores.set('nghe-noi-am-v1.4.0-b1', new MemCache());
+    await activate();
+    expect(stores.has('nghe-noi-am-art')).toBe(true);
+    expect(stores.has('nghe-noi-am-v1.4.0-b1')).toBe(false);
+    expect([...art.map.keys()]).toEqual([`${SCOPE}assets/places-N.webp`]);
   });
 });

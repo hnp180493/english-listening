@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findPath, walkable } from '../core/town/map';
+import { findPath, NEIGHBOURS, walkable } from '../core/town/map';
 import {
   DECORATION_IDS,
   footprintTiles,
@@ -179,6 +179,37 @@ describe('decorations', () => {
       for (const s of spots) {
         expect(s.x >= 0 && s.y >= 0 && s.x < TOWN_WORLD.size && s.y < TOWN_WORLD.size, id).toBe(true);
       }
+    }
+  });
+
+  it('street lamps stand beside a path or the plaza with their arm over it', () => {
+    const paved = (x: number, y: number) => {
+      const g = groundAt({ x, y });
+      return g === 'path' || g === 'plaza';
+    };
+    for (const id of ['lamps1', 'lamps2'] as const) {
+      for (const s of WORLD_DECORATIONS[id]) {
+        // the arm reaches right on the screen (x+1 or y-1), mirrored left (x-1 or y+1)
+        const over = s.flip ? [paved(s.x - 1, s.y), paved(s.x, s.y + 1)] : [paved(s.x + 1, s.y), paved(s.x, s.y - 1)];
+        expect(over.some(Boolean), `${id} at ${s.x},${s.y}`).toBe(true);
+      }
+    }
+  });
+
+  it('nothing solid stands on the start tile or next to it', () => {
+    const { start } = TOWN_WORLD;
+    for (const spots of Object.values(WORLD_DECORATIONS)) {
+      for (const s of spots) {
+        if (!s.solid) continue;
+        expect(Math.max(Math.abs(s.x - start.x), Math.abs(s.y - start.y)), `${s.x},${s.y}`).toBeGreaterThan(1);
+      }
+    }
+  });
+
+  it('no bench stands next to the water (its picture would reach into the pond)', () => {
+    for (const s of WORLD_DECORATIONS.benches) {
+      // a bench reaches along its sides, not across the corners of its tile
+      for (const d of NEIGHBOURS.filter((n) => n.x === 0 || n.y === 0)) expect(groundAt({ x: s.x + d.x, y: s.y + d.y }), `${s.x},${s.y}`).not.toBe('water');
     }
   });
 

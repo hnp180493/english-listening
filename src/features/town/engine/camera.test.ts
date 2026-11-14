@@ -65,9 +65,38 @@ describe('Camera', () => {
     expect([c.x, c.y]).toEqual([0, 300]);
   });
 
+  it('keeps to the island (little sky in the corners) but never loses what it follows', () => {
+    const c = camera();
+    c.island = { cx: 0, cy: 336, hw: 672, hh: 336 };
+    // the far left corner of the island: pulled in towards the middle…
+    c.lookAt({ x: -640, y: 336 }, 1);
+    c.snap();
+    expect(c.x).toBeGreaterThan(-640);
+    // …but the target stays inside the view, with room to spare
+    const s = c.worldToScreen({ x: -640, y: 336 });
+    expect(s.x).toBeGreaterThan(0);
+    expect(s.x).toBeLessThan(800);
+    // the middle of the island is left alone
+    c.lookAt({ x: 10, y: 330 }, 1);
+    c.snap();
+    expect([c.x, c.y]).toEqual([10, 330]);
+  });
+
+  it('loose (a conversation): the target goes exactly where asked, even by the edge of the world', () => {
+    const c = camera();
+    c.bounds = { x0: -100, y0: -100, x1: 100, y1: 100 };
+    c.island = { cx: 0, cy: 0, hw: 100, hh: 50 };
+    c.lookAt({ x: 95, y: -90 }, 2);
+    c.snap();
+    expect([c.x, c.y]).not.toEqual([95, -90]);
+    c.loose = true;
+    c.snap();
+    expect([c.x, c.y]).toEqual([95, -90]);
+  });
+
   it('the resting zoom grows with the stage and stays within its limits', () => {
     expect(baseZoom(390, 500)).toBeLessThan(baseZoom(1240, 660));
-    expect(baseZoom(200, 200)).toBe(0.62);
-    expect(baseZoom(4000, 2000)).toBe(1.45);
+    expect(baseZoom(200, 200)).toBe(0.8);
+    expect(baseZoom(4000, 2000)).toBe(1.8);
   });
 });

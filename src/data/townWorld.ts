@@ -78,6 +78,11 @@ export interface DecorSpot extends Tile {
   solid: boolean;
   /** Which way a bench looks. */
   dir?: 'e' | 's' | 'w';
+  /**
+   * Drawn mirrored. A street lamp's arm reaches to the right on the screen (towards x+1, y-1); mirrored it reaches
+   * left. Every lamp stands beside a path or the plaza with its arm over it.
+   */
+  flip?: boolean;
 }
 
 export interface TownWorld {
@@ -167,17 +172,21 @@ export const WORLD_PROPS: readonly WorldProp[] = [
 ];
 
 const solid = (x: number, y: number, dir?: DecorSpot['dir']): DecorSpot => (dir ? { x, y, solid: true, dir } : { x, y, solid: true });
+/** A street lamp: its arm over the path on its right on the screen, or (mirrored) on its left. */
+const lamp = (x: number, y: number, side: 'right' | 'left'): DecorSpot => (side === 'left' ? { x, y, solid: true, flip: true } : { x, y, solid: true });
 const loose = (x: number, y: number): DecorSpot => ({ x, y, solid: false });
 
 /** Where each decoration appears once bought. Solid spots are kept free (blocked) from the start. */
 export const WORLD_DECORATIONS: Readonly<Record<DecorationId, readonly DecorSpot[]>> = {
   // around the plaza
-  lamps1: [solid(13, 8), solid(14, 11), solid(11, 14), solid(7, 12)],
+  // the start tile and its neighbours stay clear: nothing stands in front of the player when the page opens
+  lamps1: [lamp(13, 8, 'left'), lamp(14, 11, 'left'), lamp(18, 12, 'left'), lamp(7, 12, 'right')],
   flowers: [solid(9, 6), solid(13, 7), solid(5, 11), solid(19, 12), solid(5, 15)],
-  benches: [solid(14, 14, 'w'), solid(12, 6, 's'), solid(6, 13, 'e')],
+  // one looks over the pond from the plaza (a bench on the pond's rim would stand in the water)
+  benches: [solid(12, 11, 's'), solid(12, 6, 's'), solid(6, 13, 'e')],
   blossom: [solid(6, 6), solid(15, 6), solid(6, 16), solid(13, 17), solid(18, 13), solid(2, 6)],
   // along the streets, further out
-  lamps2: [solid(11, 1), solid(17, 6), solid(3, 11), solid(9, 16), solid(18, 14), solid(12, 16)],
+  lamps2: [lamp(11, 1, 'left'), lamp(17, 6, 'left'), lamp(3, 11, 'right'), lamp(9, 16, 'right'), lamp(18, 14, 'left'), lamp(12, 16, 'right')],
   // two poles; the strings run from the pavilion's roof to each pole and between the poles, over the fountain
   lights: [solid(12, 7), solid(8, 13)],
   // on the pond
@@ -186,7 +195,8 @@ export const WORLD_DECORATIONS: Readonly<Record<DecorationId, readonly DecorSpot
   stall: [solid(12, 8)],
   fountain: [solid(10, 10)],
   // tied down next to things that are always there
-  balloons: [loose(9.1, 9.1), loose(6.55, 9.92), loose(12.95, 8.98)],
+  // (the one at the top of the plaza stays clear of the fountain: from the camera its strings would run into the spire)
+  balloons: [loose(10.25, 7.55), loose(6.55, 9.92), loose(12.95, 8.98)],
   flags: [solid(11, 6), solid(6, 11), solid(16, 11)],
   // where the cat starts its walks
   cat: [loose(11.5, 12.5)],

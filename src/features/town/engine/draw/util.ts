@@ -74,39 +74,6 @@ export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w
   ctx.closePath();
 }
 
-/** A circle lying on the ground at a tile-grid point, `r` in tiles: an isometric ellipse. */
-export function groundDisc(ctx: CanvasRenderingContext2D, tx: number, ty: number, r: number, fill: string, z = 0): void {
-  const c = P(tx, ty, z);
-  oval(ctx, c.x, c.y, r * 45.25, r * 22.63, fill);
-}
-
-/**
- * A box standing on the tile grid from (x0,y0) to (x1,y1), from height z0 to z1. Light comes from the top-left:
- * the top is the lightest, the +y face (left on the screen) plain, the +x face (right) in shade.
- */
-export function isoBox(g: G, x0: number, y0: number, x1: number, y1: number, z0: number, z1: number, color: string, topColor?: string): void {
-  const { ctx, pal } = g;
-  poly(ctx, [P(x0, y1, z0), P(x1, y1, z0), P(x1, y1, z1), P(x0, y1, z1)], pal.ink(color));
-  poly(ctx, [P(x1, y1, z0), P(x1, y0, z0), P(x1, y0, z1), P(x1, y1, z1)], pal.ink(color, -0.22));
-  poly(ctx, [P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], pal.ink(topColor ?? color, topColor ? 0 : 0.28));
-}
-
-/** A point on a wall: face 'y' is the +y wall (left on the screen), 'x' the +x wall (right). u runs left → right. */
-export interface Box {
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
-}
-
-export function onFace(b: Box, f: 'x' | 'y', u: number, z: number): Pt {
-  return f === 'y' ? P(b.x0 + u * (b.x1 - b.x0), b.y1, z) : P(b.x1, b.y1 - u * (b.y1 - b.y0), z);
-}
-
-export function faceQuad(b: Box, f: 'x' | 'y', u0: number, u1: number, z0: number, z1: number): Pt[] {
-  return [onFace(b, f, u0, z0), onFace(b, f, u1, z0), onFace(b, f, u1, z1), onFace(b, f, u0, z1)];
-}
-
 // ───────────────────────── light ─────────────────────────
 
 const GLOWS = new Map<string, HTMLCanvasElement>();
@@ -164,20 +131,6 @@ export function sparkPath(ctx: CanvasRenderingContext2D, x: number, y: number, s
   for (let i = 0; i < 8; i++) {
     const a = (i * Math.PI) / 4;
     const r = i % 2 === 0 ? s : s * 0.34;
-    const px = x + Math.cos(a) * r;
-    const py = y + Math.sin(a) * r;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
-}
-
-/** A five-point star. */
-export function starPath(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const a = -Math.PI / 2 + (i * Math.PI) / 5;
-    const r = i % 2 === 0 ? s : s * 0.45;
     const px = x + Math.cos(a) * r;
     const py = y + Math.sin(a) * r;
     if (i === 0) ctx.moveTo(px, py);

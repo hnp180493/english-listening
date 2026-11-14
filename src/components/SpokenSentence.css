@@ -92,6 +92,10 @@ button.ss-block:focus-visible {
 .ss-block.is-changed .ss-written {
   color: var(--text-muted);
 }
+/* changed in how it is said but spelled the same ("I'd" said as written): the word once is enough */
+.ss-block.is-changed.is-same .ss-written {
+  visibility: hidden;
+}
 .ss-block.is-changed .ss-spoken {
   color: var(--ss-color);
   font-weight: 600;

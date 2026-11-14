@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { canStep, walkable } from '../../../core/town/map';
 import { TOWN_WORLD, WORLD_PLACES, type Tile } from '../../../data/townWorld';
-import { advance, face, gridDistance, keysToDelta, PLAYER_SPEED, slideStep, TownSim, type Actor, type Arrival } from './sim';
+import { advance, face, gridDistance, keysToDelta, PLAYER_SPEED, settle, slideStep, TownSim, type Actor, type Arrival } from './sim';
 
 /** A seeded generator: the same town every run. */
 function seeded(seed = 7): () => number {
@@ -16,7 +16,7 @@ const START = ['square', 'cafe', 'friend'];
 const NO_KEYS = { up: false, down: false, left: false, right: false };
 
 function actor(tile: Tile, speed = 100): Actor {
-  return { id: 'a', kind: 'player', x: tile.x + 0.5, y: tile.y + 0.5, tile: { ...tile }, path: [], speed, facing: 1, moving: false, phase: 0 };
+  return { id: 'a', kind: 'player', x: tile.x + 0.5, y: tile.y + 0.5, tile: { ...tile }, path: [], speed, heading: { x: 1, y: 1 }, facing: 1, moving: false, phase: 0 };
 }
 
 function run(sim: TownSim, seconds: number, dt = 1 / 60): Arrival[] {
@@ -74,6 +74,24 @@ describe('advance', () => {
     expect(a.facing).toBe(-1);
   });
 });
+
+  it('keeps the heading of its step (the sprite direction); standing, it turns three-quarters to the viewer', () => {
+    const a = actor({ x: 5, y: 5 });
+    expect(a.heading).toEqual({ x: 1, y: 1 });
+    a.path = [{ x: 5, y: 4 }];
+    advance(a, 0.01);
+    expect(Math.sign(a.heading.x)).toBe(0);
+    expect(Math.sign(a.heading.y)).toBe(-1);
+    advance(a, 10);
+    // the step is over: it still looks the way it went
+    expect(Math.sign(a.heading.y)).toBe(-1);
+    face(a, a.x + 3, a.y);
+    expect(a.heading).toEqual({ x: 1, y: 0 });
+    face(a, a.x, a.y + 3);
+    expect(a.heading).toEqual({ x: 0, y: 1 });
+    face(a, a.x + 2, a.y + 2);
+    expect(a.heading).toEqual({ x: 1, y: 1 });
+  });
 
 describe('keys', () => {
   it('mean screen directions', () => {
@@ -251,6 +269,67 @@ describe('TownSim', () => {
     sim.release();
     run(sim, 20);
     expect(leo.tile).toEqual(at);
+  });
+
+  it('nobody rests with their back to the viewer: standing, a person turns three-quarters to the front', () => {
+    const a = actor({ x: 5, y: 5 });
+    // straight up the screen: the back of the head... no, three-quarters on the side they looked to
+    a.facing = -1;
+    face(a, a.x - 2, a.y - 2);
+    expect(a.heading).toEqual({ x: 0, y: 1 });
+    a.facing = 1;
+    settle(a);
+    expect(a.heading).toEqual({ x: 1, y: 0 });
+
+    const sim = new TownSim(TOWN_WORLD, seeded(5));
+    sim.setState({ built: WORLD_PLACES.map((p) => p.id), decorations: [] });
+    sim.walkToTile({ x: 0, y: 1 });
+    const away = (h: { x: number; y: number }) => h.x + h.y < 0 || (h.x < 0 && h.y <= 0) || (h.y < 0 && h.x <= 0);
+    for (let i = 0; i < 60 * 60; i++) {
+      sim.update(1 / 60);
+      for (const r of sim.residents.values()) if (!r.moving) expect(away(r.heading), r.id).toBe(false);
+    }
+    // the player too, once they stop
+    expect(sim.player.moving).toBe(false);
+    expect(away(sim.player.heading)).toBe(false);
+  });
+
+  it('walking up to a resident, the player never stops where somebody else stands', () => {
+    for (const id of ['clinic', 'square', 'cafe', 'station'] as const) {
+      const sim = new TownSim(TOWN_WORLD, seeded(9));
+      sim.setState({ built: WORLD_PLACES.map((p) => p.id), decorations: [] });
+      expect(sim.walkToResident(id)).toBe(true);
+      run(sim, 20);
+      const p = sim.player.tile;
+      for (const r of sim.residents.values()) {
+        if (r.place.id === id) continue;
+        expect(Math.max(Math.abs(r.tile.x - p.x), Math.abs(r.tile.y - p.y)), `${id}: ${r.id}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('during a conversation the others keep two tiles clear of the pair and stop strolling; afterwards they go home', () => {
+    const sim = new TownSim(TOWN_WORLD, seeded(4));
+    sim.setState({ built: WORLD_PLACES.map((p) => p.id), decorations: [] });
+    // Kim at the clinic: Grace's spot is right next to where the player stands
+    sim.walkToResident('clinic');
+    run(sim, 20);
+    sim.engage('clinic');
+    const kim = sim.residents.get('clinic')!;
+    run(sim, 25);
+    const gap = (a: Tile, b: Tile) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+    const still = new Map([...sim.residents.values()].map((r) => [r.id, { ...r.tile }]));
+    run(sim, 20);
+    for (const r of sim.residents.values()) {
+      if (r === kim) continue;
+      expect(r.moving, r.id).toBe(false);
+      expect(r.tile, r.id).toEqual(still.get(r.id));
+      expect(Math.min(gap(r.tile, kim.tile), gap(r.tile, sim.player.tile)), r.id).toBeGreaterThan(2);
+    }
+    sim.engage(null);
+    sim.walkToTile({ x: 0, y: 1 });
+    run(sim, 60);
+    for (const r of sim.residents.values()) expect(gap(r.tile, r.place.spot), r.id).toBeLessThanOrEqual(1);
   });
 
   it('the player walks at the speed it says', () => {

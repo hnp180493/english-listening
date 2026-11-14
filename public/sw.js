@@ -1,6 +1,9 @@
 /* Nghe Nối Âm — service worker (offline support).
  * - Navigations: network-first, falling back to the cached app shell (index.html).
- * - Same-origin build assets under /assets/ (hashed file names): cache-first.
+ * - Same-origin build assets under /assets/ (hashed file names): cache-first. Hashed pictures (the town's WebP
+ *   atlases, several MB that most visits never need) are not precached: they go to their own cache (ART_CACHE) the
+ *   first time a page draws them, and that cache survives deploys (a picture's name changes only with its content),
+ *   keeping only the pictures of the current build.
  * - Shipped Gemini clips /audio/*.mp3 (file names are content keys, src/core/audioKey.ts): cache-first in their
  *   own cache, on first play only (never precached: there are hundreds), at most AUDIO_MAX_ENTRIES, the least
  *   recently played dropped first (a clip served from the cache moves to the end). That cache survives deploys,
@@ -17,8 +20,9 @@
  * The app is code-split: index.html only references the entry JS/CSS, every page except Home is a
  * lazy chunk. So the build (swBuildManifest plugin in vite.config.ts) stamps BUILD below with every
  * emitted /assets/ file and an id derived from their hashed names:
- * - install precaches all of them, so every page works offline after the first visit, even pages
- *   never opened online;
+ * - install precaches all of them except the pictures (BUILD.art), so every page works offline after the first
+ *   visit, even pages never opened online (Thị trấn needs one online visit for its pictures); a file an earlier
+ *   deploy already stored is copied from that cache instead of being downloaded again;
  * - the cache name includes the build id, so each deploy gets a fresh cache and activate drops the
  *   previous deploy's cache (no stale bundles pile up).
  * Unstamped (dev / a copy of this file outside a build), it falls back to the files index.html
@@ -27,15 +31,18 @@
  * Bump VERSION when this file's caching logic changes.
  */
 // @build-manifest-start (replaced at build time — keep these markers)
-const BUILD = { id: '', assets: [] };
+const BUILD = { id: '', assets: [], art: [] };
 // @build-manifest-end
-const VERSION = 'v1.4.0';
+const VERSION = 'v1.5.0';
 const CACHE_PREFIX = 'nghe-noi-am-';
 const CACHE = CACHE_PREFIX + VERSION + (BUILD.id ? '-' + BUILD.id : '');
 /** The manifest (and the name of the clip cache it maps to). */
 const AUDIO_META_CACHE = CACHE_PREFIX + 'audio-meta';
 /** Clip caches: AUDIO_CLIPS_PREFIX + a tag from the manifest (audioCacheNameFor). */
 const AUDIO_CLIPS_PREFIX = CACHE_PREFIX + 'audio-c-';
+/** Hashed pictures of the build, stored on first use, across deploys (see the header). */
+const ART_CACHE = CACHE_PREFIX + 'art';
+const ART_FILE_RE = /\.(?:webp|png|jpe?g|avif|gif)$/i;
 /** The single clip cache of earlier versions (manifest + clips), migrated on activate. */
 const LEGACY_AUDIO_CACHE = CACHE_PREFIX + 'audio-v1';
 const AUDIO_MAX_ENTRIES = 400;
@@ -88,6 +95,25 @@ async function pruneAssets(cache, html) {
   );
 }
 
+/**
+ * Put one hashed build file into the new cache: copied from any older cache that has it (the same name means the
+ * same content), else downloaded.
+ */
+async function storeAsset(cache, url) {
+  const old = await caches.match(url);
+  if (old) return cache.put(url, old);
+  return cache.add(url);
+}
+
+/** Drop stored pictures this build no longer has (only when the build is stamped: else the list is unknown). */
+async function pruneArt() {
+  if (!BUILD.id) return;
+  const keep = new Set((BUILD.art || []).map((a) => new URL(a, SCOPE_URL).href));
+  const cache = await caches.open(ART_CACHE);
+  const reqs = await cache.keys();
+  await Promise.all(reqs.filter((r) => !keep.has(r.url)).map((r) => cache.delete(r)));
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
@@ -100,7 +126,7 @@ self.addEventListener('install', (event) => {
               if (url === SHELL_URL) {
                 const html = await res.clone().text();
                 const assets = await buildAssets(html);
-                await Promise.all(assets.map((a) => cache.add(a).catch(() => undefined)));
+                await Promise.all(assets.map((a) => storeAsset(cache, a).catch(() => undefined)));
                 await cache.put(url, res);
                 await pruneAssets(cache, html);
                 return;
@@ -122,9 +148,10 @@ self.addEventListener('activate', (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE && k !== AUDIO_META_CACHE && !k.startsWith(AUDIO_CLIPS_PREFIX))
+          .filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE && k !== AUDIO_META_CACHE && k !== ART_CACHE && !k.startsWith(AUDIO_CLIPS_PREFIX))
           .map((k) => caches.delete(k)),
       );
+      await pruneArt().catch(() => undefined);
       await self.clients.claim();
     })(),
   );
@@ -165,8 +192,8 @@ async function networkFirstNavigation(event) {
   }
 }
 
-async function cacheFirst(request) {
-  const cache = await caches.open(CACHE);
+async function cacheFirst(request, cacheName = CACHE) {
+  const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
   const res = await fetch(request);
@@ -393,7 +420,7 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(networkFirstNavigation(event));
   } else if (url.pathname.startsWith(ASSETS_PATH)) {
-    event.respondWith(cacheFirst(request));
+    event.respondWith(cacheFirst(request, ART_FILE_RE.test(url.pathname) ? ART_CACHE : CACHE));
   } else if (url.pathname.startsWith(AUDIO_PATH) && AUDIO_FILE_RE.test(url.pathname)) {
     event.respondWith(audioCacheFirst(event));
   } else if (url.pathname === AUDIO_PATH + AUDIO_MANIFEST_NAME) {

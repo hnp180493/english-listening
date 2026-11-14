@@ -12,6 +12,7 @@ import {
   levelLabel,
   lotLabel,
   lotLabelsOf,
+  lotsOnOffer,
   lotRows,
   primaryBuy,
   stageStateOf,
@@ -39,7 +40,7 @@ function understood(placeId: string, count: number, best: 1 | 2 = 2): TownProgre
 }
 
 describe('what the stage is told', () => {
-  it('a new town: three places stand, nothing is lit, every lot shows its price', () => {
+  it('a new town: three places stand, nothing is lit, only the next three lots show their price', () => {
     const o = view(progress());
     const s = stageStateOf(o, 'night');
     expect([...s.built].sort()).toEqual(['cafe', 'friend', 'square']);
@@ -47,10 +48,10 @@ describe('what the stage is told', () => {
     expect(s.theme).toBe('night');
     expect(s.lit).toEqual({ square: 0, cafe: 0, friend: 0 });
     expect(s.marker).toEqual({ square: 'new', cafe: 'new', friend: 'new' });
+    expect(s.sites).toEqual(['home', 'shop', 'office']);
     const labels = lotLabelsOf(o);
-    expect(Object.keys(labels)).toHaveLength(10);
-    expect(labels.home).toBe('20 xu');
-    expect(labels.board).toBe('110 xu');
+    expect(labels).toEqual({ home: '20 xu', shop: '30 xu', office: '40 xu' });
+    expect(labels.board).toBeUndefined();
     expect(labels.cafe).toBeUndefined();
   });
 
@@ -95,6 +96,18 @@ describe('where a linked conversation starts', () => {
       // the engine calls a resident "near" under 70 world pixels
       expect(gridDistance(t!.x + 0.5, t!.y + 0.5, r.x + 0.5, r.y + 0.5), id).toBeLessThan(70);
     }
+  });
+
+  it('never on another resident spot, and next to one only when nothing else is free', () => {
+    for (const id of PLACE_IDS) {
+      const t = talkStartTile(id)!;
+      const others = PLACE_IDS.filter((o) => o !== id).map((o) => residentTile(o));
+      expect(others.some((o) => o.x === t.x && o.y === t.y), id).toBe(false);
+    }
+    // Kim at the clinic: not beside Grace's spot (the two drawn as one with two heads)
+    const kim = talkStartTile('clinic')!;
+    const grace = residentTile('home');
+    expect(Math.max(Math.abs(kim.x - grace.x), Math.abs(kim.y - grace.y))).toBeGreaterThan(1);
   });
 });
 
@@ -212,5 +225,27 @@ describe('words', () => {
     expect(taskCount({ done: 2, goal: 2, reached: true })).toBe('');
     expect(levelLabel({ index: 0, title: 'Khách lạ', xp: 6, nextAt: 15, nextTitle: 'Người quen', progress: 0.4 })).toBe('Danh hiệu: Khách lạ. Còn 9 điểm nữa thành Người quen');
     expect(levelLabel({ index: 5, title: 'Thị trưởng', xp: 400, nextAt: null, nextTitle: null, progress: 1 })).toBe('Danh hiệu: Thị trưởng');
+  });
+});
+
+describe('the lots on offer', () => {
+  it('the cheapest lots not built yet, three at most, in price order', () => {
+    expect(lotsOnOffer(view(progress()).places)).toEqual(['home', 'shop', 'office']);
+    // building one brings the next one up, whatever was built
+    expect(lotsOnOffer(view(withXu(200, ['shop'])).places)).toEqual(['home', 'office', 'school']);
+    expect(lotsOnOffer(view(withXu(400, ['cinema', 'home'])).places)).toEqual(['shop', 'office', 'school']);
+  });
+
+  it('fewer when fewer are left, none in a finished town, and the limit can change', () => {
+    const almost = PLACE_IDS.filter((id) => id !== 'park' && id !== 'board');
+    expect(lotsOnOffer(view(withXu(2000, almost)).places)).toEqual(['park', 'board']);
+    expect(lotsOnOffer(view(withXu(2000, [...PLACE_IDS])).places)).toEqual([]);
+    expect(lotsOnOffer(view(progress()).places, 2)).toEqual(['home', 'shop']);
+    expect(lotsOnOffer(view(progress()).places, 0)).toEqual([]);
+  });
+
+  it('a lot of the same price as another keeps the listed order', () => {
+    const places = view(progress()).places.map((p) => ({ ...p, cost: 50 }));
+    expect(lotsOnOffer(places)).toEqual(['home', 'shop', 'office']);
   });
 });

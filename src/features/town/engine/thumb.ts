@@ -1,104 +1,104 @@
-// A small picture of one thing of the town (a place, a decoration), drawn by the same code that draws it in the
-// world: the build panel shows what the learner is about to get. Always in daylight, nothing moves.
+// A small picture of one thing of the town (a place, a decoration) for the build panel: the same rendered sprite
+// the world shows (art/world.ts), in daylight, fitted into the box.
 
-import { TOWN_WORLD, type DecorationId, type PlaceId, type TownWorld } from '../../../data/townWorld';
-import { drawPlace } from './draw/buildings';
-import { drawBalloons, drawBench, drawCat, drawFlagPole, drawFlowerBed, drawFountain, drawLamp, drawLightPole, drawLily, drawStall, drawTree } from './draw/props';
-import type { G } from './draw/util';
-import { toWorld, type Pt } from './iso';
-import { paletteFor } from './palette';
-import { placeHeight } from './places';
-import type { Cat } from './sim';
+import { worldImage } from '../art/world';
+import { WORLD_ART, type WorldSpriteKey } from '../art/world.data';
+import { PLACE_IDS, type DecorationId, type PlaceId } from '../../../data/townWorld';
 
-interface Frame {
-  /** The middle of the picture, in world pixels. */
-  centre: Pt;
-  /** How much of the world it shows. */
-  w: number;
-  h: number;
-  draw: (g: G) => void;
-}
-
-/** How big each decoration stands (world pixels): width, height, and how far its middle is above the ground. */
-const DECOR_BOX: Readonly<Record<DecorationId, readonly [number, number, number]>> = {
-  lamps1: [44, 76, 30],
-  lamps2: [44, 76, 30],
-  flowers: [48, 36, 8],
-  benches: [58, 44, 8],
-  blossom: [84, 104, 42],
-  lights: [44, 86, 36],
-  lilies: [30, 20, 1],
-  stall: [80, 78, 26],
-  fountain: [112, 96, 26],
-  balloons: [46, 78, 32],
-  flags: [56, 82, 34],
-  cat: [34, 30, 9],
+const DECOR_THUMB: Readonly<Record<DecorationId, WorldSpriteKey>> = {
+  lamps1: 'decor/lamp/0',
+  lamps2: 'decor/lamp/1',
+  flowers: 'decor/flowers',
+  benches: 'decor/bench/s',
+  blossom: 'decor/blossom',
+  lights: 'decor/lights/0',
+  lilies: 'decor/lily/0',
+  stall: 'decor/stall',
+  fountain: 'decor/fountain/1',
+  balloons: 'decor/balloons',
+  flags: 'decor/flag/0',
+  cat: 'cat/sit/SE/0',
 };
 
-function frameOf(id: string, world: TownWorld): Frame | null {
-  const place = world.places.find((p) => p.id === id);
-  if (place) {
-    const tall = placeHeight(place.id as PlaceId);
-    const ground = toWorld(place.x + place.w / 2, place.y + place.d / 2);
-    const span = place.w + place.d;
-    return {
-      centre: { x: ground.x, y: ground.y - tall / 2 },
-      w: span * 32 + 16,
-      h: span * 16 + tall + 26,
-      draw: (g) => drawPlace(g, place, 0.6, false),
-    };
-  }
-  const spots = world.decorations[id as DecorationId];
-  const s = spots?.[0];
-  if (!s) return null;
-  const dId = id as DecorationId;
-  const base = s.solid ? toWorld(s.x + 0.5, s.y + 0.5) : toWorld(s.x, s.y);
-  const [w, h, up] = DECOR_BOX[dId];
-  const draw = (g: G): void => {
-    switch (dId) {
-      case 'lamps1':
-      case 'lamps2':
-        return drawLamp(g, s.x, s.y);
-      case 'flowers':
-        return drawFlowerBed(g, s.x, s.y);
-      case 'benches':
-        return drawBench(g, s.x, s.y, s.dir ?? 's');
-      case 'blossom':
-        return drawTree(g, s.x, s.y, 'blossom');
-      case 'lights':
-        return void drawLightPole(g, s.x, s.y);
-      case 'lilies':
-        return drawLily(g, s.x, s.y, 0);
-      case 'stall':
-        return drawStall(g, s.x, s.y);
-      case 'fountain':
-        return drawFountain(g, s.x, s.y, true);
-      case 'balloons':
-        return drawBalloons(g, s.x, s.y);
-      case 'flags':
-        return drawFlagPole(g, s.x, s.y, 0);
-      case 'cat': {
-        const cat: Cat = { id: 'cat', kind: 'cat', x: s.x, y: s.y, tile: { x: Math.floor(s.x), y: Math.floor(s.y) }, path: [], speed: 0, facing: 1, moving: false, phase: 0, sitFor: 1 };
-        return drawCat(g, cat);
-      }
-    }
-  };
-  return { centre: { x: base.x, y: base.y - up }, w, h, draw };
+/** The sprite that pictures a place or a decoration; null for an unknown id. */
+export function thumbKey(id: string): WorldSpriteKey | null {
+  if ((PLACE_IDS as readonly string[]).includes(id)) return `place/${id as PlaceId}` as WorldSpriteKey;
+  return DECOR_THUMB[id as DecorationId] ?? null;
 }
 
 /**
  * Paint the picture of a place or a decoration into a canvas of `cssW` × `cssH` CSS pixels. False when the id is
- * unknown or the canvas cannot be drawn on.
+ * unknown, the art is not loaded yet or the canvas cannot be drawn on.
  */
-export function paintThumb(canvas: HTMLCanvasElement, id: string, cssW: number, cssH: number, world: TownWorld = TOWN_WORLD): boolean {
-  const frame = frameOf(id, world);
+export function paintThumb(canvas: HTMLCanvasElement, id: string, cssW: number, cssH: number): boolean {
+  if (id === 'lights') return paintLights(canvas, cssW, cssH);
+  const key = thumbKey(id);
   const ctx = canvas.getContext('2d');
-  if (!frame || !ctx) return false;
+  if (!key || !ctx) return false;
+  const [atlas, sx, sy, sw, sh] = WORLD_ART.sprites[key];
+  const img = worldImage(atlas);
+  if (!img) return false;
   const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
-  const k = Math.min(cssW / frame.w, cssH / frame.h);
-  ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (cssW / 2 - frame.centre.x * k), dpr * (cssH / 2 - frame.centre.y * k));
-  frame.draw({ ctx, pal: paletteFor('day'), t: 0, still: true });
+  // small things (a lily pad, the cat) are not blown up past their size in town at a close zoom
+  const res = WORLD_ART.atlases[atlas].res;
+  const k = Math.min((cssW - 2) / sw, (cssH - 2) / sh, 2.2 / res);
+  const w = sw * k;
+  const h = sh * k;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, sx, sy, sw, sh, (cssW - w) / 2, (cssH - h) / 2 + (cssH - h) * 0.15, w, h);
+  return true;
+}
+
+/** The string's bulbs, as rendered in town (game art, like palette.ts). */
+const BULBS = ['#f27aa6', '#7cc3f2', '#ffd45c', '#9ee07a'];
+const CABLE = '#3d4256';
+
+/**
+ * String lights: the whole string is a long thin diagonal that shrinks to a dotted line in a small box, so the
+ * thumbnail shows what it is: two of its poles with a sagging string of bulbs between them.
+ */
+function paintLights(canvas: HTMLCanvasElement, cssW: number, cssH: number): boolean {
+  const ctx = canvas.getContext('2d');
+  const pole = WORLD_ART.sprites['decor/lightPole'];
+  if (!ctx || !pole) return false;
+  const [atlas, sx, sy, sw, sh] = pole;
+  const img = worldImage(atlas);
+  if (!img) return false;
+  const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  ctx.imageSmoothingQuality = 'high';
+  const k = (cssH - 6) / sh;
+  const w = sw * k;
+  const h = sh * k;
+  const left = 8;
+  const right = cssW - 8;
+  const top = 3 + h * 0.04;
+  // the cable: from one pole's top to the other's, sagging in the middle
+  const sag = cssH * 0.34;
+  const at = (u: number) => ({ x: left + (right - left) * u, y: top + 4 * sag * u * (1 - u) });
+  ctx.strokeStyle = CABLE;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (let i = 0; i <= 20; i++) {
+    const p = at(i / 20);
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
+  for (let i = 1; i < 8; i++) {
+    const p = at(i / 8);
+    ctx.fillStyle = BULBS[i % BULBS.length];
+    ctx.beginPath();
+    ctx.arc(p.x, p.y + 2.6, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (const x of [left, right]) ctx.drawImage(img, sx, sy, sw, sh, x - w / 2, 3, w, h);
   return true;
 }

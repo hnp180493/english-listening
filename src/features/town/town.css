@@ -11,6 +11,8 @@
 
 /* As wide as the page column and as tall as the window allows: the town IS the screen. */
 .town-stage {
+  /* the panels lay out by the stage's own width (a full-screen stage is wider than the page column) */
+  container: town / inline-size;
   position: relative;
   width: 100%;
   height: clamp(480px, calc(100dvh - 228px), 880px);
@@ -32,6 +34,57 @@
 }
 .town-stage-canvas:focus-visible {
   outline-offset: -3px;
+}
+
+/* full screen: the Fullscreen API when the browser has it, and always this overlay (an iPhone only gets this) */
+.town-stage.is-full {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  box-shadow: none;
+}
+.town-stage.is-full:fullscreen {
+  width: 100%;
+  height: 100%;
+}
+:root.town-full-open,
+:root.town-full-open body {
+  overflow: hidden;
+}
+
+/* the pictures are on their way (first visit of the session), or could not be loaded */
+.town-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  text-align: center;
+}
+.town-loading-text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 34ch;
+  margin: 0;
+  padding: 10px var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-md);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.town-loading[role='alert'] .town-loading-text {
+  border-radius: var(--radius-lg);
 }
 
 /* Everything floating over the town shares one look: a solid chip that reads on the day and the night picture. */
@@ -89,6 +142,10 @@
   box-shadow:
     0 0 0 1px var(--hairline),
     var(--shadow-md);
+}
+/* a new learner: the title alone, the pill hugs it */
+.town-level.is-new {
+  min-width: 0;
 }
 .town-level-title {
   color: var(--text);
@@ -312,7 +369,9 @@
 .town-portrait {
   display: block;
   flex: none;
+  overflow: hidden;
   border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 1px var(--hairline);
 }
 .town-welcome-text {
   flex: 1;
@@ -399,6 +458,8 @@
   padding: var(--space-4) var(--space-5) var(--space-5);
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
   border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow:
@@ -417,10 +478,10 @@
 }
 .town-talk-who {
   display: grid;
+  flex: 1;
   justify-items: start;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
-  margin-right: auto;
 }
 .town-talk-name {
   font-size: var(--fs-lg);
@@ -431,6 +492,7 @@
   color: var(--text-muted);
   font-size: var(--fs-sm);
   font-weight: 500;
+  white-space: nowrap;
 }
 .town-hearts {
   display: inline-flex;
@@ -790,6 +852,27 @@
   font-weight: 500;
 }
 
+/* A wide stage: the conversation docks to the right (like the build panel) and the two who talk stand in the
+ * town on the left, at full height, instead of in a strip above a panel across the middle. */
+@container town (min-width: 900px) {
+  /* as tall as what it holds (no blank half-panel), scrolling only when the stage is shorter than that */
+  .town-talk {
+    inset: 68px var(--space-3) auto auto;
+    align-content: start;
+    width: 440px;
+    max-height: calc(100% - 68px - var(--space-3));
+    margin: 0;
+    animation-name: town-side;
+  }
+  .town-talk .town-reply-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .town-talk .town-reply {
+    min-height: 48px;
+    padding-block: 11px;
+  }
+}
+
 /* ───────────────────────── the build panel ───────────────────────── */
 
 .town-build {
@@ -832,11 +915,21 @@
   padding: 0 var(--space-5) var(--space-5);
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 .town-build-hint {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--fs-sm);
+}
+/* what is already in town, folded under one line */
+.town-build-owned > summary {
+  padding-block: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
 }
 .town-build-h {
   margin: 0 0 var(--space-1);
@@ -910,6 +1003,11 @@
   color: var(--text-muted);
 }
 
+.town-credit {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
 .town-how > p {
   max-width: var(--measure);
   margin: 0;
@@ -925,7 +1023,7 @@
   .town-hud {
     inset: var(--space-2) var(--space-2) auto var(--space-2);
   }
-  /* the counts stay on the top row; the three buttons go down the right edge */
+  /* the counts stay on the top row; the four buttons go down the right edge */
   .town-hud-end {
     flex-direction: column;
     align-items: flex-end;
@@ -965,13 +1063,63 @@
   .town-stage.is-talking .town-hud-btns {
     display: none;
   }
+  /* the panel never takes the strip above it where the two people stand (the camera frames them there); what does
+   * not fit scrolls inside, with the next step kept in view at its foot */
   .town-talk {
     bottom: var(--space-2);
     gap: var(--space-3);
     width: calc(100% - 2 * var(--space-2));
-    max-height: calc(100% - 60px);
-    padding: var(--space-3) var(--space-3) var(--space-4);
+    max-height: calc(100% - 168px);
+    padding: var(--space-3) var(--space-3) var(--space-3);
     border-radius: var(--radius-lg);
+  }
+  .town-talk-foot {
+    position: sticky;
+    bottom: calc(-1 * var(--space-3));
+    margin: 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3));
+    padding: var(--space-2) var(--space-3) var(--space-3);
+    background: var(--surface);
+  }
+  .town-bubble {
+    min-height: 0;
+    padding: var(--space-2) var(--space-3);
+  }
+  /* after the answer: a short verdict and the two listen buttons share one row ("Nghe lại" keeps only its icon);
+   * the review time is left to Ôn tập itself: on a phone the right meaning must stay in view without scrolling */
+  .town-said-actions {
+    flex-wrap: nowrap;
+    gap: var(--space-1);
+  }
+  .town-said-actions > .btn {
+    white-space: nowrap;
+  }
+  .town-turn .town-note {
+    display: none;
+  }
+  .town-said-actions > .btn:first-child {
+    padding-inline: var(--space-2);
+  }
+  .town-said-actions > .btn:first-child .town-btn-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .town-verdict {
+    font-size: var(--fs-base);
+  }
+  /* a miss: the short "Chưa phải…" and the two listen buttons on one row, so both meanings stay in view */
+  .town-said-top:has(.town-verdict.is-bad) {
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+  }
+  .town-verdict.is-bad .town-verdict-title {
+    white-space: nowrap;
+  }
+  .town-gain {
+    padding-right: 8px;
   }
   .town-turn {
     gap: var(--space-3);
@@ -1001,11 +1149,12 @@
   .town-result-title {
     font-size: var(--fs-lg);
   }
+  /* half the stage: the lot being bought stays in sight above it (the camera shows it) */
   .town-build {
     inset: auto var(--space-2) var(--space-2) var(--space-2);
     width: auto;
     max-width: none;
-    max-height: min(64%, 460px);
+    max-height: min(52%, 400px);
     border-radius: var(--radius-lg);
     animation-name: town-rise;
   }
@@ -1015,11 +1164,58 @@
   .town-build-body {
     padding: 0 var(--space-4) var(--space-4);
   }
+  .town-stage.is-building .town-hud-btns > :not(:nth-child(2)) {
+    display: none;
+  }
+  .town-row-title,
+  .town-row-meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 /* a finger has no number keys */
 @media (hover: none), (pointer: coarse) {
   .town-replies:not(.is-locked) .town-reply-key {
     display: none;
+  }
+}
+
+/* ───────────────────────── full screen and the phone's notch / home bar ───────────────────────── */
+
+/* index.html sets viewport-fit=cover: in full screen the stage reaches under the status bar, the notch and the home
+ * indicator. The town picture may go there; what floats over it keeps clear (the margins move each absolutely placed
+ * layer in from the edges it is pinned to). Zero everywhere else, and on screens without such areas. */
+.town-stage.is-full {
+  --town-safe-t: env(safe-area-inset-top, 0px);
+  --town-safe-r: env(safe-area-inset-right, 0px);
+  --town-safe-b: env(safe-area-inset-bottom, 0px);
+  --town-safe-l: env(safe-area-inset-left, 0px);
+}
+.town-stage.is-full .town-hud,
+.town-stage.is-full .town-toast {
+  margin: var(--town-safe-t) var(--town-safe-r) 0 var(--town-safe-l);
+}
+.town-stage.is-full .town-prompt,
+.town-stage.is-full .town-build {
+  margin: var(--town-safe-t) var(--town-safe-r) var(--town-safe-b) var(--town-safe-l);
+}
+.town-stage.is-full .town-welcome,
+.town-stage.is-full .town-talk {
+  max-width: calc(100% - 2 * max(var(--space-2), var(--town-safe-l), var(--town-safe-r)));
+  margin-bottom: var(--town-safe-b);
+}
+.town-stage.is-full .town-talk {
+  margin-top: var(--town-safe-t);
+}
+.town-stage.is-full .town-loading {
+  padding: calc(var(--space-5) + var(--town-safe-t)) calc(var(--space-5) + var(--town-safe-r)) calc(var(--space-5) + var(--town-safe-b)) calc(var(--space-5) + var(--town-safe-l));
+}
+@container town (min-width: 900px) {
+  /* docked to the right: clear of a landscape phone's notch on that side */
+  .town-stage.is-full .town-talk {
+    margin-right: var(--town-safe-r);
+    max-height: calc(100% - 68px - var(--space-3) - var(--town-safe-t) - var(--town-safe-b));
   }
 }

@@ -3,14 +3,28 @@ import { Check, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import type { DecorationView, PlaceView, TownOverview } from '../../core/town/overview';
 import { Coin } from './art';
+import { loadWorldArt } from './art/world';
 import { paintThumb } from './engine/thumb';
 import { decorationRows, lotRows, primaryBuy, xu } from './shellModel';
 
-/** The thing itself, small: drawn by the town's own drawing code. */
+/**
+ * The thing itself, small: the same picture as in town. TownPage opens the sheet only once every picture is loaded
+ * (useTownArt 'ready'), so this promise is already settled and resolved: a failed load never leaves a mounted sheet
+ * with blank thumbnails waiting for a "Thử lại" it would not hear of.
+ */
 function Thumb({ id }: { id: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    if (ref.current) paintThumb(ref.current, id, 56, 52);
+    const run = { live: true };
+    loadWorldArt().then(
+      () => {
+        if (run.live && ref.current) paintThumb(ref.current, id, 56, 52);
+      },
+      () => undefined,
+    );
+    return () => {
+      run.live = false;
+    };
   }, [id]);
   return <canvas ref={ref} className="town-thumb" aria-hidden="true" />;
 }
@@ -40,11 +54,11 @@ export default function BuildSheet({ overview, wanted, onBuy, onClose }: BuildSh
     if (i > 0) lots.unshift(...lots.splice(i, 1));
   }
   const decorations = decorationRows(overview.decorations);
-  const main = primaryBuy(
-    lots,
-    decorations.filter((d) => !d.bought),
-    wanted,
-  );
+  const toBuy = decorations.filter((d) => !d.bought);
+  const owned = decorations.filter((d) => d.bought);
+  const main = primaryBuy(lots, toBuy, wanted);
+  // nothing left to buy is not the same as not enough xu
+  const allBuilt = lots.length === 0 && toBuy.length === 0;
 
   const buyButton = (id: string, verb: string, name: string, cost: number) => (
     <button type="button" className={'btn btn-sm town-buy ' + (id === main ? 'btn-primary' : 'btn-soft')} onClick={() => onBuy(id)} aria-label={`${verb} ${name}, ${xu(cost)}`}>
@@ -81,9 +95,8 @@ export default function BuildSheet({ overview, wanted, onBuy, onClose }: BuildSh
       <Thumb id={d.decoration.id} />
       <span className="town-row-body">
         <span className="town-row-title">{d.decoration.name}</span>
-        {d.bought ? (
-          <span className="town-row-meta">Đã có trong thị trấn</span>
-        ) : !d.affordable ? (
+        {/* a bought one sits under "Đã có trong thị trấn": no need to say it on every row */}
+        {!d.bought && !d.affordable ? (
           <span className="town-row-meta">
             Còn thiếu {xu(d.missing)}
             <span className="sr-only">, giá {xu(d.cost)}</span>
@@ -125,17 +138,30 @@ export default function BuildSheet({ overview, wanted, onBuy, onClose }: BuildSh
         </button>
       </header>
       <div className="town-build-body">
-        {!overview.canBuySomething && <p className="town-build-hint">Chưa đủ xu để xây gì. Xu chỉ có khi bạn hiểu điều người dân nói.</p>}
+        {allBuilt ? (
+          <p className="town-build-hint">Thị trấn đã xây đủ hết rồi.</p>
+        ) : (
+          !overview.canBuySomething && <p className="town-build-hint">Chưa đủ xu để xây gì. Xu chỉ có khi bạn hiểu điều người dân nói.</p>
+        )}
         {lots.length > 0 && (
           <section className="town-build-group">
             <h3 className="town-build-h">Công trình</h3>
             <ul className="town-rows">{lots.map(lotRow)}</ul>
           </section>
         )}
-        <section className="town-build-group">
-          <h3 className="town-build-h">Trang trí</h3>
-          <ul className="town-rows">{decorations.map(decorationRow)}</ul>
-        </section>
+        {toBuy.length > 0 && (
+          <section className="town-build-group">
+            <h3 className="town-build-h">Trang trí</h3>
+            <ul className="town-rows">{toBuy.map(decorationRow)}</ul>
+          </section>
+        )}
+        {/* what is already in town: folded away, the list is for buying */}
+        {owned.length > 0 && (
+          <details className="town-build-owned">
+            <summary>Đã có trong thị trấn · {owned.length}</summary>
+            <ul className="town-rows">{owned.map(decorationRow)}</ul>
+          </details>
+        )}
       </div>
     </aside>
   );

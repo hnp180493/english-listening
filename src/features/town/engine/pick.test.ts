@@ -79,4 +79,30 @@ describe('pickAt', () => {
     const feet = toWorld(leo.x, leo.y);
     expect(pickAt({ x: feet.x, y: feet.y - 16 }, s)).toEqual({ kind: 'resident', placeId: 'cafe' });
   });
+
+  it('a house still popping out of the ground: neither it nor its resident can be clicked yet', () => {
+    const s = sim();
+    const popping = (id: string) => id !== 'cafe';
+    const emma = s.residents.get('cafe')!;
+    const feet = toWorld(emma.x, emma.y);
+    expect(pickAt({ x: feet.x, y: feet.y - 18 }, s, popping)?.kind).not.toBe('resident');
+    const cafe = place('cafe');
+    expect(pickAt(toWorld(cafe.x + 0.5, cafe.y + 0.5, 40), s, popping)?.kind).toBe('tile');
+    // once it is there, both are
+    expect(pickAt({ x: feet.x, y: feet.y - 18 }, s, () => true)).toEqual({ kind: 'resident', placeId: 'cafe' });
+  });
+});
+
+describe('lots on offer', () => {
+  it('only a lot on offer is picked; another one is ground that cannot be walked on', () => {
+    const s = new TownSim(TOWN_WORLD, () => 0.5);
+    s.setState({ built: ['square', 'cafe', 'friend'], decorations: [], sites: ['home'] });
+    const home = place('home');
+    const board = place('board');
+    expect(pickAt(toWorld(home.x + 1, home.y + 1), s)).toEqual({ kind: 'place', placeId: 'home', built: false });
+    expect(pickAt(toWorld(board.x + 1, board.y + 1), s)).toEqual({ kind: 'tile', tile: { x: board.x + 1, y: board.y + 1 }, walkable: false });
+    expect(s.isSite('home')).toBe(true);
+    expect(s.isSite('board')).toBe(false);
+    expect(s.isSite('cafe')).toBe(false);
+  });
 });

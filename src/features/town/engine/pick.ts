@@ -4,7 +4,8 @@
 import { walkable } from '../../../core/town/map';
 import type { PlaceId, Tile, WorldPlace } from '../../../data/townWorld';
 import { depthOfFootprint, depthOfPoint, toTile, toWorld, type Pt } from './iso';
-import { LOT_HEIGHT, placeHeight } from './places';
+import { CHARACTER_ART } from '../art/characters.data';
+import { lotHeight, placeHeight } from './places';
 import type { TownSim } from './sim';
 
 export type Hit =
@@ -13,8 +14,8 @@ export type Hit =
   | { kind: 'tile'; tile: Tile; walkable: boolean };
 
 /** A character is about this big around its feet (world pixels); the name tag above it counts too. */
-export const ACTOR_HALF_WIDTH = 16;
-export const ACTOR_ABOVE = 62;
+export const ACTOR_HALF_WIDTH = 15;
+export const ACTOR_ABOVE = CHARACTER_ART.height + 16;
 export const ACTOR_BELOW = 6;
 
 /** The outline of a box standing on a footprint, as seen on the screen: six corners. */
@@ -49,12 +50,13 @@ export function onActor(w: Pt, x: number, y: number): boolean {
 
 /**
  * The front-most thing at a world point: a resident first (they stand in front of their place), then a place, then
- * the ground tile. Null outside the map.
+ * the ground tile. Null outside the map. `inTown` says whether a built place and its resident are there to see: a
+ * house just bought is still on its way out of the ground for a moment, and nobody can be clicked there until then.
  */
-export function pickAt(w: Pt, sim: TownSim): Hit | null {
+export function pickAt(w: Pt, sim: TownSim, inTown: (id: PlaceId) => boolean = () => true): Hit | null {
   let best: { depth: number; id: PlaceId } | null = null;
   for (const r of sim.residents.values()) {
-    if (!onActor(w, r.x, r.y)) continue;
+    if (!inTown(r.place.id) || !onActor(w, r.x, r.y)) continue;
     const depth = depthOfPoint(r.x, r.y);
     if (!best || depth > best.depth) best = { depth, id: r.place.id };
   }
@@ -63,7 +65,11 @@ export function pickAt(w: Pt, sim: TownSim): Hit | null {
   let place: { depth: number; p: WorldPlace } | null = null;
   for (const p of sim.world.places) {
     const built = sim.isBuilt(p.id);
-    if (!pointInPolygon(w, silhouette(p, built ? placeHeight(p.id) : LOT_HEIGHT))) continue;
+    // an empty lot that is not on offer yet is only grass and trees: the pointer is on the ground there
+    if (!built && !sim.isSite(p.id)) continue;
+    // a house still on its way: nothing stands there yet
+    if (built && !inTown(p.id)) continue;
+    if (!pointInPolygon(w, silhouette(p, built ? placeHeight(p.id) : lotHeight(p)))) continue;
     const depth = depthOfFootprint(p.x, p.y, p.w, p.d);
     if (!place || depth > place.depth) place = { depth, p };
   }

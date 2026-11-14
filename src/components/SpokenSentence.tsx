@@ -109,7 +109,7 @@ export default function SpokenSentence({
         );
 
         const blockCls =
-          'ss-block' + (changed ? ' is-changed' : ' is-plain') + (isActive ? ' is-active' : '');
+          'ss-block' + (changed ? ' is-changed' : ' is-plain') + (changed && seg.spoken.trim() === seg.written.trim() ? ' is-same' : '') + (isActive ? ' is-active' : '');
         const clickable = changed && !!onAnnotationClick;
 
         const onClick = () => {

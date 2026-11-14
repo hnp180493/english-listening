@@ -5,19 +5,25 @@ import { prefersReducedMotion } from '../../../core/motion';
 import { sameTile } from '../../../core/town/map';
 import { TOWN_WORLD, type PlaceId, type Tile, type TownWorld } from '../../../data/townWorld';
 import { baseZoom, Camera } from './camera';
-import { drawPlaceShadow, pavilionTop } from './draw/buildings';
-import { CHARACTER_HEIGHT, drawCharacter, PLAYER_LOOK, RESIDENT_LOOK } from './draw/characters';
-import { drawPondShimmer, paintDusk, paintGround } from './draw/ground';
-import { drawEmote, drawFloat, drawParticles, drawSky, drawTag, drawTalkBubble, drawVignette, EMOTE_SECONDS, FLOAT_SECONDS, type EmoteKind } from './draw/overlay';
-import { drawButterfly, drawCat, drawDuck, drawFirefly, drawGoal, drawHoverTile, drawLily, drawStringLights } from './draw/props';
+import { animDuration, dirFromTileVector, walkTime, type CharacterAnim, type CharacterId, type Dir8 } from '../art/characters';
+import { CHARACTER_ART } from '../art/characters.data';
+import { townArtReady } from '../art/load';
+import { catFrame, decorSpriteKey, stringLights } from '../art/world';
+import { WORLD_ART } from '../art/world.data';
+
+import { drawPondShimmer } from './draw/ground';
+import { drawEmote, drawFloat, drawParticles, drawSky, drawTag, drawTalkBubble, drawVignette, EMOTE_SECONDS, FLOAT_SECONDS, placeTags, tagSize, type EmoteKind, type TagBox } from './draw/overlay';
+import { drawDuck, drawFirefly, drawGoal, drawHoverTile } from './draw/props';
 import type { G } from './draw/util';
 import { depthOfPoint, toWorld, worldBounds, type Pt } from './iso';
 import { paletteFor, type TownPalette } from './palette';
 import { Particles } from './particles';
+import { clipInside, clipOutside, coverShare, grow } from './cover';
 import { pickAt, type Hit } from './pick';
-import { placeHeight, LOT_HEIGHT } from './places';
-import { buildScene, fireflySpots, POP_SECONDS, POP_STAGGER, popped, sceneKey, sortByDepth, type Drawable, type FrameInfo } from './scene';
+import { lotHeight, placeHeight } from './places';
+import { buildScene, fireflySpots, lampLights, POP_SECONDS, POP_STAGGER, popped, sceneKey, sortByDepth, type Box, type Drawable, type FrameInfo, type LampLight } from './scene';
 import { gridDistance, keysToDelta, TownSim, type Actor, type StageState } from './sim';
+import { clearNightCache, drawContactShadow, drawGroundArt, drawPerson, drawSprite, nightArtReady, prepareNight } from './sprites';
 
 export type BurstKind = 'confetti' | 'coins' | 'sparkle';
 /** Who or where: the player, a place's resident, or a point of the stage in CSS pixels. */
@@ -40,7 +46,23 @@ interface Emote {
   born: number;
 }
 
-const FOCUS_ZOOM = 1.5;
+const FOCUS_ZOOM = 1.3;
+/**
+ * People are rendered at 2.5 atlas px per world px: a conversation does not zoom in further than about 2.75
+ * device px per world px, so a face is never enlarged into a blur on a 2× phone.
+ */
+const SHARP_DEVICE_PX = 2.75;
+/** Within this (world px on the screen) of the player a resident shows their name. */
+const NAME_NEAR = 118;
+/** A thing standing in front of a person is drawn this see-through where it covers them. */
+const COVER_ALPHA = 0.3;
+/** Feet to the top of the head, world pixels: bubbles, tags and "+N" hang above it. */
+const HEAD = CHARACTER_ART.height;
+/** A nod, a head shake or a wave stays on its last frame this long before the person goes back to idle. */
+const ACT_HOLD = 0.35;
+
+/** A short animation a person plays once: a nod (yes), a head shake (no), a wave. */
+export type ActKind = Extract<CharacterAnim, 'yes' | 'no' | 'wave'>;
 /** How fast the town dims around a conversation (per second, exponential). */
 const DIM_RATE = 5;
 /** A new thing: the camera sets off, the dust rises, and it appears this many seconds later; then the camera stays a while. */
@@ -58,6 +80,14 @@ interface Showcase {
   zoom: number;
   until: number;
 }
+/** Parts of the stage covered by the game's own buttons (CSS px from each edge): tags and the camera keep clear. */
+export interface SafeInsets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 /** Kept for the session only: coming back to the page puts the player where they were. */
 let lastPlayerTile: Tile | null = null;
 
@@ -78,8 +108,6 @@ export class TownEngine {
   private readonly fireflies: Tile[];
   /** The middle of the pond, where the ducks paddle; null for a town without water. */
   private readonly pond: Tile | null;
-  private ground: HTMLCanvasElement | null = null;
-  private groundFor = '';
   private readonly bounds: { x0: number; y0: number; x1: number; y1: number };
   private viewW = 1;
   private viewH = 1;
@@ -105,6 +133,14 @@ export class TownEngine {
   private showcase: Showcase | null = null;
   private later: { at: number; run: () => void }[] = [];
   private inset = { right: 0, bottom: 0 };
+  private safe: SafeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+  /** The resident the page suggests next: always named, and framed with the player when they are near. */
+  private hint: PlaceId | null = null;
+  /** A lot the build panel is about: the camera shows it. */
+  private peek: PlaceId | null = null;
+  private full = false;
+  private lamps: LampLight[] = [];
+  private nightReady = false;
   private near: Near = null;
   private readonly keys = { up: false, down: false, left: false, right: false };
   private font = 'system-ui, sans-serif';
@@ -112,6 +148,8 @@ export class TownEngine {
   private frames = 0;
   private overview = false;
   private lotLabels: Readonly<Record<string, string>> = {};
+  /** A nod, a head shake or a wave being played, by actor id (player / place id). */
+  private acts = new Map<string, { anim: ActKind; born: number }>();
   /** The name on the player's tag. */
   playerName = 'Bạn';
 
@@ -127,11 +165,14 @@ export class TownEngine {
     this.pond = pondCentre(world);
     this.bounds = worldBounds(world.size);
     this.camera.bounds = this.bounds;
+    const half = world.size * 32;
+    this.camera.island = { cx: 0, cy: world.size * 16, hw: half, hh: half / 2 };
     try {
       this.font = getComputedStyle(canvas).fontFamily || this.font;
     } catch {
       // keep the fallback
     }
+    warmBlends();
   }
 
   setCallbacks(cb: EngineCallbacks): void {
@@ -140,12 +181,19 @@ export class TownEngine {
 
   setState(state: StageState): void {
     this.state = state;
+    // back to day: the tinted night copies of the sprites are not needed any more
+    if (this.pal.night && state.theme !== 'night') {
+      clearNightCache();
+      this.nightReady = false;
+    }
     this.pal = paletteFor(state.theme);
     this.sim.setState(state);
     const key = sceneKey(state);
     if (key !== this.sceneFor) {
       this.scene = buildScene(this.world, state);
+      this.lamps = lampLights(this.world, state);
       this.sceneFor = key;
+      this.updateZoom();
     }
     if (this.focus && !this.sim.residents.has(this.focus)) this.focus = null;
   }
@@ -174,8 +222,7 @@ export class TownEngine {
     this.canvas.width = Math.round(w * this.dpr);
     this.canvas.height = Math.round(h * this.dpr);
     this.camera.setView(w, h);
-    this.zoom0 = baseZoom(w, h);
-    this.camera.targetZoom = this.zoom0 * (this.focus ? FOCUS_ZOOM : 1);
+    this.updateZoom();
     this.applyInset();
     this.aim();
     this.camera.snap();
@@ -199,7 +246,58 @@ export class TownEngine {
   destroy(): void {
     this.stop();
     lastPlayerTile = { ...this.sim.player.tile };
-    this.ground = null;
+    clearNightCache();
+  }
+
+  /** The zoom to rest at, and the conversation's (never past what the people's atlases hold sharply). */
+  private updateZoom(): void {
+    const w = this.viewW;
+    const h = this.viewH;
+    let z = baseZoom(w, h);
+    if (this.full && w >= 900) {
+      // full screen on a big screen: the whole built town in view, people still big enough to read
+      const fit = this.builtFit();
+      if (fit) z = Math.max(z * 0.62, Math.min(z, fit));
+    }
+    this.zoom0 = z;
+    if (!this.showcase && !(this.overview && !this.focus)) this.camera.targetZoom = this.restZoom();
+  }
+
+  private restZoom(): number {
+    if (!this.focus) return this.zoom0;
+    const sharp = SHARP_DEVICE_PX / (this.dpr * this.zoom0);
+    return this.zoom0 * Math.max(1, Math.min(FOCUS_ZOOM, sharp));
+  }
+
+  /** The zoom that fits every built place (and the plaza) in the view, or null for a town with nothing built. */
+  private builtFit(): number | null {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    const add = (tx: number, ty: number, up = 0) => {
+      const p = toWorld(tx, ty, up);
+      x0 = Math.min(x0, p.x);
+      y0 = Math.min(y0, p.y);
+      x1 = Math.max(x1, p.x);
+      y1 = Math.max(y1, p.y);
+    };
+    const { plaza } = this.world;
+    add(plaza.x - plaza.r, plaza.y - plaza.r, 60);
+    add(plaza.x + plaza.r, plaza.y + plaza.r);
+    add(plaza.x + plaza.r, plaza.y - plaza.r);
+    add(plaza.x - plaza.r, plaza.y + plaza.r);
+    for (const p of this.world.places) {
+      if (!this.sim.isBuilt(p.id)) continue;
+      add(p.x, p.y, placeHeight(p.id) + 30);
+      add(p.x + p.w, p.y);
+      add(p.x, p.y + p.d);
+      add(p.x + p.w + 1, p.y + p.d + 1);
+    }
+    if (!Number.isFinite(x0)) return null;
+    const freeW = this.viewW - this.safe.left - this.safe.right;
+    const freeH = this.viewH - this.safe.top - this.safe.bottom;
+    return Math.min(freeW / (x1 - x0 + 60), freeH / (y1 - y0 + 40));
   }
 
   // ───────────────────────── what the shell can ask for ─────────────────────────
@@ -208,7 +306,30 @@ export class TownEngine {
   focusOn(placeId: PlaceId | null): void {
     this.focus = placeId && this.sim.residents.has(placeId) ? placeId : null;
     this.sim.engage(this.focus);
-    this.camera.targetZoom = this.zoom0 * (this.focus ? FOCUS_ZOOM : 1);
+    this.camera.targetZoom = this.restZoom();
+  }
+
+  /** The stage covers the window (or not): on a big screen the camera then shows the whole built town. */
+  setFull(on: boolean): void {
+    if (this.full === on) return;
+    this.full = on;
+    this.updateZoom();
+  }
+
+  /** Parts of the stage under the game's own buttons: tags stay out of them and the camera centres in the rest. */
+  setSafe(safe: SafeInsets): void {
+    this.safe = { top: Math.max(0, safe.top), right: Math.max(0, safe.right), bottom: Math.max(0, safe.bottom), left: Math.max(0, safe.left) };
+    this.applyInset();
+  }
+
+  /** The resident the page suggests next (its main button): named on the stage, framed with the player. */
+  setHint(placeId: PlaceId | null): void {
+    this.hint = placeId;
+  }
+
+  /** A lot the build panel is about (null = none): the camera shows it while the panel is open. */
+  setPeek(placeId: PlaceId | null): void {
+    this.peek = placeId;
   }
 
   /** The resident whose line is being played (null = nobody): they get a bubble with moving sound bars. */
@@ -226,10 +347,13 @@ export class TownEngine {
   }
 
   private applyInset(): void {
-    // never push the picture further than a third of the stage: on a small stage the panel may cover a little
-    const dx = Math.min(this.inset.right / 2, this.viewW / 3);
-    const dy = Math.min(this.inset.bottom / 2, this.viewH / 3);
-    this.camera.shiftTo(-dx, -dy);
+    // what the camera looks at goes to the middle of what the panels and the buttons leave free
+    const right = Math.max(this.inset.right, this.safe.right);
+    const bottom = Math.max(this.inset.bottom, this.safe.bottom);
+    const dx = (this.safe.left - right) / 2;
+    const dy = (this.safe.top - bottom) / 2;
+    const cap = (v: number, size: number) => Math.max(-(size / 2 - 60), Math.min(size / 2 - 60, v));
+    this.camera.shiftTo(cap(dx, this.viewW), cap(dy, this.viewH));
   }
 
   /** A short text rising over somebody's head ("+3"). */
@@ -285,6 +409,9 @@ export class TownEngine {
     return k < 0 ? -1 : Math.min(1, k);
   };
 
+  /** A built place (and its resident) is in town: not while its house is still on its way out of the ground. */
+  private inTown = (id: PlaceId): boolean => this.popOf(id) >= 0;
+
   /** A short text to keep over an empty lot (e.g. its price), by place id. */
   setLotLabels(labels: Readonly<Record<string, string>>): void {
     this.lotLabels = labels;
@@ -293,12 +420,53 @@ export class TownEngine {
   /** Show the whole town at once (true), or go back to following the player. */
   setOverview(on: boolean): void {
     this.overview = on;
-    if (!on) this.camera.targetZoom = this.zoom0 * (this.focus ? FOCUS_ZOOM : 1);
+    if (!on) this.camera.targetZoom = this.restZoom();
     this.aim();
     if (!this.running) {
       this.camera.snap();
       this.render();
     }
+  }
+
+  /**
+   * Somebody plays a short animation once: a nod ('yes'), a head shake ('no'), a wave. Nothing under reduced
+   * motion (they keep standing still); a step of walking cuts it short.
+   */
+  act(target: 'player' | PlaceId, anim: ActKind): void {
+    if (this.still || !this.sim.actor(target)) return;
+    this.acts.set(target, { anim, born: this.t });
+  }
+
+  /** How a person stands this frame: which animation, which way, which moment of it. */
+  private pose(a: Actor, seed: number): { anim: CharacterAnim; dir: Dir8; t: number } {
+    let dir = dirFromTileVector(a.heading.x, a.heading.y) ?? 'S';
+    // a resident standing still always shows a face: never the back or a flat side view of the head
+    if (a.kind === 'resident' && (!a.moving || this.still) && dir !== 'S' && dir !== 'SE' && dir !== 'SW') dir = a.facing > 0 ? 'SE' : 'SW';
+    if (this.still) return { anim: 'idle', dir, t: 0 };
+    const act = this.acts.get(a.id);
+    if (act) {
+      const age = this.t - act.born;
+      if (!a.moving && age < animDuration(act.anim) + ACT_HOLD) return { anim: act.anim, dir, t: age };
+      this.acts.delete(a.id);
+    }
+    if (a.moving) return { anim: 'walk', dir, t: walkTime(a.phase) };
+    // everybody breathes at their own moment
+    return { anim: 'idle', dir, t: this.t + seed * 0.37 };
+  }
+
+  private drawActor(g: G, a: Actor, seed: number): void {
+    const feet = toWorld(a.x, a.y);
+    if (a.kind === 'cat') {
+      const dir = dirFromTileVector(a.heading.x, a.heading.y) ?? 'SE';
+      const walking = a.moving && !this.still;
+      const spec = WORLD_ART.cat.anims.walk;
+      const f = catFrame(walking ? 'walk' : 'sit', dir, walking ? (a.phase / (Math.PI * 2)) * spec.duration : this.still ? 0 : this.t);
+      drawContactShadow(g, feet.x, feet.y, 0.6);
+      drawSprite(g, f.key, feet.x, feet.y, { flip: f.flip });
+      return;
+    }
+    const p = this.pose(a, seed);
+    drawPerson(g, (a.kind === 'player' ? 'player' : a.id) as CharacterId, p.anim, p.dir, p.t, feet.x, feet.y);
   }
 
   emote(target: 'player' | PlaceId, kind: EmoteKind): void {
@@ -314,8 +482,10 @@ export class TownEngine {
    */
   burst(kind: BurstKind, at: StageTarget, to?: { x: number; y: number }): void {
     if (this.still) return;
-    const from = this.screenPointOf(at);
-    if (!from) return;
+    const head = this.screenPointOf(at);
+    if (!head) return;
+    // from the chest, not the head-top (where a tag or the "+N" sits), and never above the stage's free top
+    const from = typeof at === 'object' ? head : { x: head.x, y: Math.max(this.safe.top + 24, head.y + HEAD * this.camera.zoom * 0.45) };
     if (kind === 'confetti') this.particles.confetti(from);
     else if (kind === 'sparkle') this.particles.sparks(from);
     else this.particles.coins(from, to ?? { x: this.viewW - 40, y: 28 });
@@ -336,14 +506,14 @@ export class TownEngine {
     const a = this.sim.actor(target);
     if (!a) return null;
     const feet = toWorld(a.x, a.y);
-    return this.camera.worldToScreen({ x: feet.x, y: feet.y - CHARACTER_HEIGHT });
+    return this.camera.worldToScreen({ x: feet.x, y: feet.y - HEAD });
   }
 
   // ───────────────────────── input ─────────────────────────
 
   pointerMove(x: number, y: number): void {
     if (this.paused) return;
-    this.setHover(pickAt(this.camera.screenToWorld({ x, y }), this.sim));
+    this.setHover(pickAt(this.camera.screenToWorld({ x, y }), this.sim, this.inTown));
   }
 
   pointerLeave(): void {
@@ -353,7 +523,7 @@ export class TownEngine {
   /** A click or a tap on the stage, in CSS pixels from its top-left corner. */
   click(x: number, y: number): void {
     if (this.paused) return;
-    const hit = pickAt(this.camera.screenToWorld({ x, y }), this.sim);
+    const hit = pickAt(this.camera.screenToWorld({ x, y }), this.sim, this.inTown);
     if (!hit) return;
     if (hit.kind === 'resident' || (hit.kind === 'place' && hit.built)) {
       const id = hit.placeId;
@@ -423,7 +593,7 @@ export class TownEngine {
     }
     if (this.showcase && this.t >= this.showcase.until) {
       this.showcase = null;
-      this.camera.targetZoom = this.zoom0 * (this.focus ? FOCUS_ZOOM : 1);
+      this.camera.targetZoom = this.restZoom();
     }
     for (const [id, at] of this.pops) if (this.t - at > POP_SECONDS + 12 * POP_STAGGER) this.pops.delete(id);
     const dimTo = this.focus ? 1 : 0;
@@ -441,6 +611,8 @@ export class TownEngine {
 
   /** Point the camera: at the player, or between the player and the resident in focus. */
   private aim(): void {
+    // only a conversation frames its two people past the island's rim; every other view keeps to it
+    this.camera.loose = false;
     if (this.overview && !this.focus) {
       const b = this.bounds;
       const fit = Math.min(this.viewW / (b.x1 - b.x0 - 60), this.viewH / (b.y1 - b.y0 - 70));
@@ -451,14 +623,62 @@ export class TownEngine {
       this.camera.lookAt(this.showcase.at, this.showcase.zoom);
       return;
     }
+    const peek = !this.focus && this.peek ? this.world.places.find((q) => q.id === this.peek) : undefined;
+    if (peek) {
+      this.camera.lookAt(toWorld(peek.x + peek.w / 2, peek.y + peek.d / 2, 24));
+      return;
+    }
     const p = this.sim.player;
     let at = toWorld(p.x, p.y);
     const r = this.focus ? this.sim.residents.get(this.focus) : null;
     if (r) {
-      const o = toWorld(r.x, r.y);
-      at = { x: (at.x + o.x) / 2, y: (at.y + o.y) / 2 };
+      this.camera.loose = true;
+      this.frameTalk(r);
+      return;
     }
-    this.camera.lookAt({ x: at.x, y: at.y - 26 });
+    if (this.hint) {
+      // the resident the main button sends the player to: in the picture with them while close enough
+      const hr = this.sim.residents.get(this.hint);
+      if (hr && this.popOf(hr.place.id) >= 0) {
+        const o = toWorld(hr.x, hr.y);
+        const z = this.camera.targetZoom;
+        const freeW = Math.max(120, this.viewW - Math.max(this.inset.right, this.safe.right) - this.safe.left) / z;
+        const freeH = Math.max(120, this.viewH - Math.max(this.inset.bottom, this.safe.bottom) - this.safe.top) / z;
+        const over = Math.max(Math.abs(o.x - at.x) / (freeW * 0.72), Math.abs(o.y - at.y) / (freeH * 0.62));
+        // up to 1 (both fit with room to spare): halfway between them; further apart: back to the player alone
+        const w = 0.5 * Math.max(0, Math.min(1, (1.6 - over) / 0.6));
+        at = { x: at.x + (o.x - at.x) * w, y: at.y + (o.y - at.y) * w };
+      }
+    }
+    this.camera.lookAt({ x: at.x, y: at.y - 26 }, this.camera.targetZoom);
+  }
+
+  /**
+   * A conversation: both people whole (head to feet, with room for the speech bubble over them) in the part of the
+   * stage the panel and the counters leave free, as big as that allows: about half its height, never past what the
+   * people's atlases hold sharply, never so big that one of them is cut off.
+   */
+  private frameTalk(r: Actor): void {
+    const a = toWorld(this.sim.player.x, this.sim.player.y);
+    const b = toWorld(r.x, r.y);
+    const x0 = Math.min(a.x, b.x) - 20;
+    const x1 = Math.max(a.x, b.x) + 20;
+    const y0 = Math.min(a.y, b.y) - HEAD - 4;
+    const y1 = Math.max(a.y, b.y) + 8;
+    const right = Math.max(this.inset.right, this.safe.right);
+    const bottom = Math.max(this.inset.bottom, this.safe.bottom);
+    const freeW = Math.max(80, this.viewW - this.safe.left - right);
+    // the bubble over the speaker's head is screen-sized: keep room for it at the top (less in a thin strip over a
+    // phone's panel, where the people come first and the bubble may overlap the top of a head while it shows)
+    const open = this.viewH - this.safe.top - bottom;
+    const BUBBLE = Math.min(40, Math.max(14, open * 0.2));
+    const freeH = Math.max(60, open - BUBBLE);
+    const fit = Math.min((freeW * 0.9) / (x1 - x0), (freeH * 0.94) / (y1 - y0));
+    const fill = (freeH * 0.5) / HEAD;
+    const sharp = SHARP_DEVICE_PX / this.dpr;
+    const z = Math.max(0.3, Math.min(fit, Math.max(this.zoom0, Math.min(fill, sharp))));
+    // the camera puts its target in the middle of the free part; the pair goes in the middle of what is under the bubble
+    this.camera.lookAt({ x: (x0 + x1) / 2, y: (y0 + y1) / 2 - BUBBLE / 2 / z }, z);
   }
 
   private updateNear(): void {
@@ -468,6 +688,8 @@ export class TownEngine {
       // a neighbour straight across the screen is 64 world pixels away
       let best = 70;
       for (const r of this.sim.residents.values()) {
+        // somebody whose house is still on its way is not in town yet: nobody to talk to there
+        if (!this.inTown(r.place.id)) continue;
         const d = gridDistance(p.x, p.y, r.x, r.y);
         if (d < best) {
           best = d;
@@ -475,7 +697,7 @@ export class TownEngine {
         }
       }
       if (!near) {
-        const lot = this.world.places.find((q) => !this.sim.isBuilt(q.id) && sameTile(q.door, p.tile));
+        const lot = this.world.places.find((q) => this.sim.isSite(q.id) && sameTile(q.door, p.tile));
         if (lot) near = { kind: 'lot', placeId: lot.id };
       }
     }
@@ -495,22 +717,29 @@ export class TownEngine {
     }
   }
 
-  private ensureGround(): HTMLCanvasElement {
-    const scale = Math.min(2.4, Math.max(1, this.dpr * this.zoom0 * 1.25));
-    const key = `${this.pal.theme}|${scale.toFixed(2)}`;
-    if (this.ground && this.groundFor === key) return this.ground;
-    const b = this.bounds;
-    const c = this.ground ?? document.createElement('canvas');
-    c.width = Math.ceil((b.x1 - b.x0) * scale);
-    c.height = Math.ceil((b.y1 - b.y0) * scale);
-    const g = c.getContext('2d')!;
-    g.setTransform(scale, 0, 0, scale, -b.x0 * scale, -b.y0 * scale);
-    g.clearRect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-    paintGround(g, this.world, this.pal);
-    if (this.pal.night) paintDusk(g, this.world);
-    this.ground = c;
-    this.groundFor = key;
-    return c;
+  /**
+   * Night: warm light round every lamp. First a pool on the ground (under everything that stands), then a faint
+   * glow over what stands near it, so a person under a lamp is lit too. World space.
+   */
+  private drawLampLight(ctx: CanvasRenderingContext2D, over: boolean): void {
+    ctx.save();
+    // colour-dodge by an amber undoes the dusk blue where the light falls: the ground under a lamp gets its own
+    // colours back, warmed, instead of a pale haze laid over the blue
+    ctx.globalCompositeOperation = 'color-dodge';
+    for (const l of this.lamps) {
+      const r = over ? l.r * 0.85 : l.r;
+      ctx.save();
+      ctx.translate(l.x, l.y - (over ? 24 : 0));
+      ctx.scale(1, over ? 0.75 : 0.5);
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      grad.addColorStop(0, `rgba(150,106,0,${(over ? 0.38 : 0.92) * l.k})`);
+      grad.addColorStop(0.5, `rgba(150,106,0,${(over ? 0.18 : 0.5) * l.k})`);
+      grad.addColorStop(1, 'rgba(150,106,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(-r, -r, r * 2, r * 2);
+      ctx.restore();
+    }
+    ctx.restore();
   }
 
   private render(): void {
@@ -519,117 +748,256 @@ export class TownEngine {
     const h = this.viewH;
     const state = this.state;
     const has = (id: string) => state.decorations.includes(id);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    drawSky(ctx, w, h, pal, this.t, this.still);
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    const behind = () => {
+      // the sky goes BEHIND what is drawn (the island keeps its own outline at night)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.globalCompositeOperation = 'destination-over';
+      drawSky(ctx, w, h, pal, this.t, this.still);
+      ctx.globalCompositeOperation = 'source-over';
+    };
+    // the pictures are still on their way: the sky alone (the stage shows its loading note over it)
+    if (!townArtReady()) {
+      behind();
+      return;
+    }
+    if (pal.night && !this.nightReady) {
+      // tint the world's atlases while the browser is idle, not all in the first night frames
+      prepareNight();
+      this.nightReady = true;
+    }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // ── the world, through the camera ──
     const z = cam.zoom;
     const toWorldSpace = () => ctx.setTransform(dpr * z, 0, 0, dpr * z, dpr * (w / 2 + cam.shiftX - cam.x * z), dpr * (h / 2 + cam.shiftY - cam.y * z));
     toWorldSpace();
     const g: G = { ctx, pal, t: this.t, still: this.still };
-    const b = this.bounds;
-    ctx.drawImage(this.ensureGround(), b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+    drawGroundArt(g);
     drawPondShimmer(g, this.world);
-    if (has('lilies')) this.world.decorations.lilies.forEach((s, i) => popped(g, this.popOf('lilies', i), toWorld(s.x, s.y), () => drawLily(g, s.x, s.y, i)));
+    if (has('lilies')) {
+      this.world.decorations.lilies.forEach((s, i) => {
+        const key = decorSpriteKey('lilies', i, s);
+        const at = toWorld(s.x, s.y);
+        if (key) popped(g, this.popOf('lilies', i), at, () => void drawSprite(g, key, at.x, at.y));
+      });
+    }
     if (this.pond) for (let i = 0; i < 2; i++) drawDuck(g, this.pond.x, this.pond.y, i);
-    for (const p of this.world.places) drawPlaceShadow(g, p, this.sim.isBuilt(p.id));
+    const info: FrameInfo = { lit: state.lit, hoverPlace: this.hover?.kind === 'place' ? this.hover.placeId : null, pop: this.popOf };
+    for (const d of this.scene) d.shadow?.(g, info);
+    if (pal.night) this.drawLampLight(ctx, false);
     const hover = this.hover;
     if (hover?.kind === 'tile' && hover.walkable) drawHoverTile(g, hover.tile.x, hover.tile.y);
     if (this.sim.goal) drawGoal(g, this.sim.goal.x, this.sim.goal.y);
 
     // ── everything standing, far to near ──
-    const info: FrameInfo = { lit: state.lit, hoverPlace: hover?.kind === 'place' ? hover.placeId : null, pop: this.popOf };
     const people: Drawable[] = [];
-    const person = (a: Actor, draw: (gg: G) => void) => people.push({ depth: depthOfPoint(a.x, a.y), draw });
     let n = 0;
-    const seeds = new Map<PlaceId, number>();
+    const seeds = new Map<string, number>();
+    /** Where each person stands (world px), so what stands in front of them fades there. */
+    const covers: { depth: number; box: Box }[] = [];
+    const personBox = (a: Actor): Box => {
+      const feet = toWorld(a.x, a.y);
+      return { x: feet.x - 13, y: feet.y - HEAD - 4, w: 26, h: HEAD + 6 };
+    };
+    // a conversation: the two who talk stand clear; anybody or anything right on or under them steps back
+    const talking = this.focus ? (this.sim.residents.get(this.focus) ?? null) : null;
+    const pairBoxes = talking ? [talking, this.sim.player].map((a) => grow(personBox(a), 8, 18)) : [];
+    const pairDepth = talking ? Math.min(depthOfPoint(talking.x, talking.y), depthOfPoint(this.sim.player.x, this.sim.player.y)) : Infinity;
+    const person = (a: Actor, seed: number) => {
+      seeds.set(a.id, seed);
+      const depth = depthOfPoint(a.x, a.y);
+      const box = a.kind === 'cat' ? undefined : personBox(a);
+      const inTheWay = !!talking && a !== talking && a !== this.sim.player && pairBoxes.some((b) => coverShare(b, box ?? personBox(a)) > 0);
+      people.push({ depth, draw: (gg) => (inTheWay ? faded(gg, () => this.drawActor(gg, a, seed)) : this.drawActor(gg, a, seed)) });
+      if (box) covers.push({ depth, box });
+    };
     for (const r of this.sim.residents.values()) {
       const seed = ++n;
-      seeds.set(r.place.id, seed);
       // somebody whose house is still on its way is not in town yet
       if (this.popOf(r.place.id) < 0) continue;
-      person(r, (gg) => drawCharacter(gg, r, RESIDENT_LOOK[r.place.id], seed));
+      person(r, seed);
     }
-    const cat = this.sim.cat;
-    if (cat) person(cat, (gg) => drawCat(gg, cat));
-    person(this.sim.player, (gg) => drawCharacter(gg, this.sim.player, PLAYER_LOOK, 0, true));
-    const all = people.length > 0 ? sortByDepth([...this.scene, ...people]) : this.scene;
-    for (const d of all) d.draw(g, info);
-
-    // ── things hanging high, and the night's little lights ──
-    if (has('lights') && this.popOf('lights', 2) >= 1) {
-      const poles = this.world.decorations.lights.map((s) => toWorld(s.x + 0.5, s.y + 0.5, 66));
-      const square = this.world.places.find((p) => p.id === 'square');
-      const top = square && this.sim.isBuilt('square') ? pavilionTop(square) : null;
-      if (top) poles.forEach((p, i) => drawStringLights(g, top, p, i));
-      for (let i = 1; i < poles.length; i++) drawStringLights(g, poles[i - 1], poles[i], i + 2);
-    }
-    if (pal.night) this.fireflies.forEach((f, i) => drawFirefly(g, f.x, f.y, i));
-    else this.fireflies.forEach((f, i) => i % 3 === 0 && drawButterfly(g, f.x, f.y, i));
-
-    // ── a conversation: the town steps back, the two who talk stay bright ──
-    const talking = this.focus ? (this.sim.residents.get(this.focus) ?? null) : null;
-    if (this.dim > 0.01) {
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = pal.night ? `rgba(8,10,30,${0.5 * this.dim})` : `rgba(26,30,66,${0.4 * this.dim})`;
-      ctx.fillRect(0, 0, w, h);
-      if (talking) {
-        toWorldSpace();
-        const pair: Drawable[] = [
-          { depth: depthOfPoint(talking.x, talking.y), draw: (gg) => drawCharacter(gg, talking, RESIDENT_LOOK[talking.place.id], seeds.get(talking.place.id) ?? 1) },
-          { depth: depthOfPoint(this.sim.player.x, this.sim.player.y), draw: (gg) => drawCharacter(gg, this.sim.player, PLAYER_LOOK, 0, true) },
-        ];
-        for (const d of sortByDepth(pair)) d.draw(g, info);
+    if (this.sim.cat) person(this.sim.cat, 0);
+    person(this.sim.player, 0);
+    for (const d of sortByDepth([...this.scene, ...people])) {
+      if (talking && d.box && d.depth > pairDepth && pairBoxes.some((b) => coverShare(b, d.box!) > 0)) {
+        // a small thing in front of the pair or poking up at their feet (a lamp's head) goes see-through for the
+        // conversation; a big one (a house, the bus) is simply drawn: the pair is drawn again over everything below
+        if (d.box.w * d.box.h < 6000) faded(g, () => d.draw(g, info));
+        else d.draw(g, info);
+        continue;
       }
+      const hidden = d.box ? covers.filter((c) => c.depth < d.depth && coverShare(c.box, d.box!) > 0.18) : [];
+      if (hidden.length > 0) drawFaded(g, d, info, hidden.map((c) => c.box));
+      else d.draw(g, info);
+    }
+    if (pal.night) this.drawLampLight(ctx, true);
+
+    // ── things hanging high, and the little lights ──
+    if (has('lights') && this.popOf('lights', 1) >= 1) {
+      for (const s of stringLights(this.sim.isBuilt('square') && this.popOf('square') >= 1)) {
+        const at = toWorld(s.at[0], s.at[1]);
+        drawSprite(g, s.sprite, at.x, at.y, { lit: 1 });
+      }
+    }
+    // fireflies at night; by day the little side-on butterflies read as stray pixels, so there are none
+    if (pal.night) this.fireflies.forEach((f, i) => drawFirefly(g, f.x, f.y, i));
+    if (pal.night && !nightArtReady()) {
+      // the night copies of the pictures are still being made (a moment after night starts): a plain dusk over what
+      // is drawn, so the town never flashes back to day
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.fillStyle = 'rgba(28,38,92,0.5)';
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.restore();
+    }
+    behind();
+
+    // ── a conversation: the town steps back, the two who talk stay bright and in front of everything ──
+    if (talking) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (this.dim > 0.01) {
+        // at night the town is dark already: a lighter veil, or it turns to mud
+        ctx.fillStyle = pal.night ? `rgba(8,10,30,${0.26 * this.dim})` : `rgba(26,30,66,${0.3 * this.dim})`;
+        ctx.fillRect(0, 0, w, h);
+      }
+      toWorldSpace();
+      const pair: Drawable[] = [
+        { depth: depthOfPoint(talking.x, talking.y), draw: (gg) => this.drawActor(gg, talking, seeds.get(talking.id) ?? 1) },
+        { depth: depthOfPoint(this.sim.player.x, this.sim.player.y), draw: (gg) => this.drawActor(gg, this.sim.player, 0) },
+      ];
+      for (const d of sortByDepth(pair)) d.draw(g, info);
     }
 
     // ── over the world, in screen pixels ──
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     drawVignette(ctx, w, h, pal);
-    const tagAt = (a: Actor): Pt => {
-      const feet = toWorld(a.x, a.y);
-      const s = cam.worldToScreen(feet);
-      return { x: s.x, y: s.y - CHARACTER_HEIGHT * z - 7 };
+    const headAt = (a: Actor): Pt => {
+      const s = cam.worldToScreen(toWorld(a.x, a.y));
+      return { x: s.x, y: s.y - HEAD * z - 6 };
     };
     const tagOpts = { t: this.t, still: this.still, font: this.font };
-    for (const r of this.sim.residents.values()) {
-      if (this.popOf(r.place.id) < 0) continue;
-      // in a conversation only the one talking keeps a tag
-      if (this.focus && r !== talking) continue;
-      const at = tagAt(r);
-      const hot = (hover?.kind === 'resident' && hover.placeId === r.place.id) || (this.near?.kind === 'resident' && this.near.placeId === r.place.id);
-      drawTag(ctx, pal, at.x, at.y, r.place.resident, { ...tagOpts, marker: this.focus ? undefined : state.marker[r.place.id], hover: hot && !this.focus });
-      if (r === talking && this.speaking === r.place.id) drawTalkBubble(ctx, pal, at.x, at.y - 24, this.t, this.still);
+    if (talking && this.speaking === talking.place.id) {
+      // in a conversation the panel says who it is: no tag, only the bubble while they speak
+      const at = headAt(talking);
+      drawTalkBubble(ctx, pal, at.x, Math.max(this.safe.top + 44, at.y + 2), this.t, this.still);
     }
     if (!this.focus) {
-      const at = tagAt(this.sim.player);
-      drawTag(ctx, pal, at.x, at.y, this.playerName, { ...tagOpts, self: true });
-    }
-    const hoverPlace = hover?.kind === 'place' ? hover.placeId : null;
-    for (const p of this.focus ? [] : this.world.places) {
-      const built = this.sim.isBuilt(p.id) && this.popOf(p.id) >= 0;
-      const label = built ? undefined : this.lotLabels[p.id];
-      const hot = hoverPlace === p.id;
-      if (!hot && !label) continue;
-      const top = toWorld(p.x + p.w / 2, p.y + p.d / 2, built ? placeHeight(p.id) + 18 : LOT_HEIGHT + 8);
-      const s = cam.worldToScreen(top);
-      drawTag(ctx, pal, s.x, s.y, hot ? (label ? `${p.name} · ${label}` : p.name) : (label ?? p.name), { ...tagOpts, hover: hot, self: !hot });
+      // Names only where they help: the resident the main button suggests, whoever is under the pointer or close
+      // to the player, the player, and the lots on offer. The most important tags are placed first.
+      const tags: { box: TagBox; draw: (b: TagBox) => void }[] = [];
+      const add = (x: number, y: number, text: string, o: Omit<Parameters<typeof drawTag>[5], 't' | 'still' | 'font'>, alt?: number) => {
+        // somebody off the stage gets no tag pulled in from the edge
+        if (x < -30 || x > w + 30 || y < -10 || y > h + 60) return;
+        const size = tagSize(ctx, text, this.font);
+        tags.push({ box: { x, y, ...size, above: o.marker ? 28 : 0, alt }, draw: (b) => drawTag(ctx, pal, b.x, b.y, text, { ...tagOpts, ...o, marker: b.below ? undefined : o.marker }) });
+      };
+      const p = this.sim.player;
+      const named = [...this.sim.residents.values()]
+        .filter((r) => this.popOf(r.place.id) >= 0)
+        .map((r) => {
+          const id = r.place.id;
+          const hot = (hover?.kind === 'resident' && hover.placeId === id) || (this.near?.kind === 'resident' && this.near.placeId === id);
+          const rank = id === this.hint ? 0 : hot ? 1 : gridDistance(p.x, p.y, r.x, r.y) < NAME_NEAR ? 2 : 9;
+          return { r, hot, rank };
+        })
+        .filter((e) => e.rank < 9)
+        .sort((a, b) => a.rank - b.rank);
+      const feetAt = (a: Actor) => cam.worldToScreen(toWorld(a.x, a.y)).y + 26;
+      for (const { r, hot } of named) {
+        const at = headAt(r);
+        add(at.x, at.y, r.place.resident, { marker: state.marker[r.place.id], hover: hot }, feetAt(r));
+      }
+      const me = headAt(p);
+      add(me.x, me.y, this.playerName, { self: true }, feetAt(p));
+      const hoverPlace = hover?.kind === 'place' ? hover.placeId : null;
+      for (const q of this.world.places) {
+        const built = this.sim.isBuilt(q.id) && this.popOf(q.id) >= 0;
+        const label = built || !this.sim.isSite(q.id) ? undefined : this.lotLabels[q.id];
+        const hot = hoverPlace === q.id;
+        if (!hot && !label) continue;
+        const top = toWorld(q.x + q.w / 2, q.y + q.d / 2, built ? placeHeight(q.id) + 14 : lotHeight(q) + 8);
+        const at = cam.worldToScreen(top);
+        add(at.x, at.y, hot ? (label ? `${q.name} · ${label}` : q.name) : (label ?? q.name), { hover: hot, self: !hot });
+      }
+      const area = { x0: this.safe.left + 6, y0: this.safe.top + 4, x1: w - Math.max(this.safe.right, this.inset.right) - 6, y1: h - Math.max(this.safe.bottom, this.inset.bottom) - 4 };
+      placeTags(
+        tags.map((t) => t.box),
+        area,
+      );
+      for (const t of tags) t.draw(t.box);
     }
     const now = this.t;
     this.emotes = this.emotes.filter((e) => now - e.born < EMOTE_SECONDS && this.sim.actor(e.target));
+    // what rises over a head stays inside the stage, under its top buttons
+    const keepIn = (at: Pt, room: number): Pt => ({ x: Math.min(w - 30, Math.max(30, at.x)), y: Math.max(this.safe.top + room, at.y) });
     for (const e of this.emotes) {
       const at = this.screenPointOf(e.target);
-      if (at) drawEmote(ctx, e.kind, at, now - e.born, this.still);
+      if (at) drawEmote(ctx, e.kind, keepIn(at, 62), now - e.born, this.still);
     }
     this.floats = this.floats.filter((f) => now - f.born < FLOAT_SECONDS && this.sim.actor(f.target));
     this.floats.forEach((f, i) => {
       const at = this.screenPointOf(f.target);
-      if (at) drawFloat(ctx, f.text, { x: at.x, y: at.y - i * 4 }, now - f.born, this.still, this.font);
+      if (at) drawFloat(ctx, f.text, keepIn({ x: at.x, y: at.y - i * 4 }, 90), now - f.born, this.still, this.font);
     });
     drawParticles(ctx, this.particles.list);
   }
+}
+
+let blendsWarm = false;
+/**
+ * The night uses two blend modes the browser prepares the first time they are drawn ('color' for the night copies,
+ * 'color-dodge' for lamp light): that first use cost a visible hitch of a few hundred ms when night began. Draw both
+ * once, small, while the page opens (the pictures are still loading then).
+ */
+function warmBlends(): void {
+  if (blendsWarm || typeof document === 'undefined') return;
+  blendsWarm = true;
+  try {
+    const c = document.createElement('canvas');
+    c.width = 320;
+    c.height = 320;
+    const x = c.getContext('2d');
+    if (!x) return;
+    x.fillStyle = '#808080';
+    x.fillRect(0, 0, 320, 320);
+    for (const op of ['multiply', 'color', 'color-dodge', 'destination-in'] as const) {
+      x.globalCompositeOperation = op;
+      x.drawImage(c, 0, 0);
+      x.fillRect(0, 0, 8, 8);
+    }
+  } catch {
+    // nothing to warm: the first night frame pays for it
+  }
+}
+
+/** Draw something see-through (COVER_ALPHA). */
+function faded(g: G, draw: () => void): void {
+  g.ctx.save();
+  g.ctx.globalAlpha *= COVER_ALPHA;
+  draw();
+  g.ctx.restore();
+}
+
+/** Draw a thing that stands in front of people: as itself, but see-through over each of them. */
+function drawFaded(g: G, d: Drawable, info: FrameInfo, people: Box[]): void {
+  const { ctx } = g;
+  const b = d.box!;
+  ctx.save();
+  clipOutside(ctx, { x: b.x - 4, y: b.y - 4, w: b.w + 8, h: b.h + 8 }, people);
+  d.draw(g, info);
+  ctx.restore();
+  ctx.save();
+  clipInside(ctx, people);
+  ctx.globalAlpha *= COVER_ALPHA;
+  d.draw(g, info);
+  ctx.restore();
 }
 
 function pondCentre(world: TownWorld): Tile | null {

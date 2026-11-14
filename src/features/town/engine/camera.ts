@@ -9,6 +9,22 @@ export interface Bounds {
   y1: number;
 }
 
+/** The island's top as a diamond in world px: its centre and half-diagonals. */
+export interface Island {
+  cx: number;
+  cy: number;
+  hw: number;
+  hh: number;
+}
+
+/**
+ * How far the corners of the view may reach past the island's diamond, as a share of the view (0 = never any sky,
+ * 1 = the island's edge may sit in the middle of the view).
+ */
+const ISLAND_SLACK = 0.45;
+/** Whatever the island says, the target stays this far inside the view (share of the half view). */
+const TARGET_KEEP = 0.62;
+
 /** How fast the camera catches up (per second, exponential): after 1/RATE s it has covered ~63% of the way. */
 const FOLLOW_RATE = 5;
 const ZOOM_RATE = 4;
@@ -24,6 +40,13 @@ export class Camera {
   viewW = 1;
   viewH = 1;
   bounds: Bounds | null = null;
+  /** Set: the view keeps to the island (little sky round the corners), while the target stays in sight. */
+  island: Island | null = null;
+  /**
+   * True: the target is put exactly where asked, island and world edges aside (a conversation frames its two people
+   * precisely; a corner of sky behind them is the lesser evil).
+   */
+  loose = false;
   /**
    * Screen pixels the picture is moved by, so that what the camera looks at sits in the middle of the part of the
    * stage a panel leaves free (a sheet on the right: negative x; a panel at the bottom: negative y).
@@ -81,11 +104,30 @@ export class Camera {
   }
 
   /** Keep the view inside the world; a view larger than the world is centred on it. */
-  clamp(x: number, y: number, zoom: number): Pt {
-    const b = this.bounds;
-    if (!b) return { x, y };
+  clamp(tx: number, ty: number, zoom: number): Pt {
+    if (this.loose) return { x: tx, y: ty };
     const halfW = this.viewW / 2 / zoom;
     const halfH = this.viewH / 2 / zoom;
+    let x = tx;
+    let y = ty;
+    const isl = this.island;
+    if (isl) {
+      // pull the centre in towards the island's middle until the view's corners are mostly over land…
+      const room = 1 - (1 - ISLAND_SLACK) * (halfW / isl.hw + halfH / isl.hh);
+      const dx = (x - isl.cx) / isl.hw;
+      const dy = (y - isl.cy) / isl.hh;
+      const l1 = Math.abs(dx) + Math.abs(dy);
+      const k = room <= 0 ? 0 : l1 > room ? room / l1 : 1;
+      x = isl.cx + dx * k * isl.hw;
+      y = isl.cy + dy * k * isl.hh;
+      // …but never so far that what the camera follows leaves the view
+      const kw = halfW * TARGET_KEEP;
+      const kh = halfH * TARGET_KEEP;
+      x = Math.min(tx + kw, Math.max(tx - kw, x));
+      y = Math.min(ty + kh, Math.max(ty - kh, y));
+    }
+    const b = this.bounds;
+    if (!b) return { x, y };
     const cx = b.x1 - b.x0 <= halfW * 2 ? (b.x0 + b.x1) / 2 : Math.min(b.x1 - halfW, Math.max(b.x0 + halfW, x));
     const cy = b.y1 - b.y0 <= halfH * 2 ? (b.y0 + b.y1) / 2 : Math.min(b.y1 - halfH, Math.max(b.y0 + halfH, y));
     return { x: cx, y: cy };
@@ -100,9 +142,13 @@ export class Camera {
   }
 }
 
-/** The resting zoom for a view: a phone shows about nine tiles across, a wide stage about fifteen. */
+/**
+ * The resting zoom for a view: people stand about a ninth of the stage tall (big enough to read a face on a phone),
+ * and a wide stage is not zoomed so far that only a corner of the town is left.
+ */
 export function baseZoom(viewW: number, viewH: number): number {
   const byWidth = viewW / 940;
-  const byHeight = viewH / 560;
-  return Math.max(0.62, Math.min(1.45, Math.max(byWidth, byHeight * 0.92)));
+  const byHeight = viewH / 460;
+  // a tall phone screen (full screen) would zoom in on a strip of the town: its width bounds it too
+  return Math.max(0.8, Math.min(1.8, Math.max(byWidth, Math.min(byHeight, viewW / 270))));
 }

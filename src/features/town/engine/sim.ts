@@ -12,6 +12,11 @@ export type Marker = 'new' | 'repeat' | 'heart';
 export interface StageState {
   /** Ids of the places that are built (the others are empty lots, and their residents are not in town). */
   built: readonly string[];
+  /**
+   * Empty lots shown as construction sites (with their price): the next ones the learner works toward. The others
+   * are plain nature until they come up. Left out = every empty lot is a site.
+   */
+  sites?: readonly string[];
   /** Ids of the decorations bought. */
   decorations: readonly string[];
   /** Per place, 0..1: how much of its windows glow (the share of its lines understood). */
@@ -35,6 +40,8 @@ export interface Actor {
   path: Tile[];
   /** World pixels per second. */
   speed: number;
+  /** Which way it looks, as a step on the tile grid (any length): (1, 1) = towards the viewer. */
+  heading: Tile;
   /** 1 = looks right on the screen, -1 = left. */
   facing: 1 | -1;
   moving: boolean;
@@ -79,7 +86,7 @@ export function gridDistance(ax: number, ay: number, bx: number, by: number): nu
 }
 
 function makeActor(id: string, kind: ActorKind, tile: Tile, speed: number): Actor {
-  return { id, kind, ...centre(tile), tile: { ...tile }, path: [], speed, facing: 1, moving: false, phase: 0 };
+  return { id, kind, ...centre(tile), tile: { ...tile }, path: [], speed, heading: { x: 1, y: 1 }, facing: 1, moving: false, phase: 0 };
 }
 
 /**
@@ -100,6 +107,7 @@ export function advance(a: Actor, dt: number): boolean {
     const sdx = goal.x - a.x - (goal.y - a.y);
     if (sdx > 1e-6) a.facing = 1;
     else if (sdx < -1e-6) a.facing = -1;
+    if (Math.abs(goal.x - a.x) + Math.abs(goal.y - a.y) > 1e-6) a.heading = { x: goal.x - a.x, y: goal.y - a.y };
     if (dist <= left) {
       a.x = goal.x;
       a.y = goal.y;
@@ -121,11 +129,31 @@ export function advance(a: Actor, dt: number): boolean {
   return false;
 }
 
-/** Look at a point of the tile grid (no change when it is straight above or below on the screen). */
+/** Look at a point of the tile grid (`facing` does not change when it is straight above or below on the screen). */
 export function face(a: Actor, x: number, y: number): void {
   const sdx = x - a.x - (y - a.y);
-  if (sdx > 0.05) a.facing = 1;
-  else if (sdx < -0.05) a.facing = -1;
+  // standing, a person turns three-quarters towards the viewer on that side (a step of +x or +y on the grid):
+  // a straight side view hides the face behind the hair
+  if (sdx > 0.05) {
+    a.facing = 1;
+    a.heading = { x: 1, y: 0 };
+  } else if (sdx < -0.05) {
+    a.facing = -1;
+    a.heading = { x: 0, y: 1 };
+  } else if (x + y > a.x + a.y + 0.05) {
+    a.heading = { x: 1, y: 1 };
+  } else {
+    // straight above on the screen: never the back of the head, three-quarters on the side it already looks to
+    settle(a);
+  }
+}
+
+/**
+ * Standing still, a person turns three-quarters towards the viewer on the side they look to (SE or SW): with these
+ * blocky heads a back view is a box of hair, so nobody rests with their back to the camera.
+ */
+export function settle(a: Actor): void {
+  a.heading = a.facing === 1 ? { x: 1, y: 0 } : { x: 0, y: 1 };
 }
 
 /**
@@ -162,10 +190,13 @@ export class TownSim {
   readonly residents = new Map<PlaceId, Resident>();
   cat: Cat | null = null;
   private built = new Set<string>();
+  private sites: Set<string> | null = null;
   private errand: Errand | null = null;
   private held: Tile = { x: 0, y: 0 };
   /** Where the player is walking to (for the marker on the ground), if anywhere. */
   goal: Tile | null = null;
+  /** The resident in a conversation with the player: the others keep their distance and stop strolling. */
+  private talking: PlaceId | null = null;
 
   constructor(world: TownWorld = TOWN_WORLD, rng: () => number = Math.random, start?: Tile) {
     this.world = world;
@@ -175,8 +206,9 @@ export class TownSim {
   }
 
   /** Residents appear with their place and leave with it; the cat comes when bought. */
-  setState(state: Pick<StageState, 'built' | 'decorations'>): void {
+  setState(state: Pick<StageState, 'built' | 'decorations' | 'sites'>): void {
     this.built = new Set(state.built);
+    this.sites = state.sites ? new Set(state.sites) : null;
     for (const p of this.world.places) {
       const has = this.residents.has(p.id);
       if (this.built.has(p.id) && !has) {
@@ -184,7 +216,7 @@ export class TownSim {
           ...makeActor(p.id, 'resident', p.spot, RESIDENT_SPEED),
           kind: 'resident',
           place: p,
-          wanderIn: 1.5 + this.rng() * 5,
+          wanderIn: 3 + this.rng() * 8,
           engaged: false,
         };
         // look towards the middle of town
@@ -206,6 +238,11 @@ export class TownSim {
 
   isBuilt(id: string): boolean {
     return this.built.has(id);
+  }
+
+  /** An empty lot shown as a construction site (one of the next to build): it can be clicked and built from the world. */
+  isSite(id: string): boolean {
+    return !this.built.has(id) && (this.sites === null || this.sites.has(id));
   }
 
   actor(id: string): Actor | null {
@@ -243,8 +280,9 @@ export class TownSim {
       const c = { x: at.x + d.x, y: at.y + d.y };
       if (!walkable(c, this.world)) continue;
       const steps = sameTile(c, from) ? 0 : findPath(from, c, this.world).length || Infinity;
-      // straight above or below on the screen the two would overlap: stand beside them unless that is much further
-      const len = steps + (d.x === d.y ? 2.5 : 0);
+      // straight above or below on the screen the two would overlap: stand beside them unless that is much further;
+      // and never on top of somebody else (two people in one spot read as one with two heads)
+      const len = steps + (d.x === d.y ? 2.5 : 0) + (this.crowded(c, id) ? 6 : 0);
       if (len < bestLen) {
         best = c;
         bestLen = len;
@@ -280,10 +318,24 @@ export class TownSim {
     for (const r of this.residents.values()) r.engaged = false;
   }
 
-  /** Hold a resident where they are (a conversation is open). */
+  /** Another resident (not `except`) stands on or next to this tile. */
+  private crowded(t: Tile, except: PlaceId): boolean {
+    for (const o of this.residents.values()) {
+      if (o.place.id === except) continue;
+      const at = o.path[o.path.length - 1] ?? o.tile;
+      if (Math.abs(at.x - t.x) <= 1 && Math.abs(at.y - t.y) <= 1) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Hold a resident where they are (a conversation is open; null = it closed). While it lasts nobody else strolls,
+   * and whoever stands close to the two steps aside, so the pair is never crowded.
+   */
   engage(id: PlaceId | null): void {
     this.release();
     const r = id ? this.residents.get(id) : null;
+    this.talking = r ? r.place.id : null;
     if (!r) return;
     r.engaged = true;
     if (r.path.length > 1) r.path.length = 1;
@@ -332,7 +384,7 @@ export class TownSim {
       if (d) p.path.push({ x: p.tile.x + d.x, y: p.tile.y + d.y });
       else face(p, p.x + this.held.x, p.y + this.held.y);
     }
-    advance(p, dt);
+    const stopped = advance(p, dt);
     if ((this.held.x !== 0 || this.held.y !== 0) && p.path.length === 0) {
       const d = slideStep(p.tile, this.held, this.world);
       if (d) {
@@ -341,6 +393,8 @@ export class TownSim {
       }
     }
 
+    // stopped with no key held: turn to the viewer (an errand to talk turns them to the resident just below)
+    if (stopped && p.path.length === 0 && this.held.x === 0 && this.held.y === 0) settle(p);
     let arrived: Arrival | null = null;
     if (this.errand && p.path.length === 0 && sameTile(p.tile, this.errand.target)) {
       const e = this.errand;
@@ -364,10 +418,16 @@ export class TownSim {
 
   private updateResident(r: Resident, dt: number): void {
     if (r.path.length > 0) {
-      advance(r, dt);
+      // the end of a little walk: they turn back to the viewer
+      if (advance(r, dt)) settle(r);
       return;
     }
     r.moving = false;
+    if (this.talking && this.talking !== r.place.id) {
+      if (r.wanderIn > 0 && r.wanderIn < 1) r.wanderIn = Math.max(0, r.wanderIn - dt);
+      this.keepClear(r);
+      return;
+    }
     const near = gridDistance(r.x, r.y, this.player.x, this.player.y) < 78;
     if (r.engaged || near) {
       // somebody is close: look at them and wait
@@ -376,9 +436,19 @@ export class TownSim {
     }
     r.wanderIn -= dt;
     if (r.wanderIn > 0) return;
-    r.wanderIn = 3 + this.rng() * 5;
-    // a tile or two around the spot where they wait, never onto a doorstep
+    // most of the time they stand by their door; a stroll is short and brings them back
+    r.wanderIn = 6 + this.rng() * 8;
     const home = r.place.spot;
+    // (sent further off during a conversation, they come all the way back)
+    const away = Math.max(Math.abs(r.tile.x - home.x), Math.abs(r.tile.y - home.y)) > 1;
+    if (!sameTile(r.tile, home) && (away || this.rng() < 0.7)) {
+      const back = findPath(r.tile, home, this.world);
+      if (back.length > 0 && (back.length <= 2 || away)) {
+        r.path = back;
+        return;
+      }
+    }
+    // a tile around the spot where they wait, never onto a doorstep
     const options: Tile[] = [];
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
@@ -391,7 +461,44 @@ export class TownSim {
     if (options.length === 0) return;
     const to = options[Math.min(options.length - 1, Math.floor(this.rng() * options.length))];
     const path = findPath(r.tile, to, this.world);
-    if (path.length > 0 && path.length <= 3) r.path = path;
+    if (path.length > 0 && path.length <= 2) r.path = path;
+  }
+
+  /**
+   * A conversation is going on: a resident within two tiles of either speaker walks off to the nearest tile at
+   * least three away from both (home when that is far enough), then waits there facing the viewer.
+   */
+  private keepClear(r: Resident): void {
+    const other = this.talking ? this.residents.get(this.talking) : null;
+    if (!other) return;
+    const pair = [this.player.path[this.player.path.length - 1] ?? this.player.tile, other.path[other.path.length - 1] ?? other.tile];
+    const gap = (t: Tile) => Math.min(...pair.map((p) => Math.max(Math.abs(p.x - t.x), Math.abs(p.y - t.y))));
+    if (gap(r.tile) > 2) return;
+    // nowhere to go last time: look again in a moment, not every frame
+    if (r.wanderIn > 0 && r.wanderIn < 1) return;
+    let best: Tile[] | null = null;
+    const home = r.place.spot;
+    if (gap(home) >= 3) {
+      const back = findPath(r.tile, home, this.world);
+      if (back.length > 0) best = back;
+    }
+    if (!best) {
+      for (let dy = -4; dy <= 4; dy++) {
+        for (let dx = -4; dx <= 4; dx++) {
+          const c = { x: r.tile.x + dx, y: r.tile.y + dy };
+          if (gap(c) < 3 || !walkable(c, this.world)) continue;
+          if (this.world.places.some((q) => sameTile(q.door, c))) continue;
+          const path = findPath(r.tile, c, this.world);
+          if (path.length > 0 && (!best || path.length < best.length)) best = path;
+        }
+      }
+    }
+    if (best) {
+      r.path = best;
+      r.wanderIn = 3 + this.rng() * 4;
+    } else {
+      r.wanderIn = 0.9;
+    }
   }
 
   private updateCat(c: Cat, dt: number): void {

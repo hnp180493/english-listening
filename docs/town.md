@@ -14,7 +14,7 @@ Two halves, with a hard line between them:
 | | Owns | Files |
 | --- | --- | --- |
 | **Engine** (pure, tested, no drawing) | rules, numbers, stored progress, sync merge, what a line pays, what can be bought, which lines are said, the three meanings | `src/core/town/{types,progress,economy,daily,visit,overview,store}.ts`, `src/data/town.ts` |
-| **Shell** (the game on screen, §7) | the world layout (tiles, where each place and decoration stands), walking, drawing (Canvas 2D / DOM, no assets, no new dependency), the conversation panel, the build panel, celebrations, sound effects, all UI text | `src/data/townWorld.ts`, `src/core/town/map.ts`, `src/features/town/` |
+| **Shell** (the game on screen, §7) | the world layout (tiles, where each place and decoration stands), walking, drawing (Canvas 2D / DOM with rendered sprites, §7 "The art"; no runtime dependency), the conversation panel, the build panel, celebrations, sound effects, all UI text | `src/data/townWorld.ts`, `src/core/town/map.ts`, `src/features/town/` |
 
 The shell never decides a number and never writes the town's progress: it calls the store (§6) and draws what the
 overview (§5) says. The only thing it stores itself is this browser's own `town-ui` (sound on/off, welcome seen:
@@ -272,26 +272,104 @@ closes), `build=<placeId | 1>` opens the build panel (on that lot).
 | File | What it is |
 | --- | --- |
 | `TownPage.tsx` | the page: wires the store to the stage, owns "a conversation is open / the build panel is open", plays the celebrations |
-| `engine/` | the world on ONE canvas (`TownStage` + `TownEngine`): isometric town, walking (click, tap, arrows / W A S D), camera, day and night palettes, particles, the art. No game rule in it |
-| `TownHud.tsx` | what floats over the town: the title with its xp bar (top-left); streak (from 2 days), xu, "Việc hôm nay" (shared `Popover`), "Xây", sound on/off (top-right; on a phone the three buttons go down the right edge) |
-| `Conversation.tsx` | the panel over the bottom of the stage: five lines, then the result card |
+| `engine/` | the world on ONE canvas (`TownStage` + `TownEngine`): isometric town, walking (click, tap, arrows / W A S D), camera, day and night, particles; `sprites.ts` draws the rendered art (night tint included), `draw/` only what is still code (sky, ducks, fireflies, tags, emotes, particles). No game rule in it |
+| `art/` | the rendered pictures (§7 "The art"): WebP atlases, generated manifests (`characters.data.ts`, `world.data.ts`), their loaders (`characters.ts`, `world.ts`, `load.ts`), the cast (`cast.ts`), `LICENSE-kenney.txt` |
+| `useTownArt.ts` | loads the pictures once per session: `loading` / `ready` / `error` + `retry` |
+| `TownHud.tsx` | what floats over the town: the title with its xp bar (top-left); streak (from 2 days), xu, "Việc hôm nay" (shared `Popover`), "Xây", sound on/off, "Toàn màn hình" (top-right; on a phone the four buttons go down the right edge) |
+| `Conversation.tsx` | the conversation panel (docked right on a stage ≥ 900 px wide, over the bottom below that): five lines, then the result card |
 | `BuildSheet.tsx` | "Công trình" (empty lots) and "Trang trí": a side sheet on a wide stage, a bottom sheet under 720px |
 | `shellModel.ts` (tested) | the shell's own small decisions: what the stage is told, whom to suggest, the verdict words, the result sums, the labels |
 | `sfx.ts` | sound effects as short Web Audio tones (no files) |
 | `townUi.ts` | `KEYS.townUi` (`town-ui`, device-local): `{ sound, welcomed }` |
-| `art.tsx`, `engine/thumb.ts` | game pictures drawn as DOM: coin, hearts, a resident's portrait, the thumbnails of the build panel (painted by the same code as the world) |
+| `art.tsx`, `engine/thumb.ts` | game pictures as DOM: coin, hearts, a person's rendered portrait (neutral / happy), the thumbnails of the build panel (the same sprites as the world) |
 | `useLinePlayer.ts` | playback of one line: exactly what Chép chính tả sends (§2 Audio) |
 
 **The town.** The stage is as tall as the window allows. Clicking a resident (or their house) walks there and starts
-the conversation; clicking an empty lot walks to its gate and opens the build panel on it; E / Enter / Space acts on
+the conversation; clicking a lot on offer (a construction site, see "Lots on offer" below; any other lot is ground)
+walks to its gate and opens the build panel on it; E / Enter / Space acts on
 whoever the player stands beside, and with nobody near walks to the suggested resident. One primary button sits at
 the bottom of the stage and always offers the next thing: "Bắt chuyện với Emma" beside a resident, "Xây Cửa hàng ·
-30 xu" at a lot's gate, otherwise "Tới gặp Leo" (`suggestedPlace`: lines not understood yet first, the least known
+30 xu" at the gate of a lot on offer, otherwise "Tới gặp Leo" (`suggestedPlace`: lines not understood yet first, the least known
 place first). The first visit shows one welcome bubble from Leo (closed for good by its ✕, by a conversation or by
 opening the build panel).
 
-**A conversation** happens in the world: the camera leans in on the resident (`focusOn`), the town dims around the
-two of them, and the panel slides up. Before the answer nothing is written: a bubble with moving bars (in the panel
+**Names over heads.** Not everybody, all the time: a name tag shows over the resident the main button suggests
+(`hint`), whoever is under the pointer or near the player (`NAME_NEAR`), the player ("Bạn") and the lots on offer;
+in a conversation nobody has a tag (the panel says who it is), only the speaking bubble. The marker over a tag
+("!", "…", a heart) comes with it. Tags are placed most important first and never cover one another
+(`placeTags` in `draw/overlay.ts`, tested); they stay out of the stage's edges and of what the HUD and the panels
+cover (`safe`, measured on the page by `useStageInsets`); a person too near the top gets the tag under the feet,
+without its marker. Somebody off the stage has no tag.
+
+**The camera.** It follows the player and, while the suggested resident is close enough, frames the two of them
+together. It keeps to the island: the view's corners may show a little sky, never a wedge of it (`Camera.island`),
+and never at the price of losing the player. What it looks at goes to the middle of what the HUD and a panel leave
+free (on a phone the column of buttons down the right edge counts too). With the build panel open it shows the lot
+the panel is about (the one clicked, else the cheapest on offer). In full screen on a big screen it zooms out to
+the whole built town (`builtFit`, never below 0.62 of the resting zoom).
+
+**Lots on offer** (`lotsOnOffer` in `shellModel.ts`, tested): only the next `LOTS_ON_OFFER` (3) lots the learner can
+work toward stand in the world as construction sites (fence, cones, wooden frame) with their price over them: the
+cheapest ones not built yet, ties in the listed order. Building one brings the next one up. Every other lot is a
+corner of nature (a tree or two, a bush, a stone: `lotNature` in `art/world.ts`, the same every time): no fence,
+no sign, no price, nothing to click or hover (`pick.ts` skips it, and the "Xây" prompt at its gate does not come
+up). Its footprint stays blocked for walking, as before. The build panel still lists every lot, so any lot can be
+built in any order; the hidden keyboard list keeps one button per lot too.
+
+**Toàn màn hình.** The last HUD button (Maximize2 / Minimize2, "Toàn màn hình" / "Thu nhỏ") puts the stage over the
+whole window: the Fullscreen API on the stage's own box when the browser has it (it hides the browser's bars), and
+always a fixed overlay through CSS (`.town-stage.is-full`; the page under it does not scroll), which is all an
+iPhone gets. The HUD, the conversation, the build panel and the popover of "Việc hôm nay" are all inside the stage,
+so they work there. Esc leaves (the browser's own Esc for the API; ours for the overlay, but only when no panel is
+open: Esc closes the conversation or the build panel first); focus stays on the button. While full screen is on,
+everything outside the stage (nav, page header, "Thị trấn này để làm gì?", the skip link) is `inert`
+(`inertOutside.ts`, tested), so Tab and a screen reader's cursor stay in the town; focus moves to the canvas when it
+was outside. The overlay keeps its HUD, prompt, panels and toast clear of a phone's notch, status bar and home
+indicator (`env(safe-area-inset-*)`, as `viewport-fit=cover` lets the stage reach under them). The choice is kept for
+the session only (a module variable: going to another page and back keeps it, a reload does not; coming back never
+re-enters the Fullscreen API without a click, only the overlay).
+
+**Loading.** The pictures (§7 "The art") load once per session and stay in memory across visits of the page. Until
+they are there the stage shows its sky with one calm pill, "Đang dựng thị trấn…"; the prompt and the welcome
+bubble wait. A failed image shows "Không tải được hình của thị trấn. Kiểm tra mạng rồi thử lại nhé." (opened from
+disk: the "art" folder must sit next to the HTML) with "Thử lại" (the loaders forget a failed attempt, so it really
+tries again). Never a blank or broken canvas. Until the pictures are there the town is on hold: the stage takes no
+keys or clicks, the hidden action list is disabled, the HUD "Xây" does nothing yet, and a conversation or build panel asked for by
+a link (`?talk=`, `?build=`) opens only once they load, so "Thử lại" is the screen's one primary button and no
+conversation runs over an empty sky.
+
+**People.** Every person is a sprite with idle (breathing) and walk loops in eight directions (five rendered, three
+mirrored): the direction is the step being walked (`heading` in `sim.ts`). Nobody rests with their back to the
+viewer (with these blocky heads a back view is a box of hair): standing, a person turns three-quarters towards the
+viewer on the side of whatever they look at (`face`), and at the end of any walk (`settle`; the player too once no
+key is held), so in a conversation the two face each other and the viewer. Residents stand by their door most of
+the time (a stroll every 6–14 s, at most two tiles, usually back home). The walk cycle follows the walk phase, so
+the feet do not slide. Short animations played once (`act`): the player waves when a conversation starts, the
+resident nods after a right answer and shakes their head after a wrong one. People stand about a ninth of the stage
+tall (`baseZoom`: the stage height / 460, bounded by the width on a tall phone, 0.8…1.8). Whatever stands in front
+of a person (a tree, a lamp, a house, the bus) is drawn see-through over them (`COVER_ALPHA`), so nobody disappears.
+A resident standing still always shows a face (the engine turns a back or side view to three-quarters front). The
+player is a hatless young man with fair hair, glasses, blue dungarees and bare hands (Kenney `male-e`, recoloured in
+`cast.ts`; the gloves are repainted to skin by `MODEL_FIXES` in `scripts/town-art/render.mjs`), not like anybody in
+town, Leo least of all; Sam at the bus stop is Kenney's officer
+recoloured into a traveller (an orange cap without its badge). The conversation panel shows the resident's rendered
+portrait at 88 px (56 px on a phone), smiling after a right answer.
+
+**A conversation** happens in the world: the camera frames the two (`focusOn`, `frameTalk`): both whole, head to
+feet with room for the bubble, in the part of the stage the panel and the counters along the top leave free, about
+half its height when there is room, never past 2.75 device px per world px (`SHARP_DEVICE_PX`: the people's
+atlases hold 2.5) and never so big that one is cut off; the camera then ignores the island's edge (`Camera.loose`).
+The town dims a little around them (less at night) and the pair is drawn again over everything. While it lasts
+nobody else strolls; a resident within two tiles of either walks off to three tiles or more (home when that is far
+enough) and comes home afterwards (`keepClear` in `sim.ts`); a small thing in front of them or poking up at their
+feet (a lamp's head) goes see-through. The player never walks up to stand where somebody else stands
+(`walkToResident`, and `talkStartTile` for a linked conversation). The panel comes in. On a stage at least 900 px wide (a container query on the stage, so full screen
+counts) it docks to the right like the build panel, as tall as what it holds, and the two stand in the town on the left; below
+that it covers the bottom but always leaves a strip of about 170 px above it where the camera frames them, so the
+nod, the shake and the coins are seen on a phone too. What does not fit scrolls inside the panel with "Câu tiếp"
+kept in view at its foot, and after an answer the panel scrolls the right meaning into view above it; on a phone
+the review-time line is left out, and after a miss "Chưa phải…", the "Nghe lại" icon and "Rõ từng từ" share one row.
+The five progress steps sit on their own line under the name, so the place name never breaks. The hearts row shows only once the first heart is won. Before the answer nothing is written: a bubble with moving bars (in the panel
 and over the resident's head) while the line sounds, "Nghe lại" and "Chậm" (still connected), three reply cards under
 "<name> vừa nói gì?" (keys 1 2 3). The line plays by itself about 0.7 s after the panel opens (`auto`: never a paid
 request, and counted as a listen only when it really sounds); until something has sounded the cards are disabled and
@@ -300,17 +378,21 @@ picked one stay), the resident reacts (heart for a first listen on a new line, s
 for wrong), "+N" rises over their head and coins fly to the xu counter, which counts up; the bubble shows the
 sentence the way dictation shows a checked one (`SpokenSentence` compact + "Nghe lại" + a quiet "Rõ từng từ"), the
 muted Ôn tập line for an enrolled miss, a line for a daily task just paid or a new title (both with confetti). One
-primary button: "Câu tiếp" / "Xem kết quả" (Enter). The result card: how many lines were understood, the xu with one
-short line each for the lines, the perfect-conversation bonus and every task paid, first listens on new lines, the
+primary button: "Câu tiếp" / "Xem kết quả" (Enter). The result card: how many lines were understood, the xu (with one
+short line each for the lines, the perfect-conversation bonus and every task paid, only when more than one paid), first listens on new lines, the
 hearts won, a new title; "Về thị trấn" (primary) and "Nói chuyện tiếp". Esc or ✕ leaves at any time: the audio stops,
 answered lines are already saved.
 
-**Building.** A row per lot (thumbnail, name, "<resident> · <topic>" or "còn thiếu N xu", price) and per decoration.
+**Building.** A row per lot (thumbnail, name, "<resident> · <topic>" or "còn thiếu N xu", price) and per decoration
+still to buy; the decorations already bought are folded under one closed "Đã có trong thị trấn · N". With nothing
+left to buy the panel says "Thị trấn đã xây đủ hết rồi." (never "Chưa đủ xu…"). The string lights' thumbnail is drawn
+as two poles with a sagging string of bulbs (the whole string shrinks to a dotted line).
 Exactly one row button is `.btn-primary` (`primaryBuy`: the lot that was clicked when it can be paid, else the
 first affordable thing). Buying calls `buyTownItem`, then the stage `celebrate(id)`: the camera travels to the
 spot, dust rises, the thing pops out of the ground with sparkles (a place also gets confetti and its resident), the
-camera comes back; the xu counter ticks down and a toast says what was built. On a narrow stage the sheet closes so
-the new thing can be seen.
+camera comes back; the xu counter ticks down and, when the thing appears, a toast says what was built. On a narrow
+stage the sheet is half the stage high (the lot stays in sight above it, the HUD keeps only "Xây") and closes on a
+buy so the new thing can be seen.
 
 **Sound.** `coin`, `right`, `first`, `wrong`, `build`, `pop`, `level`, `task`: sine / triangle tones under a
 second (the level-up a little longer), master gain 0.16. Never over English: `playSfx` is refused while any speech
@@ -325,17 +407,57 @@ one polite live region; the build panel is a `role="dialog"` that returns focus 
 `ShortcutsHelp`.
 
 **Theme and motion.** Day in the light theme, night in the dark one (`Settings.theme`, the system scheme when it is
-"system"). Under reduced motion: no camera travel, no particles, no pop, the xu count changes at once; emotes and the
-"+N" stand still for a moment instead of rising.
+"system"). The art is lit for daylight; night multiplies the world by a dusk blue (`NIGHT_TINT` in
+`engine/sprites.ts`) and the people by a lighter one (`PEOPLE_NIGHT_TINT`, so faces read away from the lamps), then
+lays 30% of each picture's own colour back with a 'color' blend (`NIGHT_KEEP_COLOUR`: blossom stays pink, grass
+green, not one lavender wash). The world's atlases are
+tinted whole while the browser is idle as soon as night is on (`prepareNight`), so the first night frames do not
+stall; a person's frame is tinted the first time it is drawn; all of it is dropped back in the day (the ground is
+tinted in place each frame). The "lit" layers are warmed to amber (`LIT_WARM`) and painted over the body, then added
+once more so they glow: a place's windows at `windowGlow(lit)` (a faint glow from the first day, full when every line
+is understood), lamps, the stall, the construction lights and the string lights at full. Every lamp lays a warm pool
+of light on the ground and a faint glow over whoever stands in it (`lampLights` in `scene.ts`); the string lights a
+wide faint one over the plaza. The pools are an amber 'color-dodge', which gives the ground under a lamp its own
+colours back, warmed, instead of a pale haze. Shadows are softer at night; fireflies by night (no butterflies by day:
+at the game's zoom they read as stray pixels). Under reduced motion: no camera travel, no particles, no pop, the xu count changes at once;
+people hold one still frame (no breathing, no walk cycle, no nod / shake / wave); emotes and the "+N" stand still
+for a moment instead of rising.
 
-What the stage offers the shell beyond the first engine (`TownStageHandle` / props): `focusOn`, `emote`, `burst`,
-`walkTo`, `pointOf`, `float(target, text)`, `celebrate(id)`, `focus()`, `rect()`; props `speaking` (the bubble
+**The art.** Kenney's CC0 packs (Mini Characters, City Kit Suburban, City Kit Roads; licences in
+`src/features/town/art/LICENSE-kenney.txt`) rendered offline by `scripts/town-art` (`npm run art:town`, about 25 s;
+`-- --part world` or `-- --part characters` for one half; `scripts/town-art/README.md`) through the game's own
+orthographic 2:1 camera, with one light, outline and colour filter, into WebP atlases and generated manifests. Only
+the rendered images are in the repo; the 3D files stay in the git-ignored `art-src/kenney/`. Sizes: people 4.45 MB (14
+atlases of 106 frames: idle, walk, nod, shake, wave; 2.5 px per world px, WebP quality 0.74) + portraits 137 KB + a
+shared contact shadow;
+world 0.9 MB (places, lots, nature, decorations, the cat, the bus, light and shadow layers at 3 px per world px, and
+the whole ground as one picture at 2 px). The game adds a few touches at draw time: the bus is drawn 1.3× (`BUS_SCALE`:
+it must look like it holds people) and only once the bus stop is built (it pops in with it; its two tiles stay
+blocked either way); a street lamp can be mirrored (`DecorSpot.flip`) so its arm reaches over the path beside it
+(tested in `townWorld.test.ts`); the flags show their pole and pennant only (`flagClip`), the rendered bunting pegged
+to the ground read like a fallen tent. All 22 WebP files together: 5,496,718 bytes (about 5.5 MB / 5.2 MiB: people
+atlases 4.45 MB, portraits 0.14 MB, world 0.9 MB). In the web build they are hashed /assets/ files that the service
+worker does NOT precache: it stores them in their own cache (`nghe-noi-am-art`) the first time the town draws them,
+keeps that cache across deploys (a picture's hashed name changes only with its content) and drops pictures the
+current build no longer has. The portable build does not inline them either: `npm run portable` copies them to
+`<out>/art/` next to the HTML (only new or changed files; an earlier build's pictures are removed, nothing else),
+and the code loads them as `./art/<file>` (an `<img>` loads a sibling file on file://). Credit, one muted line in "Thị trấn này để làm gì?": "Hình nhân vật và nhà cửa: Kenney
+(kenney.nl), giấy phép CC0."
+
+What the stage offers the shell beyond the first engine (`TownStageHandle` / props): `focusOn`, `emote`, `act(target,
+'yes' | 'no' | 'wave')`, `burst`, `walkTo`, `pointOf` (the top of the sprite's head), `float(target, text)`,
+`celebrate(id)`, `focus()`, `box()`, `rect()`; state `sites` (the lots on offer); props `speaking` (the bubble
 with bars over a resident), `inset` (pixels a panel covers at the right / bottom: the camera centres in the rest),
-`onIdleAct`.
+`safe` (what the HUD covers along each edge: no tags there, the camera centres in the rest), `hint` (the suggested
+resident), `peek` (the lot the build panel is about), `full`, `onIdleAct`.
 
-Not there (know it before you promise it): no walking sound, no music; no pinch or wheel zoom; the conversation panel
-can cover the two characters on a short phone after the answer; the build animation is skipped entirely under
-reduced motion; nothing was checked by ear or on a real phone (see AGENTS.md §9).
+Not there (know it before you promise it): no walking sound, no music; no pinch or wheel zoom; on a phone shorter
+than about 640 px the strip above the conversation is thin (the panel scrolls); the bus does not drive in, it pops
+up with the bus stop; the player wears no hard hat when building; the build animation is skipped entirely under
+reduced motion; balloons, flags, the fountain and the string bulbs are still pictures (no sway, no twinkle); offline,
+the town works only after one online visit to it (its pictures, about 5.5 MB, are cached on first use, not at
+install: every other page works offline after the first visit of the app); nothing was checked by ear or on a real
+phone (see AGENTS.md §9).
 
 ## 8. Honest limits
 

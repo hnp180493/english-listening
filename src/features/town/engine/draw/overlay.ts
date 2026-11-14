@@ -12,12 +12,26 @@ export type EmoteKind = 'heart' | 'sparkle' | 'question' | 'coins';
 /** How long an emote stays, in seconds. */
 export const EMOTE_SECONDS = 1.5;
 
+/**
+ * The sky, drawn BEHIND what is already on the canvas (the engine sets 'destination-over' first: the island keeps
+ * its own outline). So the nearest layer comes first: clouds, then stars, then the gradient at the very back.
+ */
 export function drawSky(ctx: CanvasRenderingContext2D, w: number, h: number, pal: TownPalette, t: number, still: boolean): void {
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, pal.skyTop);
-  grad.addColorStop(1, pal.skyBottom);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, w, h);
+  // soft shapes drifting by: clouds by day, a faint haze at night
+  for (let i = 0; i < 5; i++) {
+    const speed = still ? 0 : 3 + hash(i, 6) * 4;
+    const span = w + 320;
+    const x = ((hash(i, 7) * span + t * speed) % span) - 160;
+    const y = (0.08 + hash(i, 8) * 0.84) * h;
+    const s = 0.7 + hash(i, 9) * 0.8;
+    ctx.fillStyle = pal.cloud;
+    ctx.beginPath();
+    for (const [dx, dy, rx, ry] of [[0, 0, 60, 16], [-34, 6, 36, 12], [38, 5, 42, 13], [6, -10, 34, 14]] as const) {
+      ctx.moveTo(x + dx * s + rx * s, y + dy * s);
+      ctx.ellipse(x + dx * s, y + dy * s, rx * s, ry * s, 0, 0, Math.PI * 2);
+    }
+    ctx.fill('nonzero');
+  }
   if (pal.night) {
     for (let i = 0; i < 70; i++) {
       const x = hash(i, 1) * w;
@@ -28,20 +42,11 @@ export function drawSky(ctx: CanvasRenderingContext2D, w: number, h: number, pal
     }
     ctx.globalAlpha = 1;
   }
-  // soft shapes drifting by: clouds by day, a faint haze at night
-  for (let i = 0; i < 5; i++) {
-    const speed = still ? 0 : 3 + hash(i, 6) * 4;
-    const span = w + 320;
-    const x = ((hash(i, 7) * span + t * speed) % span) - 160;
-    const y = (0.08 + hash(i, 8) * 0.84) * h;
-    const s = 0.7 + hash(i, 9) * 0.8;
-    ctx.fillStyle = pal.cloud;
-    for (const [dx, dy, rx, ry] of [[0, 0, 60, 16], [-34, 6, 36, 12], [38, 5, 42, 13], [6, -10, 34, 14]] as const) {
-      ctx.beginPath();
-      ctx.ellipse(x + dx * s, y + dy * s, rx * s, ry * s, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, pal.skyTop);
+  grad.addColorStop(1, pal.skyBottom);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
 }
 
 /** Darker corners at night, so the lit middle of the town draws the eye. */
@@ -295,4 +300,54 @@ export function drawParticles(ctx: CanvasRenderingContext2D, list: readonly Part
     }
   }
   ctx.globalAlpha = 1;
+}
+
+/** The size of a name tag for `text` (the marker over it not included), CSS px. */
+export function tagSize(ctx: CanvasRenderingContext2D, text: string, font: string): { w: number; h: number } {
+  ctx.font = `600 13px ${font}`;
+  return { w: Math.ceil(ctx.measureText(text).width) + 16, h: 21 };
+}
+
+/** A tag to place: centred on `x`, bottom edge at `y`; `above` = room it needs over itself (its marker). */
+export interface TagBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  above: number;
+  /**
+   * Where the tag may go instead when there is no room above (a person near the top of the stage): the bottom edge
+   * of a tag under their feet. It then goes without its marker (`below` is set).
+   */
+  alt?: number;
+  below?: boolean;
+}
+
+/**
+ * Move tags so that none covers another and all stay inside the free part of the stage. Tags are taken in the order
+ * given (the most important first) and keep their place; a later one that would cover them moves up (or, with no
+ * room above, down). Mutates and returns the list.
+ */
+export function placeTags(tags: TagBox[], area: { x0: number; y0: number; x1: number; y1: number }): TagBox[] {
+  const placed: TagBox[] = [];
+  const hits = (a: TagBox, b: TagBox) =>
+    Math.abs(a.x - b.x) < (a.w + b.w) / 2 + 4 && a.y - a.h - a.above < b.y + 2 && b.y - b.h - b.above < a.y + 2;
+  for (const t of tags) {
+    t.x = Math.min(area.x1 - t.w / 2, Math.max(area.x0 + t.w / 2, t.x));
+    if (t.alt !== undefined && t.y < area.y0 + t.h + t.above - 8) {
+      // no room over the head: under the feet, without the marker (it would sit on the face)
+      t.y = t.alt;
+      t.above = 0;
+      t.below = true;
+    }
+    t.y = Math.min(area.y1, Math.max(area.y0 + t.h + t.above, t.y));
+    for (let i = 0; i < 6; i++) {
+      const other = placed.find((p) => hits(t, p));
+      if (!other) break;
+      const up = other.y - other.h - other.above - 3;
+      t.y = up - t.h - t.above >= area.y0 ? up : other.y + t.h + t.above + 3;
+    }
+    placed.push(t);
+  }
+  return tags;
 }
