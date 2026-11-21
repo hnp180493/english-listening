@@ -31,24 +31,25 @@ describe('town-ui (this browser only)', () => {
     expect(isDeviceLocalKey(KEY)).toBe(true);
   });
 
-  it('sound is on and the welcome not yet seen by default', async () => {
+  it('sound and greetings are on and the welcome not yet seen by default', async () => {
     const ui = await fresh();
-    expect(ui.getTownUi()).toEqual({ sound: true, welcomed: false });
-    expect(DEFAULT_TOWN_UI).toEqual({ sound: true, welcomed: false });
+    expect(ui.getTownUi()).toEqual({ sound: true, welcomed: false, greet: true, hi: {}, said: {} });
+    expect(DEFAULT_TOWN_UI).toEqual({ sound: true, welcomed: false, greet: true, hi: {}, said: {} });
   });
 
   it('a change is stored and survives a reload; the other field is kept', async () => {
     const ui = await fresh();
     ui.setTownUi({ sound: false });
-    expect(JSON.parse(map.get(KEY)!)).toEqual({ sound: false, welcomed: false });
+    expect(JSON.parse(map.get(KEY)!)).toEqual({ sound: false, welcomed: false, greet: true, hi: {}, said: {} });
     ui.setTownUi({ welcomed: true });
     const again = await fresh();
-    expect(again.getTownUi()).toEqual({ sound: false, welcomed: true });
+    expect(again.getTownUi()).toEqual({ sound: false, welcomed: true, greet: true, hi: {}, said: {} });
   });
 
   it('reads junk as the defaults', () => {
     for (const junk of [null, 7, 'x', [], { sound: 'yes', welcomed: 1 }, { extra: true }]) expect(parseTownUi(junk)).toEqual(DEFAULT_TOWN_UI);
-    expect(parseTownUi({ sound: false, welcomed: true, more: 1 })).toEqual({ sound: false, welcomed: true });
+    expect(parseTownUi({ sound: false, welcomed: true, more: 1 })).toEqual({ sound: false, welcomed: true, greet: true, hi: {}, said: {} });
+    expect(parseTownUi({ greet: false, hi: { cafe: { id: 'cafe-hi-02', at: 5 }, 'Bad Id': { id: 'x', at: 1 }, home: { id: 'home-hi-01', at: -1 } } })).toEqual({ sound: true, welcomed: false, greet: false, hi: { cafe: { id: 'cafe-hi-02', at: 5 } }, said: {} });
   });
 
   it('keeps the choice for the session when storage refuses the write', async () => {

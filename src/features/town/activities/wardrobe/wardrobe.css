@@ -1,0 +1,161 @@
+/* "Tủ đồ" (activities/WardrobePanel.tsx). Tokens only; the pictures are the town's 3D models drawn on small canvases (three/loot3d.ts). */
+
+.town-wd {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.town-wd-preview {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.town-wd-preview-canvas {
+  display: block;
+  max-width: 100%;
+}
+.town-wd-title-worn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-wd-title-worn > .icon {
+  color: var(--warn);
+}
+
+.town-wd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-wd-tile {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  min-height: 128px;
+  padding: var(--space-2) var(--space-1);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+button.town-wd-tile:hover {
+  background: var(--surface-3);
+}
+.town-wd-tile.is-on {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.town-wd-tile.is-locked {
+  cursor: default;
+}
+.town-wd-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.town-wd-tile.is-locked .town-wd-name {
+  color: var(--text-subtle);
+}
+.town-wd-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+.town-wd-on {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.town-wd-none-pic {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--border-strong);
+  background: linear-gradient(135deg, transparent 47%, var(--border-strong) 47%, var(--border-strong) 53%, transparent 53%);
+  transform: scale(0.6);
+}
+
+.town-wd-titles {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-wd-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.town-wd-row:hover {
+  background: var(--surface-2);
+}
+.town-wd-row.is-on {
+  background: var(--accent-soft);
+}
+.town-wd-row.is-on > .icon {
+  color: var(--accent);
+}
+.town-wd-row.is-locked {
+  cursor: default;
+  color: var(--text-subtle);
+}
+.town-wd-row-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-wd-row-from {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+.town-wd-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-wd-hint > .icon {
+  flex: none;
+  margin-top: 2px;
+}

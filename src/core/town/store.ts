@@ -2,25 +2,50 @@
 //   recordTownAnswer(line, outcome)   one answered line, recorded and paid everywhere it counts
 //   startTownConversation(placeId) / finishTownConversation()   a conversation of five lines and what it came to
 //   buyTownItem(id)                   build an empty lot or buy a decoration with xu
+// The game loops (fishing, the farm, eggs, the wardrobe, the album) have their own calls in ./gameStore.
+//
+// Every write is settled first (./unlocks settleTown): the eggs the listening has earned are granted and the
+// achievements / town projects reached are recorded. What a write newly unlocked is queued for the shell to
+// celebrate (townCelebrations / useTownCelebrations / clearTownCelebrations), whichever call made it.
 //
 // Like core/benchmark and core/listening, nothing is read at import time and every read compares the raw stored
 // string, so data replaced by folder sync, a restore or another tab is picked up without a boot step in main.tsx.
 
 import { useMemo, useSyncExternalStore } from 'react';
 import { placeLines, placeOfLineId, townPlace } from '../../data/town';
+import { achievement, townProject } from '../../data/townGame';
 import { deviceId } from '../history';
 import { ensureReconciled, readReviewStore, recordReview, type RecordResult } from '../review/api';
 import { makeCardId } from '../review/ids';
 import { recordAttempt } from '../stats';
 import { KEYS, loadJSON, onAppWrite, saveJSON, STORAGE_PREFIX } from '../storage';
-import type { TaskPayout } from './daily';
-import { applyAnswer, applyConversation, balance, buy, isBuilt, placeHearts, townLevel, type BuyRefusal, type TownItem, type TownLevel } from './economy';
-import { placeStats, townOverview, type TownOverview } from './overview';
+import { fixDayTasks, type TaskPayout } from './daily';
+import { applyAnswer, applyConversation, balance, buy, townLevel, type BuyRefusal, type TownItem, type TownLevel } from './economy';
+import { townOverview, type TownOverview } from './overview';
 import { applyEpisodeFinish, applyEpisodeGist, daysUntilRelisten, episodeDueDay, gistChoices, nextEpisode, speakerName, storyChoices, type EpisodeMode } from './episodes';
-import { emptyTownProgress, episodeProgress, lineProgress, mergeTownProgress, parseTownProgress, townDay, type LineBest, type TownProgress } from './progress';
-import type { StoryEpisode, StorySpeaker } from './story';
-import { episodeTownLines, storyLineById } from './storyLines';
+import { choiceOf, emptyTownProgress, episodeProgress, knowsFact, lineProgress, mergeTownProgress, parseTownProgress, townDay, type LineBest, type TownProgress } from './progress';
+import {
+  allHearts,
+  applyChatFriendship,
+  applyHello,
+  buyGift,
+  friendHearts,
+  friendPoints,
+  giftInHand,
+  giveGift,
+  heartCheer,
+  metToday,
+  recordChoice,
+  settleFacts,
+  storyFact,
+  type GiftRefusal,
+  type GiftTaste,
+} from './friendship';
+import { EGG_GRANT_LABEL, grantKind } from './eggs';
+import type { FactId, StoryEpisode, StoryLine, StorySpeaker } from './story';
+import { resolveEpisode, storyLineById, storyTownLine } from './storyLines';
 import { VISIT_SIZE, type LineOutcome, type TownLine, type TownPlace } from './types';
+import { settleTown, type TownReviewFacts } from './unlocks';
 import { choiceSeed, choicesFor, conversationLines, visitSummary, type LineChoices, type VisitSummary } from './visit';
 
 /** Set only while the last save failed (blocked or full storage): this session's progress lives here. */
@@ -70,15 +95,123 @@ export function loadTownProgress(): TownProgress {
   return cacheValue;
 }
 
-/**
- * Save `next` (built from what loadTownProgress returned just now, so another tab's changes are kept). false:
- * storage refused the write and the change counts for this session only.
- */
-function write(next: TownProgress): boolean {
-  const saved = saveJSON(KEYS.town, next);
-  session = saved ? null : next;
+// ───────────────────────── celebrations ─────────────────────────
+
+/** Something a write newly unlocked, for the shell to celebrate once. */
+export interface TownCelebration {
+  /** Unique: 'achievement:<id>', 'project:<id>', 'egg:<grant id>', 'friend:<placeId>:<hearts>'. */
+  key: string;
+  kind: 'achievement' | 'project' | 'egg' | 'friend';
+  /** The achievement / project / grant id; for 'friend' the resident's place id. */
+  id: string;
+  /** Vietnamese, shown as it is ("Thành tích mới: Tai thính"). */
+  label: string;
+  /** One more line: the title it unlocks, the decoration a project adds, why the egg came. */
+  detail: string;
+}
+
+let celebrations: readonly TownCelebration[] = [];
+const MAX_CELEBRATIONS = 40;
+
+function celebrationOf(kind: TownCelebration['kind'], id: string): TownCelebration | null {
+  if (kind === 'achievement') {
+    const a = achievement(id);
+    return a ? { key: `achievement:${id}`, kind, id, label: `Thành tích mới: ${a.name}`, detail: `Danh hiệu “${a.title}”` } : null;
+  }
+  if (kind === 'project') {
+    const p = townProject(id);
+    return p ? { key: `project:${id}`, kind, id, label: `Dự án xong: ${p.name}`, detail: `Danh hiệu “${p.title}”` } : null;
+  }
+  const g = grantKind(id);
+  return g ? { key: `egg:${id}`, kind, id, label: 'Được tặng một quả trứng', detail: EGG_GRANT_LABEL[g] } : null;
+}
+
+/** A new friendship heart with a resident (one celebration for the highest heart a write reached). */
+function friendCelebrations(before: Readonly<Record<string, number>>, after: Readonly<Record<string, number>>): TownCelebration[] {
+  const out: TownCelebration[] = [];
+  for (const id of Object.keys(after)) {
+    const a = after[id] ?? 0;
+    const b = before[id] ?? 0;
+    if (a <= b) continue;
+    const words = heartCheer(id, b, a);
+    out.push({ key: `friend:${id}:${a}`, kind: 'friend', id, label: words.label, detail: words.detail });
+  }
+  return out;
+}
+
+function queueCelebrations(unlocked: readonly string[], granted: readonly string[], friends: readonly TownCelebration[] = []): TownCelebration[] {
+  const fresh: TownCelebration[] = [...friends];
+  for (const id of unlocked) {
+    const c = celebrationOf(achievement(id) ? 'achievement' : 'project', id);
+    if (c) fresh.push(c);
+  }
+  for (const id of granted) {
+    const c = celebrationOf('egg', id);
+    if (c) fresh.push(c);
+  }
+  if (fresh.length > 0) {
+    const known = new Set(celebrations.map((c) => c.key));
+    celebrations = [...celebrations, ...fresh.filter((c) => !known.has(c.key))].slice(-MAX_CELEBRATIONS);
+  }
+  return fresh;
+}
+
+/** What is waiting to be celebrated (oldest first). Stable while nothing changes: safe as a snapshot. */
+export function townCelebrations(): readonly TownCelebration[] {
+  return celebrations;
+}
+
+/** Celebrated: drop these keys (all of them without an argument). */
+export function clearTownCelebrations(keys?: readonly string[]): void {
+  const next = keys ? celebrations.filter((c) => !keys.includes(c.key)) : [];
+  if (next.length === celebrations.length) return;
+  celebrations = next;
   notify();
-  return saved;
+}
+
+/** Live list of what waits to be celebrated (page state of this tab: a reload forgets it). */
+export function useTownCelebrations(): readonly TownCelebration[] {
+  return useSyncExternalStore(subscribeTown, townCelebrations, townCelebrations);
+}
+
+// ───────────────────────── writing ─────────────────────────
+
+export interface TownWrite {
+  /** false: storage refused the write and the change counts for this session only. */
+  saved: boolean;
+  /** What the settle of this write newly unlocked (also queued as celebrations). */
+  celebrations: TownCelebration[];
+}
+
+/**
+ * Save `next` (built from what loadTownProgress returned just now, so another tab's changes are kept), settled first
+ * (./unlocks settleTown, with `review` facts when the caller has them). Never throws.
+ */
+export function commitTown(next: TownProgress, now: number = Date.now(), review?: TownReviewFacts | null): TownWrite {
+  let settled = { progress: next, unlocked: [] as string[], granted: [] as string[] };
+  let friends: TownCelebration[] = [];
+  try {
+    // the first write of the day on this browser fixes its three tasks (./daily fixDayTasks), drawn from what could be
+    // done before this write: a place built by it does not redraw them
+    const device = knownTownDevice();
+    const stored = loadTownProgress();
+    const fixed = device ? fixDayTasks(next, townDay(now), device, stored) : next;
+    // the facts finished episodes teach (./friendship settleFacts), then eggs and achievements (./unlocks)
+    settled = settleTown(settleFacts(fixed, now), now, review);
+    friends = friendCelebrations(allHearts(stored), allHearts(settled.progress));
+  } catch {
+    // a settle that fails must never lose the write itself
+  }
+  const saved = saveJSON(KEYS.town, settled.progress);
+  session = saved ? null : settled.progress;
+  const fresh = queueCelebrations(settled.unlocked, settled.granted, friends);
+  notify();
+  return { saved, celebrations: fresh };
+}
+
+/** Save `next` (see commitTown). false: storage refused the write. */
+function write(next: TownProgress, now?: number): boolean {
+  return commitTown(next, now).saved;
 }
 
 let lastDevice = '';
@@ -93,7 +226,7 @@ export function townDevice(): string {
  * The id without making one: safe while rendering (townDevice may write storage). '' until this browser has an id,
  * and a browser without an id has earned nothing and has no daily counters yet.
  */
-function knownDevice(): string {
+export function knownTownDevice(): string {
   const stored = loadJSON<unknown>(KEYS.deviceId, null);
   return typeof stored === 'string' && /^[a-z0-9-]{4,40}$/.test(stored) ? stored : lastDevice;
 }
@@ -147,7 +280,7 @@ export function useTownOverview(): TownOverview {
   const day = useSyncExternalStore(subscribeDay, today, today);
   return useMemo(() => {
     const [y, m, d] = day.split('-').map(Number);
-    return townOverview(progress, new Date(y, m - 1, d, 12).getTime(), knownDevice());
+    return townOverview(progress, new Date(y, m - 1, d, 12).getTime(), knownTownDevice());
   }, [progress, day]);
 }
 
@@ -171,9 +304,12 @@ export interface TownConversationResult {
   /** Every xu the conversation added: its lines, the bonus and every daily task paid on the way. */
   earned: number;
   balance: number;
-  /** Friendship with the resident before the conversation and now (0..5). */
+  /** Friendship hearts with the resident before the conversation and now (0..10, ./friendship). */
   heartsBefore: number;
   heartsAfter: number;
+  /** Friendship points before the conversation and now (./friendship: +15 for 3 lines understood, +5 the first of the day). */
+  friendBefore: number;
+  friendAfter: number;
 }
 
 interface Conversation {
@@ -184,6 +320,7 @@ interface Conversation {
   outcomes: LineOutcome[];
   earned: number;
   heartsBefore: number;
+  friendBefore: number;
   result: TownConversationResult | null;
 }
 
@@ -191,18 +328,19 @@ interface Conversation {
 let conversation: Conversation | null = null;
 
 function newConversation(placeId: string, lineIds: string[] | null, progress: TownProgress): Conversation {
-  return { placeId, lineIds, answers: new Map(), outcomes: [], earned: 0, heartsBefore: placeHearts(placeStats(progress, { id: placeId })), result: null };
+  return { placeId, lineIds, answers: new Map(), outcomes: [], earned: 0, heartsBefore: friendHearts(progress, placeId), friendBefore: friendPoints(progress, placeId), result: null };
 }
 
 export type TownConversationStart =
   | { ok: true; place: TownPlace; turns: TownTurn[] }
-  /** 'empty-lot': the place is not built yet. */
-  | { ok: false; reason: 'unknown' | 'empty-lot' };
+  /** 'silent': the place has no lines to say. */
+  | { ok: false; reason: 'unknown' | 'silent' };
 
 /**
  * Begin a conversation with the resident of `placeId`: its five lines (core/town/visit pickVisitLines) with their
- * meanings already drawn, so they do not move while the learner answers. Refused for an empty lot. Starting again
- * drops a conversation left in the middle (its answered lines are already saved).
+ * meanings already drawn, so they do not move while the learner answers. A resident whose place is not built yet
+ * (a lodger at the boarding house) talks like any other. Starting again drops a conversation left in the middle
+ * (its answered lines are already saved).
  */
 export function startTownConversation(placeId: string): TownConversationStart {
   const place = townPlace(placeId);
@@ -211,7 +349,7 @@ export function startTownConversation(placeId: string): TownConversationStart {
   const lines = conversationLines(progress, placeId);
   if (lines.length === 0) {
     conversation = null;
-    return { ok: false, reason: 'empty-lot' };
+    return { ok: false, reason: 'silent' };
   }
   const pool = placeLines(placeId);
   conversation = newConversation(placeId, lines.map((l) => l.id), progress);
@@ -229,7 +367,7 @@ function conversationOf(line: TownLine, progress: TownProgress): Conversation | 
   if (c?.lineIds?.includes(line.id)) return c;
   const placeId = placeOfLineId(line.id);
   if (c && !c.lineIds && !c.result && c.placeId === placeId && !c.answers.has(line.id)) return c;
-  if (!placeId || !isBuilt(progress, placeId)) return null;
+  if (!placeId || !townPlace(placeId)) return null;
   conversation = newConversation(placeId, null, progress);
   return conversation;
 }
@@ -284,7 +422,7 @@ export interface TownAnswerResult {
   leveledUp: boolean;
   /** The place the line is said at (undefined for a line outside the town's own). */
   placeId: string | undefined;
-  /** Friendship with its resident before and after this answer (0..5). */
+  /** Friendship hearts with its resident before and after this answer (0..10, ./friendship). */
   heartsBefore: number;
   heartsAfter: number;
   /**
@@ -316,7 +454,7 @@ export function recordTownAnswer(line: TownLine, outcome: LineOutcome, now: numb
 
   const device = townDevice();
   const placeId = placeOfLineId(line.id);
-  const heartsBefore = placeId ? placeHearts(placeStats(before, { id: placeId })) : 0;
+  const heartsBefore = placeId ? friendHearts(before, placeId) : 0;
   const answer = applyAnswer(before, line.id, outcome, now, device);
   let next = answer.progress;
   let bonus = 0;
@@ -326,16 +464,19 @@ export function recordTownAnswer(line: TownLine, outcome: LineOutcome, now: numb
     conv.outcomes.push(outcome);
     const complete = conv.lineIds ? conv.lineIds.every((id) => id === line.id || conv.answers.has(id)) : conv.outcomes.length >= VISIT_SIZE;
     if (complete) {
+      // the first conversation of the day with them: read before this one is noted
+      const firstToday = !metToday(next, conv.placeId, now);
       const end = applyConversation(next, conv.placeId, conv.outcomes, now, device);
       if (end.finished) {
-        next = end.progress;
+        const understood = conv.outcomes.filter((o) => o !== 'wrong').length;
+        next = applyChatFriendship(end.progress, conv.placeId, understood, firstToday, now, device).progress;
         bonus = end.bonus;
         tasksPaid.push(...end.tasksPaid);
         ended = { tasksPaid: end.tasksPaid };
       }
     }
   }
-  const saved = next === before ? true : write(next);
+  const saved = next === before ? true : write(next, now);
   const progress = loadTownProgress();
 
   try {
@@ -346,7 +487,7 @@ export function recordTownAnswer(line: TownLine, outcome: LineOutcome, now: numb
   const review = outcome === 'wrong' && line.sentenceId ? enrolMissed('dict', line.sentenceId, now) : null;
 
   const earned = answer.reward + bonus + tasksPaid.reduce((sum, t) => sum + t.reward, 0);
-  const heartsAfter = placeId ? placeHearts(placeStats(progress, { id: placeId })) : 0;
+  const heartsAfter = placeId ? friendHearts(progress, placeId) : 0;
   const levelBefore = townLevel(before);
   const levelAfter = townLevel(progress);
   const result: TownAnswerResult = {
@@ -380,7 +521,9 @@ export function recordTownAnswer(line: TownLine, outcome: LineOutcome, now: numb
         earned: conv.earned,
         balance: result.balance,
         heartsBefore: conv.heartsBefore,
-        heartsAfter,
+        heartsAfter: friendHearts(progress, conv.placeId),
+        friendBefore: conv.friendBefore,
+        friendAfter: friendPoints(progress, conv.placeId),
       };
       result.conversation = conv.result;
     }
@@ -391,11 +534,28 @@ export function recordTownAnswer(line: TownLine, outcome: LineOutcome, now: numb
 
 // ───────────────────────── an episode ("Chuyện ở thị trấn", ./episodes) ─────────────────────────
 
-/** One line of an episode with its three meanings and who says it. */
+/** A choice line of an episode as the panel offers it: its options (by intent), and the one chosen before, if any. */
+export interface TownEpisodePick {
+  options: { id: string; intent: string; text: string; vi: string; say?: string }[];
+  /** The option chosen the first time (it stays chosen: replays play it); null = not chosen yet. */
+  chosen: string | null;
+}
+
+/** One line of an episode as said now, with its three meanings and who says it. */
 export interface TownEpisodeTurn extends TownTurn {
   who: StorySpeaker;
   /** 'Bạn' for the learner's character, else the resident's name. */
   speaker: string;
+  /** The episode's own line this turn stands for (`line.id` is the option or variant said, ./storyLines). */
+  base: string;
+  /** A choice line: the learner picks what to say (no meaning to pick); null for every other line. */
+  pick: TownEpisodePick | null;
+}
+
+/** A fact newly known, with its words for the Sổ tay. */
+export interface TownFactNote {
+  id: FactId;
+  vi: string;
 }
 
 export type TownEpisodeStart =
@@ -413,8 +573,8 @@ export type TownEpisodeStart =
       /** This is the episode's very first listen: a right gist after one whole listen is the honest win. */
       firstListen: boolean;
     }
-  /** 'none': nothing waits there now (no episode open or due): the quick chat. */
-  | { ok: false; reason: 'unknown' | 'empty-lot' | 'none' };
+  /** 'none': nothing waits there now (no episode open or due, or the next one waits for the house): the quick chat. */
+  | { ok: false; reason: 'unknown' | 'none' };
 
 export interface TownEpisodeResult {
   episodeId: string;
@@ -424,7 +584,7 @@ export interface TownEpisodeResult {
   gistRight: boolean | null;
   /** Right after exactly one whole listen, on the episode's very first listen. */
   gistFirstWin: boolean;
-  /** Lines answered in this run / of them understood (any listen). 0 / 0 for a re-listen. */
+  /** Lines answered in this run / of them understood (any listen). 0 / 0 for a re-listen. Choice lines not counted. */
   lines: number;
   linesRight: number;
   /** Xu: the lines, the gist (first win or re-listen), the first finish, the daily tasks; `earned` = all of them. */
@@ -443,6 +603,11 @@ export interface TownEpisodeResult {
   daysToNext: number | null;
   /** The new title when a level was reached during the run. */
   levelTitle: string | null;
+  /** Friendship points with the resident before the run and now (./friendship). */
+  friendBefore: number;
+  friendAfter: number;
+  /** Facts the run taught (choices, the finish), for "Ghi vào Sổ tay". */
+  learned: TownFactNote[];
 }
 
 export interface TownEpisodeGistResult {
@@ -460,11 +625,29 @@ export interface TownEpisodeGistResult {
   saved: boolean;
 }
 
+export interface TownChoiceResult {
+  /** This pick was the first on that line: it counted (points, facts). */
+  first: boolean;
+  /** The option that stays chosen (the first one ever). */
+  chosen: string;
+  /** Friendship points it brought (0 when not the first). */
+  points: number;
+  learned: TownFactNote[];
+  /** Every line of the episode as said now (a later line may now say a variant the new fact calls for). */
+  turns: TownEpisodeTurn[];
+  saved: boolean;
+}
+
 interface EpisodeRun {
   episode: StoryEpisode;
   mode: EpisodeMode;
-  lineIds: Set<string>;
+  /** Base ids of the lines to answer (every line but the choice lines). */
+  need: Set<string>;
+  /** Base ids of the choice lines, and what was picked on them in this run. */
+  choiceLines: Set<string>;
+  picks: Map<string, string>;
   gist: TownEpisodeGistResult | null;
+  /** By base line id. */
   answers: Map<string, TownAnswerResult>;
   outcomes: LineOutcome[];
   lineXu: number;
@@ -472,11 +655,40 @@ interface EpisodeRun {
   tasks: TaskPayout[];
   earned: number;
   levelBefore: TownLevel;
+  friendBefore: number;
+  factsBefore: Set<string>;
   result: TownEpisodeResult | null;
 }
 
 /** The episode going on in this tab (page state: a reload starts it again from its first listen). */
 let episodeRun: EpisodeRun | null = null;
+
+function factNotes(ids: readonly FactId[]): TownFactNote[] {
+  return ids.map((id) => ({ id, vi: storyFact(id)?.fact.vi ?? '' })).filter((f) => f.vi);
+}
+
+/** Every line of `episode` as said now in `progress` (facts known, choices made), with its meanings. */
+export function episodeTurns(episode: StoryEpisode, progress: TownProgress): TownEpisodeTurn[] {
+  const resolved = resolveEpisode(
+    episode,
+    (f) => knowsFact(progress, f),
+    (id) => choiceOf(progress, id)?.o ?? null,
+  );
+  return resolved.map((r): TownEpisodeTurn => {
+    const line = storyTownLine(r, episode);
+    const pick: TownEpisodePick | null = r.choice
+      ? { options: r.choice.options.map((c) => ({ id: c.id, intent: c.intent, text: c.text, vi: c.vi, ...(c.say ? { say: c.say } : {}) })), chosen: r.choice.chosen }
+      : null;
+    return {
+      line,
+      choices: pick ? { options: [], answer: 0 } : storyChoices(r.id, episode, choiceSeed(progress, r.id)),
+      who: r.who,
+      speaker: speakerName(r.who, episode.placeId),
+      base: r.base,
+      pick,
+    };
+  });
+}
 
 /**
  * Begin what a conversation at `placeId` is now when an episode waits there (./episodes nextEpisode): a due
@@ -488,20 +700,17 @@ export function startTownEpisode(placeId: string, now: number = Date.now()): Tow
   const place = townPlace(placeId);
   if (!place) return { ok: false, reason: 'unknown' };
   const progress = loadTownProgress();
-  if (!isBuilt(progress, placeId)) return { ok: false, reason: 'empty-lot' };
   const next = nextEpisode(progress, placeId, now);
   if (!next) return { ok: false, reason: 'none' };
   const { episode, mode } = next;
   const e = episodeProgress(progress, episode.id);
-  const lines = episodeTownLines(episode);
-  const turns = lines.map((line, i): TownEpisodeTurn => {
-    const who = episode.lines[i].who;
-    return { line, choices: storyChoices(line.id, episode, choiceSeed(progress, line.id)), who, speaker: speakerName(who, placeId) };
-  });
+  const turns = episodeTurns(episode, progress);
   episodeRun = {
     episode,
     mode,
-    lineIds: new Set(lines.map((l) => l.id)),
+    need: new Set(episode.lines.filter((l) => !l.choices?.length).map((l) => l.id)),
+    choiceLines: new Set(episode.lines.filter((l) => l.choices?.length).map((l) => l.id)),
+    picks: new Map(),
     gist: null,
     answers: new Map(),
     outcomes: [],
@@ -510,6 +719,8 @@ export function startTownEpisode(placeId: string, now: number = Date.now()): Tow
     tasks: [],
     earned: 0,
     levelBefore: townLevel(progress),
+    friendBefore: friendPoints(progress, placeId),
+    factsBefore: new Set(Object.keys(progress.facts)),
     result: null,
   };
   return {
@@ -519,7 +730,7 @@ export function startTownEpisode(placeId: string, now: number = Date.now()): Tow
     mode,
     turns,
     gist: gistChoices(episode, (e?.stage ?? 0) + (e?.firstGist ? 1 : 0)),
-    met: lines.map((l) => (lineProgress(progress, l.id)?.tries ?? 0) > 0),
+    met: turns.map((t) => (lineProgress(progress, t.line.id)?.tries ?? 0) > 0),
     firstListen: mode === 'new' && (e?.firstGist ?? 0) === 0,
   };
 }
@@ -546,13 +757,17 @@ function episodeResult(run: EpisodeRun, progress: TownProgress, finish: { firstF
     nextDue: episodeDueDay(e),
     daysToNext: daysUntilRelisten(e, now),
     levelTitle: level.index > run.levelBefore.index ? level.title : null,
+    friendBefore: run.friendBefore,
+    friendAfter: friendPoints(progress, run.episode.placeId),
+    learned: factNotes(Object.keys(progress.facts).filter((id) => !run.factsBefore.has(id))),
   };
 }
 
 /**
  * The gist of the episode going on, answered after `passes` whole listens (./episodes applyEpisodeGist): recorded
- * and paid. A re-listen ends with it (`result` is set). Answered twice in one run: the first answer is returned.
- * null when no episode was started. Never throws.
+ * and paid. A re-listen ends with it (`result` is set; the first conversation of the day with the resident adds its
+ * friendship points). Answered twice in one run: the first answer is returned. null when no episode was started.
+ * Never throws.
  */
 export function recordEpisodeGist(right: boolean, passes: number, now: number = Date.now()): TownEpisodeGistResult | null {
   const run = episodeRun;
@@ -560,8 +775,10 @@ export function recordEpisodeGist(right: boolean, passes: number, now: number = 
   if (run.gist) return run.gist;
   const before = loadTownProgress();
   const device = townDevice();
+  const firstToday = !metToday(before, run.episode.placeId, now);
   const eff = applyEpisodeGist(before, run.episode, run.mode, right, passes, now, device);
-  const saved = eff.progress === before ? true : write(eff.progress);
+  const after = run.mode === 'relisten' && eff.progress !== before ? applyHello(eff.progress, run.episode.placeId, firstToday, device).progress : eff.progress;
+  const saved = after === before ? true : write(after, now);
   const progress = loadTownProgress();
   try {
     recordAttempt({ at: now, module: 'town', itemId: `${run.episode.id}:gist`, correct: right, seen: [], missed: [] });
@@ -582,27 +799,48 @@ export function recordEpisodeGist(right: boolean, passes: number, now: number = 
 }
 
 /**
+ * The learner picked option `optionId` on choice line `lineId` (a base line id) of the episode going on
+ * (./friendship recordChoice): the first pick on a line ever is kept, teaches its facts and counts its points; a
+ * later one changes nothing (the first stays and is what plays). Returns the lines as said now. null when no episode
+ * runs or the line is not one of its choice lines. Never throws.
+ */
+export function recordEpisodeChoice(lineId: string, optionId: string, now: number = Date.now()): TownChoiceResult | null {
+  const run = episodeRun;
+  if (!run || !run.choiceLines.has(lineId)) return null;
+  const before = loadTownProgress();
+  const w = recordChoice(before, run.episode, lineId, optionId, now);
+  if (!w) return null;
+  const saved = w.progress === before ? true : write(w.progress, now);
+  const progress = loadTownProgress();
+  run.picks.set(lineId, choiceOf(progress, lineId)?.o ?? w.chosen);
+  return { first: w.first, chosen: run.picks.get(lineId) ?? w.chosen, points: w.points, learned: factNotes(w.learned), turns: episodeTurns(run.episode, progress), saved };
+}
+
+/**
  * One line of the episode going on, answered: recorded and paid like any line of the town (./economy applyAnswer:
  * xu, the day's counters, the daily tasks), one practice attempt (module 'town'), and for a miss its own review card
- * (`talk:<line id>`) when it has none. A line answered twice in one run is recorded once. Never throws.
+ * (`talk:<line id>`: the option or variant said has its own) when it has none. A line answered twice in one run is
+ * recorded once. Never throws.
  */
 export function recordEpisodeLine(line: TownLine, outcome: LineOutcome, now: number = Date.now()): TownAnswerResult {
-  const run = episodeRun && episodeRun.lineIds.has(line.id) ? episodeRun : null;
-  const again = run?.answers.get(line.id);
+  const found = storyLineById(line.id);
+  const base = found?.line.base ?? line.id;
+  const run = episodeRun && episodeRun.need.has(base) ? episodeRun : null;
+  const again = run?.answers.get(base);
   if (again) return again;
   const before = loadTownProgress();
   const device = townDevice();
-  const placeId = run?.episode.placeId ?? storyLineById(line.id)?.episode.placeId;
-  const hearts = placeId ? placeHearts(placeStats(before, { id: placeId })) : 0;
+  const placeId = run?.episode.placeId ?? found?.episode.placeId;
+  const hearts = placeId ? friendHearts(before, placeId) : 0;
   const answer = applyAnswer(before, line.id, outcome, now, device);
-  const saved = answer.progress === before ? true : write(answer.progress);
+  const saved = answer.progress === before ? true : write(answer.progress, now);
   const progress = loadTownProgress();
   try {
     recordAttempt({ at: now, module: 'town', itemId: line.id, correct: outcome !== 'wrong', seen: [], missed: [] });
   } catch {
     // stats are best effort
   }
-  const review = outcome === 'wrong' && storyLineById(line.id) ? enrolMissed('talk', line.id, now) : null;
+  const review = outcome === 'wrong' && found ? enrolMissed('talk', line.id, now) : null;
   const earned = answer.reward + answer.tasksPaid.reduce((sum, t) => sum + t.reward, 0);
   const levelBefore = townLevel(before);
   const levelAfter = townLevel(progress);
@@ -618,16 +856,16 @@ export function recordEpisodeLine(line: TownLine, outcome: LineOutcome, now: num
     levelAfter,
     leveledUp: levelAfter.index > levelBefore.index,
     placeId,
-    // hearts come from the place's own sentences: a line of an episode never moves them
+    // friendship comes with the finish, not with a single line
     heartsBefore: hearts,
-    heartsAfter: placeId ? placeHearts(placeStats(progress, { id: placeId })) : 0,
+    heartsAfter: placeId ? friendHearts(progress, placeId) : 0,
     review,
     conversation: null,
     progress,
     saved,
   };
   if (run) {
-    run.answers.set(line.id, result);
+    run.answers.set(base, result);
     run.outcomes.push(outcome);
     run.lineXu += answer.reward;
     run.tasks.push(...answer.tasksPaid);
@@ -637,26 +875,69 @@ export function recordEpisodeLine(line: TownLine, outcome: LineOutcome, now: num
 }
 
 /**
- * The episode going on is heard through (its lines answered, the whole exchange heard again): finished and paid
- * (./episodes applyEpisodeFinish), and what the run came to. The second call returns the same result. null when no
- * new episode is going on, or a line is still unanswered. A re-listen's result comes with its gist
- * (recordEpisodeGist). Never throws.
+ * The episode going on is heard through (its lines answered, its choices picked, the whole exchange heard again):
+ * finished and paid (./episodes applyEpisodeFinish; the facts of its `learn` are learned with the write, ./friendship
+ * settleFacts; the first conversation of the day with the resident adds its points), and what the run came to. The
+ * second call returns the same result. null when no new episode is going on, or a line is still unanswered. A
+ * re-listen's result comes with its gist (recordEpisodeGist). Never throws.
  */
 export function finishTownEpisode(now: number = Date.now()): TownEpisodeResult | null {
   const run = episodeRun;
   if (!run) return null;
   if (run.result) return run.result;
-  if (run.mode !== 'new' || run.answers.size < run.lineIds.size) return null;
+  if (run.mode !== 'new' || run.answers.size < run.need.size) return null;
   const before = loadTownProgress();
+  if ([...run.choiceLines].some((id) => !run.picks.has(id) && !choiceOf(before, id))) return null;
   const device = townDevice();
+  const firstToday = !metToday(before, run.episode.placeId, now);
   const eff = applyEpisodeFinish(before, run.episode, run.outcomes.filter((o) => o !== 'wrong').length, now, device);
-  if (eff.progress !== before) write(eff.progress);
+  const after = eff.progress !== before ? applyHello(eff.progress, run.episode.placeId, firstToday, device).progress : eff.progress;
+  if (after !== before) write(after, now);
   const progress = loadTownProgress();
   const earned = eff.reward + eff.tasksPaid.reduce((sum, t) => sum + t.reward, 0);
   run.tasks.push(...eff.tasksPaid);
   run.earned += earned;
   run.result = episodeResult(run, progress, { firstFinish: eff.firstFinish, reward: eff.reward }, now);
   return run.result;
+}
+
+// ───────────────────────── gifts ("Thân thiết", ./friendship) ─────────────────────────
+
+export type TownGiftBuy = { ok: true; balance: number; inHand: number; saved: boolean } | { ok: false; reason: 'unknown' | 'poor' | 'device'; missing: number; balance: number };
+
+/** Buy one gift with xu (Tiệm quà). Refused when unknown or the balance is too low: nothing is written then. */
+export function buyTownGift(giftId: string, now: number = Date.now()): TownGiftBuy {
+  const before = loadTownProgress();
+  const r = buyGift(before, giftId, townDevice());
+  if (!r.ok) return { ok: false, reason: r.reason, missing: r.missing, balance: balance(before) };
+  const saved = write(r.progress, now);
+  const progress = loadTownProgress();
+  return { ok: true, balance: balance(progress), inHand: giftInHand(progress, giftId), saved };
+}
+
+export type TownGiftGive =
+  | {
+      ok: true;
+      taste: GiftTaste;
+      /** Friendship points it really moved. */
+      points: number;
+      /** The resident's voiced reaction (null while the content has none). */
+      reaction: StoryLine | null;
+      friendBefore: number;
+      friendAfter: number;
+      celebrations: TownCelebration[];
+      saved: boolean;
+    }
+  | { ok: false; reason: GiftRefusal };
+
+/** Give a gift to the resident of `placeId` (one a day each): their reaction and the friendship points. */
+export function giveTownGift(placeId: string, giftId: string, now: number = Date.now()): TownGiftGive {
+  const before = loadTownProgress();
+  const r = giveGift(before, placeId, giftId, now, townDevice());
+  if (!r.ok) return r;
+  const w = commitTown(r.progress, now);
+  const progress = loadTownProgress();
+  return { ok: true, taste: r.taste, points: r.points, reaction: r.reaction, friendBefore: friendPoints(before, placeId), friendAfter: friendPoints(progress, placeId), celebrations: w.celebrations, saved: w.saved };
 }
 
 // ───────────────────────── buying ─────────────────────────

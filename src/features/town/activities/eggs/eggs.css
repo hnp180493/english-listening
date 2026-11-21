@@ -1,0 +1,277 @@
+/* "Tiệm trứng" (activities/EggPanel.tsx) and the loot pictures shared with the wardrobe (eggs/LootPicture.tsx).
+ * Chrome uses tokens only; the egg, its light and the tier gems are game art passed inline from eggs/eggArt.ts
+ * (docs/design-system.md "Thị trấn: game art"). Motion is off under reduced motion: the item simply appears. */
+
+.town-egg {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* ───────── the stage: the egg, or what came out of it ───────── */
+.town-egg-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 236px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.town-egg-stage.is-reveal::before {
+  /* the tier's light behind the item (game art colour, inline as --town-egg-tier) */
+  content: '';
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(circle at 50% 42%, var(--town-egg-tier, transparent) 0%, transparent 46%);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.town-egg-svg {
+  width: 150px;
+  height: 175px;
+  overflow: visible;
+}
+.town-egg-body {
+  transform-origin: 60px 128px;
+  transform-box: view-box;
+}
+.town-egg-svg.is-wobble .town-egg-body {
+  animation: town-egg-wobble 0.55s var(--ease) infinite;
+}
+.town-egg-svg.is-crack .town-egg-body {
+  animation: town-egg-wobble 0.22s linear infinite;
+}
+.town-egg-svg.is-burst .town-egg-body {
+  animation: town-egg-gone 0.4s var(--ease) both;
+}
+.town-egg-crack {
+  stroke-dasharray: 90;
+  animation: town-egg-crack 0.35s var(--ease) both;
+}
+.town-egg-rays {
+  transform-origin: 60px 74px;
+  transform-box: view-box;
+  animation: town-egg-burst 0.4s var(--ease) both;
+}
+@keyframes town-egg-wobble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-7deg);
+  }
+  75% {
+    transform: rotate(7deg);
+  }
+}
+@keyframes town-egg-crack {
+  from {
+    stroke-dashoffset: 90;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes town-egg-gone {
+  to {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+@keyframes town-egg-burst {
+  from {
+    transform: scale(0.2) rotate(0deg);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.5) rotate(20deg);
+    opacity: 0.9;
+  }
+}
+
+.town-egg-reveal {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: var(--space-4) var(--space-3);
+  text-align: center;
+  animation: town-egg-pop 280ms var(--ease) both;
+}
+@keyframes town-egg-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.town-egg-badge {
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.town-egg-badge.is-dup {
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+.town-egg-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-egg-name {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.town-egg-note,
+.town-egg-worn {
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* ───────── counts, the buttons ───────── */
+.town-egg-count {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-base);
+  text-align: center;
+}
+.town-egg-main {
+  justify-self: center;
+  min-width: 220px;
+}
+.town-egg-buy {
+  justify-self: center;
+}
+.town-egg-short {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+.town-egg-pity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.town-egg-pity > .icon {
+  flex: none;
+  color: var(--text-muted);
+}
+
+/* ───────── how eggs are earned, the odds ───────── */
+.town-egg-h {
+  margin: var(--space-2) 0 var(--space-1);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+.town-egg-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-egg-list > li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.town-egg-list > li:last-child {
+  border-bottom: 0;
+}
+.town-egg-got {
+  flex: none;
+  color: var(--ok);
+  font-weight: 600;
+}
+.town-egg-odds {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.town-egg-odds th,
+.town-egg-odds td {
+  padding: 6px var(--space-2) 6px 0;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--text);
+  font-weight: 400;
+  text-align: left;
+}
+.town-egg-odds thead th {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+.town-egg-odds tbody th {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.town-egg-gem {
+  flex: none;
+}
+
+/* ───────── loot pictures (shared with the wardrobe) ───────── */
+.town-egg-pic {
+  display: block;
+  flex: none;
+}
+.town-egg-pic.is-locked {
+  /* a silhouette is painted in this colour (LootPicture) */
+  color: var(--text-subtle);
+  opacity: 0.45;
+}
+.town-egg-pic.is-title {
+  display: grid;
+  place-items: center;
+  color: var(--warn);
+}
+.town-egg-pic.is-title.is-locked {
+  color: var(--text-subtle);
+}
+
+@media (max-width: 720px) {
+  .town-egg-stage {
+    min-height: 168px;
+  }
+  .town-egg-svg {
+    width: 110px;
+    height: 128px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .town-egg-svg *,
+  .town-egg-reveal {
+    animation: none !important;
+  }
+}

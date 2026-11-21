@@ -20,6 +20,8 @@ import type { Sentence } from './types';
 import { TOWN_STORIES } from '../data/townStories';
 import type { StoryEpisode } from './town/story';
 import { storyLinePlayback } from './town/storyAudio';
+import { lineForms } from './town/storyLines';
+import { RESIDENT_ARCS } from '../data/stories';
 import { CAST_VOICES, voiceOf } from './town/voices';
 import { GEMINI_VOICES } from './ai/defaults';
 import { CAREFUL_RATE } from './playback';
@@ -232,7 +234,8 @@ describe('audio inventory: "Thị trấn" stories (one voice per speaker)', () =
   it("every story line has a connected and a careful clip in its speaker's voice, keyed as the UI plays it", () => {
     expect(TOWN_STORIES.length).toBeGreaterThan(0);
     for (const ep of TOWN_STORIES) {
-      for (const line of ep.lines) {
+      // each option of a choice and each variant is said too (core/town/storyLines lineForms)
+      for (const line of ep.lines.flatMap((l) => lineForms(l))) {
         for (const mode of ['connected', 'careful'] as const) {
           const p = storyLinePlayback(line, ep, mode);
           expect(p.voice).toEqual(voiceOf(line.who, ep.placeId));
@@ -240,6 +243,19 @@ describe('audio inventory: "Thị trấn" stories (one voice per speaker)', () =
           expect(clip, `${line.id} ${mode}`).toBeDefined();
           expect(clip!.refs).toContain(`town:${line.id}`);
           expect(clip!.style).toBe(clipStyle(mode, p.voice.accent));
+        }
+      }
+    }
+  });
+
+  it("every gift reaction and greeting (\"Thân thiết\") has its clips in the resident's voice", () => {
+    for (const arc of RESIDENT_ARCS) {
+      for (const line of [...Object.values(arc.reactions), ...arc.greetings]) {
+        if (!line.text.trim()) continue;
+        for (const mode of ['connected', 'careful'] as const) {
+          const p = storyLinePlayback(line, { placeId: arc.placeId }, mode);
+          expect(p.voice).toEqual(voiceOf('them', arc.placeId));
+          expect(byKey.get(audioKey(p.mode, p.text, p.voice))?.refs, `${line.id} ${mode}`).toContain(`town:${line.id}`);
         }
       }
     }

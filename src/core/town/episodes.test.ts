@@ -48,6 +48,16 @@ vi.mock('../../data/townStories', () => {
       ],
       2,
     ),
+    ep(
+      'shop-2',
+      'shop',
+      2,
+      [
+        ['them', 'Back again?', 'Lại ghé nữa à?'],
+        ['you', 'I forgot the milk.', 'Tôi quên mua sữa.'],
+      ],
+      0,
+    ),
   ];
   return {
     TOWN_STORIES,
@@ -65,9 +75,12 @@ const {
   EPISODE_GIST_FIRST_XU,
   EPISODE_RELISTEN_XU,
   episodeDueDay,
+  episodeWaitingForHome,
   gistChoices,
+  HOME_EPISODE_FROM,
   isEpisodeDue,
   isEpisodeUnlocked,
+  needsHome,
   nextEpisode,
   RELISTEN_DAYS,
   speakerName,
@@ -81,7 +94,7 @@ const { storyTotals, townXp } = await import('./economy');
 const DEV = 'd-test0001';
 const NOW = new Date(2026, 10, 13, 12, 0).getTime();
 const DAY = 86_400_000;
-const [CAFE1, CAFE2, SHOP1] = TOWN_STORIES;
+const [CAFE1, CAFE2, SHOP1, SHOP2] = TOWN_STORIES;
 const at = (days: number, hour = 12) => new Date(2026, 10, 13 + days, hour, 0).getTime();
 
 describe('the schedule of re-listens', () => {
@@ -146,11 +159,40 @@ describe('which episode a conversation is', () => {
     expect(nextEpisode(p3, 'cafe', NOW)).toEqual({ episode: CAFE1, mode: 'relisten' });
   });
 
-  it('an empty lot has no episode; built, it has its own; a place without stories has none', () => {
-    expect(nextEpisode(emptyTownProgress(), 'shop', NOW)).toBeNull();
+  it('a lodger (place not built) has episode 1 like anybody; a place without stories has none', () => {
+    expect(nextEpisode(emptyTownProgress(), 'shop', NOW)).toEqual({ episode: SHOP1, mode: 'new' });
     expect(nextEpisode(addBought(emptyTownProgress(), 'shop'), 'shop', NOW)).toEqual({ episode: SHOP1, mode: 'new' });
     expect(nextEpisode(emptyTownProgress(), 'square', NOW)).toBeNull();
     expect(nextEpisode(emptyTownProgress(), 'nowhere', NOW)).toBeNull();
+  });
+
+  it('episode 2 is told at home: it waits for the place to be built, then opens at once', () => {
+    expect(HOME_EPISODE_FROM).toBe(2);
+    expect(needsHome(SHOP1)).toBe(false);
+    expect(needsHome(SHOP2)).toBe(true);
+    expect(needsHome(CAFE2)).toBe(true);
+    expect(needsHome({ id: 'nope-2', placeId: 'shop' })).toBe(false);
+
+    const p0 = emptyTownProgress();
+    // episode 1 not finished: nothing waits for the house yet
+    expect(episodeWaitingForHome(p0, 'shop')).toBeNull();
+    const p1 = finished(p0, 'shop-1');
+    expect(isEpisodeUnlocked(p1, SHOP2)).toBe(false);
+    // the same day: no re-listen due, episode 2 waits for the house, so the quick chat
+    expect(nextEpisode(p1, 'shop', NOW)).toBeNull();
+    expect(episodeWaitingForHome(p1, 'shop')).toBe(SHOP2);
+    // a re-listen of episode 1 still comes on its day
+    expect(nextEpisode(p1, 'shop', at(1))).toEqual({ episode: SHOP1, mode: 'relisten' });
+
+    const built = addBought(p1, 'shop');
+    expect(isEpisodeUnlocked(built, SHOP2)).toBe(true);
+    expect(nextEpisode(built, 'shop', NOW)).toEqual({ episode: SHOP2, mode: 'new' });
+    expect(episodeWaitingForHome(built, 'shop')).toBeNull();
+    // all heard: nothing waits
+    expect(episodeWaitingForHome(finished(p1, 'shop-2'), 'shop')).toBeNull();
+    // the three free places are homes from the start; a place without stories never waits
+    expect(episodeWaitingForHome(finished(p0, 'cafe-1'), 'cafe')).toBeNull();
+    expect(episodeWaitingForHome(p0, 'office')).toBeNull();
   });
 });
 
@@ -172,17 +214,18 @@ describe('the lines as town lines', () => {
     expect(lines[0]).toEqual({ id: 'cafe-1-01', text: 'What can I get you?', vi: 'Bạn dùng gì?', level: 1 });
     expect(episodeTownLines(CAFE1)).toBe(lines);
     expect(placeStoryLines('cafe')).toHaveLength(7);
-    expect(allStoryLines()).toHaveLength(10);
+    expect(allStoryLines()).toHaveLength(12);
     expect(storyLineById('cafe-2-03')?.episode).toBe(CAFE2);
     expect(storyLineById('s001')).toBeUndefined();
   });
 
-  it('count for xp like any line (hearts stay on the place sentences)', () => {
+  it('count for xp as lines understood, never as first listens (hearts stay on the place sentences)', () => {
     let p = emptyTownProgress();
-    expect(storyTotals(p)).toEqual({ total: 10, understood: 0, first: 0 });
+    expect(storyTotals(p)).toEqual({ total: 12, understood: 0, first: 0 });
+    // a best of 2 written by an older build (before 2026-11-21) counts as understood only
     p = { ...p, lines: { 'cafe-1-01': { best: 2, tries: 1, at: NOW }, 'cafe-1-02': { best: 1, tries: 2, at: NOW } } };
-    expect(storyTotals(p)).toEqual({ total: 10, understood: 2, first: 1 });
-    expect(townXp(p)).toBe(3 + 2);
+    expect(storyTotals(p)).toEqual({ total: 12, understood: 2, first: 0 });
+    expect(townXp(p)).toBe(2 + 2);
   });
 });
 
@@ -247,12 +290,14 @@ describe('the gist, the finish and a re-listen', () => {
     const f = applyEpisodeFinish(emptyTownProgress(), CAFE1, 3, NOW, DEV);
     expect(f).toMatchObject({ firstFinish: true, reward: EPISODE_FINISH_XU });
     expect(episodeProgress(f.progress, 'cafe-1')).toEqual({ stage: 1, at: NOW, okAt: NOW, firstGist: 0, bestLines: 3 });
-    expect(dailyCount(f.progress, townDay(NOW), DEV)).toMatchObject({ talks: 1, met: ['cafe'] });
-    expect(earnedTotal(f.progress)).toBe(10);
+    expect(dailyCount(f.progress, townDay(NOW), DEV)).toMatchObject({ talks: 1, met: ['cafe'], eps: 1 });
+    // 2026-11-13 draws the daily task "Nghe trọn 1 tập chuyện" (core/town/daily): paid with the finish
+    expect(f.tasksPaid.map((t) => [t.id, t.reward])).toEqual([['episode', 8]]);
+    expect(earnedTotal(f.progress)).toBe(10 + 8);
     const g = applyEpisodeFinish(f.progress, CAFE1, 2, NOW + 5, DEV);
     expect(g).toMatchObject({ firstFinish: false, reward: 0 });
     expect(episodeProgress(g.progress, 'cafe-1')?.bestLines).toBe(3); // the best run is kept
-    expect(earnedTotal(g.progress)).toBe(10);
+    expect(earnedTotal(g.progress)).toBe(10 + 8);
   });
 
   it('two finishes at two places in a day pay the "talk to 2 residents" task', () => {
@@ -262,9 +307,14 @@ describe('the gist, the finish and a re-listen', () => {
     expect(r.tasksPaid.map((t) => t.id)).toEqual(['talk']);
   });
 
-  it('a finish at an empty lot does nothing', () => {
+  it('a lodger finishes episode 1 like anybody; an episode told at home does nothing before the house stands', () => {
     const p = emptyTownProgress();
-    expect(applyEpisodeFinish(p, SHOP1, 3, NOW, DEV)).toEqual({ progress: p, firstFinish: false, reward: 0, tasksPaid: [] });
+    const r = applyEpisodeFinish(p, SHOP1, 3, NOW, DEV);
+    expect(r).toMatchObject({ firstFinish: true, reward: EPISODE_FINISH_XU });
+    expect(episodeProgress(r.progress, 'shop-1')?.stage).toBe(1);
+    expect(applyEpisodeFinish(r.progress, SHOP2, 2, NOW, DEV)).toEqual({ progress: r.progress, firstFinish: false, reward: 0, tasksPaid: [] });
+    const built = addBought(r.progress, 'shop');
+    expect(applyEpisodeFinish(built, SHOP2, 2, NOW, DEV)).toMatchObject({ firstFinish: true, reward: EPISODE_FINISH_XU });
   });
 
   it('re-listens: a right gist moves a stage on (+3 xu), a wrong one brings it back tomorrow; four right ones and it is done', () => {
@@ -279,6 +329,7 @@ describe('the gist, the finish and a re-listen', () => {
     expect(episodeDueDay(episodeProgress(miss.progress, 'cafe-1'))).toBe('2026-11-15');
     expect(dailyCount(miss.progress, townDay(at(1)), DEV).met).toEqual(['cafe']);
     p = miss.progress;
+    let tasksXu = miss.tasksPaid.reduce((s, t) => s + t.reward, 0);
 
     let when = at(2);
     for (const stage of [2, 3, 4, 5]) {
@@ -286,11 +337,12 @@ describe('the gist, the finish and a re-listen', () => {
       const r = applyEpisodeGist(p, CAFE1, 'relisten', true, 1, when, DEV);
       expect(r.reward).toBe(EPISODE_RELISTEN_XU);
       expect(episodeProgress(r.progress, 'cafe-1')).toMatchObject({ stage, at: when, okAt: when });
+      tasksXu += r.tasksPaid.reduce((s, t) => s + t.reward, 0);
       p = r.progress;
       when += (RELISTEN_DAYS[stage - 1] ?? 0) * DAY;
     }
     expect(episodeDueDay(episodeProgress(p, 'cafe-1'))).toBeNull();
-    expect(earnedTotal(p) - xu0).toBe(4 * EPISODE_RELISTEN_XU);
+    expect(earnedTotal(p) - xu0).toBe(4 * EPISODE_RELISTEN_XU + tasksXu);
   });
 });
 

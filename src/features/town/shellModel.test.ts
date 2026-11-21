@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { residentTile, walkable } from '../../core/town/map';
 import { townOverview, type PlaceView } from '../../core/town/overview';
 import { emptyTownProgress, type TownProgress } from '../../core/town/progress';
 import type { TownAnswerResult } from '../../core/town/store';
 import type { LineOutcome } from '../../core/town/types';
 import { placeLines, TOWN_DECORATIONS, TOWN_PLACES } from '../../data/town';
 import { PLACE_IDS } from '../../data/townWorld';
-import { gridDistance } from './engine/sim';
 import {
   decorationRows,
   levelLabel,
@@ -14,13 +12,13 @@ import {
   lotLabelsOf,
   lotsOnOffer,
   lotRows,
+  homePerk,
   markerOf,
   primaryBuy,
   stageStateOf,
   suggestedPlace,
   talkLabel,
   talkPrompt,
-  talkStartTile,
   talkSummary,
   taskCount,
   verdictOf,
@@ -49,8 +47,9 @@ describe('what the stage is told', () => {
     expect(s.decorations).toEqual([]);
     expect(s.theme).toBe('night');
     expect(s.lit).toEqual({ square: 0, cafe: 0, friend: 0 });
-    // an episode waiting at a place shows its own marker (the stories grow on their own: see the next test)
-    expect(s.marker).toEqual(Object.fromEntries(o.places.filter((p) => p.built).map((p) => [p.place.id, p.episode ? 'story' : 'new'])));
+    // every resident has a marker, lodgers too (they talk from the first day); an episode waiting shows its own
+    expect(s.marker).toEqual(Object.fromEntries(o.places.map((p) => [p.place.id, p.episode ? 'story' : 'new'])));
+    expect(Object.keys(s.marker)).toHaveLength(TOWN_PLACES.length);
     expect(s.sites).toEqual(['home', 'shop', 'office']);
     const labels = lotLabelsOf(o);
     expect(labels).toEqual({ home: '20 xu', shop: '30 xu', office: '40 xu' });
@@ -75,7 +74,6 @@ describe('markers of "Chuyện ở thị trấn"', () => {
     expect(markerOf({ ...base, episode: null })).toBe('heart');
     expect(markerOf({ ...base, episode: { id: 'cafe-1', order: 1, title: 'T', mode: 'new' } })).toBe('story');
     expect(markerOf({ ...base, episode: { id: 'cafe-1', order: 1, title: 'T', mode: 'relisten' } })).toBe('relisten');
-    expect(markerOf({ marker: null, episode: null })).toBeNull();
   });
 });
 
@@ -98,9 +96,30 @@ describe('whom to talk to next', () => {
     expect(suggestedPlace(places)?.place.id).toBe('cafe');
     places[at('square')] = { ...places[at('square')], episode: story('square', 1, 'relisten') };
     expect(suggestedPlace(places)?.place.id).toBe('square');
-    // an empty lot never, whatever it would hold
+    // a lodger's re-listen ties with one at home: the resident at home first
     places[at('shop')] = { ...places[at('shop')], episode: story('shop', 1, 'relisten') };
     expect(suggestedPlace(places)?.place.id).toBe('square');
+    // alone at its rank, a lodger is suggested like anybody
+    places[at('square')] = { ...places[at('square')], episode: null };
+    expect(suggestedPlace(places)?.place.id).toBe('shop');
+  });
+
+  it("a new town: everybody's episode 1 (the free places first, then the lodgers) before anybody's episode 2", () => {
+    const o = view(progress());
+    const withEpisode = o.places.filter((p) => p.episode);
+    expect(withEpisode).toHaveLength(TOWN_PLACES.length); // every place has its episode 1 (docs/town.md §9)
+    const s = suggestedPlace(o.places)!;
+    expect(s.built).toBe(true);
+    expect(s.episode?.order).toBe(1);
+    // the free places' episode 1 heard: a lodger's episode 1 comes before a free place's episode 2
+    const places = o.places.map((p) =>
+      p.built ? { ...p, episode: p.episode ? { ...p.episode, order: 2, id: p.place.id + '-2' } : null } : p,
+    );
+    const next = suggestedPlace(places)!;
+    expect(next.built).toBe(false);
+    expect(next.episode?.order).toBe(1);
+    expect(talkPrompt(next, false)).toBe(`Tới gặp ${next.place.resident} · Tập 1`);
+    expect(talkPrompt(next, true)).toBe(`Bắt chuyện với ${next.place.resident} · Tập 1`);
   });
 
   it('the main button names the episode or the re-listen', () => {
@@ -116,7 +135,7 @@ describe('whom to talk to next', () => {
     expect(talkLabel(again)).toBe('Tới chỗ Emma ở Quán cà phê và nghe lại Tập 1: Ly cà phê đầu tiên');
   });
 
-  it('never an empty lot, and the least known place first', () => {
+  it('a resident at home before a lodger, and the least known place first', () => {
     const o = view({ ...progress(), lines: { ...understood('square', 5), ...understood('cafe', 2) } });
     const s = suggestedPlace(plain(o));
     expect(s?.place.id).toBe('friend');
@@ -127,32 +146,6 @@ describe('whom to talk to next', () => {
     const all = (id: string) => understood(id, placeLines(id).length, 1);
     const o = view({ ...progress(), lines: { ...all('square'), ...all('cafe'), ...understood('friend', 3) } });
     expect(suggestedPlace(plain(o))?.place.id).toBe('friend');
-  });
-});
-
-describe('where a linked conversation starts', () => {
-  it('every resident has a free tile beside them, within talking distance and not straight above or below', () => {
-    for (const id of PLACE_IDS) {
-      const t = talkStartTile(id);
-      expect(t, id).toBeDefined();
-      const r = residentTile(id);
-      expect(walkable(t!), id).toBe(true);
-      expect(Math.max(Math.abs(t!.x - r.x), Math.abs(t!.y - r.y)), id).toBe(1);
-      // the engine calls a resident "near" under 70 world pixels
-      expect(gridDistance(t!.x + 0.5, t!.y + 0.5, r.x + 0.5, r.y + 0.5), id).toBeLessThan(70);
-    }
-  });
-
-  it('never on another resident spot, and next to one only when nothing else is free', () => {
-    for (const id of PLACE_IDS) {
-      const t = talkStartTile(id)!;
-      const others = PLACE_IDS.filter((o) => o !== id).map((o) => residentTile(o));
-      expect(others.some((o) => o.x === t.x && o.y === t.y), id).toBe(false);
-    }
-    // Kim at the clinic: not beside Grace's spot (the two drawn as one with two heads)
-    const kim = talkStartTile('clinic')!;
-    const grace = residentTile('home');
-    expect(Math.max(Math.abs(kim.x - grace.x), Math.abs(kim.y - grace.y))).toBeGreaterThan(1);
   });
 });
 
@@ -262,7 +255,20 @@ describe('words', () => {
     const shop = o.places.find((p) => p.place.id === 'shop')!;
     expect(talkLabel({ ...cafe, episode: null })).toBe('Tới chỗ Emma ở Quán cà phê và bắt chuyện');
     expect(lotLabel(shop)).toBe('Xây Cửa hàng, 30 xu');
+    expect(talkLabel({ ...shop, episode: null })).toBe('Tới chỗ Ben ở nhà trọ và bắt chuyện');
     expect(new Set(o.places.map((p) => (p.built ? talkLabel(p) : lotLabel(p)))).size).toBe(TOWN_PLACES.length);
+    // a lodger is talked to too: every resident has a talk label of their own
+    expect(new Set(o.places.map((p) => talkLabel(p))).size).toBe(TOWN_PLACES.length);
+  });
+
+  it('what building a lot adds: the resident moves in, and the episode told at home opens', () => {
+    const o = view(progress());
+    const cafe = o.places.find((p) => p.place.id === 'cafe')!;
+    const shop = o.places.find((p) => p.place.id === 'shop')!;
+    expect(homePerk(cafe)).toBeNull();
+    expect(homePerk(shop)).toBe('Ben dọn về ở, có thêm Tập 2 ở nhà mới');
+    const ready = { ...shop, homeEpisode: { id: 'shop-2', order: 2, title: 'Quên mua sữa', mode: 'new' as const } };
+    expect(homePerk(ready)).toBe('Ben dọn về ở, mở ngay Tập 2: Quên mua sữa');
   });
 
   it('counts a task only while it is open, and reads the level out', () => {

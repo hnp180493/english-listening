@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Check, LoaderCircle, Play, RotateCcw, Sparkles, Square, Turtle, VolumeX, X } from 'lucide-react';
+import { ArrowRight, Check, Gift, LoaderCircle, Play, RotateCcw, Sparkles, Square, Turtle, VolumeX, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import { PENDING_ARIA, PENDING_LABEL } from '../../components/pendingLabel';
 import SpokenSentence from '../../components/SpokenSentence';
 import type { ListenTally } from '../../core/dictation/listens';
 import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_TITLE, CONNECTED_SLOW_TITLE, CONNECTED_TITLE } from '../../core/playback';
-import { recordTownAnswer, type TownAnswerResult, type TownTurn } from '../../core/town/store';
+import { recordTownAnswer, type TownAnswerResult, type TownGiftGive, type TownTurn } from '../../core/town/store';
 import type { SpeakVoice } from '../../core/tts';
 import type { TownPlace } from '../../core/town/types';
 import { canAnswer, lineOutcome, notePlay } from '../../core/town/visit';
@@ -13,8 +13,12 @@ import type { PlaceId } from '../../data/townWorld';
 import { NEXT_GUARD_MS } from '../dictation/constants';
 import { dictationAudio, safeDecode, type DictationAudio } from '../dictation/decodeCache';
 import { reviewNoteVi } from '../dictation/pageModel';
-import type { PortraitMood } from './art/characters';
-import { Coin, Hearts, Portrait, SoundBars } from './art';
+import { Coin, Portrait, SoundBars, type PortraitMood } from './art';
+import { heartsOf, type FriendView } from '../../core/town/friendship';
+import FriendHearts from './friends/FriendHearts';
+import GiftGive from './friends/GiftGive';
+import { heartsText, pointsText, type GiftReactionView } from './friends/friendModel';
+import { useCanGift } from './friends/useCanGift';
 import { talkSummary, verdictOf, type Verdict } from './shellModel';
 import { stopSfx } from './sfx';
 import { ignoredKeyTarget, SPEAK_DELAY_MS } from './talkKeys';
@@ -35,8 +39,14 @@ export interface ConversationProps {
   turns: readonly TownTurn[];
   /** Per turn: the learner had answered that line before this conversation (its words were shown then). */
   met: readonly boolean[];
-  /** Friendship with the resident right now (0..5). */
-  hearts: number;
+  /** Friendship with the resident right now (core/town/friendship). */
+  friend: FriendView;
+  /** Open the Sổ tay at this resident (their hearts in the header). */
+  onJournal?: () => void;
+  /** A gift was given from the result card: the world reacts. */
+  onGiven?: (r: Extract<TownGiftGive, { ok: true }>, view: GiftReactionView) => void;
+  /** "Tới Tiệm quà" from the gift picker. */
+  onShop?: () => void;
   /** The line is sounding (true) or not: the resident gets a bubble in the world. */
   onSpeaking: (on: boolean) => void;
   /** One line was answered and recorded: the world reacts (emote, coins, sound). */
@@ -53,7 +63,7 @@ export interface ConversationProps {
  * A conversation with a resident, in a panel over the bottom of the stage: five lines, each heard (never read)
  * and answered by picking what it meant; then what the conversation came to.
  */
-export default function Conversation({ place, turns, met, hearts, onSpeaking, onAnswered, onFinished, onLeave, onAgain, onBox }: ConversationProps) {
+export default function Conversation({ place, turns, met, friend, onJournal, onGiven, onShop, onSpeaking, onAnswered, onFinished, onLeave, onAgain, onBox }: ConversationProps) {
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<TownAnswerResult[]>([]);
   const [done, setDone] = useState(false);
@@ -119,8 +129,8 @@ export default function Conversation({ place, turns, met, hearts, onSpeaking, on
             {place.resident}
             <span className="town-talk-place"> · {place.name}</span>
           </span>
-          {/* no row of empty hearts before the first one is earned */}
-          {hearts > 0 && <Hearts value={hearts} fresh={done ? Math.max(0, hearts - (results[0]?.heartsBefore ?? hearts)) : 0} name={place.resident} />}
+          {/* nothing before the first point is won */}
+          <FriendHearts friend={friend} name={place.resident} onJournal={onJournal} fresh={done && heartsOf(friend.points) > (results[0]?.heartsBefore ?? 0)} />
           {/* the five steps on their own line: on the name's line they squeezed the place name onto two */}
           {!done && (
             <div className="town-talk-meta">
@@ -144,7 +154,7 @@ export default function Conversation({ place, turns, met, hearts, onSpeaking, on
       </p>
 
       {done || !turn ? (
-        <TalkResult place={place} results={results} met={met} onLeave={onLeave} onAgain={onAgain} />
+        <TalkResult place={place} results={results} met={met} onLeave={onLeave} onAgain={onAgain} onGiven={onGiven} onShop={onShop} />
       ) : (
         <Turn key={turn.line.id} turn={turn} speaker={place.resident} met={met[index] ?? false} last={index + 1 >= turns.length} onSpeaking={onSpeaking} onAnswered={answered} onNext={next} />
       )}
@@ -414,15 +424,20 @@ interface TalkResultProps {
   met: readonly boolean[];
   onLeave: () => void;
   onAgain: () => void;
+  onGiven?: ConversationProps['onGiven'];
+  onShop?: () => void;
 }
 
-function TalkResult({ place, results, met, onLeave, onAgain }: TalkResultProps) {
+function TalkResult({ place, results, met, onLeave, onAgain, onGiven, onShop }: TalkResultProps) {
   const s = talkSummary(results, met, place.resident);
   const homeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     homeRef.current?.focus({ preventScroll: true });
   }, []);
-  const gained = Math.max(0, s.heartsAfter - s.heartsBefore);
+  const conv = results[results.length - 1]?.conversation ?? null;
+  const gained = conv ? conv.friendAfter - conv.friendBefore : 0;
+  const [gifting, setGifting] = useState(false);
+  const canGift = useCanGift(place.id);
   return (
     <div className="town-result">
       <h2 className="town-result-title">{s.title}</h2>
@@ -457,18 +472,25 @@ function TalkResult({ place, results, met, onLeave, onAgain }: TalkResultProps) 
       ) : (
         <p className="town-result-none">Lần này chưa có xu. Nghe lại từng câu rồi thử lần nữa nhé.</p>
       )}
-      {(s.firstNew > 0 || gained > 0 || s.levelTitle) && (
+      {(s.firstNew > 0 || gained !== 0 || s.levelTitle) && (
         <ul className="town-result-extra">
           {s.firstNew > 0 && <li>Nghe một lần đã hiểu: {s.firstNew} câu</li>}
-          {gained > 0 && (
+          {gained !== 0 && conv && (
             <li>
-              Thân với {place.resident} hơn: {s.heartsBefore > 0 ? `${s.heartsBefore} lên ${s.heartsAfter} tim` : s.heartsAfter === 1 ? 'tim đầu tiên' : `${s.heartsAfter} tim`}
+              Thân với {place.resident}: {pointsText(gained)} · {heartsText(heartsOf(conv.friendAfter))}
             </li>
           )}
           {s.levelTitle && <li>Danh hiệu mới: {s.levelTitle}</li>}
         </ul>
       )}
+      {gifting && <GiftGive placeId={place.id} onGiven={onGiven} onShop={onShop} />}
       <div className="town-talk-foot">
+        {!gifting && canGift && (
+          <button type="button" className="btn btn-ghost" onClick={() => setGifting(true)}>
+            <Icon icon={Gift} size={16} />
+            Tặng quà
+          </button>
+        )}
         <button type="button" className="btn" onClick={onAgain}>
           Nói chuyện tiếp
         </button>

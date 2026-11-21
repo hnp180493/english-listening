@@ -1,0 +1,898 @@
+/* "Câu cá" (activities/FishPanel.tsx). Chrome uses tokens only; the pond's own colours are game art passed inline
+ * from fish/fishArt.ts (docs/design-system.md "Thị trấn: game art"). Motion is off under reduced motion; every
+ * state still reads without it (the float sits low after a bite, the fish that got away is gone). */
+
+.town-fish {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.town-fish:focus {
+  outline: none;
+}
+
+/* ───────── chips: streak, xu left today ───────── */
+.town-fish-chips {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  max-width: calc(100% - 2 * var(--space-2));
+}
+.town-fish-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-md);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.town-fish-chip.is-streak > .icon {
+  color: var(--warn);
+}
+.town-fish-chip.is-muted {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ───────── the pond ───────── */
+.town-fish-pond {
+  position: relative;
+  height: 156px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.town-fish-pond-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.town-fish-pond svg * {
+  transform-box: fill-box;
+}
+.town-fish-float {
+  transform-origin: 50% 100%;
+  animation: town-fish-bob 2.6s ease-in-out infinite;
+}
+.town-fish-pond.is-waiting .town-fish-float {
+  animation: town-fish-nibble 2.2s ease-in-out infinite;
+}
+/* the bite: the float goes under and shakes; it stays low while the fish talks */
+.town-fish-pond.is-bite .town-fish-float,
+.town-fish-pond.is-listening .town-fish-float {
+  transform: translateY(9px);
+  animation: town-fish-dunk 0.42s ease-in-out infinite;
+}
+.town-fish-pond.is-listening .town-fish-float {
+  animation-duration: 1.4s;
+}
+.town-fish-pond.is-caught .town-fish-float {
+  animation: town-fish-bob 1.2s ease-in-out infinite;
+}
+
+.town-fish-ripple {
+  transform-origin: 50% 50%;
+  opacity: 0;
+  animation: town-fish-ripple 3s ease-out infinite;
+}
+.town-fish-ripple.is-late {
+  animation-delay: 1.5s;
+}
+.town-fish-pond.is-bite .town-fish-ripple {
+  animation-duration: 0.9s;
+}
+.town-fish-pond.is-bite .town-fish-ripple.is-late {
+  animation-delay: 0.45s;
+}
+.town-fish-pond.is-speaking .town-fish-ripple {
+  animation-duration: 1.6s;
+}
+
+.town-fish-shimmer {
+  animation: town-fish-shimmer 7s ease-in-out infinite alternate;
+}
+
+/* the fish under the water: circles while it makes up its mind, stays at the float once hooked */
+.town-fish-shadow {
+  transform-origin: 50% 50%;
+}
+.town-fish-pond.is-waiting .town-fish-shadow {
+  animation: town-fish-circle 5.2s ease-in-out infinite;
+}
+.town-fish-pond.is-bite .town-fish-shadow,
+.town-fish-pond.is-listening .town-fish-shadow {
+  animation: town-fish-tug 0.8s ease-in-out infinite;
+}
+.town-fish-pond.is-caught .town-fish-shadow {
+  opacity: 0;
+}
+.town-fish-pond.is-escaped .town-fish-shadow {
+  opacity: 0;
+  animation: town-fish-away 1.3s ease-in both;
+}
+
+/* drops: only when it bites and when it jumps out */
+.town-fish-drop {
+  opacity: 0;
+}
+.town-fish-pond.is-bite .town-fish-drop,
+.town-fish-pond.is-caught .town-fish-drop {
+  animation: town-fish-drop 0.7s ease-out both;
+}
+.town-fish-drop.is-a {
+  --dx: -16px;
+  --dy: -18px;
+}
+.town-fish-drop.is-b {
+  --dx: -6px;
+  --dy: -26px;
+  animation-delay: 40ms;
+}
+.town-fish-drop.is-c {
+  --dx: 8px;
+  --dy: -22px;
+  animation-delay: 20ms;
+}
+.town-fish-drop.is-d {
+  --dx: 18px;
+  --dy: -14px;
+  animation-delay: 60ms;
+}
+.town-fish-drop.is-e {
+  --dx: 2px;
+  --dy: -30px;
+  animation-delay: 90ms;
+}
+
+/* over the water */
+.town-fish-voice {
+  position: absolute;
+  bottom: var(--space-2);
+  left: var(--space-2);
+  display: inline-flex;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+.town-fish-voice .town-bars {
+  height: 22px;
+}
+.town-fish-voice .town-bars > i {
+  height: 22px;
+}
+.town-fish-jump {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: town-fish-jump 640ms var(--ease) both;
+}
+.town-fish-jump .town-fish-sprite {
+  display: block;
+  animation: town-fish-wiggle 1.8s ease-in-out 700ms infinite;
+}
+
+/* ───────── idle and the cast ───────── */
+.town-fish-start,
+.town-fish-play {
+  display: grid;
+  gap: var(--space-3);
+}
+.town-fish-lead {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-fish-cta {
+  justify-content: center;
+  width: 100%;
+}
+.town-fish-kbd {
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  box-shadow: inset 0 0 0 1px currentColor;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  opacity: 0.8;
+}
+.town-fish-status {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.town-fish-status.is-bite {
+  color: var(--accent);
+  animation: town-fish-badge 320ms var(--ease) both;
+}
+.town-fish-rules {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* the clock: full until the first play ends, then it drains (replays included) */
+.town-fish-clock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.town-fish-time {
+  flex: 1;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--track);
+}
+.town-fish-time > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: 0 50%;
+  transition: transform 100ms linear;
+}
+.town-fish-secs {
+  min-width: 3.4em;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-align: right;
+}
+.town-fish-clock.is-low .town-fish-time > span {
+  background: var(--warn);
+}
+.town-fish-clock.is-low .town-fish-secs {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+/* the options */
+.town-fish-opts {
+  display: grid;
+  gap: var(--space-2);
+}
+.town-fish-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 46px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: town-fish-in 200ms var(--ease) both;
+}
+.town-fish-opt:nth-child(2) {
+  animation-delay: 40ms;
+}
+.town-fish-opt:nth-child(3) {
+  animation-delay: 80ms;
+}
+.town-fish-opt:nth-child(4) {
+  animation-delay: 120ms;
+}
+.town-fish-opt:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+.town-fish-opt:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.town-fish-opt:disabled {
+  cursor: default;
+}
+.town-fish-opt-key {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.town-fish-opt-text {
+  min-width: 0;
+  font-size: var(--fs-base);
+  line-height: 1.35;
+}
+.town-fish-under {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.town-fish-worth {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+}
+.town-fish-worth.is-halved {
+  animation: town-fish-badge 320ms var(--ease) both;
+}
+.town-fish-worth-note {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+
+/* ───────── after the answer ───────── */
+.town-fish-result {
+  display: grid;
+  gap: var(--space-3);
+  animation: town-fish-in 220ms var(--ease) both;
+}
+.town-fish-verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.town-fish-verdict.is-ok {
+  background: var(--ok-bg);
+}
+.town-fish-verdict-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border-radius: var(--radius-full);
+  background: var(--bad);
+  color: var(--surface);
+}
+.town-fish-verdict.is-ok .town-fish-verdict-icon {
+  background: var(--ok);
+}
+.town-fish-verdict-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.town-fish-verdict-title {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+.town-fish-new {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  vertical-align: 2px;
+  animation: town-fish-badge 360ms var(--ease) 200ms both;
+}
+.town-fish-verdict-sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-fish-verdict-sub .town-fish-gem,
+.town-fish-rules .town-fish-gem {
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+.town-fish-rules .town-fish-gem {
+  margin-right: 0;
+}
+.town-fish-gain {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.town-fish-reveal-box {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.town-fish-reveal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+}
+.town-fish-reveal-label {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-fish-reveal-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-right: calc(-1 * var(--space-2));
+}
+.town-fish-reveal {
+  display: grid;
+  gap: var(--space-1);
+}
+.town-fish-said-text {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.town-fish-chunk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+.town-fish-spoken {
+  color: var(--accent);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.town-fish-arrow {
+  color: var(--text-muted);
+}
+.town-fish-picked {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-sm);
+}
+.town-fish-picked > .icon {
+  flex: none;
+  align-self: center;
+  color: var(--bad);
+}
+.town-fish-vi {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-fish-fact {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-fish-fact > .icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+.town-fish-fact-label {
+  color: var(--text);
+  font-weight: 600;
+}
+.town-fish-bonus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.town-fish-bonus-xu {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-weight: 700;
+}
+.town-fish-bonus-detail,
+.town-fish-note {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.town-fish-note {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+/* "Thả câu tiếp" stays in reach while the result scrolls (a phone's bottom sheet is short) */
+.town-fish-foot {
+  position: sticky;
+  bottom: calc(-1 * var(--space-5));
+  z-index: 1;
+  margin: 0 calc(-1 * var(--space-5)) calc(-1 * var(--space-5));
+  padding: var(--space-2) var(--space-5) var(--space-5);
+  background: var(--surface);
+}
+.town-fish-how ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  font-size: var(--fs-sm);
+}
+.town-fish-how li + li {
+  margin-top: var(--space-1);
+}
+
+/* ───────── Sổ cá ───────── */
+.town-fish-album {
+  display: grid;
+  gap: var(--space-4);
+}
+.town-fish-album-head {
+  display: grid;
+  gap: var(--space-2);
+}
+.town-fish-album-count {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.town-fish-album-sub {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}
+.town-fish-album-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--track);
+}
+.town-fish-album-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.town-fish-tiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  list-style: none;
+}
+.town-fish-tiers > li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.town-fish-album-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-fish-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-fish-card {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-2) var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+.town-fish-card:hover {
+  background: var(--surface-3);
+}
+.town-fish-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.town-fish-card.is-on {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.town-fish-card-pic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 44px;
+}
+.town-fish-card-q {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: var(--fs-lg);
+  font-weight: 800;
+}
+.town-fish-card-name {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.town-fish-card.is-unknown .town-fish-card-name,
+.town-fish-card.is-seen .town-fish-card-name {
+  color: var(--text-muted);
+}
+.town-fish-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+.town-fish-gem {
+  flex: none;
+}
+.town-fish-detail {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  animation: town-fish-in 200ms var(--ease) both;
+}
+.town-fish-detail > p {
+  margin: 0;
+}
+.town-fish-detail-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+.town-fish-detail-fact {
+  font-size: var(--fs-sm);
+}
+.town-fish-detail-meta {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* ───────── a phone: the sheet is short ───────── */
+@media (max-width: 720px) {
+  .town-fish {
+    gap: var(--space-3);
+  }
+  .town-fish-pond {
+    height: 108px;
+  }
+  .town-fish-play {
+    gap: var(--space-2);
+  }
+  .town-fish-opts {
+    gap: 6px;
+  }
+  .town-fish-opt {
+    min-height: 42px;
+    padding: 6px var(--space-3);
+  }
+  .town-fish-opt-text {
+    font-size: var(--fs-sm);
+  }
+  .town-fish-jump .town-fish-sprite {
+    width: 104px;
+    height: auto;
+  }
+  .town-fish-foot {
+    bottom: calc(-1 * var(--space-4));
+    margin: 0 calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+    padding: var(--space-2) var(--space-4) var(--space-4);
+  }
+}
+/* key hints only where there is a keyboard */
+@media (hover: none), (pointer: coarse) {
+  .town-fish-kbd,
+  .town-fish-opt-key {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .town-fish *,
+  .town-fish *::before,
+  .town-fish *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ───────── motion ───────── */
+@keyframes town-fish-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(2px);
+  }
+}
+@keyframes town-fish-nibble {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(1.5px);
+  }
+  58% {
+    transform: translateY(0);
+  }
+  64% {
+    transform: translateY(4px) rotate(-6deg);
+  }
+  70% {
+    transform: translateY(0) rotate(0);
+  }
+  76% {
+    transform: translateY(3px) rotate(5deg);
+  }
+  82% {
+    transform: translateY(0);
+  }
+}
+@keyframes town-fish-dunk {
+  0%,
+  100% {
+    transform: translateY(9px) rotate(-7deg);
+  }
+  50% {
+    transform: translateY(11px) rotate(7deg);
+  }
+}
+@keyframes town-fish-ripple {
+  0% {
+    opacity: 0.75;
+    transform: scale(0.35);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+@keyframes town-fish-shimmer {
+  from {
+    transform: translateX(-8px);
+  }
+  to {
+    transform: translateX(8px);
+  }
+}
+@keyframes town-fish-circle {
+  0% {
+    transform: translate(-80px, 6px) scaleX(1);
+  }
+  46% {
+    transform: translate(60px, 12px) scaleX(1);
+  }
+  50% {
+    transform: translate(62px, 10px) scaleX(-1);
+  }
+  96% {
+    transform: translate(-82px, 4px) scaleX(-1);
+  }
+  100% {
+    transform: translate(-80px, 6px) scaleX(1);
+  }
+}
+@keyframes town-fish-tug {
+  0%,
+  100% {
+    transform: translate(-6px, 0) rotate(-6deg);
+  }
+  50% {
+    transform: translate(-2px, 2px) rotate(6deg);
+  }
+}
+@keyframes town-fish-away {
+  0% {
+    opacity: 1;
+    transform: translate(-4px, 0) scaleX(-1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-190px, 18px) scaleX(-1);
+  }
+}
+@keyframes town-fish-drop {
+  0% {
+    opacity: 0.95;
+    transform: translate(0, 0);
+  }
+  60% {
+    opacity: 0.9;
+    transform: translate(var(--dx), var(--dy));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--dx) * 1.3), calc(var(--dy) * 0.2));
+  }
+}
+@keyframes town-fish-badge {
+  0% {
+    opacity: 0;
+    scale: 0.6;
+  }
+  70% {
+    opacity: 1;
+    scale: 1.08;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes town-fish-jump {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 10%) scale(0.35) rotate(-20deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -72%) scale(1.06) rotate(8deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0);
+  }
+}
+@keyframes town-fish-wiggle {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+@keyframes town-fish-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

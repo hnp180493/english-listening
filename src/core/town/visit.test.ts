@@ -338,23 +338,17 @@ describe('visitSummary', () => {
   });
 });
 
-describe('a conversation needs a built place', () => {
-  it('the three free places can be talked at from the start; an empty lot says nothing until it is built', () => {
+describe('who can be talked to', () => {
+  it('every resident from the first day, their place built or not (a lodger at the boarding house talks too)', () => {
     const p0 = emptyTownProgress();
-    for (const id of ['square', 'cafe', 'friend']) {
-      expect(canTalk(p0, id)).toBe(true);
-      expect(conversationLines(p0, id)).toEqual(pickVisitLines(placeLines(id), p0));
-      expect(conversationLines(p0, id)).toHaveLength(VISIT_SIZE);
-    }
-    for (const place of TOWN_PLACES.filter((x) => x.cost > 0)) {
-      expect(canTalk(p0, place.id), place.id).toBe(false);
-      expect(conversationLines(p0, place.id)).toEqual([]);
+    for (const place of TOWN_PLACES) {
+      expect(canTalk(p0, place.id), place.id).toBe(true);
+      expect(conversationLines(p0, place.id)).toEqual(pickVisitLines(placeLines(place.id), p0));
+      expect(conversationLines(p0, place.id)).toHaveLength(VISIT_SIZE);
     }
     const built: TownProgress = { ...p0, bought: ['home'] };
-    expect(canTalk(built, 'home')).toBe(true);
-    expect(conversationLines(built, 'home')).toHaveLength(VISIT_SIZE);
+    expect(conversationLines(built, 'home')).toEqual(conversationLines(p0, 'home'));
     expect(conversationLines(built, 'home', 3)).toHaveLength(3);
-    expect(canTalk(built, 'shop')).toBe(false);
     expect(canTalk(built, 'nope')).toBe(false);
     expect(canTalk(built, 'lamps1')).toBe(false); // a decoration is not a place
     expect(conversationLines(built, 'nope')).toEqual([]);

@@ -93,6 +93,15 @@ function audio(): AudioContext | null {
   return ctx;
 }
 
+/**
+ * Make the audio context ahead of the first effect (the page calls this when idle): making one takes the main thread
+ * for tens of milliseconds, which would otherwise land on the first right answer. It may start suspended; the first
+ * effect, inside a click or a key press, resumes it.
+ */
+export function warmSfx(): void {
+  audio();
+}
+
 function bus(ac: AudioContext): GainNode {
   if (!master) {
     master = ac.createGain();

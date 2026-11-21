@@ -4,7 +4,8 @@
 import { placeLines, TOWN_DECORATIONS, TOWN_PLACES } from '../../data/town';
 import { dailyTasks, playedToday, townStreak, type TownTaskView } from './daily';
 import { isBuilt, levelFor, placeHearts, placeLit, placeMarker, rawBalance, storyTotals, xpOf, type PlaceMarker, type TownLevel } from './economy';
-import { nextEpisode, type EpisodeMode } from './episodes';
+import { episodeWaitingForFriend, episodeWaitingForHome, nextEpisode, type EpisodeMode } from './episodes';
+import { friendView, type FriendView } from './friendship';
 import { earnedTotal, hasBought, linesStats, townDay, type TownProgress, type TownStats } from './progress';
 import type { TownDecoration, TownPlace } from './types';
 
@@ -16,7 +17,11 @@ export function placeStats(progress: TownProgress, place: Pick<TownPlace, 'id'>)
 
 export interface PlaceView {
   place: TownPlace;
-  /** It stands (free or bought): its resident can be talked to. false = an empty lot. */
+  /**
+   * It stands (free or bought): the resident's own home, its windows light up with `lit`. false = an empty lot, and
+   * its resident lodges at the boarding house: they talk all the same (quick chats, episode 1), only the episodes
+   * told at home (`homeEpisode`) wait for the house.
+   */
   built: boolean;
   /** Xu to build it (0 for the three free places). */
   cost: number;
@@ -25,17 +30,29 @@ export interface PlaceView {
   /** Xu still to earn before an empty lot can be built (0 when built or affordable). */
   missing: number;
   stats: TownStats;
-  /** Friendship with the resident, 0..5. */
+  /** How much of the place's sentences is understood, 0..5 (economy placeHearts: the old measure, kept for the stats). */
   hearts: number;
+  /** Friendship with the resident (./friendship): points, 0..10 hearts. A game score. */
+  friend: FriendView;
   /** 0..1: how much of the place is lit (the share of its lines understood). */
   lit: number;
-  /** What waits there (economy placeMarker); null for an empty lot. */
-  marker: PlaceMarker | null;
+  /** What waits among the resident's lines (economy placeMarker), their place built or not. */
+  marker: PlaceMarker;
   /**
-   * The episode a conversation there would be now (./episodes nextEpisode): a re-listen that is due, or the next
-   * episode to hear; null = the quick five-line chat (or an empty lot).
+   * The episode a conversation with the resident would be now (./episodes nextEpisode): a re-listen that is due, or
+   * the next episode to hear; null = the quick five-line chat.
    */
   episode: PlaceEpisodeView | null;
+  /**
+   * Not built yet: the episode that would be open now but is told only at the resident's home (./episodes
+   * episodeWaitingForHome): building the place opens it. null otherwise. Its `mode` is always 'new'.
+   */
+  homeEpisode: PlaceEpisodeView | null;
+  /**
+   * The next episode waits only for friendship (its `requires`, ./episodes episodeWaitingForFriend): "Cần 4 tim".
+   * `hearts` = the hearts it needs (null: enough), `facts` = how many facts it still needs. null otherwise.
+   */
+  friendEpisode: (PlaceEpisodeView & { hearts: number | null; facts: number }) | null;
 }
 
 export interface PlaceEpisodeView {
@@ -88,7 +105,9 @@ export function townOverview(progress: TownProgress, now: number, device: string
     totals.understood += stats.understood;
     totals.first += stats.first;
     const built = isBuilt(progress, place.id);
-    const next = built ? nextEpisode(progress, place.id, now) : null;
+    const next = nextEpisode(progress, place.id, now);
+    const home = episodeWaitingForHome(progress, place.id);
+    const wait = next ? null : episodeWaitingForFriend(progress, place.id);
     return {
       place,
       built,
@@ -98,8 +117,11 @@ export function townOverview(progress: TownProgress, now: number, device: string
       stats,
       hearts: placeHearts(stats),
       lit: placeLit(stats),
-      marker: built ? placeMarker(stats) : null,
+      marker: placeMarker(stats),
       episode: next ? { id: next.episode.id, order: next.episode.order, title: next.episode.title, mode: next.mode } : null,
+      homeEpisode: home ? { id: home.id, order: home.order, title: home.title, mode: 'new' } : null,
+      friend: friendView(progress, place.id),
+      friendEpisode: wait ? { id: wait.episode.id, order: wait.episode.order, title: wait.episode.title, mode: 'new', hearts: wait.needs.hearts, facts: wait.needs.facts.length } : null,
     };
   });
   const decorations = TOWN_DECORATIONS.map((decoration): DecorationView => {

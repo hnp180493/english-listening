@@ -1,0 +1,229 @@
+/* "Nông trại" panel (activities/FarmPanel.tsx). Chrome only: tokens, no art colours (those are inline SVG fills from
+ * farmArt.tsx, docs/design-system.md "Thị trấn: game art"). */
+
+.town-farm {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* ── the top: picture, what is going on, the one action ── */
+.town-farm-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.town-farm-hero > svg {
+  flex: none;
+}
+.town-farm-hero-text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.town-farm-headline {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.town-farm-detail {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-farm-actions {
+  display: grid;
+  gap: var(--space-2);
+}
+.town-farm-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* ── after a claim ── */
+.town-farm-result {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  animation: town-farm-pop 240ms var(--ease) both;
+}
+.town-farm-result > svg {
+  flex: none;
+}
+.town-farm-result-text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.town-farm-earned {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.town-farm-lines {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-farm-cele {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ── the field ── */
+.town-farm-section {
+  display: grid;
+  gap: var(--space-2);
+}
+.town-farm-h {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.town-farm-field {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-farm-plot {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.town-farm-bed {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+/* how far a growing plot is: a ring and its percent on the picture's sky, top left */
+.town-farm-grow {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2) 2px 3px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+.town-farm-kind {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.town-farm-status {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+}
+.town-farm-ring {
+  flex: none;
+}
+.town-farm-ring-track {
+  fill: none;
+  stroke: var(--track);
+  stroke-width: 3;
+}
+.town-farm-ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.town-farm-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-farm-note > .icon {
+  flex: none;
+  margin-top: 2px;
+}
+.town-farm-how {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+/* ── motion: twinkles, the golden glow, the result popping in (all still under reduced motion) ── */
+.town-farm-sparkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: town-farm-twinkle 1.8s ease-in-out infinite;
+}
+.town-farm-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: town-farm-breathe 2.4s ease-in-out infinite;
+}
+@keyframes town-farm-twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes town-farm-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes town-farm-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .town-farm-sparkle,
+  .town-farm-glow,
+  .town-farm-result {
+    animation: none;
+  }
+}

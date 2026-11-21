@@ -1,13 +1,14 @@
 // What is drawn in SCREEN pixels, around and over the world: the sky behind the island, name tags and the marker
 // over a resident's head, emotes, particles. Text here is never smaller than 13 CSS px, whatever the zoom.
 
-import type { Pt } from '../iso';
+import type { Pt } from '../particles';
 import type { TownPalette } from '../palette';
 import { particleAlpha, type Particle } from '../particles';
 import type { Marker } from '../sim';
 import { hash, heartPath, oval, roundRect, sparkPath } from './util';
 
-export type EmoteKind = 'heart' | 'sparkle' | 'question' | 'coins';
+/** 'smile' / 'meh' / 'frown': a face, how a resident takes a gift (docs/town.md §12). */
+export type EmoteKind = 'heart' | 'sparkle' | 'question' | 'coins' | 'smile' | 'meh' | 'frown';
 
 /** How long an emote stays, in seconds. */
 export const EMOTE_SECONDS = 1.5;
@@ -223,6 +224,28 @@ export function drawEmote(ctx: CanvasRenderingContext2D, kind: EmoteKind, at: Pt
     ctx.lineJoin = 'round';
     ctx.stroke();
     oval(ctx, 0.4, 7, 1.7, 1.7, '#6d6af0');
+  } else if (kind === 'smile' || kind === 'meh' || kind === 'frown') {
+    // a round face: a smile, a flat mouth, or a frown
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.fillStyle = kind === 'frown' ? '#b9c3dd' : '#ffd866';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    oval(ctx, -4.2, -3, 1.6, 2, '#3b3550');
+    oval(ctx, 4.2, -3, 1.6, 2, '#3b3550');
+    ctx.beginPath();
+    if (kind === 'smile') ctx.arc(0, 1.5, 5.2, Math.PI * 0.15, Math.PI * 0.85);
+    else if (kind === 'frown') ctx.arc(0, 8.5, 5, Math.PI * 1.2, Math.PI * 1.8);
+    else {
+      ctx.moveTo(-4.5, 5);
+      ctx.lineTo(4.5, 5);
+    }
+    ctx.strokeStyle = '#3b3550';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.stroke();
   } else {
     for (const [dx, dy] of [[-10, 4], [0, -4], [10, 4]] as const) drawCoin(ctx, dx, dy + (still ? 0 : Math.sin(age * 10 + dx) * 2), 6.5, 0);
   }
@@ -301,6 +324,43 @@ export function drawTalkBubble(ctx: CanvasRenderingContext2D, pal: TownPalette, 
   ctx.restore();
 }
 
+/**
+ * A small "…" bubble over somebody chatting with a neighbour (no words: their talk is not for the learner).
+ * `age` seconds since it came (it pops in, then fades), centred on `x`, its tail at `y`.
+ */
+export function drawChatDots(ctx: CanvasRenderingContext2D, pal: TownPalette, x: number, y: number, age: number, life: number, still: boolean): void {
+  const w = 26;
+  const h = 16;
+  const k = still ? 1 : Math.min(1, age / 0.15);
+  const fade = Math.min(1, (life - age) / 0.3);
+  if (fade <= 0) return;
+  ctx.save();
+  ctx.globalAlpha *= Math.max(0, fade) * 0.95;
+  ctx.translate(x, y);
+  ctx.scale(0.7 + 0.3 * k, 0.7 + 0.3 * k);
+  const left = -w / 2;
+  const top = -h - 5;
+  ctx.fillStyle = pal.night ? '#eef0ff' : '#ffffff';
+  ctx.shadowColor = 'rgba(0,0,0,0.18)';
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 1;
+  roundRect(ctx, left, top, w, h, 8);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.beginPath();
+  ctx.moveTo(-4, top + h - 1);
+  ctx.lineTo(-1, top + h + 4);
+  ctx.lineTo(3, top + h - 1);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#8a86c8';
+  for (let i = 0; i < 3; i++) {
+    const lift = still ? 0 : Math.max(0, Math.sin(age * 9 - i * 0.9)) * 1.6;
+    oval(ctx, -6 + i * 6, top + h / 2 - lift, 1.7, 1.7, '#8a86c8');
+  }
+  ctx.restore();
+}
+
 const DUST = ['rgba(236,226,204,1)', 'rgba(214,202,181,1)'];
 const CONFETTI = ['#ff8fab', '#ffd76b', '#7ad1c2', '#8fb8ff', '#c9b1ff', '#ff9f6b'];
 const SPARKS = ['#ffe07a', '#ffffff', '#ffc2d4'];
@@ -357,12 +417,19 @@ export interface TagBox {
    */
   alt?: number;
   below?: boolean;
+  /** No room for it next to its owner (placeTags): not drawn. */
+  hidden?: boolean;
 }
+
+/** How far a tag may be moved off its owner to make room (CSS px): further, it would seem to name somebody else. */
+export const TAG_DRIFT = 12;
 
 /**
  * Move tags so that none covers another and all stay inside the free part of the stage. Tags are taken in the order
- * given (the most important first) and keep their place; a later one that would cover them moves up (or, with no
- * room above, down). Mutates and returns the list.
+ * given (the most important first) and keep their place; a later one that would cover them moves a little up (or,
+ * with no room above, down). A tag that would have to move more than TAG_DRIFT off its owner (over a neighbour's
+ * head, where it seems to name the neighbour) goes under its owner's feet when it has room there (`alt`), else it is
+ * not shown (`hidden`). Mutates and returns the list.
  */
 export function placeTags(tags: TagBox[], area: { x0: number; y0: number; x1: number; y1: number }): TagBox[] {
   const placed: TagBox[] = [];
@@ -377,11 +444,24 @@ export function placeTags(tags: TagBox[], area: { x0: number; y0: number; x1: nu
       t.below = true;
     }
     t.y = Math.min(area.y1, Math.max(area.y0 + t.h + t.above, t.y));
+    const home = t.y;
     for (let i = 0; i < 6; i++) {
       const other = placed.find((p) => hits(t, p));
       if (!other) break;
       const up = other.y - other.h - other.above - 3;
       t.y = up - t.h - t.above >= area.y0 ? up : other.y + t.h + t.above + 3;
+    }
+    if (Math.abs(t.y - home) > TAG_DRIFT || placed.some((p) => hits(t, p))) {
+      t.y = home;
+      const feet = t.alt !== undefined && !t.below ? { ...t, y: Math.min(area.y1, t.alt), above: 0 } : null;
+      if (feet && !placed.some((p) => hits(feet, p))) {
+        t.y = feet.y;
+        t.above = 0;
+        t.below = true;
+      } else {
+        t.hidden = true;
+        continue;
+      }
     }
     placed.push(t);
   }

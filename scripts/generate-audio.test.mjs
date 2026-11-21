@@ -521,3 +521,18 @@ describe('audio-lib', () => {
     assert.equal(inlinedResponses({ response: {} }), null)
   })
 })
+
+test('renameRetry retries a Windows-style EPERM and then succeeds', async () => {
+  const { renameRetry } = await import('./audio-lib.mjs')
+  const { mkdtemp, writeFile: wf, readFile: rf, rm } = await import('node:fs/promises')
+  const { tmpdir } = await import('node:os')
+  const { join: j } = await import('node:path')
+  const dir = await mkdtemp(j(tmpdir(), 'rr-'))
+  const from = j(dir, 'a.tmp')
+  const to = j(dir, 'a.json')
+  await wf(from, '{"ok":true}')
+  await renameRetry(from, to)
+  assert.equal(await rf(to, 'utf8'), '{"ok":true}')
+  await assert.rejects(renameRetry(j(dir, 'missing.tmp'), to, 3), { code: 'ENOENT' })
+  await rm(dir, { recursive: true, force: true })
+})

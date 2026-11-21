@@ -3,23 +3,29 @@
 // An episode is heard three times over: once in one go with no text, then the gist question (the honest win: the
 // main point understood on the very first listen); then line by line (play, pick the meaning, see how it was
 // said); then once more in one go. Afterwards it comes back for a short re-listen (the whole exchange and the gist
-// only) after 1, 3, 7 and 21 days: spaced re-listening. Episode 2 of a place opens once episode 1 is finished.
+// only) after 1, 3, 7 and 21 days: spaced re-listening. Episode 1 of every place is open from the first day (a
+// resident whose place is not built yet lodges at the boarding house and talks all the same); episode 2 opens once
+// episode 1 is finished AND the resident has a home of their own (their place built: what building adds, besides
+// the house, its lit windows and the hearts over it). Episode 3 on (each resident's arc, data/stories) also waits for
+// what its `requires` asks: friendship hearts and facts (./friendship episodeNeeds, docs/town.md §12).
 //
 //   a line                                   as any line of the town (3 / 2 / 1 xu, ./economy lineReward)
 //   the gist right on the very first listen  +5 xu (EPISODE_GIST_FIRST_XU), once per episode
 //   the first finish of an episode           +10 xu (EPISODE_FINISH_XU)
 //   a re-listen with the gist right          +3 xu (EPISODE_RELISTEN_XU)
-//   a finish or a re-listen                  counts as a conversation for the daily task "Trò chuyện với 2 người dân"
+//   a finish or a re-listen                  counts as a conversation ("Trò chuyện với 2 người dân") and for the
+//                                            daily task "Nghe trọn 1 tập chuyện" (./daily noteEpisode)
 //
 // Stored per episode in the town progress (./progress episodes): the next re-listen is derived from it, never stored.
 
 import { storiesOfPlace } from '../../data/townStories';
 import { townPlace } from '../../data/town';
-import { noteConversation, type TaskPayout } from './daily';
+import { noteEpisode, type TaskPayout } from './daily';
 import { isBuilt } from './economy';
+import { episodeNeeds, needsMet, type EpisodeNeeds } from './friendship';
 import { addEarned, daysBefore, EPISODE_MAX_STAGE, episodeProgress, townDay, updateEpisode, type EpisodeProgress, type GistMark, type TownProgress } from './progress';
 import type { StoryEpisode, StorySpeaker } from './story';
-import { episodeTownLines, placeStoryLines } from './storyLines';
+import { episodeTownLines, placeStoryLines, storyLineById } from './storyLines';
 import { choicesFor, seededRandom, type LineChoices } from './visit';
 
 /** Days from one whole listen that counted to the next re-listen, by stage (1 = just finished). */
@@ -67,12 +73,50 @@ export function daysUntilRelisten(e: EpisodeProgress | undefined, now: number): 
   return n;
 }
 
-/** Episode 1 of a place is open from the start; every later one once the one before it is finished. */
+/** Episodes of a place from this one on (1-based order) are told only at the resident's own home: the place built. */
+export const HOME_EPISODE_FROM = 2;
+
+/** The episode is told only once its resident has a home of their own (HOME_EPISODE_FROM on). Unknown: false. */
+export function needsHome(episode: Pick<StoryEpisode, 'id' | 'placeId'>): boolean {
+  return storiesOfPlace(episode.placeId).findIndex((e) => e.id === episode.id) + 1 >= HOME_EPISODE_FROM;
+}
+
+/**
+ * Episode 1 of a place is open from the start (built or not: a lodger talks too); every later one once the one
+ * before it is finished and the place is built (needsHome), and what its `requires` asks is met (hearts, facts).
+ */
 export function isEpisodeUnlocked(progress: TownProgress, episode: Pick<StoryEpisode, 'id' | 'placeId'>): boolean {
   const list = storiesOfPlace(episode.placeId);
   const i = list.findIndex((e) => e.id === episode.id);
   if (i < 0) return false;
-  return i === 0 || isEpisodeFinished(episodeProgress(progress, list[i - 1].id));
+  if (i === 0) return true;
+  return isEpisodeFinished(episodeProgress(progress, list[i - 1].id)) && (!needsHome(episode) || isBuilt(progress, episode.placeId)) && needsMet(episodeNeeds(progress, list[i]));
+}
+
+/**
+ * The next episode of `placeId` that waits only for friendship (hearts or facts: its `requires`): the one before it
+ * finished, the house built when it needs one. null when nothing waits for that.
+ */
+export function episodeWaitingForFriend(progress: TownProgress, placeId: string): { episode: StoryEpisode; needs: EpisodeNeeds } | null {
+  const list = storiesOfPlace(placeId);
+  const i = list.findIndex((episode) => !isEpisodeFinished(episodeProgress(progress, episode.id)));
+  if (i < 1 || !isEpisodeFinished(episodeProgress(progress, list[i - 1].id))) return null;
+  if (needsHome(list[i]) && !isBuilt(progress, placeId)) return null;
+  const needs = episodeNeeds(progress, list[i]);
+  return needsMet(needs) ? null : { episode: list[i], needs };
+}
+
+/**
+ * The episode that would be open now at `placeId` but for the house: the one before it finished, the place not
+ * built. null when the place is built, or nothing waits for the house (no episode left, or the one before it is not
+ * finished yet).
+ */
+export function episodeWaitingForHome(progress: TownProgress, placeId: string): StoryEpisode | null {
+  if (isBuilt(progress, placeId)) return null;
+  const list = storiesOfPlace(placeId);
+  const i = list.findIndex((episode) => !isEpisodeFinished(episodeProgress(progress, episode.id)));
+  if (i < 1 || !needsHome(list[i])) return null;
+  return isEpisodeFinished(episodeProgress(progress, list[i - 1].id)) ? list[i] : null;
 }
 
 export interface NextEpisode {
@@ -82,10 +126,10 @@ export interface NextEpisode {
 
 /**
  * What a conversation at `placeId` should be now: a re-listen that is due (the one due longest first), else the
- * next episode not finished yet (if it is open), else null (the quick five-line chat). An empty lot: null.
+ * next episode not finished yet (if it is open: isEpisodeUnlocked), else null (the quick five-line chat). A place
+ * not built yet has its episode 1 and its re-listens like any other: its resident lodges at the boarding house.
  */
 export function nextEpisode(progress: TownProgress, placeId: string, now: number): NextEpisode | null {
-  if (!isBuilt(progress, placeId)) return null;
   const list = storiesOfPlace(placeId);
   let due: { episode: StoryEpisode; day: string } | null = null;
   for (const episode of list) {
@@ -128,7 +172,10 @@ export function speakerOnStage(who: StorySpeaker, placeId: string): string | 'pl
 export function storyChoices(lineId: string, episode: StoryEpisode, seed: number): LineChoices {
   const line = episodeTownLines(episode).find((l) => l.id === lineId);
   if (!line) return { options: [], answer: 0 };
-  return choicesFor(line, placeStoryLines(episode.placeId), seed);
+  // never another form of the same moment (an option, a variant): it means nearly the same
+  const base = storyLineById(lineId)?.line.base ?? lineId;
+  const pool = placeStoryLines(episode.placeId).filter((l) => l.id === lineId || (storyLineById(l.id)?.line.base ?? l.id) !== base);
+  return choicesFor(line, pool, seed);
 }
 
 /**
@@ -202,7 +249,7 @@ export function applyEpisodeGist(
   );
   if (listened === progress) return { progress, firstWin: false, reward: 0, tasksPaid: [] };
   const reward = right ? EPISODE_RELISTEN_XU : 0;
-  const noted = noteConversation(addEarned(listened, device, reward), episode.placeId, now, device);
+  const noted = noteEpisode(addEarned(listened, device, reward), episode.placeId, now, device);
   return { progress: noted.progress, firstWin: false, reward, tasksPaid: noted.tasksPaid };
 }
 
@@ -220,10 +267,10 @@ export interface FinishEffect {
  * A new episode heard through its three steps, with `linesRight` of its lines understood: finished (stage 1 at
  * least), the finish is a whole listen that counts (`at`, `okAt`: the first re-listen is due RELISTEN_DAYS[0] days
  * later), the best run kept, EPISODE_FINISH_XU on the first finish, and a conversation for the daily task. An episode
- * at a place that is not built: nothing.
+ * told only at home (needsHome) while its place is not built: nothing.
  */
 export function applyEpisodeFinish(progress: TownProgress, episode: Pick<StoryEpisode, 'id' | 'placeId'>, linesRight: number, now: number, device: string): FinishEffect {
-  if (!isBuilt(progress, episode.placeId)) return { progress, firstFinish: false, reward: 0, tasksPaid: [] };
+  if (needsHome(episode) && !isBuilt(progress, episode.placeId)) return { progress, firstFinish: false, reward: 0, tasksPaid: [] };
   const firstFinish = !isEpisodeFinished(episodeProgress(progress, episode.id));
   const t = Number.isFinite(now) && now > 0 ? now : 0;
   const lines = Number.isFinite(linesRight) ? Math.max(0, Math.floor(linesRight)) : 0;
@@ -231,6 +278,6 @@ export function applyEpisodeFinish(progress: TownProgress, episode: Pick<StoryEp
   // a bad id never sticks: nothing is paid then, so nothing can be paid twice
   if (firstFinish && !isEpisodeFinished(episodeProgress(finished, episode.id))) return { progress, firstFinish: false, reward: 0, tasksPaid: [] };
   const reward = firstFinish ? EPISODE_FINISH_XU : 0;
-  const noted = noteConversation(addEarned(finished, device, reward), episode.placeId, now, device);
+  const noted = noteEpisode(addEarned(finished, device, reward), episode.placeId, now, device);
   return { progress: noted.progress, firstFinish, reward, tasksPaid: noted.tasksPaid };
 }

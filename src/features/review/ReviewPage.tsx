@@ -6,15 +6,12 @@ import { ArrowRight, BellOff, CircleHelp, Ellipsis, Flag, History, Info, Plus, U
 import { Icon, IconTile } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
 import ShortcutsHelp, { type Shortcut } from '../../components/ShortcutsHelp';
-import { sanitizeCustom } from '../../core/dictation/custom';
-import { hrefFor } from '../../core/nav';
+import { hrefFor, parseHash } from '../../core/nav';
 import {
   admitToday,
   availableAt,
-  buildReviewQueue,
   contextLineVi,
   dismissSeedNotice,
-  estimateMinutes,
   forecast,
   formatDueVi,
   getReviewSnapshot,
@@ -37,18 +34,15 @@ import {
   type ReviewSnapshot,
 } from '../../core/review';
 import type { CardState } from '../../core/srs';
-import { localDay } from '../../core/stats';
-import { KEYS, loadJSON } from '../../core/storage';
 import { stopSpeaking } from '../../core/tts';
-import { annotationCount } from '../dictation/decodeCache';
-import { sanitizeLibrary } from '../media/library';
 import ChunkItem from './items/ChunkItem';
 import DictItem from './items/DictItem';
 import LessonItem from './items/LessonItem';
 import PairItem from './items/PairItem';
 import WordItem from './items/WordItem';
 import type { GradeOutcome } from './items/types';
-import { createResolver, hashSeed, type Resolver } from './resolve';
+import { hashSeed, type Resolver } from './resolve';
+import { laterSet, queueFrom, readResolver, resolverFor, sessionSize } from './sessionPlan';
 import {
   currentId,
   endSession,
@@ -72,55 +66,9 @@ import './review.css';
 
 // ───────────────────────── module state ─────────────────────────
 
-/** Ids skipped today ("Bỏ qua"): served last. Cleared when the local day changes. */
-const later = new Set<CardId>();
-let laterDay = '';
-
-function laterSet(now: number): Set<CardId> {
-  const d = localDay(now);
-  if (d !== laterDay) {
-    later.clear();
-    laterDay = d;
-  }
-  return later;
-}
-
-function readResolver(): Resolver {
-  let customs: ReturnType<typeof sanitizeCustom> = [];
-  let media: ReturnType<typeof sanitizeLibrary>['items'] = [];
-  try {
-    customs = sanitizeCustom(loadJSON<unknown>(KEYS.customSentences, []), annotationCount);
-  } catch {
-    // unreadable: custom sentences are skipped
-  }
-  try {
-    media = sanitizeLibrary(loadJSON<unknown>(KEYS.media, null)).items;
-  } catch {
-    // unreadable: video lines are skipped
-  }
-  return createResolver({ customs, media });
-}
-
-/** "Bỏ qua": the item goes to the end of today's later sessions. */
+/** "Bỏ qua": the item goes to the end of today's later sessions (./sessionPlan laterSet). */
 function skipToday(id: CardId): void {
   laterSet(Date.now()).add(id);
-}
-
-let resolverCache: { version: number; resolver: Resolver } | null = null;
-
-/** Resolver for a snapshot version (custom sentences and the media library are snapshot inputs). */
-function resolverFor(version: number): Resolver {
-  if (!resolverCache || resolverCache.version !== version) resolverCache = { version, resolver: readResolver() };
-  return resolverCache.resolver;
-}
-
-/** Today's next session from a snapshot, without items the page cannot render (they never count). */
-function queueFrom(snap: ReviewSnapshot, resolver: Resolver): CardId[] {
-  const usable = snap.entries.filter((e) => resolver.resolve(e.id) !== null);
-  return buildReviewQueue(usable, snap.store, reviewBudgetSec(), snap.now, {
-    later: laterSet(snap.now),
-    phenomenonOf: resolver.phenomenonOf,
-  });
 }
 
 function kindOf(id: CardId): ReviewKind | null {
@@ -308,9 +256,9 @@ function StartView({ snap, queue, onStart }: { snap: ReviewSnapshot; queue: Card
     return kindsLine([...adm.touched, ...adm.admitted].map((e) => e.kind));
   }, [today, queue, snap]);
   // When today is split into ~5-minute sessions, the card names this session's size and minutes (the number the
-  // session counts down from); the title keeps today's count only, so no two minute figures compete.
-  const split = today && queue.length < summary.dueToday;
-  const minutes = split ? estimateMinutes(queue) : today ? summary.minutesToday : estimateMinutes(queue);
+  // session counts down from); the title keeps today's count only, so no two minute figures compete. The same rule
+  // (./sessionPlan sessionSize) gives the farm of "Thị trấn" its numbers.
+  const { split, minutes } = sessionSize(snap, queue);
   return (
     <>
       <section className="card stack rev-start" aria-labelledby="rev-start-title">
@@ -355,6 +303,12 @@ function StartView({ snap, queue, onStart }: { snap: ReviewSnapshot; queue: Card
   );
 }
 
+/** Where the done screens send the learner: back to the town's farm when Ôn tập was opened from it (?from=town). */
+function backLink(): { href: string; label: string } {
+  const from = typeof window === 'undefined' ? undefined : parseHash(window.location.hash).params.from;
+  return from === 'town' ? { href: hrefFor('town', { activity: 'farm' }), label: 'Về nông trại' } : { href: hrefFor('home'), label: 'Về Hôm nay' };
+}
+
 // ───────────────────────── empty states ─────────────────────────
 
 function EmptyView({ snap }: { snap: ReviewSnapshot }) {
@@ -386,8 +340,8 @@ function EmptyView({ snap }: { snap: ReviewSnapshot }) {
           : 'Bạn đang có nhiều mục tồn. Ôn thêm một chút hôm nay sẽ đỡ hơn cho các ngày tới.';
     actions = (
       <>
-        <a className="btn btn-primary" href={hrefFor('home')}>
-          Về Hôm nay
+        <a className="btn btn-primary" href={backLink().href}>
+          {backLink().label}
         </a>
         {/* the snapshot updates → the start screen appears with the newly admitted items */}
         <button type="button" className="btn btn-soft" onClick={() => unlockExtra()}>
@@ -400,8 +354,8 @@ function EmptyView({ snap }: { snap: ReviewSnapshot }) {
     title = 'Xong phần ôn hôm nay';
     text = `Bạn đã ôn ${summary.reviewedToday} mục.` + (next ? ` Mục tiếp theo đến hạn ${next}.` : '');
     actions = (
-      <a className="btn btn-primary" href={hrefFor('home')}>
-        Về Hôm nay
+      <a className="btn btn-primary" href={backLink().href}>
+        {backLink().label}
       </a>
     );
   } else {
@@ -737,13 +691,13 @@ function SummaryView({ run, snap, more, onMore }: { run: Run; snap: ReviewSnapsh
             <button type="button" className="btn btn-primary" onClick={onMore}>
               Ôn tiếp ({moreCount} mục)
             </button>
-            <a className="btn" href={hrefFor('home')}>
-              Về Hôm nay
+            <a className="btn" href={backLink().href}>
+              {backLink().label}
             </a>
           </>
         ) : (
-          <a className="btn btn-primary" href={hrefFor('home')}>
-            Về Hôm nay
+          <a className="btn btn-primary" href={backLink().href}>
+            {backLink().label}
           </a>
         )}
       </div>

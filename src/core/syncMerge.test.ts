@@ -443,9 +443,38 @@ describe('town-progress (Thị trấn)', () => {
     daily: Record<string, Record<string, Daily>>;
     days: string[];
     episodes: Record<string, { stage: number; at: number; okAt: number; firstGist: number; bestLines: number }>;
+    fish: Record<string, { seen: number; caught: number; firstAt: number; bestMs: number; at: number }>;
+    farmDays: string[];
+    eggs: { grants: string[]; bought: Record<string, number>; hatched: Record<string, number>; rare: Record<string, number> };
+    owned: Record<string, number>;
+    look: { hat: string | null; outfit: string | null; pet: string | null; title: string | null; at: number };
+    unlocks: Record<string, number>;
+    friends: Record<string, unknown>;
+    facts: Record<string, number>;
+    choices: Record<string, unknown>;
+    gifts: { bought: Record<string, unknown>; given: Record<string, unknown> };
   };
   const merge = (n: unknown, o: unknown) => mergeTown(n, o) as Town;
-  const town = (p: Partial<Town>): Town => ({ version: 3, lines: {}, earned: {}, bought: [], daily: {}, days: [], episodes: {}, ...p });
+  const town = (p: Partial<Town>): Town => ({
+    version: 5,
+    lines: {},
+    earned: {},
+    bought: [],
+    daily: {},
+    days: [],
+    episodes: {},
+    fish: {},
+    farmDays: [],
+    eggs: { grants: [], bought: {}, hatched: {}, rare: {} },
+    owned: {},
+    look: { hat: null, outfit: null, pet: null, title: null, at: 0 },
+    unlocks: {},
+    friends: {},
+    facts: {},
+    choices: {},
+    gifts: { bought: {}, given: {} },
+    ...p,
+  });
   const LAPTOP = 'd-laptop01';
   const PHONE = 'd-phone001';
 
@@ -514,8 +543,9 @@ describe('town-progress (Thị trấn)', () => {
       expect(merge(ok, junk)).toEqual(ok);
     }
     expect(merge('x', [1, 2])).toEqual(town({}));
+    // a value of this build's version: unknown fields are junk (a newer build's are kept: the test below)
     const messy = {
-      version: 9,
+      version: 5,
       extra: true,
       lines: { s001: { best: 7, tries: 2.5, at: 'no', more: 1 }, s002: { best: 0, tries: 0 }, s003: null },
       earned: { [LAPTOP]: 7.9, [PHONE]: -3, 'NOT A DEVICE': 5 },
@@ -525,6 +555,25 @@ describe('town-progress (Thị trấn)', () => {
     const unsafe = JSON.parse('{"lines":{"__proto__":{"best":2,"tries":1,"at":5},"constructor":{"best":2,"tries":1,"at":5}},"earned":{"__proto__":9,"constructor":9}}');
     expect(merge(unsafe, ok)).toEqual(ok);
     expect(({} as Record<string, unknown>).best).toBeUndefined();
+  });
+
+  it("a newer build's value (version > 5): its unknown top-level fields are relayed, never dropped", () => {
+    // an old portable copy in the synced folder must not strip what a newer build added (docs/town.md §10 Stored)
+    const newer = { ...town({ lines: { s001: { best: 1, tries: 1, at: 5 } } }), version: 6, garden: { beds: [1, 2] }, 'Bad Key': 1 };
+    const mine = town({ earned: { [LAPTOP]: 4 } });
+    const m = merge(newer, mine) as Town & Record<string, unknown>;
+    expect(m.version).toBe(6);
+    expect(m.garden).toEqual({ beds: [1, 2] });
+    expect(m).not.toHaveProperty('Bad Key');
+    expect(m).toMatchObject({ lines: { s001: { best: 1, tries: 1, at: 5 } }, earned: { [LAPTOP]: 4 } });
+    expect(merge(mine, newer)).toEqual(m);
+    // written back and read again by this build: still there (the version stays, so the fields stay)
+    expect(merge(JSON.parse(JSON.stringify(m)), mine)).toEqual(m);
+    // both copies carry the field: one of them whole, the same whatever the order
+    const other = { ...newer, garden: { beds: [3] } };
+    expect(merge(newer, other)).toEqual(merge(other, newer));
+    // a version this build writes: unknown fields are junk
+    expect(merge({ ...mine, garden: 1 }, mine)).toEqual(mine);
   });
 
   it('episodes ("Chuyện ở thị trấn"): per episode the max of every field; a version 2 copy brings none and drops none', () => {
@@ -540,6 +589,46 @@ describe('town-progress (Thị trấn)', () => {
     const v2 = { version: 2, lines: { s001: { best: 1, tries: 1, at: 5 } }, earned: {}, bought: [], daily: {}, days: [] };
     expect(merge(v2, m).episodes).toEqual(m.episodes);
     expect(merge(m, v2)).toEqual(merge(v2, m));
+  });
+
+  it('the game loops (version 4): fish, farm days, eggs, owned items and unlocks only grow; the look changed last wins', () => {
+    const laptop = town({
+      fish: { 'ca-noi': { seen: 5, caught: 3, firstAt: 200, bestMs: 1800, at: 900 }, 'ca-gon': { seen: 1, caught: 0, firstAt: 0, bestMs: 0, at: 0 } },
+      farmDays: ['2026-11-12'],
+      eggs: { grants: ['gist:cafe-1'], bought: { [LAPTOP]: 2 }, hatched: { [LAPTOP]: 3 }, rare: { [LAPTOP]: 1 } },
+      owned: { 'mu-len': 500, vit: 700 },
+      look: { hat: 'mu-len', outfit: null, pet: 'vit', title: null, at: 800 },
+      unlocks: { 'me-ca-dau': 300 },
+    });
+    const phone = town({
+      fish: { 'ca-noi': { seen: 4, caught: 4, firstAt: 100, bestMs: 2500, at: 950 } },
+      farmDays: ['2026-11-13'],
+      eggs: { grants: ['farm:2026-11-13'], bought: { [LAPTOP]: 1, [PHONE]: 1 }, hatched: { [PHONE]: 1 }, rare: {} },
+      owned: { 'mu-len': 400, 'ao-do': 600 },
+      look: { hat: 'ao-do', outfit: null, pet: null, title: null, at: 850 },
+      unlocks: { 'me-ca-dau': 250, 'tai-thinh': 400 },
+    });
+    const m = merge(laptop, phone);
+    expect(m.fish).toEqual({
+      'ca-gon': { seen: 1, caught: 0, firstAt: 0, bestMs: 0, at: 0 },
+      'ca-noi': { seen: 5, caught: 4, firstAt: 100, bestMs: 1800, at: 950 },
+    });
+    expect(m.farmDays).toEqual(['2026-11-12', '2026-11-13']);
+    expect(m.eggs).toEqual({ grants: ['farm:2026-11-13', 'gist:cafe-1'], bought: { [LAPTOP]: 2, [PHONE]: 1 }, hatched: { [LAPTOP]: 3, [PHONE]: 1 }, rare: { [LAPTOP]: 1 } });
+    expect(m.owned).toEqual({ 'ao-do': 600, 'mu-len': 400, vit: 700 });
+    expect(m.unlocks).toEqual({ 'me-ca-dau': 250, 'tai-thinh': 400 });
+    // the look is replaced as a whole: the one changed last wins, never a mix of both
+    expect(m.look).toEqual(phone.look);
+    expect(merge(phone, laptop)).toEqual(m);
+    expect(merge(m, m)).toEqual(m);
+    // two looks changed at the same time: every machine picks the same one
+    const a = town({ look: { hat: 'mu-len', outfit: null, pet: null, title: null, at: 5 } });
+    const b = town({ look: { hat: 'non-la', outfit: null, pet: null, title: null, at: 5 } });
+    expect(merge(a, b).look).toEqual(merge(b, a).look);
+    // a version 3 copy (an older build) brings none of it and drops none of it
+    const v3 = { version: 3, lines: { s001: { best: 1, tries: 1, at: 5 } }, earned: {}, bought: [], daily: {}, days: [], episodes: {} };
+    expect(merge(v3, m)).toEqual({ ...m, lines: v3.lines });
+    expect(merge(m, v3)).toEqual(merge(v3, m));
   });
 
   it('is wired into mergeData; a corrupt side loses to the readable one', () => {

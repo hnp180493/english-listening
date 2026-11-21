@@ -37,7 +37,9 @@ import { LESSONS } from '../data/lessons';
 import { PAIR_SETS, type PairSet } from '../data/pairs';
 import { SENTENCES } from '../data/sentences';
 import { TOWN_STORIES } from '../data/townStories';
-import type { StoryEpisode } from './town/story';
+import { RESIDENT_ARCS } from '../data/stories';
+import type { ResidentArc, StoryEpisode } from './town/story';
+import { lineForms } from './town/storyLines';
 import { storyLinePlayback } from './town/storyAudio';
 import { connectedLines } from '../features/checkup/useCheckupAudio';
 import { DEFAULT_TEXT, EXAMPLE_SAY, EXAMPLES, EXAMPLES_SHOWN } from '../features/decoder/examples';
@@ -111,8 +113,10 @@ export interface InventoryContent {
   settingsSample: string;
   /** Shadowing's "Gợi ý" chips (custom tab): practised as custom sources. */
   shadowSuggestions: readonly string[];
-  /** "Chuyện ở thị trấn" episodes: every line, connected + careful, in its speaker's voice. */
+  /** "Chuyện ở thị trấn" episodes: every line (each option of a choice, each variant), connected + careful, in its speaker's voice. */
   stories: readonly StoryEpisode[];
+  /** The residents' arcs ("Thân thiết"): gift reactions and greetings, in the resident's voice (their episodes are in `stories`). */
+  arcs?: readonly ResidentArc[];
 }
 
 export function defaultInventoryContent(): InventoryContent {
@@ -129,6 +133,7 @@ export function defaultInventoryContent(): InventoryContent {
     settingsSample: DEFAULT_TEXT,
     shadowSuggestions: CUSTOM_EXAMPLES,
     stories: TOWN_STORIES,
+    arcs: RESIDENT_ARCS,
   };
 }
 
@@ -346,15 +351,21 @@ function addChunks(c: Collector, chunks: readonly Chunk[]): void {
   }
 }
 
-function addStories(c: Collector, stories: readonly StoryEpisode[]): void {
-  // Thị trấn conversation: storyLinePlayback(line, episode, mode) → speak(text, { mode, voice }), both modes
-  for (const ep of stories) {
-    for (const line of ep.lines) {
-      for (const mode of ['connected', 'careful'] as const) {
-        const p = storyLinePlayback(line, ep, mode);
-        c.add('town', line.id, mode === 'careful' ? 'careful' : 'main', p.mode, p.text, false, p.voice);
-      }
+function addStories(c: Collector, stories: readonly StoryEpisode[], arcs: readonly ResidentArc[]): void {
+  // Thị trấn conversation: storyLinePlayback(line, episode, mode) → speak(text, { mode, voice }), both modes; a
+  // choice line is said as each of its options (the player's voice), a line with variants also as each variant
+  const say = (line: Parameters<typeof storyLinePlayback>[0] & { id: string }, placeId: string) => {
+    if (!line.text.trim()) return;
+    for (const mode of ['connected', 'careful'] as const) {
+      const p = storyLinePlayback(line, { placeId }, mode);
+      c.add('town', line.id, mode === 'careful' ? 'careful' : 'main', p.mode, p.text, false, p.voice);
     }
+  };
+  for (const ep of stories) for (const line of ep.lines) for (const form of lineForms(line)) say(form, ep.placeId);
+  // "Thân thiết": a resident's reaction to a gift and their greetings (features/town: GiftGive, useGreeting)
+  for (const arc of arcs) {
+    for (const line of Object.values(arc.reactions)) say(line, arc.placeId);
+    for (const line of arc.greetings) say(line, arc.placeId);
   }
 }
 
@@ -392,7 +403,7 @@ export function buildAudioInventory(content: InventoryContent = defaultInventory
   for (const set of content.pairs) for (const item of set.items) item.options.forEach((o, i) => c.addPlain('pairs', `${item.id}#${i}`, o));
   // SettingsPage "Thử giọng" with the Gemini clips: the connected sample (the same clip as decoder example 0)
   c.add('settings', 'sample', 'main', 'connected', connectedText(content.settingsSample, null, content.exampleSay[content.settingsSample]));
-  addStories(c, content.stories);
+  addStories(c, content.stories, content.arcs ?? []);
   return c.result();
 }
 

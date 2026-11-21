@@ -1,0 +1,476 @@
+/* "Bản đồ" (features/town/map): the full map over the stage and the minimap in its corner. Tokens only; the
+ * picture on the canvases and the small markers are game art with their own colours (drawMap.ts, mapArt.tsx).
+ * Prefix: town-map-. */
+
+/* ───────────────────────── the full map ───────────────────────── */
+
+.town-map {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  background: var(--surface-2);
+  animation: town-map-in 200ms var(--ease) both;
+  transition: opacity 300ms var(--ease);
+}
+.town-map:focus {
+  outline: none;
+}
+/* "Đến ngay": the map dissolves while the town dips to dark behind it */
+.town-map.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes town-map-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+.town-map-surface {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.town-map-surface:active {
+  cursor: grabbing;
+}
+.town-map-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.town-map-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.town-map-layer > * {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+}
+/* from the ground up: the parts of town, the residents, the names and the activities, the player */
+.town-map-district {
+  z-index: 0;
+}
+.town-map-who,
+.town-map-goal,
+.town-map-pin {
+  z-index: 1;
+}
+.town-map-label,
+.town-map-act {
+  z-index: 2;
+}
+/* the one or two with a badge (whom to see next, a re-listen due) over the names: the badge is what to look for */
+.town-map-who.has-badge {
+  z-index: 2;
+}
+.town-map-me {
+  z-index: 3;
+}
+
+/* the parts of town: quiet capitals over the picture */
+.town-map-district {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 18px;
+  text-align: center;
+  white-space: nowrap;
+  text-shadow:
+    0 0 3px var(--surface),
+    0 0 2px var(--surface),
+    0 0 1px var(--surface);
+  pointer-events: none;
+}
+
+/* a place's name over its roof: a small solid chip, a button */
+.town-map-label {
+  display: block;
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 24px;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.town-map-label:hover {
+  background: var(--surface-2);
+}
+.town-map-label.is-static {
+  color: var(--text-muted);
+  cursor: inherit;
+  pointer-events: none;
+}
+/* an empty lot: only its name, dashed (the house is not there yet) */
+.town-map-label.is-site,
+.town-map-label.is-lot {
+  background: var(--surface);
+  box-shadow: none;
+  outline: 1px dashed var(--border-strong);
+  outline-offset: -1px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.town-map-label.is-on {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    var(--shadow-md);
+  color: var(--accent);
+  outline: none;
+}
+.town-map-label:focus-visible,
+.town-map-act:focus-visible,
+.town-map-who:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* an activity's spot: a round icon */
+.town-map-act {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-md);
+  color: var(--accent);
+  cursor: pointer;
+}
+.town-map-act:hover {
+  background: var(--accent-soft);
+}
+.town-map-act.is-on {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* a resident where they are now: their face, the marker of what waits */
+.town-map-who {
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition: opacity 400ms var(--ease);
+}
+.town-map-who.is-small {
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+}
+.town-map-who[data-inside] {
+  opacity: 0.45;
+}
+.town-map-who.is-on {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    var(--shadow-md);
+}
+.town-map-badge {
+  position: absolute;
+  top: -5px;
+  right: -6px;
+}
+
+/* the player: a round arrow the way they face */
+.town-map-me {
+  display: block;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.3));
+  pointer-events: none;
+}
+.town-map-arrow {
+  display: block;
+  transform: rotate(var(--town-map-turn, 0rad));
+}
+/* where the player is walking to */
+.town-map-goal {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid var(--surface);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 1px var(--hairline);
+  pointer-events: none;
+}
+
+/* the patch of ground picked: a pin on it */
+.town-map-pin {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 3px solid var(--surface);
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  animation: town-map-pin-in 200ms var(--ease) both;
+}
+@keyframes town-map-pin-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* the title (top left) and the controls (top right) */
+.town-map-head {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  pointer-events: none;
+}
+.town-map-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  height: 40px;
+  margin: 0;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-md);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  line-height: 40px;
+}
+.town-map-hint {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+/* what the badges mean: only the suggested resident and the re-listens due carry one (mapCard.ts mapBadges) */
+.town-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  width: fit-content;
+  max-width: min(420px, calc(100vw - 120px));
+  margin: var(--space-2) 0 0;
+  padding: var(--space-1) var(--space-3);
+  list-style: none;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-sm);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-map-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.town-map-legend .town-map-badge {
+  position: static;
+}
+.town-map-tools {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+.town-map-zoom {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* what was picked: who and what waits there, and the two ways to go */
+.town-map-card {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+  width: min(400px, calc(100% - 2 * var(--space-3)));
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-lg);
+  transform: translateX(-50%);
+  animation: town-map-card-in 200ms var(--ease) both;
+}
+@keyframes town-map-card-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+.town-map-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.town-map-card-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.town-map-card-body {
+  flex: 1;
+  min-width: 0;
+}
+.town-map-card-body > p {
+  margin: 0;
+}
+.town-map-card-title {
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+.town-map-card-sub {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-map-card-wait {
+  margin-top: 2px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.town-map-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* in full screen, clear of a phone's notch and home bar */
+.town-stage.is-full .town-map-head {
+  margin: var(--town-safe-t) 0 0 var(--town-safe-l);
+}
+.town-stage.is-full .town-map-tools {
+  margin: var(--town-safe-t) var(--town-safe-r) 0 0;
+}
+.town-stage.is-full .town-map-card {
+  margin-bottom: var(--town-safe-b);
+}
+
+/* ───────────────────────── the minimap ───────────────────────── */
+
+.town-map-mini {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  width: 132px;
+  height: 132px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 4px var(--hairline),
+    var(--shadow-md);
+  cursor: pointer;
+  transition: transform var(--dur) var(--ease);
+}
+.town-map-mini:hover {
+  transform: scale(1.03);
+}
+.town-map-mini:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.town-map-mini-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.town-stage.is-full .town-map-mini {
+  margin: 0 0 var(--town-safe-b) var(--town-safe-l);
+}
+/* a talk, a panel: the minimap steps away */
+.town-stage.is-talking .town-map-mini,
+.town-stage.is-building .town-map-mini {
+  display: none;
+}
+
+/* ───────────────────────── small screens ───────────────────────── */
+
+@media (max-width: 720px) {
+  /* the "Bản đồ" button is enough on a phone */
+  .town-map-mini {
+    display: none;
+  }
+  .town-map-head {
+    top: var(--space-2);
+    left: var(--space-2);
+  }
+  .town-map-tools {
+    top: var(--space-2);
+    right: var(--space-2);
+  }
+  .town-map-hint {
+    display: none;
+  }
+  .town-map-card {
+    bottom: var(--space-2);
+    width: calc(100% - 2 * var(--space-2));
+  }
+}
+
+/* a stage of a narrow laptop: the HUD's "Bản đồ" keeps only its icon, so the title on the left keeps its room */
+@container town (max-width: 740px) {
+  .town-hud-map {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+  .town-hud-map .town-hud-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

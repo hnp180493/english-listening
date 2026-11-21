@@ -116,6 +116,8 @@ export function parseArgs(argv) {
       case '--only': o.only = list(val(++i, a)); break
       case '--part': o.part = list(val(++i, a)); break
       case '--dry-run': o.dryRun = true; break
+      // nothing new is paid for: no new batch jobs and no one-by-one retries of clips a batch failed
+      case '--collect-only': o.collectOnly = true; o.fallback = false; break
       case '--rpm': o.rpm = Number(val(++i, a)); break
       case '--concurrency': o.concurrency = Number(val(++i, a)); break
       case '--batch-size': o.batchSize = Number(val(++i, a)); break
@@ -491,8 +493,10 @@ export async function run(argv, env = process.env) {
     }
 
     const pending = new Set(state.jobs.filter((j) => !j.collected).flatMap((j) => j.clips.map((c) => c.key)))
-    const toSubmit = list.filter((c) => !pending.has(c.key))
+    // --collect-only: only fetch the results of jobs already sent (already paid for); send nothing new
+    const toSubmit = opts.collectOnly ? [] : list.filter((c) => !pending.has(c.key))
     if (pending.size) await log(`Còn ${state.jobs.filter((j) => !j.collected).length} batch job đã gửi trước đó: lấy kết quả, không gửi lại.`)
+    if (opts.collectOnly) await log('--collect-only: không gửi batch mới, chỉ lấy kết quả các batch đã gửi.')
     const createUrl = `${baseUrl}/models/${encodeURIComponent(model)}:batchGenerateContent`
     for (let i = 0; i < toSubmit.length; i += opts.batchSize) {
       const part = toSubmit.slice(i, i + opts.batchSize)

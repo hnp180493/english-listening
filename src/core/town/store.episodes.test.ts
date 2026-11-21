@@ -92,7 +92,8 @@ describe('an episode', () => {
     expect(s.gist.options[s.gist.answer]).toBe('Latte');
     expect(s.met).toEqual([false, false, false]);
     expect(town.startTownEpisode('square', NOW)).toEqual({ ok: false, reason: 'none' });
-    expect(town.startTownEpisode('shop', NOW)).toEqual({ ok: false, reason: 'empty-lot' });
+    // a lodger is never refused for their place (no story for the shop in these fixtures: the quick chat)
+    expect(town.startTownEpisode('shop', NOW)).toEqual({ ok: false, reason: 'none' });
     expect(town.startTownEpisode('nowhere', NOW)).toEqual({ ok: false, reason: 'unknown' });
     // starting writes nothing
     expect(map.has(TOWN)).toBe(false);
@@ -136,15 +137,21 @@ describe('an episode', () => {
       stage: 1,
       nextDue: '2026-11-14',
       daysToNext: 1,
-      earned: 20,
-      balance: 20,
+      // + 8: 2026-11-13 draws the daily task "Nghe trọn 1 tập chuyện" (core/town/daily), paid with the finish
+      earned: 28,
+      balance: 28,
     });
+    expect(r.tasksPaid.map((x) => x.id)).toEqual(['episode']);
     expect(town.finishTownEpisode(NOW + 70_000)).toBe(r);
     const t = stored(TOWN);
-    expect(t.version).toBe(3);
+    expect(t.version).toBe(5);
     expect(t.episodes['cafe-1']).toEqual({ stage: 1, at: NOW + 60_000, okAt: NOW + 60_000, firstGist: 2, bestLines: 2 });
-    expect(t.daily[TODAY][DEVICE]).toMatchObject({ talks: 1, lines: 2, first: 1, met: ['cafe'] });
-    expect(t.earned[DEVICE]).toBe(20);
+    // a step-2 line was heard once already in the whole exchange: it counts for "Hiểu 8 câu", never as a first listen
+    expect(t.daily[TODAY][DEVICE]).toMatchObject({ talks: 1, lines: 2, first: 0, met: ['cafe'], eps: 1 });
+    expect(t.lines['cafe-1-01']).toMatchObject({ best: 1, tries: 1 });
+    expect(t.earned[DEVICE]).toBe(28);
+    // the gist right on the very first listen earned an egg (core/town/eggs)
+    expect(t.eggs.grants).toEqual(['gist:cafe-1']);
 
     // the same day the place offers episode 2; the next day the re-listen of episode 1 comes first
     const next = town.startTownEpisode('cafe', NOW + 120_000);
@@ -164,7 +171,8 @@ describe('an episode', () => {
     let s = town.startTownEpisode('cafe', NOW);
     expect(s.ok && s.mode).toBe('relisten');
     const miss = town.recordEpisodeGist(false, 1, NOW)!;
-    expect(miss.result).toMatchObject({ mode: 'relisten', gistRight: false, stage: 1, nextDue: '2026-11-14', earned: 0 });
+    // a re-listen heard through counts for the daily episode task of 2026-11-13 (8 xu), right or not
+    expect(miss.result).toMatchObject({ mode: 'relisten', gistRight: false, stage: 1, nextDue: '2026-11-14', gistXu: 0, earned: 8 });
     expect(town.finishTownEpisode(NOW)).toBe(miss.result);
 
     town = await fresh();

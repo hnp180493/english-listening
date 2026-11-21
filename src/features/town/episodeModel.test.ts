@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { storyLinePlayback } from '../../core/town/storyAudio';
 import type { TownEpisodeResult, TownEpisodeTurn } from '../../core/town/store';
 import { voiceOf } from '../../core/town/voices';
-import { TOWN_STORIES } from '../../data/townStories';
-import { episodeHeading, episodeSummary, gistFollowUp, gistVerdict, nextListenText, passGap, SAME_SPEAKER_GAP_MS, storyItems, TURN_GAP_MS } from './episodeModel';
+import { episodeVisitor, TOWN_STORIES } from '../../data/townStories';
+import { episodeHeading, episodeSummary, firstLineOf, gistFollowUp, gistVerdict, nextListenText, passGap, SAME_SPEAKER_GAP_MS, storyItems, TURN_GAP_MS, visitorPresent } from './episodeModel';
 
 const result = (p: Partial<TownEpisodeResult>): TownEpisodeResult => ({
   episodeId: 'cafe-1',
@@ -24,6 +24,9 @@ const result = (p: Partial<TownEpisodeResult>): TownEpisodeResult => ({
   nextDue: '2026-11-15',
   daysToNext: 1,
   levelTitle: null,
+  friendBefore: 0,
+  friendAfter: 95,
+  learned: [],
   ...p,
 });
 const EP = { order: 1, title: 'Ly cà phê đầu tiên' };
@@ -38,7 +41,7 @@ describe('what every line of an episode sends', () => {
       const line = ep.lines[i];
       expect(item.audio).toEqual({ connected: storyLinePlayback(line, ep, 'connected').text, careful: storyLinePlayback(line, ep, 'careful').text, level: ep.level });
       expect(item.voice).toEqual(voiceOf(line.who, ep.placeId));
-      expect(item.stage).toBe(line.who === 'you' ? 'player' : line.who === 'them' ? ep.placeId : null);
+      expect(item.stage).toBe(line.who === 'you' ? 'player' : line.who === 'them' ? ep.placeId : line.who);
     });
   });
 });
@@ -114,5 +117,38 @@ describe('the result card', () => {
       { label: 'Nghe lại, vẫn hiểu ý chính', xu: 3 },
       { label: 'Việc hôm nay: Trò chuyện với 2 người dân', xu: 5 },
     ]);
+  });
+});
+
+describe('the neighbour who drops in (docs/town.md §7 "Staging")', () => {
+  const stage = (who: (string | null)[]) => who.map((s) => ({ stage: s }));
+
+  it('comes in at their first line of each pass, never before', () => {
+    const items = stage(['cafe', 'player', 'cafe', 'friend', 'player', 'friend']);
+    const first = firstLineOf(items, 'friend');
+    expect(first).toBe(3);
+    for (const step of ['listen', 'lines', 'again'] as const) {
+      expect(visitorPresent(first, step, -1)).toBe(false);
+      expect(visitorPresent(first, step, 2)).toBe(false);
+      expect(visitorPresent(first, step, 3)).toBe(true);
+      expect(visitorPresent(first, step, 5)).toBe(true);
+    }
+    expect(visitorPresent(first, 'result', -1)).toBe(true);
+    // nobody drops in: nothing to hide
+    expect(visitorPresent(firstLineOf(items, null), 'listen', -1)).toBe(true);
+  });
+
+  it('every episode with a neighbour in person has them speak after the first line', () => {
+    let n = 0;
+    for (const e of TOWN_STORIES) {
+      const v = episodeVisitor(e);
+      if (!v) continue;
+      const turns = e.lines.map((l) => ({ line: l, who: l.who, speaker: l.who }) as unknown as TownEpisodeTurn);
+      const first = firstLineOf(storyItems(e, turns), v);
+      expect(first, e.id).toBeGreaterThan(0);
+      n++;
+    }
+    // episodes 1–2 have three; the residents' arcs add more (data/stories)
+    expect(n).toBeGreaterThanOrEqual(3);
   });
 });

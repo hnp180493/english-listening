@@ -1,0 +1,362 @@
+/* "Thân thiết" (docs/town.md §12): the hearts pill, gifts, the Sổ tay, choices, greetings. Tokens only (the heart's
+   own colour is game art, HUD_ART, inline). */
+
+/* ───── the friendship pill beside a name ───── */
+.town-friend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 2px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.town-friend-pill:hover {
+  background: var(--accent-soft);
+}
+.town-friend-pill.is-new {
+  animation: town-pop 420ms var(--ease) both;
+}
+.town-friend-bar {
+  position: relative;
+  width: 28px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--border);
+}
+.town-friend-bar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.town-friend-pop {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  max-width: 300px;
+}
+.town-friend-line {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.town-friend-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+/* ───── a choice in an episode ───── */
+.town-reply.is-chosen {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.town-reply.is-chosen .town-reply-key {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.town-choice-voice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.town-choice-after {
+  display: grid;
+  gap: var(--space-1);
+}
+.town-choice-after .town-note,
+.town-learned {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ───── gifts ───── */
+.town-gift-head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.town-gift-pick,
+.town-gift-said,
+.town-gift-empty,
+.town-shop {
+  display: grid;
+  gap: var(--space-3);
+}
+.town-gift-empty {
+  justify-items: start;
+}
+.town-gift-list,
+.town-shop-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-gift-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.town-gift-row:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.town-gift-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+.town-gift-name,
+.town-shop-name {
+  flex: 1;
+  min-width: 0;
+}
+.town-gift-n {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-gift-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.town-gift-points {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.town-gift-text {
+  display: grid;
+  gap: var(--space-1);
+}
+.town-shop-balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 600;
+}
+.town-shop-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.town-shop-name {
+  display: grid;
+}
+.town-shop-en {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+/* the gift button beside the main one at the bottom of the town */
+.town-prompt {
+  gap: var(--space-2);
+}
+.town-prompt > .town-prompt-gift {
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-md);
+  pointer-events: auto;
+}
+@media (max-width: 480px) {
+  .town-prompt-gift-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .town-prompt > .town-prompt-gift {
+    padding-inline: var(--space-3);
+  }
+}
+
+/* ───── the Sổ tay ───── */
+.town-journal {
+  display: grid;
+  gap: var(--space-4);
+}
+.town-journal-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-journal-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) 0;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.town-journal-row:hover .town-journal-name {
+  color: var(--accent);
+}
+.town-journal-who {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.town-journal-name {
+  font-weight: 600;
+}
+.town-journal-sub {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-journal-hearts {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-journal-back {
+  justify-self: start;
+}
+.town-journal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.town-journal-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.town-journal-sec {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+}
+.town-journal-text {
+  margin: 0;
+}
+.town-journal-facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-journal-facts > li {
+  display: grid;
+  gap: 2px;
+}
+.town-journal-taste {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-journal-setting {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+.town-journal-setting > input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+
+/* ───── a greeting over a resident's head ───── */
+.town-greet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.town-greet-in {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+.town-greet.is-below .town-greet-in {
+  top: 56px;
+  bottom: auto;
+}
+.town-greet-bubble {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-md);
+  color: var(--text);
+  cursor: pointer;
+  animation: town-pop 240ms var(--ease) both;
+}
+.town-greet-pop {
+  display: grid;
+  gap: var(--space-1);
+  width: min(280px, 80vw);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-lg);
+}
+.town-greet-actions {
+  display: flex;
+  justify-content: space-between;
+}
+@media (prefers-reduced-motion: reduce) {
+  .town-friend-pill.is-new,
+  .town-greet.is-below .town-greet-in {
+  top: 56px;
+  bottom: auto;
+}
+.town-greet-bubble {
+    animation: none;
+  }
+}

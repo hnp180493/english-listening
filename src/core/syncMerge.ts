@@ -576,10 +576,19 @@ export const mergeCheckups: Merger = (newer, older) => {
 export const mergeProgressHistory: Merger = (newer, older) => mergeHistoryStores(parseHistory(newer), parseHistory(older));
 
 /**
- * town-progress (Thị trấn, core/town/progress): everything in it only grows, so nothing needs a change time.
+ * town-progress (Thị trấn, core/town/progress): everything in it only grows, so nothing needs a change time, except
+ * the look (what the player wears), which carries its own (`look.at`: the later one wins, a tie by its canonical string).
  * Lines: per line the max of best / tries / at. Xu earned: one bucket per browser, max per browser (a browser only
  * adds to its own). Purchases: a union. Daily counters: max / union per day and browser. Active days: a union.
- * Junk and unknown fields are dropped; a version 1 value (lines only) merges as it is.
+ * Version 4 (the game loops, docs/town.md §10): fish by species (max of the counts, min of the first catch and of the
+ * best time), farm days and egg grants as unions, egg counters max per browser, owned items and unlocks as unions
+ * (min of the first time). Daily rows also carry the day's fixed tasks of their browser (a copy without them takes the
+ * other's; two lists: the one whose ids come first). Version 5 (friendship, docs/town.md §12): friendship points per
+ * resident, side (won / lost) and browser, max per browser; facts as a union (min of the first time); per choice line
+ * the earlier choice (a tie: the smaller option id); gifts bought / given per gift and browser, max per browser; daily
+ * rows' `bond` / `gifted` sets as unions. Junk and unknown fields are dropped; versions 1 to 4 merge as they are. A
+ * value of a NEWER build (version > 5) keeps its unknown top-level fields and its version: this build relays them (one
+ * copy's value whole) instead of stripping them (core/town/progress parseTownProgress).
  */
 export const mergeTown: Merger = (newer, older) => mergeTownProgress(parseTownProgress(newer), parseTownProgress(older));
 

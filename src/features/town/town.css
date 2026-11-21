@@ -1,7 +1,7 @@
 /* "Thị trấn" (town) module. Tokens + shared classes only (see docs/design-system.md). Prefix: town-.
- * The picture inside the canvas is game art with its own colours (engine/palette.ts); everything around and over
- * it, here, is UI chrome and uses the app's tokens. The few game pictures drawn as DOM (coin, hearts, portraits,
- * thumbnails) get their colours inline from the same palette module. */
+ * The picture inside the canvas is game art with its own colours (three/scene/palette3d.ts, engine/palette.ts);
+ * everything around and over it, here, is UI chrome and uses the app's tokens. The few game pictures drawn as DOM
+ * (coin, hearts, portraits, thumbnails) get their colours inline from the palette modules. */
 
 .town-page {
   min-width: 0;
@@ -83,9 +83,6 @@
   font-weight: 600;
 }
 
-.town-loading[role='alert'] .town-loading-text {
-  border-radius: var(--radius-lg);
-}
 
 /* Everything floating over the town shares one look: a solid chip that reads on the day and the night picture. */
 .town-pill {
@@ -217,6 +214,68 @@
 .town-tasks .popover-panel {
   min-width: 320px;
 }
+/* "Chơi": the activities, each walked to in town */
+.town-play .popover-panel {
+  min-width: 300px;
+}
+.town-play-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-play-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.town-play-item:hover,
+.town-play-item.is-on {
+  background: var(--surface-2);
+}
+.town-play-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.town-play-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.town-play-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.town-play-name {
+  font-weight: 600;
+}
+.town-play-blurb {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+/* an activity's panel: the build panel's frame (ActivityHost) */
+.town-activity-wait {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .town-task-list {
   display: grid;
   gap: var(--space-3);
@@ -334,6 +393,75 @@
   font-weight: 500;
 }
 
+/* the page without the world (this browser cannot draw the 3D town: TownStage3D `flat`): a calm note, then the residents */
+.town-flat {
+  position: absolute;
+  inset: 72px 0 92px 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  width: min(560px, 100%);
+  margin-inline: auto;
+  padding: 0 var(--space-3);
+  overflow-y: auto;
+}
+.town-flat-note {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+.town-flat-title {
+  margin: 0 0 var(--space-1);
+  color: var(--text);
+  font-weight: 600;
+}
+.town-flat-text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-flat-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-flat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--hairline);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.town-flat-row:hover {
+  background: var(--surface-2);
+}
+.town-flat-body {
+  display: grid;
+  min-width: 0;
+}
+.town-flat-name {
+  font-weight: 600;
+}
+.town-flat-meta {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* the one thing to do next, at the bottom of the town */
 .town-prompt {
   position: absolute;
@@ -367,11 +495,34 @@
   animation: town-rise 240ms var(--ease) both;
 }
 .town-portrait {
+  position: relative;
   display: block;
   flex: none;
   overflow: hidden;
   border-radius: var(--radius-full);
+}
+/* the hairline ring drawn over the picture */
+.town-portrait::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   box-shadow: inset 0 0 0 1px var(--hairline);
+  pointer-events: none;
+}
+.town-portrait-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* where this browser cannot draw in 3D: the first letter of the name */
+.town-portrait-initial {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-weight: 700;
+  line-height: 1;
 }
 .town-welcome-text {
   flex: 1;
@@ -471,10 +622,18 @@
 .town-talk:focus {
   outline: none;
 }
+/* the one who talks stays in view when what is under them scrolls (a line's card, the answers): the panel scrolls
+ * under its head, never with it */
 .town-talk-head {
+  position: sticky;
+  top: calc(-1 * var(--space-4));
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-5)) 0;
+  padding: var(--space-4) var(--space-5) var(--space-1);
+  background: var(--surface);
 }
 .town-talk-who {
   display: grid;
@@ -1001,9 +1160,19 @@
   background: var(--surface);
 }
 
+/* An episode's first whole listen on a narrow stage (a phone): the panel over the bottom keeps to the question while
+ * the exchange plays (the three answers come once it has been heard: they cannot be picked before), so the room
+ * above it is about twice as tall and the people in it are not a thumb high. */
+.town-ep.is-hearing .town-reply-list {
+  display: none;
+}
+
 /* A wide stage: the conversation docks to the right (like the build panel) and the two who talk stand in the
  * town on the left, at full height, instead of in a strip above a panel across the middle. */
 @container town (min-width: 900px) {
+  .town-ep.is-hearing .town-reply-list {
+    display: grid;
+  }
   /* as tall as what it holds (no blank half-panel), scrolling only when the stage is shorter than that */
   .town-talk {
     inset: 68px var(--space-3) auto auto;
@@ -1152,11 +1321,6 @@
   color: var(--text-muted);
 }
 
-.town-credit {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-}
 .town-how > p {
   max-width: var(--measure);
   margin: 0;
@@ -1168,6 +1332,10 @@
   .town-stage {
     height: clamp(400px, calc(100svh - 238px), 720px);
     border-radius: var(--radius-md);
+  }
+  /* a conversation: as tall as the screen between the top bar and the tab bar (TownPage scrolls it up there) */
+  .town-stage.is-talking:not(.is-full) {
+    height: clamp(400px, calc(100svh - 146px), 760px);
   }
   .town-hud {
     inset: var(--space-2) var(--space-2) auto var(--space-2);
@@ -1198,6 +1366,11 @@
   .town-actions {
     top: 56px;
   }
+  /* the HUD buttons run down the right edge: the list keeps clear of them */
+  .town-flat {
+    inset: 56px 0 76px 0;
+    padding: 0 56px 0 var(--space-2);
+  }
   .town-toast {
     top: 56px;
     padding-right: 56px;
@@ -1221,6 +1394,11 @@
     max-height: calc(100% - 168px);
     padding: var(--space-3) var(--space-3) var(--space-3);
     border-radius: var(--radius-lg);
+  }
+  .town-talk-head {
+    top: calc(-1 * var(--space-3));
+    margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0;
+    padding: var(--space-3) var(--space-3) var(--space-1);
   }
   .town-talk-foot,
   .town-ep .town-talk-foot {
@@ -1315,20 +1493,32 @@
     border-radius: var(--radius-lg);
     animation-name: town-rise;
   }
+  /* an activity (fishing, farm, eggs…) is the whole job on screen: more room than the build sheet */
+  .town-build.town-activity-sheet {
+    max-height: min(74%, 580px);
+  }
   .town-build-head {
     padding-left: var(--space-4);
   }
   .town-build-body {
     padding: 0 var(--space-4) var(--space-4);
   }
-  .town-stage.is-building .town-hud-btns > :not(:nth-child(2)) {
+  .town-stage.is-building .town-hud-btns > :not(.town-hud-build) {
     display: none;
   }
-  .town-row-title,
-  .town-row-meta {
+  .town-row-title {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* the reason to build ("Grace dọn về ở, có thêm Tập 2…") is read in full: it wraps (three lines at most) */
+  .town-row-meta {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    line-height: 1.35;
   }
 }
 

@@ -6,7 +6,7 @@
  * JSON block, read by src/core/audioManifest.ts. The clips themselves are copied next to the HTML into
  * "<out>/audio/", where an <audio> element loads them by the relative URL "audio/<file>".
  */
-import { copyFile, mkdir, readFile, rename, stat, unlink, utimes, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, readdir, rename, rmdir, stat, unlink, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /** Same id as AUDIO_MANIFEST_ELEMENT_ID in src/core/audioManifest.ts (a test checks they match). */
@@ -20,13 +20,15 @@ const KEY_RE = /^[A-Za-z0-9_-]{1,64}$/
  */
 export const AUDIO_LEDGER_FILE = '.nna-clips.json'
 
-/** The town's pictures next to the portable HTML ("<out>/art/"): hashed WebP names from the Vite build. */
+/**
+ * Earlier portable builds copied the town's sprite pictures next to the HTML ("<out>/art/", hashed WebP names, listed
+ * in this ledger). The town is drawn in 3D now and needs no pictures: retireArtFolder removes what those builds put there.
+ */
 export const ART_LEDGER_FILE = '.nna-art.json'
 const ART_FILE_RE = /^[A-Za-z0-9_.-]{1,96}\.webp$/
 
 const AUDIO_KIND = { ledger: AUDIO_LEDGER_FILE, fileRe: FILE_RE, note: 'Danh sách clip do bản portable chép vào; đừng sửa tay.' }
-// a hashed name changes with the content: the same name and size is the same picture (each build writes fresh mtimes)
-const ART_KIND = { ledger: ART_LEDGER_FILE, fileRe: ART_FILE_RE, hashedNames: true, note: 'Danh sách hình thị trấn do bản portable chép vào; đừng sửa tay.' }
+const ART_KIND = { ledger: ART_LEDGER_FILE, fileRe: ART_FILE_RE }
 
 async function readLedger(outDir, kind) {
   try {
@@ -102,11 +104,29 @@ export function syncAudioFolder(srcDir, outAudioDir, files) {
 }
 
 /**
- * The same for the town's pictures: "<outArtDir>" holds the WebP atlases of this build (hashed names). Pictures of
- * an earlier build that this function copied are removed; nothing else is touched (its own ledger, ART_LEDGER_FILE).
+ * Removes the town pictures an earlier portable build copied into "<outArtDir>" (the files its ledger lists, then the
+ * ledger, then the folder when nothing else is left in it). Anything else in the folder is left alone; without a
+ * ledger nothing is touched. Returns how many pictures were removed.
  */
-export function syncArtFolder(srcDir, outArtDir, files) {
-  return syncFolder(srcDir, outArtDir, files, ART_KIND)
+export async function retireArtFolder(outArtDir) {
+  const listed = await readLedger(outArtDir, ART_KIND)
+  if (!listed) return 0
+  let removed = 0
+  for (const f of listed) {
+    try {
+      await unlink(join(outArtDir, f))
+      removed++
+    } catch {
+      // already gone
+    }
+  }
+  await unlink(join(outArtDir, ART_LEDGER_FILE)).catch(() => undefined)
+  try {
+    if ((await readdir(outArtDir)).length === 0) await rmdir(outArtDir)
+  } catch {
+    // the folder is still in use or already gone
+  }
+  return removed
 }
 
 async function syncFolder(srcDir, outAudioDir, files, kind) {
@@ -130,7 +150,7 @@ async function syncFolder(srcDir, outAudioDir, files, kind) {
     } catch {
       d = null
     }
-    if (d && d.size === s.size && (kind.hashedNames || Math.abs(d.mtimeMs - s.mtimeMs) < 2000)) r.kept++
+    if (d && d.size === s.size && Math.abs(d.mtimeMs - s.mtimeMs) < 2000) r.kept++
     else {
       await copyFile(src, dst)
       await utimes(dst, s.atime, s.mtime)

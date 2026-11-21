@@ -6,17 +6,21 @@
 //   a line understood on the first listen (not yet at that level)   3 xu
 //   a line understood with replays or a slower play (first time)    2 xu
 //   a right answer that does not raise the line                     1 xu
+//   a line of an episode (step 2): 3 / 2 the first time understood, then 1; never kept as a first listen
 //   a wrong answer                                                  0
 //   a conversation of 5 lines with all 5 right                     +5 xu
-//   the three daily tasks (./daily)                                 5 + 8 + 10 xu, once a day each
+//   the three daily tasks of the day (./daily)                     5 to 10 xu each, once a day each
+//   the game loops (fishing, the farm, eggs: ./fishing ./farm ./eggs) small, capped per day (docs/town.md §10)
 //
-// Balance = xu earned (all browsers) − the cost of everything bought. Level, hearts and lit windows are derived
-// from the lines understood, never stored.
+// Balance = xu earned (all browsers) − the cost of everything bought (places, decorations, eggs, gifts). Level, hearts and
+// lit windows are derived from the lines understood, never stored.
 
 import { placeLines, TOWN_DECORATIONS, TOWN_PLACES, townDecoration, townPlace } from '../../data/town';
+import { EGG_COST } from '../../data/townGame';
+import { TOWN_GIFTS } from '../../data/townGifts';
 import { noteConversation, noteLine, type TaskPayout } from './daily';
-import { addBought, addEarned, earnedTotal, hasBought, isLineId, lineProgress, linesStats, recordLine, type LineBest, type TownProgress, type TownStats } from './progress';
-import { allStoryLines } from './storyLines';
+import { addBought, addEarned, earnedTotal, eggCountTotal, giftCount, hasBought, isLineId, lineProgress, linesStats, recordLine, type LineBest, type TownProgress, type TownStats } from './progress';
+import { allStoryLines, storyLineById } from './storyLines';
 import { VISIT_SIZE, type LineOutcome, type TownPlace } from './types';
 
 // ───────────────────────── earning ─────────────────────────
@@ -33,6 +37,33 @@ export function lineReward(prevBest: LineBest, outcome: LineOutcome): number {
   if (outcome === 'first') return prevBest < 2 ? LINE_REWARD.first : LINE_REWARD.again;
   if (outcome === 'replayed') return prevBest < 1 ? LINE_REWARD.replayed : LINE_REWARD.again;
   return 0;
+}
+
+/**
+ * Xu for one answered line of "Chuyện ở thị trấn" (step 2, "Từng câu"). Such a line was heard once already in the
+ * whole exchange (step 1), so it has no "first listen" level: it is understood or not. The first time it is
+ * understood it pays like a new line (3 after one play on its own, 2 with replays: a game reward, never a first-listen
+ * count); right again 1; wrong 0. A record at best 2 written by an older build counts as understood.
+ */
+export function storyLineReward(prevBest: LineBest, outcome: LineOutcome): number {
+  if (outcome === 'wrong') return 0;
+  if (prevBest >= 1) return LINE_REWARD.again;
+  return outcome === 'first' ? LINE_REWARD.first : LINE_REWARD.replayed;
+}
+
+/** A line of an episode (./storyLines), not a sentence of a quick chat. */
+export function isStoryLineId(id: string): boolean {
+  return isLineId(id) && storyLineById(id) !== undefined;
+}
+
+/**
+ * How an answer is KEPT (the line's record, the day's counters). A line of an episode was heard once already in the
+ * whole exchange, so one play of it on its own is not a first listen: its 'first' is kept as 'replayed'
+ * (understood). So it never counts for "Hiểu N câu ngay lần nghe đầu", the first-listen achievements and project,
+ * the xp or the town's stats. Every other line is kept as answered.
+ */
+export function keptOutcome(lineId: string, outcome: LineOutcome): LineOutcome {
+  return outcome === 'first' && isStoryLineId(lineId) ? 'replayed' : outcome;
 }
 
 /** A conversation is perfect when it has all its lines (`size`) and none is wrong. */
@@ -63,11 +94,15 @@ export function townItem(id: string): TownItem | undefined {
   return d ? { id: d.id, kind: 'decoration', name: d.name, cost: d.cost } : undefined;
 }
 
-/** Xu spent: the cost of every bought id the town knows (an id of a later version costs nothing here). */
+/**
+ * Xu spent: the cost of every bought id the town knows (an id of a later version costs nothing here), of every egg
+ * bought (EGG_COST each, ./eggs) and of every gift bought (data/townGifts, ./friendship).
+ */
 export function spentTotal(progress: TownProgress): number {
   let sum = 0;
   for (const id of progress.bought) sum += townItem(id)?.cost ?? 0;
-  return sum;
+  for (const g of TOWN_GIFTS) sum += giftCount(progress, 'bought', g.id) * g.cost;
+  return sum + eggCountTotal(progress, 'bought') * EGG_COST;
 }
 
 /**
@@ -191,11 +226,13 @@ export function townTotals(progress: TownProgress): TownStats {
 }
 
 /**
- * Counts over the lines of "Chuyện ở thị trấn" (./storyLines). They count for xp like any line; hearts and lit
- * windows stay on the place's own sentences (a new episode never takes a heart away).
+ * Counts over the lines of "Chuyện ở thị trấn" (./storyLines). They count for xp as lines understood (2 each); hearts
+ * and lit windows stay on the place's own sentences (a new episode never takes a heart away). `first` is always 0: a
+ * line of step 2 was heard once already in the whole exchange, so it is never a first listen (keptOutcome). A record
+ * at best 2 written by an older build (before 2026-11-21) counts as understood only.
  */
 export function storyTotals(progress: TownProgress): TownStats {
-  return linesStats(progress, allStoryLines());
+  return { ...linesStats(progress, allStoryLines()), first: 0 };
 }
 
 /** Xp of every line understood: the places' sentences and the episodes' lines. */
@@ -225,7 +262,7 @@ export function placeHearts(stats: Pick<TownStats, 'total' | 'understood'>): num
 }
 
 /**
- * What waits at a built place: 'new' = lines not understood yet, 'repeat' = every line understood, some only with
+ * What waits with a resident (their place built or not): 'new' = lines not understood yet, 'repeat' = every line understood, some only with
  * replays (worth hearing again for the first listen), 'heart' = every line understood on the first listen.
  */
 export type PlaceMarker = 'new' | 'repeat' | 'heart';
@@ -250,13 +287,15 @@ export interface AnswerEffect {
 /**
  * Everything one answered line changes, in one step: the line's record, its xu (into the bucket of `device`), the
  * day's counters and any daily task just reached. The input is not changed. An unusable line id changes nothing.
+ * A line of an episode is kept as understood, never as a first listen (keptOutcome), and paid by storyLineReward.
  */
 export function applyAnswer(progress: TownProgress, lineId: string, outcome: LineOutcome, now: number, device: string): AnswerEffect {
   const prevBest = (isLineId(lineId) && lineProgress(progress, lineId)?.best) || 0;
-  const recorded = recordLine(progress, lineId, outcome, now);
+  const kept = keptOutcome(lineId, outcome);
+  const recorded = recordLine(progress, lineId, kept, now);
   if (recorded === progress) return { progress, reward: 0, tasksPaid: [], prevBest };
-  const reward = lineReward(prevBest, outcome);
-  const noted = noteLine(addEarned(recorded, device, reward), outcome, now, device);
+  const reward = isStoryLineId(lineId) ? storyLineReward(prevBest, outcome) : lineReward(prevBest, outcome);
+  const noted = noteLine(addEarned(recorded, device, reward), kept, now, device);
   return { progress: noted.progress, reward, tasksPaid: noted.tasksPaid, prevBest };
 }
 
@@ -275,12 +314,13 @@ export interface ConversationEffect {
 /**
  * A conversation of `outcomes` (one per line, in order) that just ended at `placeId`: the bonus for a perfect one,
  * the day's conversation counter and any daily task just reached. Fewer than VISIT_SIZE outcomes (the learner left
- * early) or a place that is not built: nothing happens.
+ * early) or an unknown place: nothing happens. A place not built yet counts like any other: its resident lodges at
+ * the boarding house and talks all the same.
  */
 export function applyConversation(progress: TownProgress, placeId: string, outcomes: readonly LineOutcome[], now: number, device: string): ConversationEffect {
-  if (outcomes.length < VISIT_SIZE || !isBuilt(progress, placeId)) return { progress, finished: false, perfect: false, bonus: 0, tasksPaid: [] };
+  if (outcomes.length < VISIT_SIZE || !townPlace(placeId)) return { progress, finished: false, perfect: false, bonus: 0, tasksPaid: [] };
   const bonus = conversationBonus(outcomes);
-  const noted = noteConversation(addEarned(progress, device, bonus), placeId, now, device);
+  const noted = noteConversation(addEarned(progress, device, bonus), placeId, now, device, bonus > 0);
   return { progress: noted.progress, finished: true, perfect: bonus > 0, bonus, tasksPaid: noted.tasksPaid };
 }
 

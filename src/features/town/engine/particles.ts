@@ -1,7 +1,11 @@
 // Small particle system of the town: confetti, coins that fly to a point of the screen, sparkles and petals.
 // Positions are CSS pixels of the stage. Pure: `update(dt)` moves them, the renderer only reads the list.
 
-import type { Pt } from './iso';
+/** A point in CSS pixels of the stage. */
+export interface Pt {
+  x: number;
+  y: number;
+}
 
 export type ParticleKind = 'confetti' | 'coin' | 'spark' | 'petal' | 'dust';
 
@@ -19,6 +23,11 @@ export interface Particle {
   size: number;
   /** Index into the renderer's colours for this kind. */
   tint: number;
+  /**
+   * A point of the 3D scene the particle was kicked up at (a runner's footfall) and where it was on the stage last
+   * frame: the 3D scene (engine3d.ts) moves it with that point when the camera moves, so it stays on the ground.
+   */
+  anchor?: { x: number; y: number; z: number; sx: number; sy: number };
   /** Coins: where it started, the top of its arc and where it lands. */
   from?: Pt;
   via?: Pt;
@@ -124,6 +133,30 @@ export class Particles {
         spin: 0,
         size: 5 + this.rng() * 8,
         tint: Math.floor(this.rng() * 2),
+      });
+    }
+  }
+
+  /**
+   * A small puff of dust kicked up by a runner's foot: a few soft bits rolling out to the sides and back, fading fast.
+   * `anchor` = the scene point under the foot (the bits stay there when the camera moves).
+   */
+  puff(at: Pt, anchor: { x: number; y: number; z: number }, scale = 1): void {
+    for (let i = 0; i < 3; i++) {
+      const side = (i - 1) + (this.rng() - 0.5) * 0.6;
+      this.add({
+        kind: 'dust',
+        x: at.x + side * 3 * scale,
+        y: at.y - this.rng() * 2 * scale,
+        vx: side * 26 * scale,
+        vy: (-10 - this.rng() * 14) * scale,
+        age: -this.rng() * 0.05,
+        life: 0.32 + this.rng() * 0.2,
+        rot: 0,
+        spin: 0,
+        size: (1.8 + this.rng() * 1.6) * scale,
+        tint: Math.floor(this.rng() * 2),
+        anchor: { x: anchor.x, y: anchor.y, z: anchor.z, sx: at.x, sy: at.y },
       });
     }
   }

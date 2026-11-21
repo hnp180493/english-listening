@@ -54,7 +54,8 @@ function checkLaws(name: string, m: Merger, gen: () => unknown, runs = 1500, law
       expect(canon(m(ab, b)), 'absorbs').toBe(canon(ab));
       if (laws.assoc) expect(canon(m(m(a, b), c)), 'associative').toBe(canon(m(a, m(b, c))));
     }
-  });
+    // CPU-heavy (hundreds of random merges): the default 5 s timed out under a loaded full run, never alone
+  }, 30_000);
 }
 
 const T0 = 1_800_000_000_000;
@@ -106,8 +107,14 @@ describe('merger laws', () => {
   const townDays = Array.from({ length: 80 }, (_, i) => new Date(Date.UTC(2026, 8, 1 + i)).toISOString().slice(0, 10));
   const townDaily = () =>
     pick<unknown>([
-      { talks: ri(3), lines: ri(10), first: ri(5), met: ['cafe', 'square', 'friend'].filter(() => maybe()), paid: ['talk', 'lines', 'first'].filter(() => maybe()) },
+      { talks: ri(3), lines: ri(10), first: ri(5), met: ['cafe', 'square', 'friend'].filter(() => maybe()), paid: ['talk', 'lines', 'first', 'fish'].filter(() => maybe()) },
+      { lines: ri(3), fish: ri(6), fishFirst: ri(3), fishXu: ri(30), harvest: ri(20), eps: ri(2), perfect: ri(2) },
       { lines: ri(4) },
+      // the day's fixed tasks (2026-11-21): a copy put back from before can hold another list for the same browser
+      { lines: ri(3), tasks: pick<unknown>([['first', 'lines', 'talk'], ['fish', 'lines', 'talk'], ['episode', 'first', 'harvest'], ['Bad Id', 'first'], 'x']) },
+      { tasks: ['lines', 'fish-first', 'talk', 'first'] },
+      // friendship (version 5): who got their chat points / a gift today
+      { lines: ri(2), bond: ['cafe', 'home', 'Bad Id'].filter(() => maybe()), gifted: pick<unknown>([['cafe'], ['home', 'cafe'], 'x']) },
       { talks: -1 },
       null,
     ]);
@@ -123,6 +130,51 @@ describe('merger laws', () => {
       'x',
     ]);
   const townEpisodes = () => Object.fromEntries(['cafe-1', 'cafe-2', 'shop-1', 'Bad Id', 'constructor'].filter(() => maybe(0.5)).map((id) => [id, townEpisode()]));
+  // the game loops (version 4): fish, farm days, eggs, owned items, the look (ordered by its own time), unlocks
+  const townFish = () =>
+    Object.fromEntries(
+      ['ca-noi', 'ca-gon', 'koi-vang', 'Bad Id', '__proto__'].filter(() => maybe(0.5)).map((id) => [
+        id,
+        pick<unknown>([{ seen: ri(6), caught: ri(4), firstAt: pick([0, T0, T0 + 1]), bestMs: pick([0, 1500, 2200]), at: T0 + ri(4) }, { caught: 2 }, { seen: -1, bestMs: 'x' }, null]),
+      ]),
+    );
+  const townCounts = () => Object.fromEntries([...townDevices, 'NOT A DEVICE'].filter(() => maybe(0.5)).map((d) => [d, pick([0, 1, 2, 5, 2.5, -1])]));
+  const townEggs = () =>
+    pick<unknown>([
+      { grants: ['gist:cafe-1', 'farm:2026-09-03', 'perfect:2026-09-04', 'fish:koi-vang', 'Bad grant', 'x:'].filter(() => maybe()), bought: townCounts(), hatched: townCounts(), rare: townCounts() },
+      { grants: 'x', bought: [] },
+      null,
+    ]);
+  const townTimes = (ids: string[]) => Object.fromEntries(ids.filter(() => maybe(0.5)).map((id) => [id, pick<unknown>([T0, T0 + ri(3), 0, -5, 'x'])]));
+  const townLook = () =>
+    pick<unknown>([
+      { hat: pick([null, 'mu-len', 'non-la']), outfit: pick([null, 'ao-do']), pet: pick([null, 'vit', 'Bad Id']), title: pick([null, 'tai-thinh']), at: pick([0, T0, T0 + 1, T0 + 2]) },
+      { hat: 'mu-len', at: T0 + 1 },
+      'x',
+      null,
+    ]);
+  // friendship (version 5): points per resident, side and device, facts, the first choice per line, gifts per device
+  const townFriends = () =>
+    Object.fromEntries(
+      ['cafe', 'home', 'Bad Id', '__proto__'].filter(() => maybe(0.5)).map((id) => [id, pick<unknown>([{ up: townCounts(), down: townCounts() }, { up: townCounts() }, { down: 'x' }, null])]),
+    );
+  const townFacts = () => townTimes(['cafe:loves-jazz', 'you:iced-latte', 'home:roses', 'Bad fact', 'x:', '__proto__']);
+  const townChoices = () =>
+    Object.fromEntries(
+      ['cafe-3-04', 'home-3-02', 'Bad Id'].filter(() => maybe(0.5)).map((id) => [
+        id,
+        pick<unknown>([{ o: pick([id + '-a', id + '-b', id + '-c']), at: pick([T0, T0 + 1, T0 + 2]) }, { o: 'Bad', at: T0 }, { o: id + '-a', at: 0 }, null]),
+      ]),
+    );
+  const townGifts = () =>
+    pick<unknown>([
+      {
+        bought: Object.fromEntries(['roses', 'chocolate', 'Bad Id'].filter(() => maybe()).map((g) => [g, townCounts()])),
+        given: Object.fromEntries(['roses', 'chocolate'].filter(() => maybe()).map((g) => [g, townCounts()])),
+      },
+      { bought: 'x' },
+      null,
+    ]);
   checkLaws(
     'town progress',
     mergeTown,
@@ -132,8 +184,22 @@ describe('merger laws', () => {
       const from = ri(40);
       const span = townDays.slice(from, from + 1 + ri(70));
       return {
-        version: pick([2, 3]),
+        version: pick([2, 3, 4, 5, 5, 6, 7]),
+        // a newer build's top-level fields: kept and relayed in a version 6+ value, junk in a version 5 one
+        ...(maybe(0.4) ? { garden: pick<unknown>([{ beds: ri(3) }, { beds: ri(3), at: T0 + ri(3) }, [1, 2], 'x', null]) } : {}),
+        ...(maybe(0.3) ? { pets2: { n: ri(2) }, 'Bad Key': 1, prototype: 2 } : {}),
         ...(maybe(0.7) ? { episodes: townEpisodes() } : {}),
+        ...(maybe(0.6)
+          ? {
+              fish: townFish(),
+              farmDays: span.filter(() => maybe(0.2)),
+              eggs: townEggs(),
+              owned: townTimes(['mu-len', 'vit', 'ao-do', 'Bad Id', 'constructor']),
+              look: townLook(),
+              unlocks: townTimes(['me-ca-dau', 'tai-thinh', 'du-an-ben-ca', 'prototype']),
+            }
+          : {}),
+        ...(maybe(0.6) ? { friends: townFriends(), facts: townFacts(), choices: townChoices(), gifts: townGifts() } : {}),
         lines: townLines(),
         earned: Object.fromEntries([...townDevices, 'NOT A DEVICE'].filter(() => maybe(0.6)).map((d) => [d, pick([0, 3, 12, 12.5, 40, -2])])),
         bought: townItems.filter(() => maybe(0.4)),

@@ -3,7 +3,7 @@
 
 import { addListen, heardOnce, tallyKindFor, totalListens, type ListenTally } from '../dictation/listens';
 import { placeLines } from '../../data/town';
-import { isBuilt, isPerfect } from './economy';
+import { isPerfect } from './economy';
 import { lineProgress, type TownProgress } from './progress';
 import { VISIT_SIZE, type LineOutcome, type TownLine } from './types';
 
@@ -33,12 +33,16 @@ export function pickVisitLines(lines: readonly TownLine[], progress: TownProgres
   return sorted.slice(0, Math.max(0, Math.floor(size)));
 }
 
-/** A conversation needs its place to be built (the three free places always are) and to have something to say. */
-export function canTalk(progress: TownProgress, placeId: string): boolean {
-  return isBuilt(progress, placeId) && placeLines(placeId).length > 0;
+/**
+ * Every resident can be talked to from the first day, their place built or not (one whose place is not built yet
+ * lodges at the boarding house: docs/town.md §7 "Life"); a conversation only needs a place with something to say.
+ * `progress` stays in the signature: what can be said may depend on it again (episodes do: ./episodes needsHome).
+ */
+export function canTalk(_progress: TownProgress, placeId: string): boolean {
+  return placeLines(placeId).length > 0;
 }
 
-/** The lines of the next conversation at `placeId` (pickVisitLines over its lines). An empty lot says nothing. */
+/** The lines of the next conversation at `placeId` (pickVisitLines over its lines). An unknown place says nothing. */
 export function conversationLines(progress: TownProgress, placeId: string, size: number = VISIT_SIZE): TownLine[] {
   return canTalk(progress, placeId) ? pickVisitLines(placeLines(placeId), progress, size) : [];
 }

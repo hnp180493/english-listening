@@ -1,52 +1,10 @@
-// Shared drawing helpers of the town (Canvas 2D). Everything here draws in WORLD pixels: the caller has already
-// applied the camera.
-
-import { toWorld, type Pt } from '../iso';
-import type { TownPalette } from '../palette';
-
-export interface G {
-  ctx: CanvasRenderingContext2D;
-  pal: TownPalette;
-  /** Seconds since the stage started (animations are functions of it). */
-  t: number;
-  /** Reduced motion: no sway, no drifting, no particles. */
-  still: boolean;
-}
-
-export const P = toWorld;
+// Small Canvas 2D helpers of the overlay drawn over the 3D town (draw/overlay.ts): stable noise, shapes and paths,
+// all in CSS pixels of the stage.
 
 /** Stable 0..1 noise for a pair of numbers (tufts, pebbles, phases): the same town every time. */
 export function hash(a: number, b: number, seed = 0): number {
   const s = Math.sin(a * 127.1 + b * 311.7 + seed * 74.7) * 43758.5453;
   return s - Math.floor(s);
-}
-
-export function poly(ctx: CanvasRenderingContext2D, pts: readonly Pt[], fill?: string, stroke?: string, lineWidth = 1): void {
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-  ctx.closePath();
-  if (fill) {
-    ctx.fillStyle = fill;
-    ctx.fill();
-  }
-  if (stroke) {
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = lineWidth;
-    ctx.lineJoin = 'round';
-    ctx.stroke();
-  }
-}
-
-export function line(ctx: CanvasRenderingContext2D, pts: readonly Pt[], stroke: string, lineWidth = 1): void {
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-  ctx.strokeStyle = stroke;
-  ctx.lineWidth = lineWidth;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.stroke();
 }
 
 export function oval(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, fill?: string, stroke?: string, lineWidth = 1): void {
@@ -72,48 +30,6 @@ export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w
   ctx.arcTo(x, y + h, x, y, rr);
   ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
-}
-
-// ───────────────────────── light ─────────────────────────
-
-const GLOWS = new Map<string, HTMLCanvasElement>();
-
-function glowSprite(color: string): HTMLCanvasElement {
-  let c = GLOWS.get(color);
-  if (c) return c;
-  c = document.createElement('canvas');
-  c.width = c.height = 96;
-  const x = c.getContext('2d')!;
-  const grad = x.createRadialGradient(48, 48, 0, 48, 48, 48);
-  grad.addColorStop(0, color);
-  grad.addColorStop(0.25, color.replace(/[\d.]+\)$/, '0.55)'));
-  grad.addColorStop(0.6, color.replace(/[\d.]+\)$/, '0.16)'));
-  grad.addColorStop(1, color.replace(/[\d.]+\)$/, '0)'));
-  x.fillStyle = grad;
-  x.fillRect(0, 0, 96, 96);
-  GLOWS.set(color, c);
-  return c;
-}
-
-/**
- * A soft light added onto what is already drawn (night only makes sense). `color` must be an `rgba(r,g,b,1)` string.
- * rx / ry in world pixels.
- */
-export function glow(g: G, x: number, y: number, rx: number, ry: number, strength: number, color = g.pal.glow): void {
-  if (strength <= 0.01) return;
-  const { ctx } = g;
-  const prevOp = ctx.globalCompositeOperation;
-  const prevA = ctx.globalAlpha;
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = Math.min(1, strength);
-  ctx.drawImage(glowSprite(color), x - rx, y - ry, rx * 2, ry * 2);
-  ctx.globalAlpha = prevA;
-  ctx.globalCompositeOperation = prevOp;
-}
-
-/** Soft sway for leaves, flags, balloons: 0 under reduced motion. */
-export function sway(g: G, speed: number, phase: number, amount: number): number {
-  return g.still ? 0 : Math.sin(g.t * speed + phase) * amount;
 }
 
 /** A small heart, centred, `s` = half its width. */

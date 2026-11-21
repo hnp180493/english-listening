@@ -1,19 +1,36 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { ArrowRight, Check, LoaderCircle, Minus, Play, RotateCcw, Square, VolumeX, X } from 'lucide-react';
+import { ArrowRight, Check, Gift, LoaderCircle, Minus, Play, RotateCcw, Sparkles, Square, VolumeX, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import { PENDING_LABEL } from '../../components/pendingLabel';
 import SpokenSentence from '../../components/SpokenSentence';
 import { CONNECTED_TITLE } from '../../core/playback';
-import { finishTownEpisode, recordEpisodeGist, recordEpisodeLine, type TownAnswerResult, type TownEpisodeGistResult, type TownEpisodeResult, type TownEpisodeStart } from '../../core/town/store';
+import {
+  finishTownEpisode,
+  recordEpisodeChoice,
+  recordEpisodeGist,
+  recordEpisodeLine,
+  type TownAnswerResult,
+  type TownEpisodeGistResult,
+  type TownEpisodeResult,
+  type TownEpisodeStart,
+  type TownEpisodeTurn,
+  type TownGiftGive,
+} from '../../core/town/store';
+import { heartsOf, type FriendView } from '../../core/town/friendship';
 import type { TownPlace } from '../../core/town/types';
+import { episodeVisitor } from '../../data/townStories';
 import type { PlaceId } from '../../data/townWorld';
 import { NEXT_GUARD_MS } from '../dictation/constants';
 import { safeDecode } from '../dictation/decodeCache';
-import type { PortraitMood } from './art/characters';
-import { Coin, Hearts, Portrait, SoundBars } from './art';
+import { Coin, Portrait, SoundBars, type PortraitMood } from './art';
+import ChoiceTurn from './friends/ChoiceTurn';
+import FriendHearts from './friends/FriendHearts';
+import GiftGive from './friends/GiftGive';
+import { useCanGift } from './friends/useCanGift';
+import { heartsText, pointsText, type GiftReactionView } from './friends/friendModel';
 import { Turn } from './Conversation';
 import { ignoredKeyTarget, SPEAK_DELAY_MS } from './talkKeys';
-import { episodeHeading, episodeSummary, gistFollowUp, gistVerdict, nextListenText, storyItems } from './episodeModel';
+import { episodeHeading, episodeSummary, firstLineOf, gistFollowUp, gistVerdict, nextListenText, storyItems, visitorPresent } from './episodeModel';
 import type { Verdict } from './shellModel';
 import { stopSfx } from './sfx';
 import { useStoryPass } from './useStoryPass';
@@ -32,10 +49,18 @@ function portraitSize(): number {
 export interface EpisodeProps {
   place: TownPlace;
   start: Started;
-  /** Friendship with the resident right now (0..5). */
-  hearts: number;
+  /** Friendship with the resident right now (core/town/friendship). */
+  friend: FriendView;
+  /** Open the Sổ tay at this resident (their hearts in the header). */
+  onJournal?: () => void;
+  /** A gift was given from the result card: the world reacts. */
+  onGiven?: (r: Extract<TownGiftGive, { ok: true }>, view: GiftReactionView) => void;
+  /** "Tới Tiệm quà" from the gift picker. */
+  onShop?: () => void;
   /** Who is speaking now, for the bubble in the town: a place id, 'player', or null. */
   onSpeaking: (stage: string | null) => void;
+  /** The neighbour who drops in (if any) is in the room now: from their first line of each pass (visitorPresent). */
+  onVisitor?: (present: boolean) => void;
   /** One line was answered and recorded: the world reacts (emote, coins, sound). */
   onAnswered: (result: TownAnswerResult, verdict: Verdict) => void;
   /** The gist was answered and recorded. */
@@ -53,9 +78,11 @@ export interface EpisodeProps {
  * no text and the gist question (NGHE CẢ ĐOẠN), then every line on its own (TỪNG CÂU), then the whole exchange once
  * more without stopping and the transcript (NGHE LẠI LIỀN MẠCH). A re-listen: the whole exchange and the gist only.
  */
-export default function Episode({ place, start, hearts, onSpeaking, onAnswered, onGist, onFinished, onLeave, onQuick, onBox }: EpisodeProps) {
-  const { episode, mode, turns, gist } = start;
+export default function Episode({ place, start, friend, onJournal, onGiven, onShop, onSpeaking, onVisitor, onAnswered, onGist, onFinished, onLeave, onQuick, onBox }: EpisodeProps) {
+  const { episode, mode, gist } = start;
   const relisten = mode === 'relisten';
+  // the lines as said now: a choice made in this run (and the facts it taught) can change what later lines say
+  const [turns, setTurns] = useState<TownEpisodeTurn[]>(start.turns);
   const items = useMemo(() => storyItems(episode, turns), [episode, turns]);
   const pass = useStoryPass(items);
   const { canSpeak, playAll, stop } = pass;
@@ -67,7 +94,8 @@ export default function Episode({ place, start, hearts, onSpeaking, onAnswered, 
   const [gistResult, setGistResult] = useState<TownEpisodeGistResult | null>(null);
   const gistAt = useRef(0);
   const [lineIndex, setLineIndex] = useState(0);
-  const [lineResults, setLineResults] = useState<TownAnswerResult[]>([]);
+  // per turn: how it went ('pick' for a choice)
+  const [marks, setMarks] = useState<Record<number, 'ok' | 'bad' | 'pick'>>({});
   const [result, setResult] = useState<TownEpisodeResult | null>(null);
   const [announce, setAnnounce] = useState('');
   const [mood, setMood] = useState<PortraitMood>('neutral');
@@ -82,6 +110,19 @@ export default function Episode({ place, start, hearts, onSpeaking, onAnswered, 
     onSpeaking(stage);
   }, [stage, onSpeaking]);
   useEffect(() => () => onSpeaking(null), [onSpeaking]);
+
+  // ───── the neighbour who drops in comes in at their first line of each pass, never before ─────
+  const visitorFirst = useMemo(() => firstLineOf(items, episodeVisitor(episode)), [items, episode]);
+  /** The furthest line of the whole listen that has sounded, per step (a new step starts the exchange again). */
+  const [reach, setReach] = useState<{ step: Step; i: number }>({ step: 'listen', i: -1 });
+  const sounding = pass.sounding ? pass.index : -1;
+  if (sounding >= 0 && (step === 'listen' || step === 'again') && (reach.step !== step || reach.i < sounding)) setReach({ step, i: sounding });
+  const reached = step === 'lines' ? lineIndex : reach.step === step ? reach.i : -1;
+  const visitorIn = visitorPresent(visitorFirst, step, reached);
+  useEffect(() => {
+    onVisitor?.(visitorIn);
+  }, [visitorIn, onVisitor]);
+  useEffect(() => () => onVisitor?.(false), [onVisitor]);
 
   // ───── one whole listen ─────
   const listenAll = useCallback(
@@ -98,11 +139,6 @@ export default function Episode({ place, start, hearts, onSpeaking, onAnswered, 
     [playAll],
   );
 
-  // the exchange starts by itself once the camera is there (never a paid request: `auto`)
-  useEffect(() => {
-    const id = window.setTimeout(() => void listenAll(true), SPEAK_DELAY_MS);
-    return () => window.clearTimeout(id);
-  }, [listenAll]);
 
   // ───── the gist ─────
   const heard = passes > 0;
@@ -142,12 +178,24 @@ export default function Episode({ place, start, hearts, onSpeaking, onAnswered, 
   // ───── line by line ─────
   const lineAnswered = useCallback(
     (r: TownAnswerResult, v: Verdict) => {
-      setLineResults((list) => [...list, r]);
+      setMarks((m) => ({ ...m, [lineIndex]: r.outcome === 'wrong' ? 'bad' : 'ok' }));
       setMood(r.outcome === 'wrong' ? 'neutral' : 'happy');
       setAnnounce(`${v.title}${r.reward > 0 ? ` Được ${r.reward} xu.` : ''}`);
       onAnswered(r, v);
     },
-    [onAnswered],
+    [onAnswered, lineIndex],
+  );
+  const onPick = useCallback(
+    (lineId: string, optionId: string) => {
+      const r = recordEpisodeChoice(lineId, optionId);
+      if (r) {
+        setTurns(r.turns);
+        setMarks((m) => ({ ...m, [lineIndex]: 'pick' }));
+        if (r.first && r.points !== 0) setAnnounce(pointsText(r.points));
+      }
+      return r;
+    },
+    [lineIndex],
   );
   const nextLine = useCallback(() => {
     setMood('neutral');
@@ -173,6 +221,12 @@ export default function Episode({ place, start, hearts, onSpeaking, onAnswered, 
     listenRef.current = listenAll;
     finishRef.current = finish;
   }, [listenAll, finish]);
+  // the exchange starts by itself once the camera is there (never a paid request: `auto`); once: a choice that
+  // changes the lines later (new items, a new listenAll) must not start it again
+  useEffect(() => {
+    const id = window.setTimeout(() => void listenRef.current(true), SPEAK_DELAY_MS);
+    return () => window.clearTimeout(id);
+  }, []);
   useEffect(() => {
     if (step !== 'again') return;
     const run = { live: true };
@@ -234,7 +288,7 @@ export default function Episode({ place, start, hearts, onSpeaking, onAnswered, 
   const done = step === 'result';
 
   return (
-    <section ref={setBox} className={'town-talk town-ep' + (done ? ' is-result' : '')} role="group" aria-label={`${episodeHeading(episode, relisten)}, với ${place.resident}`} tabIndex={-1}>
+    <section ref={setBox} className={'town-talk town-ep' + (done ? ' is-result' : '') + (step === 'listen' && !heard && !gistResult ? ' is-hearing' : '')} role="group" aria-label={`${episodeHeading(episode, relisten)}, với ${place.resident}`} tabIndex={-1}>
       <header className="town-talk-head">
         <Portrait placeId={placeId} size={faceSize} mood={mood} />
         <div className="town-talk-who">
@@ -242,7 +296,7 @@ export default function Episode({ place, start, hearts, onSpeaking, onAnswered, 
             {place.resident}
             <span className="town-talk-place"> · {place.name}</span>
           </span>
-          {hearts > 0 && <Hearts value={hearts} fresh={0} name={place.resident} />}
+          <FriendHearts friend={friend} name={place.resident} onJournal={onJournal} fresh={!!result && heartsOf(result.friendAfter) > heartsOf(result.friendBefore)} />
           <div className="town-talk-meta">
             {!relisten && !done && (
               <ol className="town-steps" aria-label={`Bước ${stepIndex + 1} trên 3`}>
@@ -311,11 +365,23 @@ export default function Episode({ place, start, hearts, onSpeaking, onAnswered, 
             Từng câu · {lineIndex + 1}/{turns.length}
             <span className="town-ep-dots" aria-hidden="true">
               {turns.map((t, i) => {
-                const r = lineResults[i];
-                return <i key={t.line.id} className={r ? (r.outcome === 'wrong' ? 'is-bad' : 'is-ok') : i === lineIndex ? 'is-now' : ''} />;
+                const m = marks[i];
+                return <i key={t.base} className={m === 'bad' ? 'is-bad' : m ? 'is-ok' : i === lineIndex ? 'is-now' : ''} />;
               })}
             </span>
           </p>
+          {turns[lineIndex].pick ? (
+            <ChoiceTurn
+              key={turns[lineIndex].base}
+              turn={turns[lineIndex]}
+              episode={episode}
+              last={lineIndex + 1 >= turns.length}
+              lastLabel="Nghe lại liền mạch"
+              onPick={onPick}
+              onSpeaking={lineSpeaking}
+              onNext={nextLine}
+            />
+          ) : (
           <Turn
             key={turns[lineIndex].line.id}
             turn={turns[lineIndex]}
@@ -331,6 +397,7 @@ export default function Episode({ place, start, hearts, onSpeaking, onAnswered, 
             record={recordEpisodeLine}
             lastLabel="Nghe lại liền mạch"
           />
+          )}
         </>
       )}
 
@@ -342,7 +409,7 @@ export default function Episode({ place, start, hearts, onSpeaking, onAnswered, 
       )}
 
       {step === 'result' && result && (
-        <EpisodeResult result={result} start={start} place={place} pass={pass} items={items} footRef={footRef} onLeave={onLeave} onQuick={onQuick} />
+        <EpisodeResult result={result} start={start} turns={turns} place={place} pass={pass} items={items} footRef={footRef} onLeave={onLeave} onQuick={onQuick} onGiven={onGiven} onShop={onShop} />
       )}
     </section>
   );
@@ -435,17 +502,23 @@ function GistVerdict({ result, mode }: { result: TownEpisodeGistResult; mode: 'n
 interface EpisodeResultProps {
   result: TownEpisodeResult;
   start: Started;
+  turns: readonly TownEpisodeTurn[];
   place: TownPlace;
   pass: ReturnType<typeof useStoryPass>;
   items: ReturnType<typeof storyItems>;
   footRef: RefObject<HTMLButtonElement | null>;
   onLeave: () => void;
   onQuick: () => void;
+  onGiven?: EpisodeProps['onGiven'];
+  onShop?: () => void;
 }
 
-function EpisodeResult({ result, start, place, pass, items, footRef, onLeave, onQuick }: EpisodeResultProps) {
+function EpisodeResult({ result, start, turns, place, pass, items, footRef, onLeave, onQuick, onGiven, onShop }: EpisodeResultProps) {
   const s = episodeSummary(result, start.episode, start.firstListen);
-  const decoded = useMemo(() => start.episode.lines.map((l) => safeDecode(l.text)), [start.episode]);
+  const decoded = useMemo(() => turns.map((t) => safeDecode(t.line.text)), [turns]);
+  const [gifting, setGifting] = useState(false);
+  const canGift = useCanGift(start.episode.placeId);
+  const gained = result.friendAfter - result.friendBefore;
   return (
     <div className="town-result">
       <h2 className="town-result-title">{s.title}</h2>
@@ -483,7 +556,23 @@ function EpisodeResult({ result, start, place, pass, items, footRef, onLeave, on
         <p className="town-result-none">Lần này chưa có xu. Đọc lại cả đoạn bên dưới rồi nghe thêm lần nữa nhé.</p>
       )}
       {result.levelTitle && <p className="town-bonus">Danh hiệu mới: {result.levelTitle}</p>}
+      {(gained !== 0 || result.learned.length > 0) && (
+        <ul className="town-result-extra">
+          {gained !== 0 && (
+            <li>
+              Thân với {place.resident}: {pointsText(gained)} · {heartsText(heartsOf(result.friendAfter))}
+            </li>
+          )}
+          {result.learned.map((f) => (
+            <li key={f.id} className="town-learned">
+              <Icon icon={Sparkles} size={14} />
+              Ghi vào Sổ tay: {f.vi}
+            </li>
+          ))}
+        </ul>
+      )}
       <p className="town-note">{nextListenText(place.resident, result.daysToNext)}</p>
+      {gifting && <GiftGive placeId={start.episode.placeId} onGiven={onGiven} onShop={onShop} />}
 
       <section className="town-ep-transcript" aria-label="Cả đoạn hội thoại">
         <div className="town-ep-transcript-head">
@@ -494,10 +583,10 @@ function EpisodeResult({ result, start, place, pass, items, footRef, onLeave, on
           </button>
         </div>
         <ol className="town-ep-lines">
-          {start.episode.lines.map((line, i) => {
+          {turns.map(({ line, base }, i) => {
             const on = pass.index === i && (pass.playing || pass.single !== null);
             return (
-              <li key={line.id} className={'town-ep-line' + (on ? ' is-on' : '')}>
+              <li key={base} className={'town-ep-line' + (on ? ' is-on' : '')}>
                 <div className="town-ep-line-top">
                   <span className="town-ep-who">{items[i]?.speaker}</span>
                   <button
@@ -529,6 +618,12 @@ function EpisodeResult({ result, start, place, pass, items, footRef, onLeave, on
       </section>
 
       <div className="town-talk-foot">
+        {!gifting && canGift && (
+          <button type="button" className="btn btn-ghost" onClick={() => setGifting(true)}>
+            <Icon icon={Gift} size={16} />
+            Tặng quà
+          </button>
+        )}
         <button type="button" className="btn" onClick={onQuick}>
           Trò chuyện nhanh
         </button>

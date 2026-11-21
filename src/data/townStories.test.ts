@@ -8,10 +8,32 @@ import { CAST_VOICES } from '../core/town/voices';
 import { BENCHMARK_FORMS } from './benchmark';
 import { SENTENCES } from './sentences';
 import { TOWN_PLACES } from './town';
-import { storiesOfPlace, storyEpisode, TOWN_STORIES } from './townStories';
+import { audioKey } from '../core/audioKey';
+import type { StorySetting } from '../core/town/story';
+import { storyLinePlayback } from '../core/town/storyAudio';
+import {
+  episodeSetting,
+  episodeVisitor,
+  INN_SETTING,
+  QUICK_CHAT_SETTINGS,
+  quickChatSetting,
+  settingPlace,
+  storiesOfPlace,
+  storyEpisode,
+  BASE_STORIES,
+  TOWN_STORIES,
+} from './townStories';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const nodeModule = (name: string): Promise<any> => import(/* @vite-ignore */ name);
+const { readFile } = await nodeModule('node:fs/promises');
 
 const PLACE_IDS = new Set(TOWN_PLACES.map((p) => p.id));
 const allLines = TOWN_STORIES.flatMap((e) => e.lines.map((l) => ({ ep: e, line: l })));
+// Episodes 1–2 of every place keep the first contract (5–8 lines, 3–12 words, shipped clips); the residents' arcs
+// (episode 3 on, data/stories) have their own (8–12 lines, 3–14 words: data/stories/arcs.test.ts) and their clips are
+// generated later by the owner (npm run audio:generate).
+const baseLines = BASE_STORIES.flatMap((e) => e.lines.map((l) => ({ ep: e, line: l })));
 
 const wordCount = (s: string): number => s.split(/\s+/).filter((w) => /[a-z]/i.test(w)).length;
 
@@ -107,8 +129,9 @@ describe('TOWN_STORIES shape', () => {
     for (const e of TOWN_STORIES) expect(e.lines.map((l) => l.id)).toEqual(e.lines.map((_, i) => `${e.id}-${String(i + 1).padStart(2, '0')}`));
   });
 
-  it('5–8 lines; the learner says 1–3 of them, the resident at least 2', () => {
-    for (const e of TOWN_STORIES) {
+  it('episodes 1–2: 5–8 lines; the learner says 1–3 of them, the resident at least 2', () => {
+    expect(BASE_STORIES.every((e) => e.order <= 2)).toBe(true);
+    for (const e of BASE_STORIES) {
       expect(e.lines.length, e.id).toBeGreaterThanOrEqual(5);
       expect(e.lines.length, e.id).toBeLessThanOrEqual(8);
       const mine = e.lines.filter((l) => l.who === 'you').length;
@@ -141,15 +164,15 @@ describe('TOWN_STORIES shape', () => {
 });
 
 describe('TOWN_STORIES English lines', () => {
-  it('plain written English: trimmed, ASCII, 3–12 words, ends like a sentence', () => {
-    for (const { line } of allLines) {
+  it('plain written English: trimmed, ASCII, ends like a sentence; 3–12 words in episodes 1–2', () => {
+    for (const { ep, line } of allLines) {
       expect(line.text, line.id).toBe(line.text.trim());
       expect(line.text, line.id).not.toMatch(/\s{2,}/);
       expect(line.text, line.id).toMatch(/^[A-Za-z0-9 ,.?!'-]+$/);
       expect(line.text, line.id).toMatch(/[.?!]$/);
       const n = wordCount(line.text);
       expect(n, `${line.id}: ${line.text}`).toBeGreaterThanOrEqual(3);
-      expect(n, `${line.id}: ${line.text}`).toBeLessThanOrEqual(12);
+      expect(n, `${line.id}: ${line.text}`).toBeLessThanOrEqual(ep.order <= 2 ? 12 : 14);
     }
   });
 
@@ -270,5 +293,103 @@ describe('TOWN_STORIES Vietnamese', () => {
 
   it('uses the app tone-mark style (hủy, hóa, khóa, tòa)', () => {
     expect(JSON.stringify(TOWN_STORIES)).not.toMatch(/huỷ|hoá|khoá|toà(?!n)|tuỳ|thuỷ/i);
+  });
+});
+
+describe('TOWN_STORIES settings: every talk happens where it belongs', () => {
+  /** The places that stand from the start (cost 0): a setting may always use them. */
+  const FREE = new Set(TOWN_PLACES.filter((p) => p.cost <= 0).map((p) => p.id));
+  const freeOnly = (id: string): boolean => FREE.has(id);
+  const allBuilt = (): boolean => true;
+
+  function valid(s: StorySetting | undefined): boolean {
+    if (!s) return false;
+    if (s.kind === 'inside') return s.room === 'inn' || PLACE_IDS.has(s.room);
+    return s.kind === 'outside' && PLACE_IDS.has(s.at);
+  }
+
+  it('every episode has a setting naming a real room (a place or the inn) or a real place to stand at', () => {
+    for (const e of TOWN_STORIES) expect(valid(e.setting), `${e.id}: ${JSON.stringify(e.setting)}`).toBe(true);
+  });
+
+  it("a setting needs only the episode's own place, one standing from the start, or the inn", () => {
+    for (const e of TOWN_STORIES) {
+      const needs = e.setting ? settingPlace(e.setting) : null;
+      expect(needs === null || needs === e.placeId || FREE.has(needs), `${e.id}: ${JSON.stringify(e.setting)}`).toBe(true);
+    }
+  });
+
+  it('an episode 1 whose setting needs its own unbuilt place has a lodger setting that needs no unbuilt place; no other episode has one', () => {
+    for (const e of TOWN_STORIES) {
+      const needsOwnPaid = !FREE.has(e.placeId) && !!e.setting && settingPlace(e.setting) === e.placeId;
+      if (e.order === 1 && needsOwnPaid) {
+        expect(valid(e.lodgerSetting), e.id).toBe(true);
+        const needs = e.lodgerSetting ? settingPlace(e.lodgerSetting) : null;
+        expect(needs === null || FREE.has(needs), `${e.id}: ${JSON.stringify(e.lodgerSetting)}`).toBe(true);
+      } else {
+        // episode 2 on is told only once the place is built (episodes.ts needsHome); the free places always stand
+        expect(e.lodgerSetting, e.id).toBeUndefined();
+      }
+    }
+  });
+
+  it('episodeSetting: the setting once its place stands, the lodger setting before, never an unbuilt place', () => {
+    for (const e of TOWN_STORIES) {
+      expect(episodeSetting(e, allBuilt), e.id).toEqual(e.setting);
+      if (e.order !== 1) continue;
+      const now = episodeSetting(e, freeOnly);
+      const needs = settingPlace(now);
+      expect(needs === null || FREE.has(needs), `${e.id}: ${JSON.stringify(now)}`).toBe(true);
+    }
+    expect(episodeSetting({}, allBuilt)).toEqual(INN_SETTING);
+    expect(episodeSetting({ setting: { kind: 'inside', room: 'shop' } }, freeOnly)).toEqual(INN_SETTING);
+    expect(episodeSetting({ setting: { kind: 'inside', room: 'inn' } }, freeOnly)).toEqual(INN_SETTING);
+  });
+
+  it("the owner's case: Emma's first latte is ordered inside the café; Mia leans out of her window outside her house", () => {
+    expect(storyEpisode('cafe-1')?.setting).toEqual({ kind: 'inside', room: 'cafe' });
+    expect(storyEpisode('friend-1')?.setting).toEqual({ kind: 'outside', at: 'friend' });
+  });
+
+  it('quick chats: a setting for every place, at its own place, the inn while it is not built', () => {
+    expect(Object.keys(QUICK_CHAT_SETTINGS).sort()).toEqual([...PLACE_IDS].sort());
+    for (const p of TOWN_PLACES) {
+      const s = QUICK_CHAT_SETTINGS[p.id];
+      expect(valid(s), p.id).toBe(true);
+      expect(settingPlace(s), p.id).toBe(p.id);
+      expect(quickChatSetting(p.id, allBuilt), p.id).toEqual(s);
+      expect(quickChatSetting(p.id, freeOnly), p.id).toEqual(FREE.has(p.id) ? s : INN_SETTING);
+    }
+    expect(quickChatSetting('nope', allBuilt)).toEqual(INN_SETTING);
+  });
+});
+
+describe('episodeVisitor', () => {
+  it('names the neighbour who is there in person, never one only heard on the phone', () => {
+    const who = Object.fromEntries(BASE_STORIES.map((e) => [e.id, episodeVisitor(e)]).filter(([, v]) => v !== null));
+    expect(who).toEqual({ 'cafe-2': 'shop', 'school-2': 'friend', 'board-2': 'square' });
+    // every episode: the visitor is the first neighbour who speaks in it (a place id other than its own), or nobody
+    for (const e of TOWN_STORIES) {
+      const v = episodeVisitor(e);
+      const first = e.lines.find((l) => l.who !== 'them' && l.who !== 'you' && l.who !== e.placeId)?.who ?? null;
+      if (v !== null) expect(v, e.id).toBe(first);
+      expect(e.id === 'office-2' ? null : first, e.id).toBe(v);
+    }
+  });
+});
+
+describe('TOWN_STORIES lines keep their shipped clips', () => {
+  it('every line of episodes 1–2 (connected and careful, in its speaker voice) has its clip in public/audio/manifest.json', async () => {
+    // Changing a line's `text` or `say` orphans its generated clips: it would fall back to the browser voice.
+    const raw: string = await readFile(new URL('../../public/audio/manifest.json', import.meta.url), 'utf8');
+    const clips = (JSON.parse(raw) as { clips: Record<string, unknown> }).clips;
+    const missing: string[] = [];
+    for (const { ep, line } of baseLines) {
+      for (const mode of ['connected', 'careful'] as const) {
+        const p = storyLinePlayback(line, ep, mode);
+        if (!clips[audioKey(mode, p.text, p.voice)]) missing.push(`${line.id} ${mode}: ${p.text}`);
+      }
+    }
+    expect(missing).toEqual([]);
   });
 });

@@ -6,15 +6,34 @@ import { placeLines } from '../../data/town';
 import { reviewNoteVi } from '../../features/dictation/pageModel';
 import type { LineOutcome } from './types';
 
-const NOW = new Date(2026, 10, 13, 12, 0).getTime();
-const TODAY = '2026-11-13';
+// 2026-11-17 draws the three conversation tasks (talk, lines, first: core/town/daily)
+const NOW = new Date(2026, 10, 17, 12, 0).getTime();
+const TODAY = '2026-11-17';
 const DAY = 86_400_000;
 const P = STORAGE_PREFIX;
 const TOWN = P + 'town-progress';
 const REVIEW = P + 'review-cards';
 const DEVICE = 'd-test0001';
 const [L1, L2, L3] = placeLines('cafe');
-const EMPTY = { version: 3, lines: {}, earned: {}, bought: [], daily: {}, days: [], episodes: {} };
+const EMPTY = {
+  version: 5,
+  lines: {},
+  earned: {},
+  bought: [],
+  daily: {},
+  days: [],
+  episodes: {},
+  fish: {},
+  farmDays: [],
+  eggs: { grants: [], bought: {}, hatched: {}, rare: {} },
+  owned: {},
+  look: { hat: null, outfit: null, pet: null, title: null, at: 0 },
+  unlocks: {},
+  friends: {},
+  facts: {},
+  choices: {},
+  gifts: { bought: {}, given: {} },
+};
 
 let map: Map<string, string>;
 let failNext: Set<string>;
@@ -68,12 +87,11 @@ describe('town store', () => {
     expect(r.saved).toBe(true);
     expect(r.progress.lines[L1.id]).toEqual({ best: 2, tries: 1, at: NOW });
     expect(stored(TOWN)).toEqual({
-      version: 3,
-      episodes: {},
+      ...EMPTY,
       lines: { [L1.id]: { best: 2, tries: 1, at: NOW } },
       earned: { [DEVICE]: 3 },
       bought: [],
-      daily: { [TODAY]: { [DEVICE]: { talks: 0, lines: 1, first: 1, met: [], paid: [] } } },
+      daily: { [TODAY]: { [DEVICE]: { talks: 0, lines: 1, first: 1, met: [], paid: [], tasks: ['first', 'lines', 'talk'] } } },
       days: [TODAY],
     });
     expect(calls).toBeGreaterThan(0);
@@ -110,7 +128,7 @@ describe('town store', () => {
     const r = town.recordTownAnswer(L1, 'first', NOW); // already at its best: 1 xu
     expect(r).toMatchObject({ reward: 1, prevBest: 2, balance: 1 });
     expect(r.levelBefore.xp).toBe(5);
-    expect(stored(TOWN).version).toBe(3);
+    expect(stored(TOWN).version).toBe(5);
     expect(stored(TOWN).lines[L2.id]).toEqual({ best: 1, tries: 2, at: 6 });
   });
 
@@ -224,7 +242,7 @@ describe('recordTownAnswer', () => {
     expect(r.tasksPaid).toEqual([{ id: 'first', label: 'Hiểu 4 câu ngay lần nghe đầu', reward: 10 }]);
     expect(r).toMatchObject({ reward: 3, earned: 13, balance: 22 });
     expect(town.recordTownAnswer(lines[4], 'first', NOW + 4)).toMatchObject({ tasksPaid: [], earned: 3, balance: 25 });
-    expect(stored(TOWN).daily[TODAY][DEVICE]).toEqual({ talks: 0, lines: 5, first: 5, met: [], paid: ['first'] });
+    expect(stored(TOWN).daily[TODAY][DEVICE]).toEqual({ talks: 0, lines: 5, first: 5, met: [], paid: ['first'], tasks: ['first', 'lines', 'talk'] });
     // a reload (fresh module state) on the same day does not pay it again
     const again = await fresh();
     expect(again.recordTownAnswer(lines[5], 'first', NOW + 5).tasksPaid).toEqual([]);
@@ -233,7 +251,7 @@ describe('recordTownAnswer', () => {
     expect(again.recordTownAnswer(lines[9], 'first', NOW + DAY + 9).tasksPaid.map((t) => t.id)).toEqual(['first']);
   });
 
-  it('the level and the hearts move with the lines understood', async () => {
+  it('the level moves with the lines understood; friendship hearts come with whole conversations (./friendship)', async () => {
     const town = await fresh();
     const lines = placeLines('cafe');
     const results = lines.slice(0, 5).map((l, i) => town.recordTownAnswer(l, 'first', NOW + i));
@@ -242,7 +260,8 @@ describe('recordTownAnswer', () => {
     expect(results[4].levelBefore).toMatchObject({ index: 0, title: 'Khách lạ' });
     expect(results[4].levelAfter).toMatchObject({ index: 1, title: 'Người quen', xp: 15, nextAt: 40 });
     // 24 lines at Quán cà phê: the first heart comes with the third line understood
-    expect(results.map((r) => [r.heartsBefore, r.heartsAfter])).toEqual([[0, 0], [0, 0], [0, 1], [1, 1], [1, 1]]);
+    // five answers outside a started conversation: one loose conversation, +15 (3 lines understood) +5 (the first of the day)
+    expect(results.map((r) => [r.heartsBefore, r.heartsAfter])).toEqual([[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]);
   });
 
   it('a wrong answer on a sentence without a card enrols its dictation card, once', async () => {
@@ -272,7 +291,7 @@ describe('recordTownAnswer', () => {
       [`dict:${L2.id}`]: mk({ id: `dict:${L2.id}`, due: NOW - DAY }),
       [`dict:${L3.id}`]: mk({ id: `dict:${L3.id}`, due: NOW - DAY, suspended: true }),
     };
-    map.set(REVIEW, JSON.stringify({ version: 1, cards, daily: { day: '2026-11-13', ids: [], exempt: [], extraSec: 0, enrolled: 0 }, since: NOW - 30 * DAY, notice: null, noticeSeenAt: 0 }));
+    map.set(REVIEW, JSON.stringify({ version: 1, cards, daily: { day: TODAY, ids: [], exempt: [], extraSec: 0, enrolled: 0 }, since: NOW - 30 * DAY, notice: null, noticeSeenAt: 0 }));
     const before = map.get(REVIEW);
     const town = await fresh();
     for (const l of [L1, L2, L3]) expect(town.recordTownAnswer(l, 'wrong', NOW).review).toBeNull();
@@ -332,14 +351,28 @@ describe('a conversation', () => {
     expect(town.finishTownConversation()).toBeNull();
   });
 
-  it('is refused for an empty lot and for an unknown place', async () => {
+  it('a lodger (place not built) talks like anybody; refused only for an unknown place', async () => {
     const town = await fresh();
-    expect(town.startTownConversation('home')).toEqual({ ok: false, reason: 'empty-lot' });
+    const lodger = town.startTownConversation('home');
+    expect(lodger).toMatchObject({ ok: true, place: { id: 'home' } });
+    if (!lodger.ok) throw new Error('not started');
+    expect(lodger.turns).toHaveLength(5);
     expect(town.startTownConversation('nope')).toEqual({ ok: false, reason: 'unknown' });
     expect(town.startTownConversation('lamps1')).toEqual({ ok: false, reason: 'unknown' });
     seed(20);
     expect(town.buyTownItem('home').ok).toBe(true);
     expect(town.startTownConversation('home')).toMatchObject({ ok: true, place: { id: 'home' } });
+  });
+
+  it("a lodger's conversation is counted and paid like any other (lines, the bonus)", async () => {
+    const town = await fresh();
+    const s = town.startTownConversation('shop');
+    if (!s.ok) throw new Error('not started');
+    const rewards = s.turns.map((t) => town.recordTownAnswer(t.line, 'first', NOW).reward);
+    expect(rewards).toEqual([3, 3, 3, 3, 3]);
+    const result = town.finishTownConversation();
+    expect(result).toMatchObject({ placeId: 'shop', bonus: 5, summary: { perfect: true }, heartsBefore: 0, heartsAfter: 0, friendBefore: 0, friendAfter: 20 });
+    expect(result!.balance).toBeGreaterThanOrEqual(5 * 3 + 5);
   });
 
   it('five right out of five: the last answer pays the bonus and hands over the result', async () => {
@@ -363,10 +396,15 @@ describe('a conversation', () => {
       earned: 29,
       balance: 29,
       heartsBefore: 0,
-      heartsAfter: 1,
+      heartsAfter: 0,
+      friendBefore: 0,
+      friendAfter: 20,
     });
-    expect(stored(TOWN).daily[TODAY][DEVICE]).toEqual({ talks: 1, lines: 5, first: 4, met: ['cafe'], paid: ['first'] });
+    expect(stored(TOWN).daily[TODAY][DEVICE]).toEqual({ talks: 1, lines: 5, first: 4, met: ['cafe'], paid: ['first'], perfect: 1, tasks: ['first', 'lines', 'talk'], bond: ['cafe'] });
     expect(stored(TOWN).earned).toEqual({ [DEVICE]: 29 });
+    // a perfect chat earns the egg of the day (core/town/eggs), granted with the write and queued to celebrate
+    expect(stored(TOWN).eggs.grants).toEqual([`perfect:${TODAY}`]);
+    expect(town.townCelebrations().map((c) => c.key)).toContain(`egg:perfect:${TODAY}`);
     // reading the result again pays nothing again
     expect(town.finishTownConversation()).toBe(last.conversation);
     expect(stored(TOWN).earned).toEqual({ [DEVICE]: 29 });
@@ -400,7 +438,7 @@ describe('a conversation', () => {
     expect(two.conversation?.tasksPaid).toEqual([{ id: 'talk', label: 'Trò chuyện với 2 người dân', reward: 5 }]);
     expect(two.tasksPaid.map((t) => t.id)).toEqual(['talk']);
     expect(two.bonus).toBe(5);
-    expect(stored(TOWN).daily[TODAY][DEVICE]).toEqual({ talks: 3, lines: 15, first: 0, met: ['cafe', 'square'], paid: ['lines', 'talk'] });
+    expect(stored(TOWN).daily[TODAY][DEVICE]).toMatchObject({ talks: 3, lines: 15, first: 0, met: ['cafe', 'square'], paid: ['lines', 'talk'] });
     const three = talk('friend', NOW + 300);
     expect(three.conversation?.tasksPaid).toEqual([]);
     // every xu is in the balance exactly once: 20 lines × 2, four bonuses, "Hiểu 8 câu" and the talk task
@@ -548,5 +586,28 @@ describe('town progress in backup, restore and "Xóa dữ liệu" (like pairs-pr
     expect(map.has(TOWN)).toBe(false);
     expect(town.loadTownProgress()).toEqual(EMPTY);
     expect(town.buyTownItem('flowers')).toMatchObject({ ok: false, reason: 'poor' });
+  });
+});
+
+describe('commitTown and the daily tasks', () => {
+  it('the first write of the day fixes its three tasks from the progress before it; later writes keep them', async () => {
+    const town = await fresh();
+    const { addFarmDay, daysBefore, emptyTownProgress } = await import('./progress');
+    const { dailyTaskIds, eligibleTasks } = await import('./daily');
+    const base = emptyTownProgress();
+    // a day whose draw would change once the farm is eligible (a farm day of yesterday)
+    const day = Array.from({ length: 120 }, (_, i) => daysBefore('2026-12-01', -i)).find(
+      (d) => dailyTaskIds(d, eligibleTasks(base, d)).join() !== dailyTaskIds(d, new Set([...eligibleTasks(base, d), 'harvest' as const])).join(),
+    )!;
+    const [y, m, d] = day.split('-').map(Number);
+    const t = new Date(y, m - 1, d, 12).getTime();
+    const before = dailyTaskIds(day, eligibleTasks(base, day));
+    // this write itself makes the farm eligible: the tasks are still drawn from before it
+    town.commitTown(addFarmDay(town.loadTownProgress(), daysBefore(day, 1)), t);
+    expect(stored(TOWN).daily[day][DEVICE].tasks).toEqual([...before].sort());
+    // a later write the same day (the farm now eligible) changes nothing
+    town.commitTown(addFarmDay(town.loadTownProgress(), daysBefore(day, 2)), t + 1000);
+    expect(stored(TOWN).daily[day][DEVICE].tasks).toEqual([...before].sort());
+    expect(stored(TOWN).days).toEqual([]);
   });
 });

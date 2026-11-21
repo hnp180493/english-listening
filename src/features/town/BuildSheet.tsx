@@ -1,30 +1,36 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import { Check, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import type { DecorationView, PlaceView, TownOverview } from '../../core/town/overview';
 import { Coin } from './art';
-import { loadWorldArt } from './art/world';
-import { paintThumb } from './engine/thumb';
-import { decorationRows, lotRows, primaryBuy, xu } from './shellModel';
+import { usePanelKeys } from './panelKeys';
+import { renderThumb } from './three/thumbs';
+import { decorationRows, homePerk, lotRows, primaryBuy, xu } from './shellModel';
+
+/** The thumbnail box, CSS px (town.css .town-thumb). */
+const THUMB_W = 56;
+const THUMB_H = 52;
 
 /**
- * The thing itself, small: the same picture as in town. TownPage opens the sheet only once every picture is loaded
- * (useTownArt 'ready'), so this promise is already settled and resolved: a failed load never leaves a mounted sheet
- * with blank thumbnails waiting for a "Thử lại" it would not hear of.
+ * The thing itself, small: the same 3D model as in town, alone in daylight (three/thumbs.ts, drawn once and cached).
+ * Empty where this browser cannot draw in 3D: the name beside it says what it is.
  */
 function Thumb({ id }: { id: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const run = { live: true };
-    loadWorldArt().then(
-      () => {
-        if (run.live && ref.current) paintThumb(ref.current, id, 56, 52);
-      },
-      () => undefined,
-    );
-    return () => {
-      run.live = false;
-    };
+  useLayoutEffect(() => {
+    const c = ref.current;
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx) return;
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const w = Math.round(THUMB_W * dpr);
+    const h = Math.round(THUMB_H * dpr);
+    if (c.width !== w || c.height !== h) {
+      c.width = w;
+      c.height = h;
+    }
+    ctx.clearRect(0, 0, w, h);
+    const pic = renderThumb(id, w, h);
+    if (pic) ctx.drawImage(pic, 0, 0);
   }, [id]);
   return <canvas ref={ref} className="town-thumb" aria-hidden="true" />;
 }
@@ -47,6 +53,7 @@ export default function BuildSheet({ overview, wanted, onBuy, onClose }: BuildSh
   useEffect(() => {
     boxRef.current?.focus({ preventScroll: true });
   }, []);
+  usePanelKeys(boxRef, onClose);
 
   const lots = lotRows(overview.places);
   if (wanted) {
@@ -82,7 +89,7 @@ export default function BuildSheet({ overview, wanted, onBuy, onClose }: BuildSh
       <span className="town-row-body">
         <span className="town-row-title">{p.place.name}</span>
         <span className="town-row-meta">
-          {p.affordable ? `${p.place.resident} · ${p.place.topic}` : `${p.place.resident} · còn thiếu ${xu(p.missing)}`}
+          {p.affordable ? (homePerk(p) ?? `${p.place.resident} · ${p.place.topic}`) : `${p.place.resident} · còn thiếu ${xu(p.missing)}`}
           {!p.affordable && <span className="sr-only">, giá {xu(p.cost)}</span>}
         </span>
       </span>
@@ -122,12 +129,6 @@ export default function BuildSheet({ overview, wanted, onBuy, onClose }: BuildSh
       role="dialog"
       aria-labelledby={titleId}
       tabIndex={-1}
-      onKeyDown={(e) => {
-        if (e.key !== 'Escape') return;
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }}
     >
       <header className="town-build-head">
         <h2 id={titleId} className="town-build-title">

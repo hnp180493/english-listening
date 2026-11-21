@@ -1,12 +1,12 @@
 // The game shell's own little decisions, kept pure so they can be tested: what the stage is told to draw, whom to
 // talk to next, what to say after an answer, what a finished conversation came to, the words of every action.
 
-import { residentTile, walkable } from '../../core/town/map';
+import { HOME_EPISODE_FROM } from '../../core/town/episodes';
+import { storiesOfPlace } from '../../data/townStories';
 import type { TaskPayout, TownTaskView } from '../../core/town/daily';
 import type { DecorationView, PlaceView, TownOverview } from '../../core/town/overview';
 import type { TownAnswerResult } from '../../core/town/store';
 import type { LineOutcome } from '../../core/town/types';
-import { PLACE_IDS, type PlaceId, type Tile } from '../../data/townWorld';
 import type { EmoteKind } from './engine/draw/overlay';
 import type { TownTheme } from './engine/palette';
 import type { Marker, StageState } from './engine/sim';
@@ -40,17 +40,20 @@ export function markerOf(p: Pick<PlaceView, 'marker' | 'episode'>): Marker | nul
   return p.marker;
 }
 
-/** What the canvas draws, from what the learner has understood, built and bought. */
+/**
+ * What the canvas draws, from what the learner has understood, built and bought. Every resident gets their marker,
+ * a lodger too (whose place is not built yet: they talk all the same); lit windows only where a house stands.
+ */
 export function stageStateOf(o: Pick<TownOverview, 'places' | 'decorations'>, theme: TownTheme): StageState {
   const lit: Record<string, number> = {};
   const marker: Record<string, Marker> = {};
   const built: string[] = [];
   for (const p of o.places) {
+    const m = markerOf(p);
+    if (m) marker[p.place.id] = m;
     if (!p.built) continue;
     built.push(p.place.id);
     lit[p.place.id] = p.lit;
-    const m = markerOf(p);
-    if (m) marker[p.place.id] = m;
   }
   return { built, sites: lotsOnOffer(o.places), decorations: o.decorations.filter((d) => d.bought).map((d) => d.decoration.id), lit, marker, theme };
 }
@@ -69,22 +72,35 @@ const MARKER_RANK: Readonly<Record<Marker, number>> = { relisten: 0, story: 1, n
 
 /**
  * Whom to talk to next: a re-listen that is due first (spaced re-listening only works on its day), then an episode
- * to hear, then somebody with lines not understood yet, then somebody worth hearing again; among equals the place
- * the learner knows least (an episode: the lowest episode number first). Null only when nothing is built (never:
- * three places are free).
+ * to hear, then somebody with lines not understood yet, then somebody worth hearing again. Lodgers (their place not
+ * built yet) are suggested too. Among equals: the lowest episode number first (everybody's episode 1 before anybody's
+ * episode 2), then a resident in their own home before a lodger (easier to find, and the free places come first),
+ * then the place the learner knows least. Null only when nobody has anything to say.
  */
 export function suggestedPlace(places: readonly PlaceView[]): PlaceView | null {
   let best: PlaceView | null = null;
   for (const p of places) {
-    if (!p.built || (p.stats.total === 0 && !p.episode)) continue;
+    if (p.stats.total === 0 && !p.episode) continue;
     if (!best) {
       best = p;
       continue;
     }
     const a = MARKER_RANK[markerOf(p) ?? 'heart'];
     const b = MARKER_RANK[markerOf(best) ?? 'heart'];
+    if (a !== b) {
+      if (a < b) best = p;
+      continue;
+    }
     const order = (p.episode?.order ?? 0) - (best.episode?.order ?? 0);
-    if (a < b || (a === b && (order < 0 || (order === 0 && p.lit < best.lit)))) best = p;
+    if (order !== 0) {
+      if (order < 0) best = p;
+      continue;
+    }
+    if (p.built !== best.built) {
+      if (p.built) best = p;
+      continue;
+    }
+    if (p.lit < best.lit) best = p;
   }
   return best;
 }
@@ -98,37 +114,6 @@ export function talkPrompt(p: Pick<PlaceView, 'place' | 'episode'>, near: boolea
   if (p.episode?.mode === 'relisten') return `Nghe lại chuyện với ${who}`;
   if (p.episode) return `${near ? 'Bắt chuyện với' : 'Tới gặp'} ${who} · Tập ${p.episode.order}`;
   return `${near ? 'Bắt chuyện với' : 'Tới gặp'} ${who}`;
-}
-
-/** Neighbours of a resident, best place to stand first: beside them on the screen, then in front, never hidden behind when it can be helped. */
-const BESIDE: readonly Tile[] = [
-  { x: -1, y: 1 },
-  { x: 1, y: -1 },
-  { x: 0, y: 1 },
-  { x: 1, y: 0 },
-  { x: 1, y: 1 },
-  { x: -1, y: 0 },
-  { x: 0, y: -1 },
-  { x: -1, y: -1 },
-];
-
-/**
- * The tile to stand on when a link opens straight into a conversation: beside the resident, and not on or next to
- * another resident's spot when that can be helped (two people on one spot read as one with two heads).
- */
-export function talkStartTile(placeId: PlaceId): Tile | undefined {
-  const at = residentTile(placeId);
-  if (!at) return undefined;
-  const others = PLACE_IDS.filter((id) => id !== placeId).map((id) => residentTile(id));
-  const crowded = (t: Tile) => others.some((o) => Math.abs(o.x - t.x) <= 1 && Math.abs(o.y - t.y) <= 1);
-  let fallback: Tile | undefined;
-  for (const d of BESIDE) {
-    const t = { x: at.x + d.x, y: at.y + d.y };
-    if (!walkable(t)) continue;
-    if (!crowded(t)) return t;
-    fallback ??= t;
-  }
-  return fallback;
 }
 
 // ───────────────────────── after an answer ─────────────────────────
@@ -231,8 +216,9 @@ export function primaryBuy(lots: readonly PlaceView[], decorations: readonly Dec
 
 // ───────────────────────── words ─────────────────────────
 
-export function talkLabel(p: Pick<PlaceView, 'place'> & Partial<Pick<PlaceView, 'episode'>>): string {
-  const at = `Tới chỗ ${p.place.resident} ở ${p.place.name}`;
+/** The hidden list's talk button. A lodger (`built` false) is found at the boarding house, not at their empty lot. */
+export function talkLabel(p: Pick<PlaceView, 'place'> & Partial<Pick<PlaceView, 'episode' | 'built'>>): string {
+  const at = `Tới chỗ ${p.place.resident} ở ${p.built === false ? 'nhà trọ' : p.place.name}`;
   if (p.episode?.mode === 'relisten') return `${at} và nghe lại Tập ${p.episode.order}: ${p.episode.title}`;
   if (p.episode) return `${at} và nghe Tập ${p.episode.order}: ${p.episode.title}`;
   return `${at} và bắt chuyện`;
@@ -240,6 +226,18 @@ export function talkLabel(p: Pick<PlaceView, 'place'> & Partial<Pick<PlaceView, 
 
 export function lotLabel(p: Pick<PlaceView, 'place' | 'cost'>): string {
   return `Xây ${p.place.name}, ${xu(p.cost)}`;
+}
+
+/**
+ * What building a lot adds, for its row in the build panel: its resident moves out of the boarding house, and the
+ * episodes told at home open (HOME_EPISODE_FROM on; "ngay" when one is ready to hear the moment it stands). null for
+ * a place already built.
+ */
+export function homePerk(p: Pick<PlaceView, 'place' | 'built' | 'homeEpisode'>): string | null {
+  if (p.built) return null;
+  const who = p.place.resident;
+  if (p.homeEpisode) return `${who} dọn về ở, mở ngay Tập ${p.homeEpisode.order}: ${p.homeEpisode.title}`;
+  return storiesOfPlace(p.place.id).length >= HOME_EPISODE_FROM ? `${who} dọn về ở, có thêm Tập ${HOME_EPISODE_FROM} ở nhà mới` : `${who} dọn từ nhà trọ về ở`;
 }
 
 /** "1/2" while a task is open; nothing once it is done (the tick says it). */

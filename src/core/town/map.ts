@@ -1,11 +1,15 @@
 // Walking in "Thị trấn": which tiles can be walked on, the shortest way between two of them, and where a place's
 // door and resident are. Pure; the world is a parameter (default: the town of src/data/townWorld.ts).
 //
-// Blocked: outside the map, water, trees, the fountain, a place's footprint (built or still an empty lot), the
-// fixed props, and the solid decoration spots (kept free from the start, so buying a lamp never traps anybody).
-// Everything else (grass, path, plaza) is walkable.
+// Only what you can see blocks, and only as much as it is big (colliders.ts): the colliders of the world's state
+// (`world.walk`, made by colliders.ts walkWorld; a world without one: nothing built, every lot a site, nothing
+// bought), the water, and outside the map. A tile is closed to the path finder when a collider comes within
+// GRID_CLEAR of its centre; the player's body collides with the shapes themselves (`solidsNear`).
+// Ground characters: '.' grass, '=' path, 'o' plaza, 'T' / 't' a tree on grass, 'F' the fountain's spot on the
+// plaza (open until the fountain is bought), '~' water; '#' a wall (test worlds), anything else is closed.
 
-import { footprintTiles, groundAt, TOWN_WORLD, type PlaceId, type Tile, type TownWorld, type WorldPlace } from '../../data/townWorld';
+import { groundAt, TOWN_WORLD, type Collider, type PlaceId, type Tile, type TownWorld, type WorldPlace } from '../../data/townWorld';
+import { BODY_RADIUS, boundsOfCollider, collidersOf, distanceTo, GRID_CLEAR } from './colliders';
 
 export type { Tile } from '../../data/townWorld';
 
@@ -35,31 +39,101 @@ interface Grid {
   size: number;
   /** 1 = walkable. */
   open: Uint8Array;
+  /** 1 = ground a body may stand on (not water, not a wall); what stands on it is in `near`. */
+  ground: Uint8Array;
+  /** Per tile: the colliders whose box reaches into it. */
+  near: (Collider[] | undefined)[];
+  colliders: readonly Collider[];
+  /** A closed ground tile (water, a wall, outside the map) as a box, made when first asked for. */
+  tileBoxes: Map<number, Collider>;
+  /** Per tile: the diagonal steps a body fits along (bit k = NEIGHBOURS[k]), -1 until first asked. */
+  diag: Int16Array;
 }
 
 const GRIDS = new WeakMap<TownWorld, Grid>();
+
+/** Ground a body may stand on (whatever stands there): grass, path, plaza, a tree's or the fountain's ground. */
+const GROUND = new Set(['.', '=', 'o', 'T', 't', 'F']);
 
 function gridOf(world: TownWorld): Grid {
   const cached = GRIDS.get(world);
   if (cached) return cached;
   const size = world.size;
   const open = new Uint8Array(size * size);
+  const ground = new Uint8Array(size * size);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const ch = world.rows[y]?.[x];
-      open[y * size + x] = ch === '.' || ch === '=' || ch === 'o' ? 1 : 0;
+      ground[y * size + x] = ch !== undefined && GROUND.has(ch) ? 1 : 0;
     }
   }
-  const block = (t: Tile) => {
-    if (Number.isInteger(t.x) && Number.isInteger(t.y) && t.x >= 0 && t.y >= 0 && t.x < size && t.y < size) open[t.y * size + t.x] = 0;
-  };
-  for (const p of world.places) footprintTiles(p).forEach(block);
-  for (const prop of world.props) prop.tiles.forEach(block);
-  for (const spots of Object.values(world.decorations)) for (const s of spots) if (s.solid) block(s);
-  const grid = { size, open };
+  open.set(ground);
+  const colliders = world.walk?.colliders ?? collidersOf(world);
+  const near: (Collider[] | undefined)[] = new Array(size * size);
+  for (const c of colliders) {
+    const b = boundsOfCollider(c);
+    for (let ty = Math.max(0, Math.floor(b.y0 - GRID_CLEAR)); ty <= Math.min(size - 1, Math.floor(b.y1 + GRID_CLEAR)); ty++) {
+      for (let tx = Math.max(0, Math.floor(b.x0 - GRID_CLEAR)); tx <= Math.min(size - 1, Math.floor(b.x1 + GRID_CLEAR)); tx++) {
+        const i = ty * size + tx;
+        if (distanceTo(c, tx + 0.5, ty + 0.5) < GRID_CLEAR) open[i] = 0;
+        if (tx + 1 > b.x0 && tx < b.x1 && ty + 1 > b.y0 && ty < b.y1) (near[i] ??= []).push(c);
+      }
+    }
+  }
+  const grid: Grid = { size, open, ground, near, colliders, tileBoxes: new Map(), diag: new Int16Array(size * size).fill(-1) };
   GRIDS.set(world, grid);
   return grid;
 }
+
+/** Every collider of the world's state (colliders.ts; the world's own `walk`, or nothing built and bought). */
+export function collidersIn(world: TownWorld = TOWN_WORLD): readonly Collider[] {
+  return gridOf(world).colliders;
+}
+
+/**
+ * Everything solid within the box x0..x1, y0..y1 (a body's reach): the colliders there, and the closed ground
+ * (water, walls, outside the map) as tile boxes. Calls `visit` once per thing (a collider over two tiles: once).
+ */
+export function solidsNear(world: TownWorld, x0: number, y0: number, x1: number, y1: number, visit: (c: Collider) => void): void {
+  const g = gridOf(world);
+  const size = g.size;
+  const tx0 = Math.floor(x0);
+  const ty0 = Math.floor(y0);
+  const tx1 = Math.floor(x1);
+  const ty1 = Math.floor(y1);
+  const many = tx1 > tx0 || ty1 > ty0;
+  const seen: Collider[] = SEEN;
+  seen.length = 0;
+  for (let ty = ty0; ty <= ty1; ty++) {
+    for (let tx = tx0; tx <= tx1; tx++) {
+      const inMap = tx >= 0 && ty >= 0 && tx < size && ty < size;
+      const i = ty * size + tx;
+      if (!inMap || g.ground[i] === 0) {
+        const k = inMap ? i : -1 - ((ty + 64) * 4096 + (tx + 64));
+        let b = g.tileBoxes.get(k);
+        if (!b) {
+          b = { kind: 'box', x0: tx, y0: ty, x1: tx + 1, y1: ty + 1, what: inMap ? 'ground' : 'edge' };
+          g.tileBoxes.set(k, b);
+        }
+        visit(b);
+        continue;
+      }
+      const list = g.near[i];
+      if (!list) continue;
+      for (const c of list) {
+        if (many) {
+          if (seen.includes(c)) continue;
+          seen.push(c);
+        }
+        visit(c);
+      }
+    }
+  }
+  seen.length = 0;
+}
+
+/** Reused by solidsNear (no garbage per call). */
+const SEEN: Collider[] = [];
 
 export function inBounds(t: Tile, world: TownWorld = TOWN_WORLD): boolean {
   return Number.isInteger(t.x) && Number.isInteger(t.y) && t.x >= 0 && t.y >= 0 && t.x < world.size && t.y < world.size;
@@ -74,13 +148,49 @@ export function walkable(t: Tile, world: TownWorld = TOWN_WORLD): boolean {
 
 /**
  * One step from `from` by `delta` (each of x, y in -1..1) is allowed when the target is walkable and, for a diagonal
- * step, both tiles it squeezes between are walkable too: no cutting the corner of a house or of the pond.
+ * step, both tiles it squeezes between are walkable too (no cutting the corner of a house or of the pond), or a body
+ * (BODY_RADIUS) fits all the way along the straight line between the two tiles' middles: between two trees standing
+ * corner to corner, where the keys can go, so can a click walk and a resident (docs/town.md §7 "Moving about").
  */
 export function canStep(from: Tile, delta: Tile, world: TownWorld = TOWN_WORLD): boolean {
   if (delta.x === 0 && delta.y === 0) return false;
   if (!walkable({ x: from.x + delta.x, y: from.y + delta.y }, world)) return false;
   if (delta.x !== 0 && delta.y !== 0) {
-    return walkable({ x: from.x + delta.x, y: from.y }, world) && walkable({ x: from.x, y: from.y + delta.y }, world);
+    if (walkable({ x: from.x + delta.x, y: from.y }, world) && walkable({ x: from.x, y: from.y + delta.y }, world)) return true;
+    return diagonalFits(from, delta, world);
+  }
+  return true;
+}
+
+/** Room to spare round a body squeezing along a diagonal (a walker steers, it does not run on rails). */
+const DIAGONAL_SPARE = 0.04;
+
+/** A body fits along the diagonal from `from` by `delta` (cached per tile in the grid). */
+function diagonalFits(from: Tile, delta: Tile, world: TownWorld): boolean {
+  const g = gridOf(world);
+  const i = from.y * g.size + from.x;
+  if (g.diag[i] < 0) {
+    let mask = 0;
+    NEIGHBOURS.forEach((d, k) => {
+      if (d.x !== 0 && d.y !== 0 && lineFits(world, from.x + 0.5, from.y + 0.5, from.x + d.x + 0.5, from.y + d.y + 0.5, BODY_RADIUS + DIAGONAL_SPARE)) mask |= 1 << k;
+    });
+    g.diag[i] = mask;
+  }
+  const k = NEIGHBOURS.findIndex((d) => d.x === delta.x && d.y === delta.y);
+  return (g.diag[i] & (1 << k)) !== 0;
+}
+
+/** A circle of radius `r` moved along the straight line (ax, ay) → (bx, by) overlaps nothing solid. */
+export function lineFits(world: TownWorld, ax: number, ay: number, bx: number, by: number, r: number): boolean {
+  const things: Collider[] = [];
+  solidsNear(world, Math.min(ax, bx) - r, Math.min(ay, by) - r, Math.max(ax, bx) + r, Math.max(ay, by) + r, (c) => {
+    things.push(c);
+  });
+  const n = Math.max(2, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.04));
+  for (let s = 0; s <= n; s++) {
+    const x = ax + ((bx - ax) * s) / n;
+    const y = ay + ((by - ay) * s) / n;
+    for (const c of things) if (distanceTo(c, x, y) < r - 1e-6) return false;
   }
   return true;
 }
@@ -110,14 +220,12 @@ export function findPath(from: Tile, to: Tile, world: TownWorld = TOWN_WORLD, ex
   const cost = new Map<number, number>([[key(from), 0]]);
   const cameFrom = new Map<number, number>();
   const closed = new Set<number>();
-  // The town is 441 tiles: a plain array scanned for its best entry is plenty.
-  const openList: { k: number; f: number }[] = [{ k: key(from), f: screenDistance(from, to) }];
-  while (openList.length > 0) {
-    let best = 0;
-    for (let i = 1; i < openList.length; i++) {
-      if (openList[i].f < openList[best].f || (openList[i].f === openList[best].f && openList[i].k < openList[best].k)) best = i;
-    }
-    const cur = openList.splice(best, 1)[0].k;
+  // A binary heap ordered by (f, tile index): the same entry comes out first as a scan for the best one would give,
+  // so the path between two tiles is always the same one (the town is 1,936 tiles: a scan got slow).
+  const open = new OpenHeap();
+  open.push(key(from), screenDistance(from, to));
+  while (open.size > 0) {
+    const cur = open.pop();
     if (cur === goal) {
       const path: Tile[] = [];
       for (let k: number | undefined = cur; k !== undefined && k !== key(from); k = cameFrom.get(k)) {
@@ -138,10 +246,59 @@ export function findPath(from: Tile, to: Tile, world: TownWorld = TOWN_WORLD, ex
       if (ng >= (cost.get(nk) ?? Infinity)) continue;
       cost.set(nk, ng);
       cameFrom.set(nk, cur);
-      openList.push({ k: nk, f: ng + screenDistance(next, to) });
+      open.push(nk, ng + screenDistance(next, to));
     }
   }
   return [];
+}
+
+/** A min-heap of (f, k) pairs, smallest f first, then smallest k. */
+class OpenHeap {
+  private readonly f: number[] = [];
+  private readonly k: number[] = [];
+
+  get size(): number {
+    return this.k.length;
+  }
+
+  private less(i: number, j: number): boolean {
+    return this.f[i] < this.f[j] || (this.f[i] === this.f[j] && this.k[i] < this.k[j]);
+  }
+
+  private swap(i: number, j: number): void {
+    [this.f[i], this.f[j]] = [this.f[j], this.f[i]];
+    [this.k[i], this.k[j]] = [this.k[j], this.k[i]];
+  }
+
+  push(k: number, f: number): void {
+    this.f.push(f);
+    this.k.push(k);
+    for (let i = this.k.length - 1; i > 0; ) {
+      const p = (i - 1) >> 1;
+      if (!this.less(i, p)) break;
+      this.swap(i, p);
+      i = p;
+    }
+  }
+
+  pop(): number {
+    const top = this.k[0];
+    const last = this.k.length - 1;
+    this.swap(0, last);
+    this.f.pop();
+    this.k.pop();
+    for (let i = 0; ; ) {
+      const l = 2 * i + 1;
+      const r = l + 1;
+      let m = i;
+      if (l < last && this.less(l, m)) m = l;
+      if (r < last && this.less(r, m)) m = r;
+      if (m === i) break;
+      this.swap(i, m);
+      i = m;
+    }
+    return top;
+  }
 }
 
 /**

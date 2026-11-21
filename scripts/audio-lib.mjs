@@ -277,13 +277,28 @@ export function tmpNameFor(path) {
   return `${path}.${process.pid}.${++tmpSeq}.${Math.random().toString(36).slice(2, 8)}.tmp`
 }
 
+/** Windows refuses a rename onto a file that something else holds open for a moment (antivirus, the search indexer,
+ * an editor): EPERM / EACCES / EBUSY. Retry with a growing pause (about 6 s in all) before giving up. */
+const RENAME_RETRY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY'])
+export async function renameRetry(from, to, tries = 12) {
+  for (let i = 0; ; i++) {
+    try {
+      await rename(from, to)
+      return
+    } catch (e) {
+      if (i + 1 >= tries || !RENAME_RETRY_CODES.has(e?.code)) throw e
+      await new Promise((r) => setTimeout(r, Math.min(1000, 40 * 2 ** i)))
+    }
+  }
+}
+
 /** Writes JSON atomically (temp file + rename), so a crash never leaves half a manifest. */
 export async function writeJsonAtomic(path, value, pretty = true) {
   await mkdir(dirname(path), { recursive: true })
   const tmp = tmpNameFor(path)
   try {
     await writeFile(tmp, JSON.stringify(value, null, pretty ? 2 : 0) + '\n')
-    await rename(tmp, path)
+    await renameRetry(tmp, path)
   } catch (e) {
     await unlink(tmp).catch(() => undefined)
     throw e
@@ -295,7 +310,7 @@ export async function writeFileAtomic(path, bytes) {
   const tmp = tmpNameFor(path)
   try {
     await writeFile(tmp, bytes)
-    await rename(tmp, path)
+    await renameRetry(tmp, path)
   } catch (e) {
     await unlink(tmp).catch(() => undefined)
     throw e

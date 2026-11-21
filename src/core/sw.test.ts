@@ -42,10 +42,10 @@ class MemCache {
   }
 }
 
-async function loadSw(fetchImpl: (url: string) => Promise<Response>, build?: { id: string; assets: string[]; art: string[] }) {
+async function loadSw(fetchImpl: (url: string) => Promise<Response>, build?: { id: string; assets: string[]; lazy?: string[] }) {
   let src: string = await readFile(new URL('../../public/sw.js', import.meta.url), 'utf8');
   // a stamped build (what vite.config.ts writes into the copy in dist/)
-  if (build) src = src.replace("const BUILD = { id: '', assets: [], art: [] };", () => 'const BUILD = ' + JSON.stringify(build) + ';');
+  if (build) src = src.replace("const BUILD = { id: '', assets: [], lazy: [] };", () => 'const BUILD = ' + JSON.stringify(build) + ';');
   const stores = new Map<string, MemCache>();
   const handlers: Record<string, (e: any) => void> = {};
   const ctx: any = {
@@ -286,48 +286,52 @@ describe('service worker: shipped clips', () => {
   });
 });
 
-describe('service worker: build assets and the town pictures', () => {
-  const BUILD = { id: 'b2', assets: ['assets/index-N.js', 'assets/town-N.js'], art: ['assets/places-N.webp', 'assets/cafe-N.webp'] };
+describe('service worker: build assets', () => {
+  const BUILD = { id: 'b2', assets: ['assets/index-N.js', 'assets/town-N.js'], lazy: ['assets/three-N.js'] };
   const ok = (body: string) => basic(new Response(body, { status: 200, headers: { 'Content-Type': 'text/plain' } }));
   const shell = () => basic(new Response('<script type="module" src="/assets/index-N.js"></script>', { status: 200, headers: { 'Content-Type': 'text/html' } }));
 
-  it('install precaches the code, not the pictures; a file an older deploy stored is copied, not downloaded', async () => {
+  it('install precaches every chunk but three.js; a file an older deploy stored is copied, not downloaded', async () => {
     const fetched: string[] = [];
     const { ctx, stores, install } = await loadSw(async (url) => {
       fetched.push(url);
       return url === SCOPE ? shell() : ok(url);
     }, BUILD);
-    const older = await ctx.caches.open('nghe-noi-am-v1.4.0-b1');
+    const older = await ctx.caches.open('nghe-noi-am-v1.5.0-b1');
     await older.put(`${SCOPE}assets/town-N.js`, ok('old copy'));
     await install();
     const cache = [...stores.entries()].find(([k]) => k.endsWith('-b2'))![1];
     const keys = [...cache.map.keys()];
     expect(keys).toContain(`${SCOPE}assets/index-N.js`);
     expect(keys).toContain(`${SCOPE}assets/town-N.js`);
-    expect(keys.some((k) => k.endsWith('.webp'))).toBe(false);
-    expect(fetched.some((u) => u.endsWith('.webp'))).toBe(false);
+    expect(keys).not.toContain(`${SCOPE}assets/three-N.js`);
+    expect(fetched).not.toContain(`${SCOPE}assets/three-N.js`);
     expect(fetched).not.toContain(`${SCOPE}assets/town-N.js`);
     expect(fetched).toContain(`${SCOPE}assets/index-N.js`);
   });
 
-  it('a picture is stored on first use in its own cache, which survives a deploy and keeps only this build’s pictures', async () => {
-    let n = 0;
-    const { stores, dispatch, activate } = await loadSw(async (url) => {
-      n++;
-      return ok(url);
+  it('three.js comes along from an older deploy that cached it (no download), and pruning keeps it', async () => {
+    const fetched: string[] = [];
+    const { ctx, stores, install } = await loadSw(async (url) => {
+      fetched.push(url);
+      return url === SCOPE ? shell() : ok(url);
     }, BUILD);
-    await dispatch(`${SCOPE}assets/places-N.webp`);
-    await new Promise((r) => setTimeout(r, 0)); // the copy is stored in the background
-    await dispatch(`${SCOPE}assets/places-N.webp`);
-    expect(n).toBe(1);
-    const art = stores.get('nghe-noi-am-art')!;
-    expect([...art.map.keys()]).toEqual([`${SCOPE}assets/places-N.webp`]);
-    // a picture of an earlier build, and an older deploy's code cache
-    await art.put(`${SCOPE}assets/places-OLD.webp`, ok('old'));
-    stores.set('nghe-noi-am-v1.4.0-b1', new MemCache());
+    const older = await ctx.caches.open('nghe-noi-am-v1.6.0-b1');
+    await older.put(`${SCOPE}assets/three-N.js`, ok('three'));
+    await install();
+    const cache = [...stores.entries()].find(([k]) => k.endsWith('-b2'))![1];
+    expect([...cache.map.keys()]).toContain(`${SCOPE}assets/three-N.js`);
+    expect(fetched).not.toContain(`${SCOPE}assets/three-N.js`);
+  });
+
+  it("activate drops an older deploy's cache and the town's old picture cache, and keeps the clips", async () => {
+    const { stores, activate } = await loadSw(async (url) => ok(url), BUILD);
+    stores.set('nghe-noi-am-art', new MemCache());
+    stores.set('nghe-noi-am-v1.5.0-b1', new MemCache());
+    stores.set(CLIPS_PREFIX + 'g7', new MemCache());
     await activate();
-    expect(stores.has('nghe-noi-am-art')).toBe(true);
-    expect(stores.has('nghe-noi-am-v1.4.0-b1')).toBe(false);
-    expect([...art.map.keys()]).toEqual([`${SCOPE}assets/places-N.webp`]);
+    expect(stores.has('nghe-noi-am-art')).toBe(false);
+    expect(stores.has('nghe-noi-am-v1.5.0-b1')).toBe(false);
+    expect(stores.has(CLIPS_PREFIX + 'g7')).toBe(true);
   });
 });

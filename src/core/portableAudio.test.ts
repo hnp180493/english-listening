@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { ART_LEDGER_FILE, AUDIO_LEDGER_FILE, AUDIO_MANIFEST_ELEMENT_ID, inlineAudioManifest, normalizeAudioManifest, syncArtFolder, syncAudioFolder } from '../../scripts/portableAudio.mjs';
+import { ART_LEDGER_FILE, AUDIO_LEDGER_FILE, AUDIO_MANIFEST_ELEMENT_ID, inlineAudioManifest, normalizeAudioManifest, retireArtFolder, syncAudioFolder } from '../../scripts/portableAudio.mjs';
 import { AUDIO_MANIFEST_ELEMENT_ID as APP_ID, parseAudioManifest } from './audioManifest';
 
 const HTML = '<!doctype html>\n<html>\n  <head>\n    <script type="module">app()</script>\n  </head>\n  <body></body>\n</html>';
@@ -114,31 +114,36 @@ describe('syncAudioFolder (portable build)', () => {
   });
 });
 
-describe('syncArtFolder (portable build: the town pictures)', () => {
+describe('retireArtFolder (portable build: the old town pictures)', () => {
   let dir = '';
   afterEach(async () => {
     if (dir) await rm(dir, { recursive: true, force: true });
     dir = '';
   });
 
-  it("copies this build's pictures, removes an earlier build's, and leaves anything else in the folder", async () => {
+  it('removes the pictures an earlier build copied, and only those', async () => {
     dir = await mkdtemp(join(tmpdir(), 'nna-art-'));
-    const src = join(dir, 'assets');
-    const out = join(dir, 'out', 'art');
-    await mkdir(src, { recursive: true });
+    const out = join(dir, 'art');
     await mkdir(out, { recursive: true });
-    await writeFile(join(src, 'places-AAAA.webp'), 'P1');
-    await writeFile(join(src, 'cafe-BBBB.webp'), 'C1');
+    await writeFile(join(out, 'places-AAAA.webp'), 'P1');
+    await writeFile(join(out, 'cafe-BBBB.webp'), 'C1');
     await writeFile(join(out, 'my-drawing.webp'), 'mine');
-
-    let r = await syncArtFolder(src, out, ['places-AAAA.webp', 'cafe-BBBB.webp']);
-    expect(r).toMatchObject({ copied: 2, removed: 0, files: 2 });
-    // the next build changed one picture: a new hashed name
-    await writeFile(join(src, 'places-CCCC.webp'), 'P2');
-    r = await syncArtFolder(src, out, ['places-CCCC.webp', 'cafe-BBBB.webp']);
-    expect(r).toMatchObject({ copied: 1, kept: 1, removed: 1 });
-    expect((await readdir(out)).sort()).toEqual([ART_LEDGER_FILE, 'cafe-BBBB.webp', 'my-drawing.webp', 'places-CCCC.webp']);
+    await writeFile(join(out, ART_LEDGER_FILE), JSON.stringify({ app: 'nghe-noi-am', files: ['places-AAAA.webp', 'cafe-BBBB.webp'] }));
+    expect(await retireArtFolder(out)).toBe(2);
+    expect(await readdir(out)).toEqual(['my-drawing.webp']);
     // the clip ledger is a different file: the two folders never mix up their lists
     expect(ART_LEDGER_FILE).not.toBe(AUDIO_LEDGER_FILE);
+  });
+
+  it('removes the folder when only its pictures were in it, and touches nothing without a ledger', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'nna-art-'));
+    const out = join(dir, 'art');
+    await mkdir(out, { recursive: true });
+    await writeFile(join(out, 'x-1.webp'), 'X');
+    expect(await retireArtFolder(out)).toBe(0);
+    expect(await readdir(out)).toEqual(['x-1.webp']);
+    await writeFile(join(out, ART_LEDGER_FILE), JSON.stringify({ files: ['x-1.webp'] }));
+    expect(await retireArtFolder(out)).toBe(1);
+    expect(await readdir(dir)).toEqual([]);
   });
 });

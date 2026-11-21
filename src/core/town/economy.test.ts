@@ -14,6 +14,8 @@ import {
   conversationBonus,
   isBuilt,
   isPerfect,
+  isStoryLineId,
+  keptOutcome,
   levelFor,
   lineReward,
   owns,
@@ -23,6 +25,8 @@ import {
   placeMarker,
   rawBalance,
   spentTotal,
+  storyLineReward,
+  storyTotals,
   TOWN_LEVELS,
   townItem,
   townLevel,
@@ -31,12 +35,13 @@ import {
   xpOf,
 } from './economy';
 import { placeStats, townOverview } from './overview';
-import { addEarned, dailyCount, earnedTotal, emptyTownProgress, mergeTownProgress, type LineBest, type TownProgress } from './progress';
+import { addBought, addEarned, dailyCount, earnedTotal, emptyTownProgress, mergeTownProgress, updateEpisode, type LineBest, type TownProgress } from './progress';
 import type { LineOutcome } from './types';
 
 const DEV = 'd-aaaa0001';
-const NOW = new Date(2026, 10, 13, 12).getTime();
-const TODAY = '2026-11-13';
+// 2026-11-17 draws the three conversation tasks (talk, lines, first: core/town/daily)
+const NOW = new Date(2026, 10, 17, 12).getTime();
+const TODAY = '2026-11-17';
 const make = (p: Partial<TownProgress>): TownProgress => ({ ...emptyTownProgress(), ...p });
 const rich = (xu: number, bought: string[] = []): TownProgress => make({ earned: { [DEV]: xu }, bought });
 /** The first `n` lines of a place at `best`. */
@@ -256,12 +261,12 @@ describe('applyAnswer', () => {
     expect(p0).toEqual(emptyTownProgress());
     expect(r).toMatchObject({ reward: 3, tasksPaid: [], prevBest: 0 });
     expect(r.progress).toEqual({
-      version: 3,
+      ...emptyTownProgress(),
       episodes: {},
       lines: { [l1.id]: { best: 2, tries: 1, at: NOW } },
       earned: { [DEV]: 3 },
       bought: [],
-      daily: { [TODAY]: { [DEV]: { talks: 0, lines: 1, first: 1, met: [], paid: [] } } },
+      daily: { [TODAY]: { [DEV]: { talks: 0, lines: 1, first: 1, met: [], paid: [], tasks: ['first', 'lines', 'talk'] } } },
       days: [TODAY],
     });
   });
@@ -306,6 +311,47 @@ describe('applyAnswer', () => {
   });
 });
 
+describe('a line of an episode (step 2) is never a first listen', () => {
+  // QA 2026-11-21: the lines of "Từng câu" were already heard once in the whole exchange (step 1)
+  const story = storiesOfPlace('cafe')[0].lines.map((l) => l.id);
+
+  it('is told apart from a quick chat line', () => {
+    expect(story.every(isStoryLineId)).toBe(true);
+    expect(placeLines('cafe').some((l) => isStoryLineId(l.id))).toBe(false);
+    expect(isStoryLineId('__proto__')).toBe(false);
+    expect(keptOutcome(story[0], 'first')).toBe('replayed');
+    expect(keptOutcome(story[0], 'wrong')).toBe('wrong');
+    expect(keptOutcome(placeLines('cafe')[0].id, 'first')).toBe('first');
+  });
+
+  it('pays the game xu (3 / 2 the first time understood, then 1) but is kept as understood, not first', () => {
+    expect([storyLineReward(0, 'first'), storyLineReward(0, 'replayed'), storyLineReward(0, 'wrong')]).toEqual([3, 2, 0]);
+    expect([storyLineReward(1, 'first'), storyLineReward(2, 'first'), storyLineReward(1, 'replayed')]).toEqual([1, 1, 1]);
+    const r = applyAnswer(emptyTownProgress(), story[0], 'first', NOW, DEV);
+    expect(r.reward).toBe(3);
+    expect(r.progress.lines[story[0]]).toEqual({ best: 1, tries: 1, at: NOW });
+    expect(dailyCount(r.progress, TODAY, DEV)).toMatchObject({ lines: 1, first: 0 });
+    // a later right answer after one play is no upgrade to a first listen either
+    const again = applyAnswer(r.progress, story[0], 'first', NOW + 1, DEV);
+    expect(again.reward).toBe(1);
+    expect(again.progress.lines[story[0]].best).toBe(1);
+  });
+
+  it('never reaches "Hiểu 4 câu ngay lần nghe đầu", the first-listen metric or first-listen xp', () => {
+    let p = emptyTownProgress();
+    const paid: string[] = [];
+    for (const id of story) {
+      const r = applyAnswer(p, id, 'first', NOW, DEV);
+      paid.push(...r.tasksPaid.map((t) => t.id));
+      p = r.progress;
+    }
+    expect(paid).not.toContain('first');
+    expect(dailyCount(p, TODAY, DEV).first).toBe(0);
+    expect(storyTotals(p)).toMatchObject({ understood: story.length, first: 0 });
+    expect(townXp(p)).toBe(2 * story.length);
+  });
+});
+
 describe('applyConversation', () => {
   const five: LineOutcome[] = ['first', 'replayed', 'first', 'first', 'replayed'];
 
@@ -330,11 +376,12 @@ describe('applyConversation', () => {
     expect(balance(two.progress)).toBe(5 + 5);
   });
 
-  it('left early, or an empty lot: nothing happens', () => {
+  it('left early, or an unknown place: nothing happens; a lodger (place not built) counts like anybody', () => {
     const p = emptyTownProgress();
     expect(applyConversation(p, 'cafe', ['first', 'first', 'first', 'first'], NOW, DEV)).toEqual({ progress: p, finished: false, perfect: false, bonus: 0, tasksPaid: [] });
-    expect(applyConversation(p, 'home', five, NOW, DEV)).toMatchObject({ progress: p, finished: false, bonus: 0 });
-    expect(applyConversation(p, 'nope', five, NOW, DEV).finished).toBe(false);
+    expect(applyConversation(p, 'nope', five, NOW, DEV)).toEqual({ progress: p, finished: false, perfect: false, bonus: 0, tasksPaid: [] });
+    expect(applyConversation(p, 'lamps1', five, NOW, DEV).finished).toBe(false);
+    expect(applyConversation(p, 'home', five, NOW, DEV)).toMatchObject({ finished: true, bonus: 5 });
     expect(applyConversation(rich(0, ['home']), 'home', five, NOW, DEV)).toMatchObject({ finished: true, bonus: 5 });
   });
 });
@@ -366,9 +413,15 @@ describe('townOverview', () => {
       hearts: 0,
       lit: 0,
       marker: 'new',
+      homeEpisode: null,
+      friend: { placeId: 'square', points: 0, hearts: 0, toNext: 100, part: 0, title: 'người lạ' },
+      friendEpisode: null,
     });
+    // a lodger (place not built): the same marker and episode 1, nothing waits for the house yet
     const home = o.places.find((v) => v.place.id === 'home')!;
-    expect(home).toMatchObject({ built: false, cost: 20, affordable: false, missing: 20, hearts: 0, lit: 0, marker: null, episode: null });
+    const homeStory = storiesOfPlace('home')[0];
+    expect(home).toMatchObject({ built: false, cost: 20, affordable: false, missing: 20, hearts: 0, lit: 0, marker: 'new', homeEpisode: null });
+    expect(home.episode).toEqual(homeStory ? { id: homeStory.id, order: 1, title: homeStory.title, mode: 'new' } : null);
     expect(o.decorations.map((d) => d.decoration.id)).toEqual(TOWN_DECORATIONS.map((d) => d.id));
     expect(o.decorations[0]).toEqual({ decoration: TOWN_DECORATIONS[0], bought: false, cost: 10, affordable: false, missing: 10 });
   });
@@ -384,7 +437,7 @@ describe('townOverview', () => {
       earned: { [DEV]: 60, 'd-bbbb0002': 25 },
       bought: ['home', 'lamps1', 'flowers'],
       daily: { [TODAY]: { [DEV]: { talks: 1, lines: 9, first: 3, met: ['cafe'], paid: ['lines'] } } },
-      days: ['2026-11-11', '2026-11-12', '2026-11-13'],
+      days: ['2026-11-15', '2026-11-16', '2026-11-17'],
     });
     const o = townOverview(p, NOW, DEV);
     expect(o.balance).toBe(85 - 38);
@@ -400,7 +453,7 @@ describe('townOverview', () => {
     expect(by.square).toMatchObject({ hearts: 2, marker: 'new' });
     expect(by.square.lit).toBeCloseTo(7 / placeLines('square').length);
     expect(by.home).toMatchObject({ built: true, affordable: false, missing: 0, marker: 'new' });
-    expect(by.shop).toMatchObject({ built: false, affordable: true, missing: 0, marker: null }); // 30 ≤ 47
+    expect(by.shop).toMatchObject({ built: false, affordable: true, missing: 0, marker: 'new' }); // 30 ≤ 47
     expect(by.office).toMatchObject({ built: false, affordable: true });
     expect(by.school).toMatchObject({ built: false, affordable: false, missing: 3 }); // 50 − 47
     const deco = Object.fromEntries(o.decorations.map((d) => [d.decoration.id, d]));
@@ -418,6 +471,16 @@ describe('townOverview', () => {
     expect(townOverview(p, NOW, 'd-bbbb0002').tasks.every((t) => t.done === 0 && !t.paid)).toBe(true);
     expect(townOverview(p, NOW, 'd-bbbb0002').balance).toBe(o.balance);
     expect(placeStats(p, { id: 'cafe' })).toEqual(by.cafe.stats);
+  });
+
+  it('a lodger who finished episode 1: episode 2 waits for the house (homeEpisode), and opens once it is built', () => {
+    const [one, two] = storiesOfPlace('shop');
+    expect(two).toBeDefined(); // every place has two episodes (docs/town.md §9)
+    const p = updateEpisode(emptyTownProgress(), one.id, (e) => ({ ...e, stage: 1, at: NOW, okAt: NOW }));
+    const lodging = townOverview(p, NOW, DEV).places.find((v) => v.place.id === 'shop')!;
+    expect(lodging).toMatchObject({ built: false, episode: null, homeEpisode: { id: two.id, order: 2, title: two.title, mode: 'new' } });
+    const home = townOverview(addBought(addEarned(p, DEV, 30), 'shop'), NOW, DEV).places.find((v) => v.place.id === 'shop')!;
+    expect(home).toMatchObject({ built: true, episode: { id: two.id, order: 2, mode: 'new' }, homeEpisode: null });
   });
 
   it('a debt after a double spend shows as 0 and makes nothing affordable', () => {

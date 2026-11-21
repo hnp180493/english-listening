@@ -12,7 +12,8 @@ describe('placeTags', () => {
     placeTags(tags, area);
     expect(tags[0]).toMatchObject({ x: 200, y: 200 });
     expect(tags[3]).toMatchObject({ x: 100, y: 300 });
-    for (let i = 0; i < tags.length; i++) for (let j = i + 1; j < tags.length; j++) expect(overlap(tags[i], tags[j]), `${i} ${j}`).toBe(false);
+    const shown = tags.filter((t) => !t.hidden);
+    for (let i = 0; i < shown.length; i++) for (let j = i + 1; j < shown.length; j++) expect(overlap(shown[i], shown[j]), `${i} ${j}`).toBe(false);
   });
 
   it('every tag stays inside the free part of the stage', () => {
@@ -24,6 +25,17 @@ describe('placeTags', () => {
       expect(t.y - t.h - t.above).toBeGreaterThanOrEqual(50);
       expect(t.y).toBeLessThanOrEqual(380);
     }
+  });
+
+  it('a tag never ends up over somebody else: under its own feet, or not shown', () => {
+    // the player's tag right beside a resident's: pushed up it would sit over the resident's head
+    const tags = [tag(200, 200, 60, 28), tag(210, 204, 40, 0, 260), tag(190, 202, 40)];
+    placeTags(tags, area);
+    expect(tags[0]).toMatchObject({ x: 200, y: 200 });
+    expect(tags[1]).toMatchObject({ y: 260, below: true });
+    expect(tags[2].hidden).toBe(true);
+    const shown = tags.filter((t) => !t.hidden);
+    for (let i = 0; i < shown.length; i++) for (let j = i + 1; j < shown.length; j++) expect(overlap(shown[i], shown[j]), `${i} ${j}`).toBe(false);
   });
 
   it('with no room over the head, the tag goes under the feet without its marker', () => {

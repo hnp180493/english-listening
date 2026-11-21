@@ -25,14 +25,32 @@ import {
 import type { LineOutcome } from './types';
 
 const T = 1_800_000_000_000;
-const EMPTY = { version: 3, lines: {}, earned: {}, bought: [], daily: {}, days: [], episodes: {} };
+const EMPTY = {
+  version: 5,
+  lines: {},
+  earned: {},
+  bought: [],
+  daily: {},
+  days: [],
+  episodes: {},
+  fish: {},
+  farmDays: [],
+  eggs: { grants: [], bought: {}, hatched: {}, rare: {} },
+  owned: {},
+  look: { hat: null, outfit: null, pet: null, title: null, at: 0 },
+  unlocks: {},
+  friends: {},
+  facts: {},
+  choices: {},
+  gifts: { bought: {}, given: {} },
+};
 const make = (p: Partial<TownProgress>): TownProgress => ({ ...emptyTownProgress(), ...p });
 /** 'YYYY-MM-DD' `n` days after 2026-11-01. */
 const dayN = (n: number): string => daysBefore('2026-11-01', -n);
 
 describe('parseTownProgress', () => {
   it('reads junk as empty', () => {
-    for (const junk of [null, undefined, 3, 'x', [], { lines: [] }, { lines: 'x' }, { version: 9 }, { earned: 5, bought: 'cafe', daily: [], days: {} }]) {
+    for (const junk of [null, undefined, 3, 'x', [], { lines: [] }, { lines: 'x' }, { version: 4.5 }, { version: 1e9 }, { earned: 5, bought: 'cafe', daily: [], days: {} }]) {
       expect(parseTownProgress(junk)).toEqual(EMPTY);
     }
   });
@@ -92,8 +110,7 @@ describe('parseTownProgress', () => {
       days: ['2026-11-13', '2026-11-10', '2026-11-13', 'tomorrow', 5, '2026-1-1'],
     });
     expect(p).toEqual({
-      version: 3,
-      episodes: {},
+      ...EMPTY,
       lines: {},
       earned: { 'd-aaaa0001': 12, 'd-dddd0004': 10_000_000 },
       bought: ['home', 'lamps1', 'shop'],
@@ -151,7 +168,7 @@ describe('recordLine', () => {
   it('touches the lines only: xu, purchases and days are carried over as they are', () => {
     const p = make({ earned: { 'd-aaaa0001': 9 }, bought: ['home'], days: ['2026-11-13'] });
     const q = recordLine(p, 's001', 'first', T);
-    expect(q).toMatchObject({ version: 3, earned: p.earned, bought: p.bought, daily: {}, days: p.days });
+    expect(q).toMatchObject({ version: 5, earned: p.earned, bought: p.bought, daily: {}, days: p.days });
     expect(q.earned).toBe(p.earned);
   });
 

@@ -611,13 +611,19 @@ A meta line built from " · " segments ("Hôm qua · Phim/series · Hiểu 70–
 
 ### Thị trấn: game art (the one exception)
 
-`#/town` is a game: its picture is drawn on a `<canvas>` and has its own colours, the way a photo or an
-illustration does. What that means, and where the exception stops:
+`#/town` is a game: its picture is a real-time 3D scene (three.js) on a `<canvas>` and has its own colours, the way
+a photo or an illustration does. What that means, and where the exception stops:
 
-- **Art colours live in `src/features/town/engine/palette.ts` and the rendered sprites in `src/features/town/art/`** (Kenney CC0, docs/town.md §7; `ART`, the day / night palettes, the night tint in `engine/sprites.ts`, `HUD_ART`
-  for the coin, the hearts and the portraits drawn as DOM). They never appear in `town.css`, and they are never
-  used for buttons, cards or text. Light theme = day, dark theme = night; night is derived from the day colours by
-  one tint, so nothing is hand-picked twice.
+- **Art colours live in code, never in CSS**: the 3D scene's colours and its day / night light rigs in
+  `src/features/town/three/scene/palette3d.ts`, the people's in `three/chars/looks.ts`, the 2D layers over and under
+  it (name tags, bubbles, the sky) in `engine/palette.ts`, and `HUD_ART` there for the coin, the hearts and the
+  portraits drawn as DOM (docs/town.md §7). They never appear in `town.css`, and they are never used for buttons,
+  cards or text. Light theme = day, dark theme = night (the same scene under another light rig, so nothing is
+  hand-picked twice).
+- **The 3D pictures outside the stage** (portraits, build-panel thumbnails, the egg shop's reveal, the wardrobe)
+  are the same models drawn by one shared offscreen renderer onto small canvases, transparent around the subject,
+  set on a token background. Without WebGL they fall back to plain stand-ins (a portrait shows the name's first
+  letter), and the town page itself keeps working without the world (a calm note and the residents as a list).
 - **Everything around and over the canvas is ordinary chrome**: `town.css` uses tokens only, every class starts
   with `town-`, 13px is still the floor (name tags painted on the canvas are 13px too), one `.btn-primary` per
   screen state (the prompt at the bottom of the town; "Nghe" before a line has sounded; "Câu tiếp"; "Về thị trấn";

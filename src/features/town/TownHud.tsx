@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, type Ref } from 'react';
-import { Check, Flame, Hammer, ListChecks, Maximize2, Minimize2, Volume2, VolumeX } from 'lucide-react';
+import { BookOpen, Check, Egg, Fish, Gift, Flame, Hammer, ListChecks, Map as MapIcon, Maximize2, Minimize2, Shirt, Sprout, Sparkles, Trophy, Volume2, VolumeX } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import Popover from '../../components/Popover';
 import { prefersReducedMotion } from '../../core/motion';
 import type { TownOverview } from '../../core/town/overview';
+import { ACTIVITIES, type ActivityId } from './activities/types';
 import { Coin } from './art';
+
+/** The icon of each activity in the "Chơi" menu. */
+const ACTIVITY_ICONS: Readonly<Record<ActivityId, typeof Fish>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen };
 import { levelLabel, taskCount, xu } from './shellModel';
 
 /** A number that counts towards its new value instead of jumping (instant under reduced motion). */
@@ -37,16 +41,24 @@ export interface TownHudProps {
   onSound: (on: boolean) => void;
   onBuild: () => void;
   buildOpen: boolean;
+  /** "Chơi": walk to an activity's spot and open it. */
+  onPlay: (id: ActivityId) => void;
+  /** The activity whose panel is open (null = none). */
+  playOpen: ActivityId | null;
   /** The stage fills the whole screen. */
   full: boolean;
   onFull: () => void;
+  /** "Bản đồ": the whole town (features/town/map); left out where there is no world to map (flat). */
+  onMap?: () => void;
+  mapOpen?: boolean;
+  mapRef?: Ref<HTMLButtonElement>;
   /** The xu counter (coins fly to it). */
   xuRef?: Ref<HTMLSpanElement>;
   buildRef?: Ref<HTMLButtonElement>;
 }
 
 /** What floats over the town: the title with its bar on the left; xu, streak, tasks, build and sound on the right. */
-export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, full, onFull, xuRef, buildRef }: TownHudProps) {
+export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, onPlay, playOpen, full, onFull, onMap, mapOpen = false, mapRef, xuRef, buildRef }: TownHudProps) {
   const { level, balance, streak, tasks } = overview;
   const shown = useCountTo(balance);
   const moving = shown !== balance;
@@ -80,6 +92,43 @@ export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, 
           </span>
         </div>
         <div className="town-hud-btns">
+          <Popover
+            className="town-play"
+            triggerClassName={'town-pill town-hud-btn' + (playOpen ? ' is-on' : '')}
+            trigger={
+              <>
+                <Icon icon={Sparkles} size={17} />
+                <span className="town-hud-label">Chơi</span>
+              </>
+            }
+            triggerLabel="Chơi: câu cá, nông trại, tiệm trứng, tủ đồ, sưu tầm, tiệm quà, sổ tay"
+            title="Chơi gì bây giờ?"
+          >
+            {(close) => (
+              <ul className="town-play-list">
+                {ACTIVITIES.map((a) => (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      className={'town-play-item' + (playOpen === a.id ? ' is-on' : '')}
+                      onClick={() => {
+                        close();
+                        onPlay(a.id);
+                      }}
+                    >
+                      <span className="town-play-icon" aria-hidden="true">
+                        <Icon icon={ACTIVITY_ICONS[a.id]} size={18} />
+                      </span>
+                      <span className="town-play-text">
+                        <span className="town-play-name">{a.name}</span>
+                        <span className="town-play-blurb">{a.blurb}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Popover>
           <Popover
             className="town-tasks"
             triggerClassName="town-pill town-hud-btn"
@@ -126,11 +175,17 @@ export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, 
             </ul>
             <p className="town-task-note">Xong việc nào, xu tự cộng việc đó. Mai lại có việc mới.</p>
           </Popover>
-          <button ref={buildRef} type="button" className="town-pill town-hud-btn" onClick={onBuild} aria-expanded={buildOpen} aria-label={overview.canBuySomething ? 'Xây: đang đủ xu để xây thêm' : 'Xây'}>
+          <button ref={buildRef} type="button" className="town-pill town-hud-btn town-hud-build" onClick={onBuild} aria-expanded={buildOpen} aria-label={overview.canBuySomething ? 'Xây: đang đủ xu để xây thêm' : 'Xây'}>
             <Icon icon={Hammer} size={17} />
             <span className="town-hud-label">Xây</span>
             {overview.canBuySomething && !buildOpen && <span className="town-hud-dot" aria-hidden="true" />}
           </button>
+          {onMap && (
+            <button ref={mapRef} type="button" className="town-pill town-hud-btn town-hud-map" onClick={onMap} aria-expanded={mapOpen} aria-keyshortcuts="M" title="Bản đồ (M)">
+              <Icon icon={MapIcon} size={17} />
+              <span className="town-hud-label">Bản đồ</span>
+            </button>
+          )}
           <button
             type="button"
             className="town-pill town-hud-btn town-hud-icon"

@@ -7,10 +7,18 @@
 // Cast: Leo (square, organiser), Emma (cafe, chatty), Mia (friend), Grace (home, older British neighbour), Ben (shop,
 // jokes), Sarah (office, busy), Daniel (school, British teacher), Sam (station), Kim (clinic), Zoe (cinema, film fan),
 // Max (phone, Australian), Lily (park), Tom (board, events). Checks: townStories.test.ts.
+//
+// Every episode says where it happens (`setting`, owner 2026-11-21: "quán cà phê gì ở ngoài đường?"): ordering at the
+// café is inside the café, Mia leaning out of her window is outside her house. An episode 1 whose setting needs its own
+// place has a `lodgerSetting` for while that place is not built (the resident lodges at the boarding house), and its
+// `scene` is true in both. Quick chats have one setting per place (QUICK_CHAT_SETTINGS). Resolve with episodeSetting /
+// quickChatSetting below.
 
-import type { StoryEpisode } from '../core/town/story';
+import type { StoryEpisode, StorySetting } from '../core/town/story';
+import { RESIDENT_ARCS } from './stories';
 
-export const TOWN_STORIES: readonly StoryEpisode[] = [
+/** Episodes 1 and 2 of every place (the first story of each resident). */
+export const BASE_STORIES: readonly StoryEpisode[] = [
   // ── Quảng trường · Leo ────────────────────────────────────────────────────────────────────────────────────────────
   {
     id: 'square-1',
@@ -19,6 +27,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Người mới đến',
     scene: 'Bạn đi ngang quảng trường lần đầu, có người vẫy tay chào.',
     level: 1,
+    setting: { kind: 'outside', at: 'square' },
     lines: [
       { id: 'square-1-01', who: 'them', text: "Hey there! I haven't seen you before.", vi: 'Chào bạn! Hình như tôi chưa gặp bạn bao giờ.' },
       { id: 'square-1-02', who: 'you', text: 'Yeah, I just moved in last week.', vi: 'Ừ, tôi mới chuyển đến tuần trước.' },
@@ -41,6 +50,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Sáng thứ Bảy',
     scene: 'Leo đang đếm mấy cái chổi cạnh đài phun nước.',
     level: 2,
+    setting: { kind: 'outside', at: 'square' },
     lines: [
       { id: 'square-2-01', who: 'them', text: 'Hey, are you doing anything on Saturday morning?', vi: 'Này, sáng thứ Bảy bạn có bận gì không?' },
       { id: 'square-2-02', who: 'you', text: "Not really. Why, what's up?", vi: 'Không hẳn. Sao thế, có chuyện gì à?' },
@@ -65,6 +75,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Ly cà phê đầu tiên',
     scene: 'Bạn ghé quán của Emma lần đầu, quán đang vắng.',
     level: 1,
+    setting: { kind: 'inside', room: 'cafe' },
     lines: [
       { id: 'cafe-1-01', who: 'them', text: 'Hi there! What can I get you?', vi: 'Chào bạn! Bạn dùng gì?' },
       { id: 'cafe-1-02', who: 'you', text: 'Can I get a latte, please?', vi: 'Cho tôi một ly latte nhé.' },
@@ -87,6 +98,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Như mọi khi',
     scene: 'Sáng sớm, bạn quay lại quán Emma. Tủ lạnh sau quầy đang mở toang.',
     level: 1,
+    setting: { kind: 'inside', room: 'cafe' },
     lines: [
       { id: 'cafe-2-01', who: 'them', text: 'Morning! The usual? An iced latte?', vi: 'Chào buổi sáng! Như mọi khi nhé? Latte đá?' },
       { id: 'cafe-2-02', who: 'you', text: 'You remembered! Yes, please.', vi: 'Bạn nhớ luôn à! Ừ, cho tôi ly đó nhé.' },
@@ -110,8 +122,9 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'friend',
     order: 1,
     title: 'Rủ xem phim',
-    scene: 'Mia thò đầu ra cửa sổ khi thấy bạn đi ngang.',
+    scene: 'Mia đang đứng trước cửa sổ nhà mình thì thấy bạn đi ngang, liền gọi lại.',
     level: 1,
+    setting: { kind: 'outside', at: 'friend' },
     lines: [
       { id: 'friend-1-01', who: 'them', text: 'Hey, you! What are you up to this weekend?', vi: 'Ê, bạn ơi! Cuối tuần này bạn định làm gì?' },
       { id: 'friend-1-02', who: 'you', text: 'Nothing much. Just relaxing, I guess.', vi: 'Chẳng có gì. Chắc nghỉ ngơi thôi.' },
@@ -134,6 +147,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Tối xem phim',
     scene: 'Tối thứ Sáu ở nhà Mia, ti vi đã bật, bàn còn trống trơn.',
     level: 2,
+    setting: { kind: 'inside', room: 'friend' },
     lines: [
       { id: 'friend-2-01', who: 'them', text: 'So, what are we watching? Did you pick one?', vi: 'Thế xem phim gì đây? Bạn chọn được chưa?' },
       { id: 'friend-2-02', who: 'you', text: "Zoe told me about a comedy. It's supposed to be really funny.", vi: 'Zoe có kể về một phim hài. Nghe nói buồn cười lắm.' },
@@ -156,8 +170,10 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'home',
     order: 1,
     title: 'Bà hàng xóm',
-    scene: 'Một bà cụ bên cạnh gõ cửa nhà bạn, tay ôm một cái hộp.',
+    scene: 'Một bà cụ gọi bạn lại, tay ôm một cái hộp.',
     level: 1,
+    setting: { kind: 'outside', at: 'home' },
+    lodgerSetting: { kind: 'inside', room: 'inn' },
     lines: [
       { id: 'home-1-01', who: 'them', text: "Hello, dear. You're the new neighbor, aren't you?", vi: 'Chào cháu. Cháu là hàng xóm mới phải không?' },
       { id: 'home-1-02', who: 'you', text: "Yes, I'm at number six. Nice to meet you.", vi: 'Dạ, cháu ở số sáu. Rất vui được gặp bà.' },
@@ -178,8 +194,9 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'home',
     order: 2,
     title: 'Bóng đèn trong bếp',
-    scene: 'Trời vừa tối, bà Grace đứng ở cửa nhà bạn.',
+    scene: 'Trời vừa tối, bà Grace đứng ở cửa vẫy bạn vào nhà.',
     level: 2,
+    setting: { kind: 'inside', room: 'home' },
     lines: [
       { id: 'home-2-01', who: 'them', text: 'Sorry to bother you, dear. Have you got a minute?', vi: 'Xin lỗi làm phiền cháu. Cháu rảnh một chút không?' },
       { id: 'home-2-02', who: 'you', text: "Of course. What's wrong?", vi: 'Dạ được ạ. Có chuyện gì thế bà?' },
@@ -202,8 +219,10 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'shop',
     order: 1,
     title: 'Đi mua pin',
-    scene: 'Cửa hàng của Ben, đồ xếp chật kín các kệ.',
+    scene: 'Bạn ghé chỗ bán hàng của Ben, đồ bày chật kín.',
     level: 1,
+    setting: { kind: 'inside', room: 'shop' },
+    lodgerSetting: { kind: 'outside', at: 'square' },
     lines: [
       { id: 'shop-1-01', who: 'them', text: 'Hi there. Can I help you find something?', vi: 'Chào bạn. Bạn cần tìm gì không?' },
       { id: 'shop-1-02', who: 'you', text: 'Yeah, do you have batteries? The small ones.', vi: 'Có, ở đây có pin không? Loại nhỏ ấy.' },
@@ -226,6 +245,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Ổ bánh mì cuối cùng',
     scene: 'Gần giờ đóng cửa, kệ bánh mì trong tiệm Ben trống trơn.',
     level: 2,
+    setting: { kind: 'inside', room: 'shop' },
     lines: [
       { id: 'shop-2-01', who: 'you', text: 'Hi, Ben. Do you have any bread left?', vi: 'Chào Ben. Còn bánh mì không?' },
       { id: 'shop-2-02', who: 'them', text: 'Sorry, we sold out about ten minutes ago.', vi: 'Tiếc quá, hết từ mười phút trước rồi.' },
@@ -250,6 +270,8 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Năm phút thôi',
     scene: 'Sarah ôm một chồng giấy, vừa đi vừa nhìn đồng hồ.',
     level: 2,
+    setting: { kind: 'inside', room: 'office' },
+    lodgerSetting: { kind: 'outside', at: 'square' },
     lines: [
       { id: 'office-1-01', who: 'them', text: "Hey, sorry, I've only got about five minutes.", vi: 'Này, xin lỗi, tôi chỉ có tầm năm phút thôi.' },
       { id: 'office-1-02', who: 'you', text: "That's okay. What do you need?", vi: 'Không sao. Bạn cần gì?' },
@@ -271,6 +293,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Máy chiếu',
     scene: 'Ba giờ chiều, phòng họp đã đủ người, màn chiếu vẫn tối đen.',
     level: 2,
+    setting: { kind: 'inside', room: 'office' },
     lines: [
       { id: 'office-2-01', who: 'them', text: "Okay, everyone's here. Can you turn on the projector?", vi: 'Được rồi, mọi người đủ cả rồi. Bạn bật máy chiếu giúp nhé?' },
       { id: 'office-2-02', who: 'you', text: "I'm trying. It says no signal.", vi: 'Đang bật đây. Nó báo không có tín hiệu.' },
@@ -293,8 +316,10 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'school',
     order: 1,
     title: 'Đăng ký lớp tối',
-    scene: 'Bạn bước vào văn phòng nhỏ của trường, thầy Daniel đang pha trà.',
+    scene: 'Thầy Daniel đang pha trà thì bạn ghé tới.',
     level: 1,
+    setting: { kind: 'inside', room: 'school' },
+    lodgerSetting: { kind: 'inside', room: 'inn' },
     lines: [
       { id: 'school-1-01', who: 'you', text: "Hi. I'd like to sign up for the evening class.", vi: 'Chào thầy. Em muốn đăng ký lớp buổi tối.' },
       { id: 'school-1-02', who: 'them', text: 'Lovely. Have you done any classes with us before?', vi: 'Tốt quá. Em đã học lớp nào ở đây chưa?' },
@@ -317,6 +342,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Buổi học đầu tiên',
     scene: 'Tối thứ Ba, bạn chạy vội vào lớp, cả lớp đã ngồi kín.',
     level: 2,
+    setting: { kind: 'inside', room: 'school' },
     lines: [
       { id: 'school-2-01', who: 'you', text: "Sorry I'm late! The bus didn't show up.", vi: 'Em xin lỗi đến muộn! Xe buýt không tới.' },
       { id: 'school-2-02', who: 'them', text: 'Ah, the famous number nine. Happens all the time.', vi: 'À, tuyến số chín nổi tiếng. Chuyện thường ngày ấy mà.' },
@@ -339,8 +365,10 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'station',
     order: 1,
     title: 'Xe vào trung tâm',
-    scene: 'Bến xe buổi sáng, bảng giờ chạy bị ai đó dán đè tờ quảng cáo.',
+    scene: 'Buổi sáng, lịch chạy xe buýt bị ai đó dán đè một tờ quảng cáo.',
     level: 2,
+    setting: { kind: 'outside', at: 'station' },
+    lodgerSetting: { kind: 'inside', room: 'inn' },
     lines: [
       { id: 'station-1-01', who: 'you', text: 'Excuse me. Which bus goes into town?', vi: 'Xin lỗi. Xe nào đi vào trung tâm vậy?' },
       { id: 'station-1-02', who: 'them', text: 'The number nine. It leaves from over there, by the bench.', vi: 'Xe số chín. Xe chạy từ chỗ kia, cạnh cái ghế đá.' },
@@ -363,6 +391,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Cái ba lô bỏ quên',
     scene: 'Sáng hôm sau, bạn tới bến xe với vẻ mặt lo lắng.',
     level: 3,
+    setting: { kind: 'inside', room: 'station' },
     lines: [
       { id: 'station-2-01', who: 'you', text: 'Sam, I think I left my bag on the bus last night.', vi: 'Sam ơi, hình như tối qua tôi để quên túi trên xe buýt.' },
       { id: 'station-2-02', who: 'them', text: 'Which one? The number nine?', vi: 'Xe nào? Xe số chín à?' },
@@ -385,8 +414,10 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'clinic',
     order: 1,
     title: 'Đau họng',
-    scene: 'Phòng khám yên tĩnh, Kim gọi tên bạn vào.',
+    scene: 'Mấy hôm nay bạn thấy không khỏe nên ghé tìm Kim.',
     level: 2,
+    setting: { kind: 'inside', room: 'clinic' },
+    lodgerSetting: { kind: 'inside', room: 'inn' },
     lines: [
       { id: 'clinic-1-01', who: 'them', text: 'Hi, come on in. What seems to be the problem?', vi: 'Chào bạn, vào đi. Bạn thấy không khỏe chỗ nào?' },
       { id: 'clinic-1-02', who: 'you', text: "I've had a sore throat for three days.", vi: 'Tôi bị đau họng ba ngày nay rồi.' },
@@ -410,6 +441,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Tái khám',
     scene: 'Thứ Sáu, bạn quay lại phòng khám như đã hẹn.',
     level: 2,
+    setting: { kind: 'inside', room: 'clinic' },
     lines: [
       { id: 'clinic-2-01', who: 'them', text: 'Hi again. How are you feeling today?', vi: 'Chào bạn. Hôm nay thấy trong người thế nào?' },
       { id: 'clinic-2-02', who: 'you', text: "Much better, thanks. My throat doesn't hurt anymore.", vi: 'Đỡ nhiều rồi, cảm ơn. Họng hết đau rồi.' },
@@ -432,8 +464,10 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'cinema',
     order: 1,
     title: 'Mua vé',
-    scene: 'Quầy vé rạp phim, Zoe đang ăn dở một hộp bỏng ngô.',
+    scene: 'Zoe đang bán vé xem phim, tay cầm hộp bỏng ngô ăn dở.',
     level: 2,
+    setting: { kind: 'inside', room: 'cinema' },
+    lodgerSetting: { kind: 'outside', at: 'square' },
     lines: [
       { id: 'cinema-1-01', who: 'them', text: 'Hi! What are you going to see tonight?', vi: 'Chào! Tối nay bạn định xem phim gì?' },
       { id: 'cinema-1-02', who: 'you', text: 'Two tickets for the horror movie, please.', vi: 'Cho tôi hai vé phim kinh dị.' },
@@ -456,6 +490,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Sau suất chiếu',
     scene: 'Đèn rạp vừa bật sáng, Zoe chờ sẵn ở cửa ra.',
     level: 3,
+    setting: { kind: 'inside', room: 'cinema' },
     lines: [
       { id: 'cinema-2-01', who: 'them', text: 'So? What did you think? Tell me everything!', vi: 'Sao? Bạn thấy thế nào? Kể hết đi!' },
       { id: 'cinema-2-02', who: 'you', text: "It was so funny. I couldn't stop laughing.", vi: 'Buồn cười lắm. Tôi cười không dừng được.' },
@@ -478,8 +513,10 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'phone',
     order: 1,
     title: 'Pin tụt nhanh',
-    scene: 'Tiệm của Max đầy dây sạc, Max đang tháo một cái máy.',
+    scene: 'Max đang tháo một cái máy, dây sạc vương đầy bàn.',
     level: 2,
+    setting: { kind: 'inside', room: 'phone' },
+    lodgerSetting: { kind: 'inside', room: 'inn' },
     lines: [
       { id: 'phone-1-01', who: 'them', text: "Hey, mate! What's up with your phone?", vi: 'Chào bạn! Điện thoại bạn bị sao thế?' },
       { id: 'phone-1-02', who: 'you', text: 'The battery dies really fast. Like, by lunchtime.', vi: 'Pin tụt nhanh lắm. Tầm trưa là hết.' },
@@ -502,6 +539,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Lấy máy',
     scene: 'Một tiếng sau, bạn quay lại tiệm của Max.',
     level: 3,
+    setting: { kind: 'inside', room: 'phone' },
     lines: [
       { id: 'phone-2-01', who: 'them', text: "Perfect timing. Your phone's all done.", vi: 'Đúng lúc lắm. Điện thoại của bạn xong rồi.' },
       { id: 'phone-2-02', who: 'you', text: 'Already? That was quick.', vi: 'Xong rồi à? Nhanh thế.' },
@@ -525,8 +563,10 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'park',
     order: 1,
     title: 'Một ngày dài',
-    scene: 'Chiều muộn, Lily ngồi một mình trên ghế đá cạnh hồ.',
+    scene: 'Chiều muộn, Lily ngồi một mình trên ghế đá.',
     level: 2,
+    setting: { kind: 'outside', at: 'park' },
+    lodgerSetting: { kind: 'outside', at: 'square' },
     lines: [
       { id: 'park-1-01', who: 'you', text: 'Hey, Lily. Are you okay? You look a bit down.', vi: 'Này Lily. Bạn ổn không? Trông bạn hơi buồn.' },
       { id: 'park-1-02', who: 'them', text: "Yeah, I'm fine. Just a long day, I guess.", vi: 'Ừ, mình ổn. Chắc chỉ là một ngày dài thôi.' },
@@ -549,6 +589,7 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     title: 'Tin vui',
     scene: 'Lily chạy về phía bạn, tay vẫy rối rít.',
     level: 2,
+    setting: { kind: 'outside', at: 'park' },
     lines: [
       { id: 'park-2-01', who: 'them', text: 'Guess what? They called me back!', vi: 'Đoán xem? Họ gọi lại cho mình rồi!' },
       { id: 'park-2-02', who: 'you', text: 'No way! The job you were worried about?', vi: 'Thật á? Công việc bạn lo hôm trước ấy hả?' },
@@ -572,8 +613,10 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'board',
     order: 1,
     title: 'Hội chợ thị trấn',
-    scene: 'Tom đang loay hoay ghim một tờ giấy to lên bảng tin.',
+    scene: 'Tom đang loay hoay ghim một tờ áp phích to.',
     level: 2,
+    setting: { kind: 'outside', at: 'board' },
+    lodgerSetting: { kind: 'outside', at: 'square' },
     lines: [
       { id: 'board-1-01', who: 'them', text: 'Hey, could you hold this for a second?', vi: 'Này, bạn giữ giúp tôi cái này một chút được không?' },
       { id: 'board-1-02', who: 'you', text: "Sure. What's it for?", vi: 'Được. Cái này để làm gì thế?' },
@@ -594,8 +637,9 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
     placeId: 'board',
     order: 2,
     title: 'Đổi ngày',
-    scene: 'Trời bắt đầu kéo mây, Tom đứng nhìn tờ thông báo hôm trước.',
+    scene: 'Ngoài trời bắt đầu kéo mây, Tom ngồi nhìn chồng thông báo hôm trước.',
     level: 3,
+    setting: { kind: 'inside', room: 'board' },
     lines: [
       { id: 'board-2-01', who: 'them', text: "Bad news. They're saying it's going to rain on Saturday.", vi: 'Tin xấu đây. Người ta bảo thứ Bảy trời sẽ mưa.' },
       { id: 'board-2-02', who: 'you', text: 'Wait, so is the fair canceled?', vi: 'Khoan, vậy hội chợ bị hủy à?' },
@@ -613,10 +657,88 @@ export const TOWN_STORIES: readonly StoryEpisode[] = [
   },
 ];
 
+/**
+ * Every episode of the town: the first two of each place (BASE_STORIES) and the residents' later ones, episode 3 on
+ * (data/stories, docs/town.md §12 "Thân thiết": they open with friendship hearts or facts, StoryEpisode.requires).
+ */
+export const TOWN_STORIES: readonly StoryEpisode[] = [...BASE_STORIES, ...RESIDENT_ARCS.flatMap((a) => a.episodes)];
+
 export function storiesOfPlace(placeId: string): readonly StoryEpisode[] {
   return TOWN_STORIES.filter((e) => e.placeId === placeId).sort((a, b) => a.order - b.order);
 }
 
 export function storyEpisode(id: string): StoryEpisode | undefined {
   return TOWN_STORIES.find((e) => e.id === id);
+}
+
+// ── Where a talk happens ────────────────────────────────────────────────────────────────────────────────────────────
+
+/** The boarding house's common room: where a lodger's talks happen when nothing else fits. */
+export const INN_SETTING: StorySetting = { kind: 'inside', room: 'inn' };
+
+const inside = (room: string): StorySetting => ({ kind: 'inside', room });
+const outside = (at: string): StorySetting => ({ kind: 'outside', at });
+
+/**
+ * Where "Trò chuyện nhanh" (five built-in sentences of the place's topic) happens: outside at the door for the
+ * homes, the plaza, the bus stop, the park and the notice board; inside where the resident works. While the place is
+ * not built, the resident's quick chats happen at the boarding house (INN_SETTING).
+ */
+export const QUICK_CHAT_SETTINGS: Readonly<Record<string, StorySetting>> = {
+  square: outside('square'),
+  cafe: inside('cafe'),
+  friend: outside('friend'),
+  home: outside('home'),
+  shop: inside('shop'),
+  office: inside('office'),
+  school: inside('school'),
+  station: outside('station'),
+  clinic: inside('clinic'),
+  cinema: inside('cinema'),
+  phone: inside('phone'),
+  park: outside('park'),
+  board: outside('board'),
+};
+
+/** The place a setting needs built (its room or the place it stands at); null for the boarding house. */
+export function settingPlace(s: StorySetting): string | null {
+  const id = s.kind === 'inside' ? s.room : s.at;
+  return id === 'inn' ? null : id;
+}
+
+/**
+ * Where an episode happens now: its `setting`, or, when that needs a place not built yet (a lodger's episode 1), its
+ * `lodgerSetting` (the boarding house when there is none). `isBuilt(placeId)`: e.g. `(id) => isBuilt(progress, id)`
+ * of core/town/economy (true for the three places that stand from the start).
+ */
+export function episodeSetting(episode: Pick<StoryEpisode, 'setting' | 'lodgerSetting'>, isBuilt: (placeId: string) => boolean): StorySetting {
+  const s = episode.setting;
+  if (!s) return episode.lodgerSetting ?? INN_SETTING;
+  const needs = settingPlace(s);
+  if (needs === null || isBuilt(needs)) return s;
+  return episode.lodgerSetting ?? INN_SETTING;
+}
+
+/** Where a quick chat with the resident of `placeId` happens now (the boarding house while the place is not built). */
+export function quickChatSetting(placeId: string, isBuilt: (placeId: string) => boolean): StorySetting {
+  const s = QUICK_CHAT_SETTINGS[placeId];
+  if (!s) return INN_SETTING;
+  const needs = settingPlace(s);
+  return needs === null || isBuilt(needs) ? s : INN_SETTING;
+}
+
+/**
+ * Neighbours who join an episode by phone, not in person (their line is heard, nobody walks in): Max calling the
+ * office ('office-2').
+ */
+const HEARD_ONLY: ReadonlySet<string> = new Set(['office-2']);
+
+/**
+ * The neighbour who is there in person in an episode (a line said by another place's resident: Ben dropping by the
+ * café, Mia in class, Leo at the community hall), or null. The stage puts them in the room (docs/town.md §9).
+ */
+export function episodeVisitor(episode: Pick<StoryEpisode, 'id' | 'placeId' | 'lines'>): string | null {
+  if (HEARD_ONLY.has(episode.id)) return null;
+  const line = episode.lines.find((l) => l.who !== 'them' && l.who !== 'you' && l.who !== episode.placeId);
+  return line ? line.who : null;
 }

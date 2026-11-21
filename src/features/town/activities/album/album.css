@@ -1,0 +1,225 @@
+/* "Sưu tầm" (activities/AlbumPanel.tsx) and the celebration banner over the stage (album/Celebrations.tsx).
+ * Tokens only. The banner drops in (220ms) and is still under reduced motion. */
+
+.town-album {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.town-album-lead {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-album-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-album-row {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--hairline);
+}
+.town-album-row:last-child {
+  border-bottom: 0;
+}
+.town-album-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-subtle);
+}
+.town-album-row.is-done .town-album-icon {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.town-album-row.is-project.is-done .town-album-icon {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.town-album-main {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.town-album-name {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+.town-album-row:not(.is-done) .town-album-name {
+  color: var(--text-muted);
+}
+.town-album-sub,
+.town-album-count,
+.town-album-adds {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-album-count {
+  font-size: var(--fs-xs);
+}
+.town-album-adds {
+  display: block;
+  color: var(--text);
+}
+.town-album-bar {
+  height: 6px;
+  margin-top: var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--track);
+  overflow: hidden;
+}
+.town-album-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.town-album-fish {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+}
+.town-album-fish > .icon {
+  flex: none;
+  color: var(--accent);
+}
+.town-album-fish > p {
+  margin: 0;
+  font-size: var(--fs-base);
+}
+.town-album-tiers {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-album-tiers > li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--fs-sm);
+}
+.town-album-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+.town-album-tier-n {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.town-album-go {
+  justify-self: start;
+}
+
+/* ───────── the celebration banner (over the stage, under the HUD counters) ───────── */
+.town-album-cheer {
+  position: absolute;
+  inset: 64px 0 auto 0;
+  z-index: 6;
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--space-3);
+  pointer-events: none;
+}
+.town-album-cheer-box {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  max-width: 420px;
+  padding: var(--space-3) var(--space-2) var(--space-3) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-lg);
+  pointer-events: auto;
+  animation: town-album-drop 220ms var(--ease) both;
+}
+@keyframes town-album-drop {
+  from {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.town-album-cheer-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.town-album-cheer-box.is-project .town-album-cheer-icon {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.town-album-cheer-box.is-egg .town-album-cheer-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.town-album-cheer-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.town-album-cheer-title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: 700;
+}
+.town-album-cheer-line,
+.town-album-cheer-more {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-album-cheer-more {
+  font-size: var(--fs-xs);
+}
+.town-album-cheer-close {
+  flex: none;
+}
+
+@media (max-width: 720px) {
+  .town-album-cheer {
+    inset: 56px 0 auto 0;
+    padding-right: 56px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .town-album-cheer-box {
+    animation: none;
+  }
+}

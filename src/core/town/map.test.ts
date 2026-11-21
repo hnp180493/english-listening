@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TOWN_WORLD, WORLD_PLACES, type TownWorld, type WorldPlace } from '../../data/townWorld';
+import { walkWorld } from './colliders';
 import {
   canStep,
   findPath,
@@ -56,14 +57,15 @@ function pathLength(from: { x: number; y: number }, path: { x: number; y: number
 }
 
 describe('walkable', () => {
-  it('grass, path and plaza are; water, trees, footprints and solid spots are not', () => {
+  it('grass, path and plaza are; water, a tree tile and a lot are not; a decoration only once bought', () => {
     expect(walkable(P(1, 1), SMALL)).toBe(true);
     expect(walkable(P(2, 3), SMALL)).toBe(true);
     expect(walkable(P(0, 0), SMALL)).toBe(false); // tree
     expect(walkable(P(5, 1), SMALL)).toBe(false); // water
-    expect(walkable(P(3, 2), SMALL)).toBe(false); // the house
-    expect(walkable(P(0, 5), SMALL)).toBe(false); // a lamp will stand here
-    expect(walkable(P(4, 4), SMALL)).toBe(true); // balloons do not take the tile
+    expect(walkable(P(3, 2), SMALL)).toBe(false); // the lot (a construction site)
+    expect(walkable(P(0, 5), SMALL)).toBe(true); // a lamp WILL stand here: nothing there yet
+    expect(walkable(P(0, 5), walkWorld(SMALL, { built: [], decorations: ['lamps1'] }))).toBe(false);
+    expect(walkable(P(4, 4), walkWorld(SMALL, { built: [], decorations: ['balloons'] }))).toBe(true); // balloons do not take the tile
   });
 
   it('nothing outside the map or between tiles', () => {
@@ -73,11 +75,14 @@ describe('walkable', () => {
     }
   });
 
-  it('the town: plaza and streets are open, the fountain, the pond and every footprint are closed', () => {
+  it('the town: plaza and streets are open, the pond, the barn and every lot are closed; the fountain once bought', () => {
     expect(walkable(TOWN_WORLD.start)).toBe(true);
-    expect(walkable(P(10, 10))).toBe(false); // fountain
-    expect(walkable(P(13, 13))).toBe(false); // pond
-    expect(walkable(P(9, 10))).toBe(true);
+    expect(walkable(P(21, 21))).toBe(true); // the fountain's spot, nothing bought
+    expect(walkable(P(21, 21), walkWorld(TOWN_WORLD, { built: [], decorations: ['fountain'] }))).toBe(false);
+    expect(walkable(P(8, 16))).toBe(false); // the lake
+    expect(walkable(P(20, 21))).toBe(true);
+    expect(walkable(P(35, 2))).toBe(false); // the barn (scenery)
+    expect(walkable(P(8, 6))).toBe(true); // the hill's top (scenery that is ground)
     for (const p of WORLD_PLACES) {
       expect(walkable(P(p.x, p.y)), p.id).toBe(false);
       expect(walkable(P(p.x + p.w - 1, p.y + p.d - 1)), p.id).toBe(false);
@@ -144,6 +149,17 @@ describe('findPath', () => {
     const path = findPath(tileOfPlaceDoor('phone'), tileOfPlaceDoor('cinema'));
     expect(path.length).toBeGreaterThan(10);
     for (const t of path) expect(walkable(t)).toBe(true);
+    // from the far corner of the farm to the bus station's lay-by, and back the same way reversed in length
+    const far = findPath(P(42, 2), P(39, 41));
+    expect(far.length).toBeGreaterThan(30);
+    expect(pathLength(P(42, 2), far)).toBeCloseTo(pathLength(P(39, 41), findPath(P(39, 41), P(42, 2))));
+  });
+
+  it('scenery that stands up blocks along its run; a hill is ground', () => {
+    const fenced: TownWorld = { ...SMALL, scenery: [{ kind: 'fence', tiles: [P(1, 3), P(1, 4)], dir: 'y' }, { kind: 'hill', tiles: [], at: P(4, 4), r: 2, h: 1 }] };
+    expect(walkable(P(1, 3), fenced)).toBe(false);
+    expect(walkable(P(4, 4), fenced)).toBe(true);
+    expect(findPath(P(0, 3), P(2, 3), fenced)).not.toContainEqual(P(1, 3));
   });
 });
 
@@ -189,6 +205,6 @@ describe('places', () => {
     expect(placeAtTile(P(3, 2), SMALL)?.id).toBe('home');
     expect(placeAtTile(P(3.4, 1.9), SMALL)?.id).toBe('home');
     expect(placeAtTile(P(4, 2), SMALL)).toBeUndefined();
-    expect(placeAtTile(P(4, 8))?.id).toBe('cafe');
+    expect(placeAtTile(P(23, 16))?.id).toBe('cafe');
   });
 });

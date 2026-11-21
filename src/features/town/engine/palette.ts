@@ -1,11 +1,11 @@
-// The two looks of the town: DAY (the app's light theme) and NIGHT (the dark theme, a dusk-blue town with lit
-// windows, lamp halos and fireflies).
+// The two looks of the town's 2D layers (the sky canvas behind the 3D town, and the overlay over it: name tags,
+// bubbles, emotes, particles): DAY (the app's light theme) and NIGHT (the dark theme). The 3D scene has its own
+// colours and light rigs (three/scene/palette3d.ts).
 //
 // THIS IS GAME ART, NOT UI CHROME. The colours below paint a picture on a <canvas>, the way an illustration or a
 // photo has its own colours: they are not the app's tokens and must not be used for buttons, cards or text around
-// the canvas (those keep using the CSS tokens of src/index.css). The town itself is rendered art (art/, Kenney
-// CC0), tinted for the night by engine/sprites.ts; what is still drawn by code (sky, ducks, fireflies, tags,
-// emotes) takes its colours from here, authored once for daylight and sunk into dusk by `ink`.
+// the canvas (those keep using the CSS tokens of src/index.css). Colours are authored once for daylight and sunk
+// into dusk by `ink`.
 
 export type TownTheme = 'day' | 'night';
 
@@ -68,11 +68,6 @@ export interface TownPalette {
   hover: string;
 }
 
-/** The art colours of the ground (daylight values; pass them through `ink`). */
-export const ART = {
-  waterShine: '#e9fbff',
-} as const;
-
 function makeInk(night: boolean): TownPalette['ink'] {
   const cache = new Map<string, string>();
   return (hex, k = 0) => {
@@ -91,8 +86,9 @@ const DAY: TownPalette = {
   theme: 'day',
   night: false,
   ink: makeInk(false),
-  skyTop: '#bfe6f7',
-  skyBottom: '#eef8ea',
+  // a clear blue overhead down to a warm, hazy horizon (round the island; never a flat white void)
+  skyTop: '#7fc3ec',
+  skyBottom: '#f4dcbc',
   cloud: 'rgba(255,255,255,0.75)',
   star: 'rgba(255,255,255,0)',
   shadow: 'rgba(54,72,60,0.2)',
@@ -142,4 +138,6 @@ export const HUD_ART = {
   coinShine: '#fff6d6',
   heart: '#ff6f91',
   portraitSky: '#cfeaf7',
+  /** The first letter in a portrait where the browser cannot draw the 3D face (on portraitSky). */
+  portraitInk: '#24405a',
 } as const;

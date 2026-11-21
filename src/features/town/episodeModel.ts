@@ -17,17 +17,21 @@ export interface StoryItem {
   voice: CastVoice;
   /** Name shown ('Bạn' for the learner's character). */
   speaker: string;
-  /** Who gets the bubble in the town: a place id, 'player', or null (a resident who is only heard). */
+  /**
+   * Who gets the bubble: the resident's place id, 'player', or a neighbour's place id (the stage shows the bubble only
+   * over somebody who is there: a neighbour only heard on the phone gets none).
+   */
   stage: string | null;
 }
 
 /**
  * What every line sends: exactly the text and voice of core/town/storyAudio (the clip the generator makes is the
- * clip that plays), the level for the learner's rate (level 1 a little slower, as in dictation).
+ * clip that plays), the level for the learner's rate (level 1 a little slower, as in dictation). A turn is the line
+ * as said now (a choice line as the option chosen, a line with variants as the variant the learner's facts call for).
  */
 export function storyItems(episode: StoryEpisode, turns: readonly TownEpisodeTurn[]): StoryItem[] {
-  return turns.map((t, i) => {
-    const line = episode.lines[i];
+  return turns.map((t) => {
+    const line = { text: t.line.text, say: t.line.say, who: t.who };
     const connected = storyLinePlayback(line, episode, 'connected');
     const careful = storyLinePlayback(line, episode, 'careful');
     return {
@@ -35,9 +39,25 @@ export function storyItems(episode: StoryEpisode, turns: readonly TownEpisodeTur
       audio: { connected: connected.text, careful: careful.text, level: episode.level },
       voice: connected.voice,
       speaker: t.speaker,
-      stage: speakerOnStage(t.who, episode.placeId),
+      stage: speakerOnStage(t.who, episode.placeId) ?? t.who,
     };
   });
+}
+
+/** The first line a neighbour says (an episode's visitor: data/townStories.ts episodeVisitor), or -1. */
+export function firstLineOf(items: readonly Pick<StoryItem, 'stage'>[], who: string | null): number {
+  return who ? items.findIndex((it) => it.stage === who) : -1;
+}
+
+/**
+ * Is the neighbour who drops in (first line `first`, -1: none) in the room? Each pass of the exchange (the whole listen,
+ * line by line, the whole again) starts without them, and they come in at their first line of it: `reached` = the
+ * furthest line of this pass that has sounded (the whole listen) or is on the screen (line by line), -1 before any.
+ * The result card: in.
+ */
+export function visitorPresent(first: number, step: 'listen' | 'lines' | 'again' | 'result', reached: number): boolean {
+  if (first < 0 || step === 'result') return true;
+  return reached >= first;
 }
 
 /** The pause before a line in the whole exchange: a turn to the other speaker takes a breath, the same one less. */
