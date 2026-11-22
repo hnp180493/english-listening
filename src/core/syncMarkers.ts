@@ -1,4 +1,4 @@
-// Two small synced records that make deletes stick across machines (folder sync, core/syncMerge):
+// Two small synced records that make deletes stick across machines (account sync, core/syncMerge):
 //
 // - tombstones (KEYS.tombstones): { version: 1, custom: { id: deletedAt }, media: { id: deletedAt } }.
 //   A deleted custom sentence ("Câu của tôi") or media item (Video thật) leaves its id here, so the union merge

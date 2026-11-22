@@ -105,7 +105,7 @@ describe('town store', () => {
     expect(calls).toBe(before);
   });
 
-  it('reads junk as empty and picks up a value written behind its back (another tab, folder sync)', async () => {
+  it('reads junk as empty and picks up a value written behind its back (another tab, account sync)', async () => {
     map.set(TOWN, '{"lines":"x"');
     const town = await fresh();
     expect(town.loadTownProgress()).toEqual(EMPTY);
@@ -150,7 +150,7 @@ describe('town store', () => {
     expect(stored(TOWN).earned).toEqual({ [DEVICE]: 3 });
   });
 
-  it('reloadTown forgets the session copy (folder sync or a restore replaced storage) and tells subscribers', async () => {
+  it('reloadTown forgets the session copy (account sync or a restore replaced storage) and tells subscribers', async () => {
     const town = await fresh();
     failNext.add(TOWN);
     town.recordTownAnswer(L1, 'first', NOW);

@@ -9,7 +9,7 @@
 // celebrate (townCelebrations / useTownCelebrations / clearTownCelebrations), whichever call made it.
 //
 // Like core/benchmark and core/listening, nothing is read at import time and every read compares the raw stored
-// string, so data replaced by folder sync, a restore or another tab is picked up without a boot step in main.tsx.
+// string, so data replaced by account sync, a restore or another tab is picked up without a boot step in main.tsx.
 
 import { useMemo, useSyncExternalStore } from 'react';
 import { placeLines, placeOfLineId, townPlace } from '../../data/town';
@@ -251,14 +251,14 @@ export function subscribeTown(fn: () => void): () => void {
   return () => listeners.delete(fn);
 }
 
-/** Folder sync or a backup replaced the stored data: forget this session's copy and tell subscribers. */
+/** Account sync or a backup replaced the stored data: forget this session's copy and tell subscribers. */
 export function reloadTown(): void {
   session = null;
   cacheRaw = undefined;
   notify();
 }
 
-/** Live town progress; re-renders on every change (this tab, another tab, folder sync). Stable while unchanged. */
+/** Live town progress; re-renders on every change (this tab, another tab, account sync). Stable while unchanged. */
 export function useTownProgress(): TownProgress {
   return useSyncExternalStore(subscribeTown, loadTownProgress, loadTownProgress);
 }

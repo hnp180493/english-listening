@@ -119,7 +119,7 @@ describe('merge: no double counting', () => {
     expect(mergeHistoryStores(a, emptyHistory()).base).toEqual(a.base);
   });
 
-  it('runs through the folder-sync merger and survives junk', () => {
+  it('runs through the sync merger and survives junk', () => {
     const text = mergeValue('progress-history', JSON.stringify(A), JSON.stringify(B), true);
     expect(practiceTotals(historyDays(parseHistory(JSON.parse(text)))).n).toBe(17);
     const junk = mergeProgressHistory({ devices: { __proto__: {}, x: { 'not-a-day': {}, '2026-11-01': { mod: { dictation: { n: -3, ok: 9 }, bogus: { n: 1 } }, words: 'x' } } }, base: { until: 'x' } }, null) as HistoryStore;

@@ -22,6 +22,8 @@ import { useCheckups } from '../../core/benchmark';
 import { useListeningEntries } from '../../core/listening';
 import { forecast, isNewWord, unsuspendAll, useReview, WORD_NEW_PER_DAY, type ReviewEntry, type ReviewSnapshot } from '../../core/review';
 import { useSettings } from '../../core/settings';
+import { useSharedDays } from '../../core/cloud/cloudController';
+import { unionDays } from '../../core/cloud/shared';
 import { attemptSource, attemptText } from './attemptText';
 import {
   accuracyLast7Days,
@@ -193,6 +195,7 @@ function Overview({ stats, now, review, go }: { stats: StatsState; now: number; 
   const attempts = useMemo(() => validAttempts(stats.attempts), [stats.attempts]);
   // Listening hours and checkups live in "Báo cáo": point there instead of looking like nothing was recorded.
   const listenLog = useListeningEntries();
+  const shared = useSharedDays();
   const checkups = useCheckups();
   const hasReportData = listenLog.length > 0 || checkups.length > 0;
 
@@ -230,6 +233,8 @@ function Overview({ stats, now, review, go }: { stats: StatsState; now: number; 
   const history = historyInfo(attempts, activeDays);
   const streak = currentStreak(activeDays, now);
   const best = Math.max(streak, longestStreak(activeDays));
+  // Signed in: the streak counting daily-english too (shown only when it says more than this app's own).
+  const bothStreak = shared && shared.some((d) => d.de) ? currentStreak(unionDays(activeDays, shared), now) : 0;
   const acc = accuracyLast7Days(attempts, now);
   const today = attemptsTodayCount(attempts, now);
   const goal = sanitizeGoal(settings.dailyGoal);
@@ -247,7 +252,15 @@ function Overview({ stats, now, review, go }: { stats: StatsState; now: number; 
           label="Chuỗi ngày"
           value={String(streak)}
           unit="ngày"
-          hint={streak === 0 ? 'Luyện hôm nay để bắt đầu' : best > streak ? `Kỷ lục ${best} ngày` : 'Kỷ lục của bạn'}
+          hint={
+            bothStreak > streak
+              ? `Tính cả Daily English: ${bothStreak} ngày`
+              : streak === 0
+                ? 'Luyện hôm nay để bắt đầu'
+                : best > streak
+                  ? `Kỷ lục ${best} ngày`
+                  : 'Kỷ lục của bạn'
+          }
         />
         <Kpi label="Hôm nay" value={String(today)} unit={`/${goal} lượt`}>
           <ProgressBar value={today} max={goal} label={`Mục tiêu hôm nay: ${today}/${goal} lượt`} done={today >= goal} />

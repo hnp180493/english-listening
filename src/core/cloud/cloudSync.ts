@@ -9,12 +9,12 @@
 //   remote rev ≠ base rev  → someone wrote it: unchanged here → take theirs; changed here too → merge both;
 //   row gone, base known   → deleted elsewhere: unchanged here → delete here; changed here → keep and write back.
 // The two sides then go through `mergeData` (core/syncMerge.ts), the same mergers, reset markers and tombstones as
-// folder sync, so "Xóa dữ liệu", restore and "Xóa lịch sử" elsewhere drop older data here instead of merging it back.
+// folder sync had, so "Xóa dữ liệu", restore and "Xóa lịch sử" elsewhere drop older data here instead of merging it back.
 // The result is written back with compare-and-swap on the revisions read: if anyone wrote in between, nothing is
 // written and the cycle starts over. Nothing is ever overwritten blindly.
 
 import { exportBackup, sanitizeSettingsJSON, validateBackup, type StorageLike } from '../backup';
-import { dataHash } from '../folderSync';
+import { dataHash } from '../syncShared';
 import { isDeviceLocalKey, KEYS, STORAGE_PREFIX } from '../storage';
 import { mergeData, type DataMap } from '../syncMerge';
 import { CloudError, ROW_KEY_PATTERN, type Change, type CloudStore, type Row, type RowHead } from './remote';

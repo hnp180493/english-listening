@@ -7,7 +7,7 @@
 //     devices: { [deviceId]: { [day]: DayAgg } },   // live counts, one bucket per browser
 //     base: { until, days: { [day]: DayAgg }, wordsLearned } | null }   // one-off backfill
 //
-// No double counting across folder sync (docs/progress-report.md):
+// No double counting across account sync (docs/progress-report.md):
 // - Each browser only ever increments its OWN bucket (devices[KEYS.deviceId]); a device's counters for a day only
 //   grow, so the merge takes the max per device, day and field (core/syncMerge mergeProgressHistory). The total is
 //   the sum over buckets: every event is counted once, by the browser where it happened. Merging is idempotent,

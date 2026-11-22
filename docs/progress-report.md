@@ -22,7 +22,7 @@ pages `src/features/listening`, `src/features/checkup`, `src/features/stats/Repo
 | `device-id` | **device-local** | random id of this browser (its own bucket in the archive) |
 
 Device-local keys (`DEVICE_LOCAL_KEYS` in `core/storage.ts`) are never exported to a backup, never imported, never
-written or cleared by folder sync, and writing them does not mark folder sync dirty. "Xóa dữ liệu" still removes them.
+written or cleared by account sync, and writing them does not mark account sync dirty. "Xóa dữ liệu" still removes them.
 
 Setting `listenGoal` (minutes per day): 0 (tắt) / 15 / 30 / 45 / 60 / 90, default 30, sanitized like `reviewMinutes`.
 
@@ -99,7 +99,7 @@ Stats keep only the last 1000 attempts, so the report needs its own record: per 
 `{ n, ok }`; Ôn tập grades `{ again, hard, good, easy }`; grades on graduated cards (retention); word cards
 graduated for the first time. Lessons passed come from `lessons-progress.completedAt`.
 
-**No double counting across folder sync.** Each browser increments only its own bucket
+**No double counting across account sync.** Each browser increments only its own bucket
 `devices[deviceId][day]`; a device's counters only grow, so the merge takes the max per device, day and field, and
 totals are the sum over devices (idempotent, commutative, associative). The one-off backfill from the attempts still
 stored goes to `base`, only when no base exists after the boot sync, from attempts before `until`; live counting
@@ -107,7 +107,7 @@ starts at the same moment.
 
 Limits: two offline backfills can under-count (never over-count); review grades and graduations have no history
 before the archive existed; a word graduated on two machines before they synced counts twice; restoring an old
-backup lowers this browser's bucket until the folder copy brings it back.
+backup lowers this browser's bucket until the synced copy brings it back.
 
 **What is archived.** First practice only: attempts made inside Ôn tập (`recordAttempt(…, { inReview: true })`:
 sentence, pair, lesson, chunk and word cards) count for stats and phenomena but not in the archive. Re-testing a

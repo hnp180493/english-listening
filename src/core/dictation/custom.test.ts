@@ -132,7 +132,7 @@ describe('add / update / remove', () => {
     expect(r.list[0]).toMatchObject({ id, vi: 'x', level: 3 });
     expect(updateCustom(r.list, id, { text: '' }).error).toBe('empty');
   });
-  it('an edit stamps updatedAt past any earlier version (folder sync keeps the edit), and it survives sanitizing', () => {
+  it('an edit stamps updatedAt past any earlier version (account sync keeps the edit), and it survives sanitizing', () => {
     const { list } = addCustom([], [{ text: 'Hi there' }], 1000);
     const id = list[0].id;
     const r = updateCustom(list, id, { text: 'Hi again' }, undefined, 5000);

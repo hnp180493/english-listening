@@ -116,7 +116,7 @@ describe('summarizeBackup', () => {
   });
 });
 
-describe('clearAllData / restoreBackup (reset marker for folder sync)', () => {
+describe('clearAllData / restoreBackup (reset marker for account sync)', () => {
   it('"Xóa dữ liệu" leaves only a reset marker, later than every reset already known', () => {
     const s = seeded();
     s.map.set(P + 'reset', JSON.stringify({ version: 1, all: NOW + 5000, keys: { stats: NOW + 9000 } }));

@@ -903,7 +903,7 @@ export default function AiSection() {
         </summary>
         <ul>
           <li>
-            Key chỉ lưu trong trình duyệt này, trên máy này: <strong>không</strong> đồng bộ sang thư mục chung, <strong>không</strong> có
+            Key chỉ lưu trong trình duyệt này, trên máy này: <strong>không</strong> đồng bộ qua tài khoản, <strong>không</strong> có
             trong tệp sao lưu. Mỗi máy nhập key riêng. “Xóa toàn bộ dữ liệu” cũng xóa key.
           </li>
           <li>

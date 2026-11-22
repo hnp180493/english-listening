@@ -33,7 +33,6 @@ import {
 import { clampGoal, GOAL_MAX, GOAL_MIN, GOAL_STEP } from '../../core/goals';
 import { clearAiDeviceData, clearTtsCache, useAiStatus } from '../../core/ai';
 import { clearAiTaskCache } from '../../core/aiTasks';
-import { flushFolderSync, useFolderSync } from '../../core/folderSyncController';
 import { cloudAvailable, flushCloudSync, useCloudSync } from '../../core/cloud/cloudController';
 import { navigate, useRoute } from '../../core/nav';
 import { REVIEW_MINUTES_OPTIONS } from '../../core/review/constants';
@@ -64,7 +63,6 @@ import {
 } from './settingsModel';
 import AiSection, { AI_SECTION_ID, VoiceEngineRow } from './AiSection';
 import SectionHead from './SectionHead';
-import SyncSection from './SyncSection';
 import CloudSection from './CloudSection';
 import './settings.css';
 
@@ -418,11 +416,8 @@ function GoalSection() {
 type Pending = { backup: Backup; fileName: string } | null;
 type Status = { kind: 'ok' | 'error'; text: string } | null;
 
-/**
- * Data tools shown at the end of the "Dữ liệu & đồng bộ" card. Manual export/import only where folder
- * sync is unsupported (Firefox/Safari): elsewhere the synced folder file already is the backup.
- */
-function DataTools() {
+/** "Dữ liệu": a backup file to keep or move, restoring it, and the two deletes. Syncing is the "Tài khoản" card. */
+function DataSection() {
   const uid = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<Pending>(null);
@@ -432,11 +427,8 @@ function DataTools() {
   const stats = useLiveStats();
   const hasHistory = Array.isArray(stats.attempts) && stats.attempts.length > 0;
   const [busy, setBusy] = useState(false);
-  const sync = useFolderSync();
-  const manual = sync.status === 'unsupported';
   const cloud = useCloudSync();
   const cloudOn = cloud.user !== null && cloud.status !== 'off' && cloud.status !== 'signed-out';
-  const syncOn = (sync.status !== 'off' && !manual) || cloudOn;
   const storage = appStorage();
 
   const onExport = () => {
@@ -486,10 +478,10 @@ function DataTools() {
     }
   };
 
-  /** Bulk change outside saveJSON: let folder sync write it to the folder before the reload. */
+  /** Bulk change outside saveJSON: let account sync write it to the account before the reload. */
   const syncThenReload = async (delay: number) => {
     notifyWrite('*');
-    await Promise.all([flushFolderSync(2000), flushCloudSync(3000), new Promise((r) => window.setTimeout(r, delay))]);
+    await Promise.all([flushCloudSync(3000), new Promise((r) => window.setTimeout(r, delay))]);
     window.location.reload();
   };
 
@@ -539,7 +531,8 @@ function DataTools() {
   const summary = pending ? summarizeBackup(pending.backup) : null;
 
   return (
-    <>
+    <section className="card set-section" aria-labelledby={`${uid}-h`}>
+      <SectionHead id={`${uid}-h`} title="Dữ liệu" sub="Sao lưu, khôi phục hoặc xóa dữ liệu trên máy này." />
       {!storage && (
         <div className="callout callout-warn" role="status">
           <Icon icon={TriangleAlert} size={16} />
@@ -547,62 +540,58 @@ function DataTools() {
         </div>
       )}
 
-      <div className="set-actions">
-        {manual && (
-          <>
-            <div className="set-action">
-              <div>
-                <div className="set-label">Xuất bản sao lưu</div>
-                <p className="set-hint">Tệp .json chứa toàn bộ tiến độ, thẻ ôn và cài đặt.</p>
-              </div>
-              <button type="button" className="btn" onClick={onExport} disabled={!storage}>
-                <Icon icon={Download} size={16} />
-                Xuất tệp
+      <div className="set-actions set-actions--top">
+        <div className="set-action">
+          <div>
+            <div className="set-label">Xuất bản sao lưu</div>
+            <p className="set-hint">Tệp .json chứa toàn bộ tiến độ, thẻ ôn và cài đặt.</p>
+          </div>
+          <button type="button" className="btn" onClick={onExport} disabled={!storage}>
+            <Icon icon={Download} size={16} />
+            Xuất tệp
+          </button>
+        </div>
+
+        <div className="set-action">
+          <div>
+            <div className="set-label">Nhập bản sao lưu</div>
+            <p className="set-hint">Khôi phục từ tệp đã xuất; dữ liệu hiện tại sẽ bị thay thế.</p>
+          </div>
+          <input
+            ref={fileRef}
+            id={`${uid}-file`}
+            className="set-file"
+            type="file"
+            accept=".json,application/json"
+            onChange={onFile}
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+          <button type="button" className="btn" onClick={() => fileRef.current?.click()} disabled={!storage || busy}>
+            <Icon icon={Upload} size={16} />
+            Chọn tệp…
+          </button>
+        </div>
+
+        {pending && summary && (
+          <div className="set-confirm" role="alertdialog" aria-labelledby={`${uid}-imp-h`} aria-describedby={`${uid}-imp-d`}>
+            <div id={`${uid}-imp-h`} className="set-confirm-title">
+              Khôi phục từ “{pending.fileName}”?
+            </div>
+            <p id={`${uid}-imp-d`} className="set-hint">
+              {summary.exportedAt ? `Sao lưu ngày ${formatDateTimeVi(summary.exportedAt)}` : 'Không rõ ngày sao lưu'} · {summary.attempts}{' '}
+              lượt luyện · {summary.activeDays} ngày học · {summary.keys} mục dữ liệu. Toàn bộ dữ liệu hiện tại trên trình duyệt này sẽ
+              bị thay thế{cloudOn ? ', và các máy khác đăng nhập cùng tài khoản cũng sẽ theo bản này' : ''}.
+            </p>
+            <div className="row">
+              <button type="button" className="btn btn-primary" onClick={onRestore} disabled={busy} autoFocus>
+                Khôi phục
+              </button>
+              <button type="button" className="btn" onClick={() => setPending(null)} disabled={busy}>
+                Hủy
               </button>
             </div>
-
-            <div className="set-action">
-              <div>
-                <div className="set-label">Nhập bản sao lưu</div>
-                <p className="set-hint">Khôi phục từ tệp đã xuất; dữ liệu hiện tại sẽ bị thay thế.</p>
-              </div>
-              <input
-                ref={fileRef}
-                id={`${uid}-file`}
-                className="set-file"
-                type="file"
-                accept=".json,application/json"
-                onChange={onFile}
-                tabIndex={-1}
-                aria-hidden="true"
-              />
-              <button type="button" className="btn" onClick={() => fileRef.current?.click()} disabled={!storage || busy}>
-                <Icon icon={Upload} size={16} />
-                Chọn tệp…
-              </button>
-            </div>
-
-            {pending && summary && (
-              <div className="set-confirm" role="alertdialog" aria-labelledby={`${uid}-imp-h`} aria-describedby={`${uid}-imp-d`}>
-                <div id={`${uid}-imp-h`} className="set-confirm-title">
-                  Khôi phục từ “{pending.fileName}”?
-                </div>
-                <p id={`${uid}-imp-d`} className="set-hint">
-                  {summary.exportedAt ? `Sao lưu ngày ${formatDateTimeVi(summary.exportedAt)}` : 'Không rõ ngày sao lưu'} · {summary.attempts}{' '}
-                  lượt luyện · {summary.activeDays} ngày học · {summary.keys} mục dữ liệu. Toàn bộ dữ liệu hiện tại trên trình duyệt này sẽ
-                  bị thay thế{syncOn ? ', và các máy khác đang đồng bộ cũng sẽ theo bản này' : ''}.
-                </p>
-                <div className="row">
-                  <button type="button" className="btn btn-primary" onClick={onRestore} disabled={busy} autoFocus>
-                    Khôi phục
-                  </button>
-                  <button type="button" className="btn" onClick={() => setPending(null)} disabled={busy}>
-                    Hủy
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+          </div>
         )}
 
         <div className="set-action">
@@ -677,10 +666,7 @@ function DataTools() {
             </div>
             <p id={`${uid}-clr-d`} className="set-hint">
               Thao tác này không thể hoàn tác.
-              {manual && ' Nếu muốn giữ lại tiến độ, hãy “Xuất tệp” trước.'}
-              {sync.status !== 'off' &&
-                !manual &&
-                ' Thư mục đồng bộ đang bật: tệp trong thư mục cũng sẽ bị xóa trắng, các máy khác sẽ nhận dữ liệu trống khi mở lại.'}
+              {' Nếu muốn giữ lại tiến độ, hãy “Xuất tệp” trước.'}
               {cloudOn && ' Đang đăng nhập tài khoản: dữ liệu Nghe Nối Âm trong tài khoản cũng bị xóa trắng (dữ liệu Daily English không bị đụng tới).'}
             </p>
             <div className="row">
@@ -702,7 +688,7 @@ function DataTools() {
           <div>{status.text}</div>
         </div>
       )}
-    </>
+    </section>
   );
 }
 
@@ -725,8 +711,7 @@ function AboutSection() {
         <ul>
           <li>Không bắt buộc tài khoản, không quảng cáo, không theo dõi.</li>
           <li>
-            Tiến độ và cài đặt lưu trong trình duyệt này (localStorage). Nếu bật <strong>đồng bộ thư mục</strong>, một bản được ghi
-            thêm vào thư mục bạn chọn.
+            Tiến độ và cài đặt lưu trong trình duyệt này (localStorage).
           </li>
           {cloudAvailable() && (
             <li>
@@ -774,9 +759,7 @@ export default function SettingsPage() {
       <GoalSection />
       <AiSection />
       <CloudSection />
-      <SyncSection>
-        <DataTools />
-      </SyncSection>
+      <DataSection />
       <AboutSection />
     </div>
   );

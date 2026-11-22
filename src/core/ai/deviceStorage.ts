@@ -1,7 +1,7 @@
 // localStorage for DEVICE-LOCAL AI data (API keys, usage counters).
 //
 // Deliberately NOT stored through ../storage.ts (prefix "nghe-noi-am:"): that prefix is what
-// backup export and folder sync enumerate, so API keys would leak into backups / the shared
+// backup export and account sync enumerate, so API keys would leak into backups / the shared
 // folder if an exclusion were ever forgotten. A separate prefix keeps them out by construction.
 // AI_DEVICE_LOCAL_KEYS (config.ts) is still exported so sync/backup can also exclude the short
 // names explicitly, and clearAiDeviceData() lets "xóa dữ liệu" wipe them.

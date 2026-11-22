@@ -167,7 +167,7 @@ describe('settings across tabs', () => {
     s.updateSettings({ voiceEngine: 'clips' });
     expect(map.has(VOICE_AI_KEY)).toBe(false);
     expect(s.getSettings().voiceEngine).toBe('clips');
-    // folder sync / a backup replaced the synced settings: an 'ai' there (old build) is cleaned on import; a browser
+    // account sync / a backup replaced the synced settings: an 'ai' there (old build) is cleaned on import; a browser
     // that never chose the AI voice stays on a free one even if the stored value says 'ai' with the flag false
     map.set(KEY, JSON.stringify({ voiceEngine: 'clips', voiceChosen: true }));
     s = await freshSettings();

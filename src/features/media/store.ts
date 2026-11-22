@@ -182,7 +182,7 @@ export function deleteItem(id: string): void {
   files.delete(id);
   sessionOnly.delete(id);
   if (!lib.items.some((i) => i.id === id)) return;
-  // the delete must reach the other machines (folder sync would otherwise bring the item back)
+  // the delete must reach the other machines (account sync would otherwise bring the item back)
   recordTombstone('media', id);
   commit({ ...lib, items: lib.items.filter((i) => i.id !== id) });
 }
@@ -192,7 +192,7 @@ export function isSessionOnly(id: string): boolean {
   return sessionOnly.has(id);
 }
 
-/** `changedAt` moves past any earlier value, so folder sync keeps the prefs changed last. */
+/** `changedAt` moves past any earlier value, so account sync keeps the prefs changed last. */
 export function setPrefs(patch: Partial<MediaPrefs>, now: number = Date.now()): void {
   const lib = getLibrary();
   commit({ ...lib, prefs: { ...lib.prefs, ...patch, changedAt: Math.max(now, (lib.prefs.changedAt ?? 0) + 1) } });

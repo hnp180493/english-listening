@@ -54,7 +54,7 @@ export function removeKey(key: string): void {
 export type WriteListener = (key: string) => void;
 const writeListeners = new Set<WriteListener>();
 
-/** Folder sync uses this to notice local changes. Returns an unsubscribe function. */
+/** Account sync uses this to notice local changes. Returns an unsubscribe function. */
 export function onAppWrite(fn: WriteListener): () => void {
   writeListeners.add(fn);
   return () => writeListeners.delete(fn);
@@ -101,8 +101,8 @@ export const KEYS = {
 } as const;
 
 /**
- * Short keys that belong to this browser only: they are left out of backup export, folder sync and backup
- * import (an import never writes nor clears them), and their writes do not mark folder sync dirty. "Xóa dữ
+ * Short keys that belong to this browser only: they are left out of backup export, account sync and backup
+ * import (an import never writes nor clears them), and their writes do not mark account sync dirty. "Xóa dữ
  * liệu" (clearAll) still removes them.
  */
 export const DEVICE_LOCAL_KEYS: ReadonlySet<string> = new Set<string>([

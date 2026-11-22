@@ -34,9 +34,9 @@ that were rejected or only partly accepted are listed in §12.
 | D12 | Dictation "Ôn câu sai" becomes **"Ôn đến hạn"** (due `dict` cards, level/focus filtered, not capped by the daily budget, with a muted note). Pairs "Ôn câu hay sai" becomes **"Luyện câu hay sai"**. | One notion of "ôn" = spaced review. |
 | D13 | **Pairs: one card per contrast set**, `pair:<setId>` (16 cards). A review is a 4-question mini round from that set, weighted to the learner's weak items. Enrol on a miss, or once the set has ≥ 20 first answers. | A single two-choice answer is a coin flip. Discrimination is a per-contrast skill. |
 | D14 | Lessons: enrol on a pass (≥ 70%) with a first interval of 1 day. Review = 4 questions, listening types first. A lesson is never requeued in a session. Lesson cards **retire** at `interval >= MATURE_DAYS` (21 d): they stay stored but leave Ôn tập. | The quiz is memorised quickly; dict and pair cards carry the skill after that. |
-| D15 | **Reconcile, not one-shot seeding.** On every page load (once) and inside the first write, every progress record that should have a card and does not gets one from a template, spread at most 12 per day. Non-weak records practised after `since` (the time the review layer first ran on any device) are skipped: those were handled by the hooks, possibly declined by the budget. | Per-device history, late folder sync and old-build devices otherwise leave practised items that never come back. |
+| D15 | **Reconcile, not one-shot seeding.** On every page load (once) and inside the first write, every progress record that should have a card and does not gets one from a template, spread at most 12 per day. Non-weak records practised after `since` (the time the review layer first ran on any device) are skipped: those were handled by the hooks, possibly declined by the budget. | Per-device history, late account sync and old-build devices otherwise leave practised items that never come back. |
 | D16 | Orphans (content gone) are never deleted, only ignored. A learner can **suspend** an item ("Không ôn mục này nữa"). A custom sentence whose words changed is reset, only if it has a card. | Deleting would come back after a sync union (no tombstones). Suspension is a per-card field that follows the card's merge. |
-| D17 | **No-op writes are skipped.** Any review write path saves only when something changed. `last` is monotonic per card (`max(now, prev.last + 1)`). | A brand-new browser must not look like it has data (folder-sync guard); a fast clock must not freeze a card. |
+| D17 | **No-op writes are skipped.** Any review write path saves only when something changed. `last` is monotonic per card (`max(now, prev.last + 1)`). | A brand-new browser must not look like it has data (account-sync guard); a fast clock must not freeze a card. |
 | D18 | **Word cards** (`word`, §13): one card per word + respelling of the `words` tables of passed lessons (irregular, loanwords; spelling rows with `review: true`). Seeded by reconcile, at most `WORD_NEW_PER_DAY` = 6 new words admitted a day, after everything else. Two modes: Nghe → nhận ra (auto-graded) and Đọc → nói (self-graded). | The lesson card re-asks 4 quiz items and retires at 21 days, so most words of a lesson never came back. The learner's weak skill is listening. |
 | D19 | **Town episode lines** (`talk`, §14): a line of "Chuyện ở thị trấn" (Thị trấn, docs/town.md §9) whose meaning was missed gets its own card `talk:<line id>`, served as a dictation of the line in its speaker's voice. Budgeted like `dict`. | The episode lines are not dictation sentences (no `dict` card to fall back on), and a missed line must come back to be decoded word by word, said by the same character. |
 
@@ -159,7 +159,7 @@ export interface ApplyResult {
 ```
 
 Storage key: `KEYS.review = 'review-cards'` (full key `nghe-noi-am:review-cards`). Backup export/import, clear-all and
-folder sync enumerate keys by prefix, so they carry it automatically. Only `syncMerge.ts` needs a rule (§9).
+account sync enumerate keys by prefix, so they carry it automatically. Only `syncMerge.ts` needs a rule (§9).
 
 `ReviewSnapshot` lives in `types.ts` so `api.ts` never imports the React module.
 
@@ -655,7 +655,7 @@ export function reviewBudgetSec(): number; // getSettings().reviewMinutes (sanit
   It runs `reconcileCards`. When `created + moved === 0` it does **not** write (and keeps no flag in storage). Otherwise it
   merges the cards, applies `withSince`, and when `created >= NOTICE_MIN` sets `notice = { count: created + (unseen
   notice count), at: now }`, then saves.
-- `reloadReview()` is called in `main.tsx` after `initFolderSync` (next to `reloadStats()`).
+- `reloadReview()` is called in `main.tsx` after `initCloudSync` (next to `reloadStats()`).
 
 ### 4.2 `src/core/review/useReview.ts` (React) and the snapshot cache
 
@@ -677,7 +677,7 @@ export function statesOfKind(snapshot: ReviewSnapshot, kind: ReviewKind): Record
     with the last (copy the `useNow` logic from features/home/hooks; core must not import features/home).
 - `useSyncExternalStore(subscribe, getSnapshot)`: `getSnapshot` never reads the clock and never writes.
 - On mount, `useEffect(() => ensureReconciled(), [])`. AppNav mounts on every page, so reconcile runs once per page
-  load, after the folder-sync boot.
+  load, after the account-sync boot.
 
 ### 4.3 `src/core/review/index.ts` (barrel) and what each group consumes
 
@@ -924,7 +924,7 @@ internal `kind: 'review'` stays.
 | `src/core/syncMerge.ts` (+test) | CORE | §9. |
 | `src/core/backup.ts` | CORE | `sanitizeSettingsJSON` keeps a valid `reviewMinutes` (it whitelists settings fields; without this a restored backup lost the setting). Backup test: the review key round-trips. |
 | `src/core/nav.ts` (+test) | CORE | `RouteId` + ROUTES `{ id: 'review', label: 'Ôn tập', hint: 'Ôn lại đúng lúc những gì đã học', icon: '↻', group: 'learn' }` after home. Doc comment: "review: none", "media: id=<itemId> \| unit=<n>". |
-| `src/main.tsx` | CORE | `reloadReview()` after `initFolderSync`, next to `reloadStats()`. |
+| `src/main.tsx` | CORE | `reloadReview()` after `initCloudSync`, next to `reloadStats()`. |
 | `src/App.tsx` | CORE | `review: lazyPage(() => import('./features/review/ReviewPage'))` + `case 'review'`. |
 | `src/components/routeIcons.ts` | CORE | `review: History`. |
 | `src/index.css` | CORE | `--mod-review` + `.mod-review { --tile: var(--mod-review); }`. |
@@ -980,7 +980,7 @@ export const mergeReview: Merger = (newer, older) => { … };
     `d = num(a.last) - num(b.last) || num(a.reps) - num(b.reps) || num(a.interval) - num(b.interval) || num(a.lapses) - num(b.lapses) || num(a.due) - num(b.due)`
     (`a` = newer side; ties keep it), `suspended` included. `last` is monotonic per card, so a regrade built on a skewed
     future copy still wins.
-  - Different `born`: two devices created the card independently (one practised before its folder copy arrived), so
+  - Different `born`: two devices created the card independently (one practised before its synced copy arrived), so
     `last` says nothing. Keep the most advanced copy: graded beats never graded, then longer interval, more reps, later
     `last`. When the other copy's last grade is a miss made after the winner's `last`, the winner's due date is pulled in
     to the next local midnight after that miss at the latest (`lastGrade: 'again'`, `last` = the miss), as a miss on a
@@ -992,7 +992,7 @@ export const mergeReview: Merger = (newer, older) => { … };
   - `born` is set when a card is created (`applyReview` enrol, `enrolSeenCard`, reconcile) and kept by every later
     write, `resetCardState` included (a reset is a later version of the same card, so it wins by `last`).
   - Cards of kinds this build does not know (a newer build's kind) are kept by the merge; `api.write` copies them from
-    the stored value into every save, so a "push" cycle never deletes them from the folder file.
+    the stored value into every save, so a "push" cycle never deletes them from the account copy.
 - **daily**: same day → `{ ...od, ...nd, ids: union (strings only, order kept), exempt: ids exempt on every side that
   has them (a budgeted review on either device spent budget), extraSec: maxOf, enrolled: maxOf }`.
   Different days (midnight, other timezone) → the two latest days are kept, `daily` = the later, `otherDaily` = the

@@ -15,7 +15,7 @@ export interface CustomSentence {
   vi: string; // Vietnamese meaning, may be ""
   level: Level;
   createdAt: number; // epoch ms
-  updatedAt?: number; // epoch ms of the last edit (folder sync keeps the version edited last); absent = never edited
+  updatedAt?: number; // epoch ms of the last edit (account sync keeps the version edited last); absent = never edited
 }
 
 export interface CustomInput {
@@ -247,7 +247,7 @@ export interface UpdateResult {
 
 /**
  * Edit text / meaning of one sentence; the level is re-estimated. `updatedAt` moves past any earlier version, so
- * folder sync keeps this edit even when another machine changed other data later.
+ * account sync keeps this edit even when another machine changed other data later.
  */
 export function updateCustom(
   list: readonly CustomSentence[],

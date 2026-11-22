@@ -1,5 +1,5 @@
-// Merge two copies of the app's stored data: this browser's localStorage and the data file in
-// the synced folder (OneDrive). Pure and defensive: values may be corrupt, partial or from an
+// Merge two copies of the app's stored data: this browser's localStorage and the learner's copy in the account
+// (Supabase, core/cloud). Pure and defensive: values may be corrupt, partial or from an
 // older version. The rule is "never lose progress": per-item progress keeps the most advanced
 // record, lists are unioned, and only plain preferences take the newer side as a whole.
 
@@ -716,8 +716,8 @@ export interface MergeDataOptions {
 }
 
 /**
- * Merge this browser's data with the folder file's data. Keys present on one side only are kept.
- * `remoteNewer`: the folder file was saved after the last local change (decides keys without a merger).
+ * Merge this browser's data with the other copy (the account's). Keys present on one side only are kept.
+ * `remoteNewer`: the other copy was saved after the last local change (decides keys without a merger).
  * Values older than a reset on the other side are dropped first; deleted items (tombstones) are removed last.
  */
 export function mergeData(local: DataMap, remote: DataMap, remoteNewer: boolean, opts: MergeDataOptions = {}): DataMap {

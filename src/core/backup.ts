@@ -79,7 +79,7 @@ export function appKeys(storage: StorageLike, prefix = STORAGE_PREFIX): string[]
   return keys.sort();
 }
 
-/** App keys that travel between browsers (backup, folder sync): appKeys without the device-local ones. */
+/** App keys that travel between browsers (backup, account sync): appKeys without the device-local ones. */
 export function syncedKeys(storage: StorageLike, prefix = STORAGE_PREFIX): string[] {
   return appKeys(storage, prefix).filter((k) => !isDeviceLocalKey(k));
 }
@@ -104,13 +104,13 @@ export function serializeBackup(backup: Backup): string {
 }
 
 export interface ValidateOptions {
-  /** Accept a file with no data entries (the folder-sync file after "Xóa dữ liệu"). Default false. */
+  /** Accept a file with no data entries (the synced data after "Xóa dữ liệu"). Default false. */
   allowEmpty?: boolean;
 }
 
 /**
  * Accepts the parsed JSON object or the raw file text. Error messages are Vietnamese.
- * Extra top-level fields (e.g. the folder-sync `sync` object) are ignored.
+ * Extra top-level fields (e.g. a sync stamp) are ignored.
  */
 export function validateBackup(json: unknown, opts: ValidateOptions = {}): ValidateResult {
   let value = json;
@@ -201,7 +201,7 @@ export function summarizeBackup(backup: Backup): BackupSummary {
 }
 
 export interface ClearOptions {
-  /** Keep this browser's device-local keys (used by import / folder sync, which replace synced data only). */
+  /** Keep this browser's device-local keys (used by import / account sync, which replace synced data only). */
   keepDeviceLocal?: boolean;
 }
 
@@ -226,7 +226,7 @@ function storedReset(storage: StorageLike): ResetMarker {
 }
 
 /**
- * "Xóa dữ liệu": remove every key of this app, then leave only a reset marker, so folder sync clears the other
+ * "Xóa dữ liệu": remove every key of this app, then leave only a reset marker, so account sync clears the other
  * machines too (their older data is dropped, not merged back; core/syncMarkers). Returns how many keys were removed.
  */
 export function clearAllData(storage: StorageLike, now: number = Date.now()): number {
@@ -252,7 +252,7 @@ export function restoreBackup(storage: StorageLike, backup: Backup, now: number 
   try {
     storage.setItem(RESET_KEY, JSON.stringify(withReset(prev, now)));
   } catch {
-    // the restore itself is in place; only its spread to other machines by folder sync is lost
+    // the restore itself is in place; only its spread to other machines by account sync is lost
   }
   return n;
 }
@@ -264,7 +264,7 @@ export interface ImportOptions {
 
 /**
  * Write a validated backup into storage. Returns the number of keys written. Device-local keys are neither
- * written nor cleared (this browser's running timer survives a restore or a folder-sync pull).
+ * written nor cleared (this browser's running timer survives a restore or a sync pull).
  * If writing fails midway (quota), the previous data is restored and the error is rethrown.
  */
 export function importBackup(storage: StorageLike, backup: Backup, opts: ImportOptions = { replace: true }): number {

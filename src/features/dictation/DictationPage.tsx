@@ -535,7 +535,7 @@ export default function DictationPage() {
     if (before && after && before.text !== after.text) setNav((n) => ({ ...n, nonce: n.nonce + 1, autoPlay: false, focus: false, retry: false }));
     setCustoms(next);
     setCustomsVersion((v) => v + 1);
-    // the delete must reach the other machines (folder sync would otherwise bring the sentence back)
+    // the delete must reach the other machines (account sync would otherwise bring the sentence back)
     if (removedId) recordTombstone('custom', removedId);
     saveJSON(KEYS.customSentences, next);
     // a deleted sentence, or one whose words were edited, starts over (its old score is for other words)

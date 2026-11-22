@@ -1,6 +1,6 @@
-// One queue for every sync channel (folder sync, Supabase account sync). A cycle reads this browser's data, merges
-// and writes it back; two cycles of different channels interleaving would let the later write drop what the earlier
-// one applied. Within one tab every cycle runs through here, one at a time.
+// One queue for sync cycles. A cycle reads this browser's data, merges and writes it back; two cycles interleaving
+// (a write-triggered flush and a focus check, say) would let the later write drop what the earlier one applied.
+// Within one tab every cycle runs through here, one at a time. (It also served the folder sync, retired 2026-11-22.)
 
 let queue: Promise<unknown> = Promise.resolve();
 

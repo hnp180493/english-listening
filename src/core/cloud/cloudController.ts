@@ -5,7 +5,7 @@
 
 import { useSyncExternalStore } from 'react';
 import type { StorageLike } from '../backup';
-import { deviceLabelFrom, startupWindow, SYNC_APPLIED_KEY } from '../folderSync';
+import { deviceLabelFrom, startupWindow, SYNC_APPLIED_KEY } from '../syncShared';
 import { isDeviceLocalKey, onAppWrite } from '../storage';
 import { withSyncLock } from '../syncLock';
 import {
@@ -26,6 +26,7 @@ import {
 import { emptyCloudMeta, parseCloudMeta, runCloudCycle, type CloudMeta, type CloudMetaStore, type CloudResult } from './cloudSync';
 import { cloudConfig, type CloudConfig } from './config';
 import { CloudError, restStore } from './remote';
+import { fetchSharedDays, type SharedDay } from './shared';
 
 // Device-local (the AI layer's prefix): never exported, imported, synced, or removed by "Xóa dữ liệu".
 const SESSION_KEY = 'nghe-noi-am-device:cloud-session';
@@ -65,6 +66,11 @@ export interface CloudState {
   /** One-off message for Cài đặt after the redirect ("Đã đăng nhập…", "Đã hủy…"). */
   notice: { kind: 'ok' | 'error'; text: string } | null;
   bannerDismissed: boolean;
+  /**
+   * This browser used the folder sync (retired 2026-11-22) and is not signed in: say once that syncing now goes
+   * through the Google account.
+   */
+  folderRetired: boolean;
 }
 
 let state: CloudState = {
@@ -76,6 +82,7 @@ let state: CloudState = {
   awaitingCode: false,
   notice: null,
   bannerDismissed: false,
+  folderRetired: false,
 };
 const listeners = new Set<() => void>();
 
@@ -391,6 +398,12 @@ function attachListeners(): void {
     }, TICK_MS);
     // signed in or out in another tab of the app
     window.addEventListener('storage', (e) => {
+      // Another tab replaced the stored data with the account's. This tab's pages still hold the old values in
+      // memory and would write them back over it: reload.
+      if (e.key === SYNC_APPLIED_KEY && e.newValue !== null) {
+        reload();
+        return;
+      }
       if (e.key !== SESSION_KEY) return;
       const s = loadSession();
       if (!s && session) {
@@ -439,11 +452,18 @@ export async function initCloudSync(budgetMs = 1500): Promise<void> {
   if (initialized) return;
   initialized = true;
   if (typeof window === 'undefined') return;
+  const hadFolder = retireFolderSync();
   const cfg = cloudConfig();
   if (!cfg) return; // feature off: status stays 'off'
   attachListeners();
   session = loadSession();
-  setState({ status: session ? 'checking' : 'signed-out', user: session?.user ?? null, lastSyncAt: metaStore.load().lastSyncAt });
+  setState({
+    status: session ? 'checking' : 'signed-out',
+    user: session?.user ?? null,
+    lastSyncAt: metaStore.load().lastSyncAt,
+    folderRetired: !session && (hadFolder || readJSON(FOLDER_RETIRED_KEY) === 'pending'),
+  });
+  if (hadFolder && !session) writeJSON(FOLDER_RETIRED_KEY, 'pending');
 
   const cb = readCallback(window.location.href);
   if (cb.kind === 'error') {
@@ -485,6 +505,7 @@ async function finishSignIn(cfg: CloudConfig, code: string, verifier: string): P
   epoch++;
   saveSession(r.session);
   remove(PKCE_KEY);
+  if (state.folderRetired) dismissFolderRetired();
   setState({ status: 'syncing', user: r.session.user, awaitingCode: false, bannerDismissed: false });
   const e = epoch;
   const res = await run(() => true);
@@ -590,5 +611,96 @@ export async function signOutCloud(): Promise<void> {
 }
 
 export function dismissCloudBanner(): void {
+  if (state.folderRetired) dismissFolderRetired();
   setState({ bannerDismissed: true });
+}
+
+// ───────────────────────── the retired folder sync ─────────────────────────
+
+/** Device-local: 'pending' until the one notice about the retired folder sync was dismissed or the learner signed in. */
+const FOLDER_RETIRED_KEY = 'nghe-noi-am-device:folder-retired';
+/** What the folder sync (retired 2026-11-22) kept in this browser: its bookkeeping, the folder handle and undo copy. */
+const OLD_FOLDER_META_KEY = 'nghe-noi-am-sync';
+const OLD_FOLDER_DB = 'nghe-noi-am-sync';
+const OLD_FOLDER_UNDO_SESSION_KEY = 'nghe-noi-am-sync:undo';
+
+/**
+ * Forget the folder sync quietly: its bookkeeping and stored folder handle go, the learner's data stays exactly as it
+ * is in this browser (it always lived in localStorage), and the file in the folder is left untouched. Returns true when
+ * a folder had been connected here.
+ */
+function retireFolderSync(): boolean {
+  let hadFolder = false;
+  try {
+    const raw = ls()?.getItem(OLD_FOLDER_META_KEY);
+    if (raw != null) {
+      try {
+        const m = JSON.parse(raw) as { folderName?: unknown };
+        hadFolder = typeof m?.folderName === 'string' && m.folderName.length > 0;
+      } catch {
+        hadFolder = false;
+      }
+      ls()?.removeItem(OLD_FOLDER_META_KEY);
+      try {
+        indexedDB.deleteDatabase(OLD_FOLDER_DB);
+      } catch {
+        // nothing to delete, or no IndexedDB
+      }
+    }
+    sessionStorage.removeItem(OLD_FOLDER_UNDO_SESSION_KEY);
+  } catch {
+    // storage blocked: nothing was kept either
+  }
+  return hadFolder;
+}
+
+function dismissFolderRetired(): void {
+  writeJSON(FOLDER_RETIRED_KEY, 'done');
+  setState({ folderRetired: false });
+}
+
+// ───────────────────────── days shared with daily-english (read only) ─────────────────────────
+
+let sharedDays: SharedDay[] | null = null;
+let sharedAt = 0;
+let sharedLoading = false;
+const sharedListeners = new Set<() => void>();
+const SHARED_TTL_MS = 10 * 60_000;
+
+function loadSharedDays(): void {
+  const cfg = cloudConfig();
+  if (!cfg || !session || sharedLoading || Date.now() - sharedAt < SHARED_TTL_MS) return;
+  sharedLoading = true;
+  let tz = 'Asia/Ho_Chi_Minh';
+  try {
+    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz;
+  } catch {
+    // keep the default
+  }
+  void accessToken(cfg)
+    .then((t) => fetchSharedDays(cfg, t, tz, doFetch))
+    .then((days) => {
+      sharedDays = days;
+      sharedAt = Date.now();
+      sharedListeners.forEach((fn) => fn());
+    })
+    .catch(() => {
+      sharedAt = Date.now(); // offline or migration 19 not run: try again later, show nothing
+    })
+    .finally(() => {
+      sharedLoading = false;
+    });
+}
+
+function subscribeShared(fn: () => void): () => void {
+  sharedListeners.add(fn);
+  loadSharedDays();
+  return () => sharedListeners.delete(fn);
+}
+
+const getShared = (): SharedDay[] | null => (session ? sharedDays : null);
+
+/** Days studied in either app (signed in only; null until loaded or when unavailable). Fetched at most every 10 min. */
+export function useSharedDays(): SharedDay[] | null {
+  return useSyncExternalStore(subscribeShared, getShared, getShared);
 }

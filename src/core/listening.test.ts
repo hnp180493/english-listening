@@ -231,7 +231,7 @@ describe('store', () => {
     off();
   });
 
-  it('picks up data written by folder sync / another tab without a reload call', async () => {
+  it('picks up data written by account sync / another tab without a reload call', async () => {
     const map = stubWindow();
     const L = await fresh();
     expect(L.getListeningEntries()).toHaveLength(0);
@@ -369,7 +369,7 @@ describe('review fixes', () => {
     let L = await fresh();
     L.addAppListening('vidX', 'Video X', 600, NOW);
     const afterA = JSON.parse(mapA.get(P + 'listening-log')!);
-    // folder sync copies the log to machine B; B watches 10 more minutes
+    // account sync copies the log to machine B; B watches 10 more minutes
     const mapB = stubWindow();
     mapB.set(P + 'device-id', JSON.stringify('d-bbbb2222'));
     mapB.set(P + 'listening-log', JSON.stringify(afterA));

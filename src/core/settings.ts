@@ -29,7 +29,7 @@ export interface Settings {
    */
   voiceChosen: boolean;
   /**
-   * Epoch ms of the last change to the synced settings on any machine (folder sync keeps the copy changed last,
+   * Epoch ms of the last change to the synced settings on any machine (account sync keeps the copy changed last,
    * core/syncMerge mergeSettings). 0 = never changed since this field exists.
    */
   changedAt: number;
@@ -104,7 +104,7 @@ function saveLocalAi(on: boolean): void {
 }
 
 /**
- * Builds before the AI choice became device-local stored 'ai' in the synced settings. Imports and folder sync have
+ * Builds before the AI choice became device-local stored 'ai' in the synced settings. Imports and account sync have
  * always gone through sanitizeSettingsJSON, which now turns 'ai' into 'clips', so an 'ai' still stored here is this
  * browser's own choice: it moves to KEYS.voiceAi and the synced copy keeps 'clips' (changedAt untouched).
  */
@@ -178,7 +178,7 @@ export function updateSettings(patch: Partial<Settings>, now: number = Date.now(
   listeners.forEach((fn) => fn());
 }
 
-/** Re-read settings from storage (after folder sync replaced the stored data) and notify subscribers. */
+/** Re-read settings from storage (after account sync replaced the stored data) and notify subscribers. */
 export function reloadSettings(): void {
   current = read();
   unsaved = false;

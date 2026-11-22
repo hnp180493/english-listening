@@ -84,7 +84,7 @@ describe('sanitizeLibrary', () => {
     expect(lib.items[0]).toEqual(item);
   });
 
-  it('keeps the prefs change time (folder sync keeps the prefs changed last)', () => {
+  it('keeps the prefs change time (account sync keeps the prefs changed last)', () => {
     expect(sanitizeLibrary({ items: [], prefs: { speed: 0.5, changedAt: 77 } }).prefs.changedAt).toBe(77);
     expect(sanitizeLibrary({ items: [], prefs: { changedAt: -1 } }).prefs.changedAt).toBeUndefined();
   });

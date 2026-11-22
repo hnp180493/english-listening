@@ -53,7 +53,7 @@ export interface MediaPrefs {
   autoLoop: boolean;
   showSubs: boolean;
   mode: PracticeMode;
-  /** Epoch ms of the last prefs change (folder sync keeps the copy changed last); absent = never changed. */
+  /** Epoch ms of the last prefs change (account sync keeps the copy changed last); absent = never changed. */
   changedAt?: number;
 }
 

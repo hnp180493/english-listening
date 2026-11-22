@@ -570,7 +570,7 @@ export function subscribeCheckups(fn: () => void): () => void {
   return () => listeners.delete(fn);
 }
 
-/** Re-read after folder sync replaced the stored data. */
+/** Re-read after account sync replaced the stored data. */
 export function reloadCheckups(): void {
   session = null;
   cacheRaw = undefined;

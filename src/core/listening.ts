@@ -3,7 +3,7 @@
 //
 // Storage:
 // - KEYS.listeningLog ('listening-log', synced): { version: 1, entries: StoredListening[] }. Deletes leave a
-//   tombstone { id, updatedAt, deleted: true } so the folder-sync merge (union by id, newer updatedAt wins,
+//   tombstone { id, updatedAt, deleted: true } so the sync merge (union by id, newer updatedAt wins,
 //   core/syncMerge mergeListeningLog) carries them to the other machines. Tombstones older than
 //   TOMBSTONE_TTL_DAYS are pruned on the next write: a machine offline for longer could bring a deleted entry back.
 // - KEYS.listeningTimer ('listening-timer', device-local): the running stopwatch of this browser.
@@ -298,7 +298,7 @@ export function loadListeningLog(): StoredListening[] {
 
 /**
  * Live entries, newest first. Stable identity while the stored value is unchanged (safe as a
- * useSyncExternalStore snapshot); picks up writes from other tabs and folder sync by itself.
+ * useSyncExternalStore snapshot); picks up writes from other tabs and account sync by itself.
  */
 export function getListeningEntries(): readonly ListeningEntry[] {
   if (session) {
@@ -346,14 +346,14 @@ function ensureHooks(): void {
   }
 }
 
-/** Called after any change to the log or the timer (this tab, another tab, folder sync). */
+/** Called after any change to the log or the timer (this tab, another tab, account sync). */
 export function subscribeListening(fn: () => void): () => void {
   ensureHooks();
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
 
-/** Re-read from storage (after folder sync replaced the stored data) and notify subscribers. */
+/** Re-read from storage (after account sync replaced the stored data) and notify subscribers. */
 export function reloadListening(): void {
   session = null;
   cacheRaw = undefined;

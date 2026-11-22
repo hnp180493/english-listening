@@ -1,4 +1,4 @@
-/* Folder-sync notice shown above the page content. Tokens only. */
+/* Account-sync notice shown above the page content. Tokens only. */
 .syncb {
   display: flex;
   flex-wrap: wrap;
@@ -12,9 +12,6 @@
   font-size: var(--fs-sm);
   line-height: 1.5;
 }
-.syncb--error {
-  background: var(--warn-bg);
-}
 .syncb-icon {
   display: grid;
   place-items: center;
@@ -25,9 +22,6 @@
   background: var(--surface);
   color: var(--accent);
   box-shadow: var(--shadow-xs);
-}
-.syncb--error .syncb-icon {
-  color: var(--warn);
 }
 .syncb-text {
   flex: 1 1 240px;

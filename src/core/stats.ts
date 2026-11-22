@@ -115,7 +115,7 @@ export function recordAttempt(
   return s;
 }
 
-/** "Xóa lịch sử luyện tập". The reset marker makes folder sync drop the other machines' older history too. */
+/** "Xóa lịch sử luyện tập". The reset marker makes account sync drop the other machines' older history too. */
 export function resetStats(): void {
   const s: StatsState = { attempts: [], byPhenomenon: emptyByPhenomenon(), activeDays: [] };
   recordKeyReset([KEYS.stats]);

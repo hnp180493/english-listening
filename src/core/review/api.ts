@@ -183,7 +183,7 @@ export function subscribeReview(fn: () => void): () => void {
   };
 }
 
-/** After folder sync replaced the stored data: drop memory copies, reconcile again, recompute. */
+/** After account sync replaced the stored data: drop memory copies, reconcile again, recompute. */
 export function reloadReview(): void {
   sessionStore = null;
   drillSession = null;

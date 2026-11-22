@@ -1,9 +1,10 @@
 # Account sync: Google sign-in on Supabase
 
 Nghe Nối Âm can sign in with Google and keep the learner's data in the **same Supabase project as daily-english**
-(`D:\Test\daily-english`, the "main" project that holds daily-english's users and auth). It is a third sync channel
-next to folder sync (OneDrive…) and the JSON backup, not a replacement: without a network, without signing in, or in
-a build without the project configured, the app behaves exactly as before (localStorage only).
+(`D:\Test\daily-english`, the "main" project that holds daily-english's users and auth). Since 2026-11-22 it is the
+only sync channel (the owner: "xài superbase thôi"; the folder sync was removed, see §8); the JSON backup file stays.
+Without a network, without signing in, or in a build without the project configured, the app works on this browser's
+localStorage alone.
 
 Code: `src/core/cloud/` (`config.ts`, `auth.ts`, `remote.ts`, `cloudSync.ts` pure + tested, `cloudController.ts`
 browser glue), UI `src/features/settings/CloudSection.tsx` ("Tài khoản" card in Cài đặt) and the shared
@@ -44,7 +45,7 @@ Table `public.nna_sync`, one row per (user, storage key):
   changed** (compare-and-swap, all or nothing), else it returns `{ ok: false, error: 'conflict' }` and writes nothing.
   A learner's rows are capped at 25 MB in total (`quota`), because the project's free 500 MB is shared with
   daily-english.
-- What travels: exactly what folder sync and the backup carry (`exportBackup`): every `nghe-noi-am:` key except
+- What travels: exactly what the backup carries (`exportBackup`): every `nghe-noi-am:` key except
   `DEVICE_LOCAL_KEYS`. Never: the AI config and key (`nghe-noi-am-device:` prefix), the paid-voice choice
   (`voice-ai`), the running stopwatch, the checkup draft, the account session itself.
 
@@ -57,10 +58,9 @@ This browser keeps, per key, the `rev` and a hash of the value it last synced (i
 2. per key: remote rev = base rev → nobody else wrote it, this browser's value (or its delete) stands; remote changed
    and local unchanged → take theirs; both changed → both sides go to the merge; row gone and local unchanged →
    deleted here too;
-3. merges with **`mergeData` from `core/syncMerge.ts`**: the same mergers, reset markers and tombstones as folder
-   sync. The reset marker always keeps this browser's own value in the local side, so "Xóa dữ liệu", a restore or
-   "Xóa lịch sử" made elsewhere drops this browser's older data instead of merging it back (same promise as folder
-   sync, tested). Remote values are sanitised like a backup import (settings through `sanitizeSettingsJSON`, broken
+3. merges with **`mergeData` from `core/syncMerge.ts`**: the same mergers, reset markers and tombstones as the
+   backup and the old folder sync. The reset marker always keeps this browser's own value in the local side, so "Xóa dữ liệu", a restore or
+   "Xóa lịch sử" made elsewhere drops this browser's older data instead of merging it back (tested). Remote values are sanitised like a backup import (settings through `sanitizeSettingsJSON`, broken
    JSON or device-local keys ignored and never deleted);
 4. applies the result here (only before the first render, or after a click: otherwise it writes nothing and shows the
    banner "Có dữ liệu mới trong tài khoản → Tải lại"), then writes the differences with compare-and-swap. On a
@@ -68,9 +68,9 @@ This browser keeps, per key, the `rev` and a hash of the value it last synced (i
    and go out next time.
 
 A first connection (first sign-in on this browser, or another account) merges both sides without honouring resets,
-like folder sync's "Gộp": nothing is replaced. Sign-out keeps the data here and in the account and forgets the base.
+like the old folder sync's "Gộp": nothing is replaced. Sign-out keeps the data here and in the account and forgets the base.
 
-When: at start (≤ 1.5 s before the first render, sharing one queue with folder sync: `core/syncLock.ts`), 4 s after
+When: at start (≤ 1.5 s before the first render; cycles run one at a time: `core/syncLock.ts`), 4 s after
 a local change, when the page is hidden or comes back, on `online`, every 5 minutes while visible, and on
 "Đồng bộ ngay". Network errors are quiet (status "Đang ngoại tuyến" in Cài đặt); an ended session shows the banner.
 
@@ -109,7 +109,30 @@ lại"), the data stays.
    `sb_secret_…` key is refused by `parseCloudConfig`. A publishable key is meant to be public (it ships in the page
    bundle, and so in the portable file); RLS is what protects the data.
 
-## 6. Sharing data with daily-english (proposal, nothing built)
+## 6. Sharing data with daily-english
+
+Built 2026-11-22 (the owner asked for the first two rows below; words were not asked for and are not built). SQL:
+`daily-english/supabase-migrations/19-shared-listening-and-days.sql`, two SECURITY INVOKER functions:
+
+- **Listening minutes, daily-english → Nghe Nối Âm (one direction).** daily-english's listening player measures the
+  time its speech engine actually speaks (`ListenClock` in `daily-english/src/app/services/nna-bridge.service.ts`, one
+  utterance counts at most 2 min) and, on leaving the track (or closing the tab), calls
+  `nna_add_listening(p_id, p_day, p_seconds, p_title)` when at least 30 s were heard. The function adds an entry to
+  this app's `listening-log` row in `nna_sync`: id `de-<track>-<yyyymmdd>` (one per track per day; a later visit adds
+  its seconds), source `khac`, title "Daily English: …". It does nothing for an account that has never synced Nghe Nối
+  Âm (no `nna_sync` rows), or when that entry was deleted here (tombstone). The row's new rev makes this app merge it
+  with `mergeListeningLog` like any other change. Note: these are minutes of a synthesized voice, not native media;
+  the title says where they come from.
+- **A streak counting both apps (read only, each app).** `shared_learning_days(p_since, p_tz)` returns the days
+  studied in either app: this app's synced `stats.activeDays`, and for daily-english the running streak range
+  (`lastStreakDate`, `currentStreak`) plus the days of the latest translation attempt per exercise and of pronunciation
+  attempts in `user_progress` (its compressed format; daily-english keeps only the latest attempt per exercise, so older
+  days outside the running streak can be missing). Nghe Nối Âm shows it in Tiến độ as the "Chuỗi ngày" hint
+  "Tính cả Daily English: N ngày" when that is longer than its own streak (`useSharedDays`, fetched at most every
+  10 minutes, signed in only); daily-english shows "Tính cả Nghe Nối Âm: chuỗi N ngày học" under the streak on its
+  Today page when the learner has Nghe Nối Âm days.
+
+The original proposal:
 
 Today the two apps share **the account** (same Google sign-in, same `auth.users` id) and nothing else: Nghe Nối Âm only
 reads and writes `nna_sync`; daily-english's tables are untouched. Real sharing needs a decision from the owner and,
@@ -148,4 +171,22 @@ Not checked:
   sign-in, token exchange, refresh, or row written yet.
 - The portable flow end to end (`npm run portable` was not run with the values; the paste-code step only seen from
   the web side), `navigator.locks` refresh across two real tabs, iOS Safari.
-- Real latency: the 1.5 s startup budget with a slow network and folder sync both on.
+- Real latency: the 1.5 s startup budget with a slow network.
+
+## 8. The folder sync is gone (2026-11-22)
+
+The owner chose Supabase as the only sync ("xài superbase thôi"). Removed: `core/folderSync.ts`,
+`core/folderSyncController.ts` (File System Access API, its IndexedDB `nghe-noi-am-sync` with the folder handle and
+the undo copy), `features/settings/SyncSection.tsx` and their tests. What it shared with account sync moved to
+`core/syncShared.ts` (data fingerprint, device label, startup window, the cross-tab `nghe-noi-am-sync-applied` reload
+signal, now listened to by `cloudController.ts`). Kept: `syncMerge.ts`, tombstones and the reset marker, `syncLock.ts`,
+the JSON backup and restore, "Xóa lịch sử" and "Xóa dữ liệu" (Cài đặt → "Dữ liệu").
+
+A browser that had a folder connected stops quietly at its next start (`retireFolderSync` in `cloudController.ts`):
+its bookkeeping key `nghe-noi-am-sync`, the IndexedDB database and the session undo marker are removed; its learner
+data stays exactly as it was in localStorage, and the `nghe-noi-am-data.json` file in the folder is left untouched (it
+is also a valid backup for "Nhập bản sao lưu"). If it is not signed in, the banner says once "Đồng bộ qua thư mục đã
+thôi dùng … Đăng nhập Google để đồng bộ giữa các máy" (device-local `nghe-noi-am-device:folder-retired`: gone after
+the X, the link, or a sign-in). Its data reaches the account on the first sign-in (a first connection merges).
+
+The portable file now syncs only through the paste-code sign-in (§4).

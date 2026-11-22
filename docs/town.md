@@ -256,7 +256,7 @@ Consequences worth knowing:
   answer.
 - **Version 2** (before the episodes) loads and merges as it is, with no episode begun; the next write saves version 3.
   A machine still on a version 2 build reads a version 3 value without its episodes and writes it back without them;
-  the folder sync merge brings them back from the other copy (a union), so nothing is lost once both machines run the
+  the sync merge brings them back from the other copy (a union), so nothing is lost once both machines run the
   new build.
 - **Two machines spending the same xu before a sync:** both purchases stay (union), the raw balance goes below 0, the
   balance shows 0, and the learner earns the difference back before the next purchase (`canBuy` → `poor` with the
@@ -289,7 +289,7 @@ One selector with everything the game screen shows (`useTownOverview()` in the s
 
 ## 6. What the shell calls: `core/town/store.ts`
 
-- `useTownProgress()` / `useTownOverview()`: live, stable while nothing changed (another tab, folder sync and a
+- `useTownProgress()` / `useTownOverview()`: live, stable while nothing changed (another tab, account sync and a
   restore are picked up: every read compares the raw stored string).
 - `startTownConversation(placeId)` → `{ ok: true, place, turns: [{ line, choices }] }` or `{ ok: false, reason:
   'unknown' | 'silent' }` ('silent': a place with no lines). A lodger (place not built) talks like anybody. Five lines with their meanings already drawn. Starting again drops a conversation left
@@ -1425,7 +1425,7 @@ daily[day][device].tasks?: string[]                                  // the day'
 Idempotent, commutative, associative (`syncMerge.props.test.ts` generates version 2–4 towns with junk in every new
 field). A version 3 value reads with none of it; its first version 4 write grants the eggs and records the
 achievements the stored listening already earned (they are celebrated then). A machine still on a version 3 build
-writes the value back without the new fields; the folder sync brings them back (unions), but until it runs the new
+writes the value back without the new fields; the account sync brings them back (unions), but until it runs the new
 build its balance does not subtract the eggs bought. Known limits: a species caught on two machines before a sync
 counts the larger of the two catch counts, not the sum; two browsers hatching the same egg before a sync each keep
 their item (eggs in hand never go below 0); `rare` / `hatched` are per browser, so the pity rule is per browser.
@@ -1439,8 +1439,8 @@ build's 4) keeps its unknown top-level fields and its version through parse, mer
 two copies that both carry one keep one of them whole, the larger JSON text, so the laws hold), so this build relays a
 newer build's fields instead of stripping them. Fields a newer build adds INSIDE known ones (a new counter in a daily
 row) are still dropped, and the guard only exists from this build on: **a build from before 2026-11-21 (the version 3
-web deploy and every old portable copy) strips all version 4 fields when it writes through folder sync.** The newer
-machine brings them back at its next sync (unions; the look by its time), but a machine set up fresh from the folder in
+web deploy and every old portable copy) strips all version 4 fields when it writes through account sync.** The newer
+machine brings them back at its next sync (unions; the look by its time), but a machine set up fresh from the account in
 between starts without them. So: replace every portable copy (OneDrive `NgheNoiAm` folder and any other) with a new
 build, and reload any open tab of the web app once the deploy is live, before playing on more than one machine.
 

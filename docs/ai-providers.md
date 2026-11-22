@@ -32,8 +32,8 @@ trình duyệt và trình duyệt gửi thẳng tới nhà cung cấp.
 
 - Key chỉ lưu trong `localStorage` **của máy này**, dưới tiền tố riêng
   `nghe-noi-am-device:` (khóa `ai-config`; số liệu dùng ở `ai-usage`). Tiền tố này **khác**
-  `nghe-noi-am:` mà sao lưu (backup) và đồng bộ thư mục (folder sync) duyệt, nên key **không bao
-  giờ** bị xuất ra file sao lưu hay chép sang thư mục OneDrive dùng chung. Thêm vào đó
+  `nghe-noi-am:` mà sao lưu (backup) và đồng bộ tài khoản (account sync) duyệt, nên key **không bao
+  giờ** bị xuất ra file sao lưu hay gửi lên tài khoản. Thêm vào đó
   `AI_DEVICE_LOCAL_KEYS = ['ai-config', 'ai-usage']` được export để cơ chế loại trừ của sync/backup
   đăng ký tường minh. Mỗi máy phải nhập key riêng.
 - Key **không bao giờ** nằm trong URL (Gemini dùng header `x-goog-api-key`, không dùng `?key=`),
