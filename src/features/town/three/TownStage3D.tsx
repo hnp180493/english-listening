@@ -61,6 +61,7 @@ export default function TownStage3D({
   onIdleAct,
   onActivity,
   onTalkCancel,
+  onFarWalk,
   onReady,
   onFail,
   speaking = null,
@@ -87,7 +88,7 @@ export default function TownStage3D({
   const [ready, setReady] = useState(false);
   /** Made again after a lost graphics context came back. */
   const [generation, setGeneration] = useState(0);
-  const cbRef = useRef({ onTalk, onLot, onNear, onIdleAct, onActivity, onTalkCancel, onReady, onFail });
+  const cbRef = useRef({ onTalk, onLot, onNear, onIdleAct, onActivity, onTalkCancel, onFarWalk, onReady, onFail });
   const insetRight = inset?.right ?? 0;
   const insetBottom = inset?.bottom ?? 0;
   const safeTop = safe?.top ?? 0;
@@ -112,8 +113,8 @@ export default function TownStage3D({
   });
 
   useEffect(() => {
-    cbRef.current = { onTalk, onLot, onNear, onIdleAct, onActivity, onTalkCancel, onReady, onFail };
-  }, [onTalk, onLot, onNear, onIdleAct, onActivity, onTalkCancel, onReady, onFail]);
+    cbRef.current = { onTalk, onLot, onNear, onIdleAct, onActivity, onTalkCancel, onFarWalk, onReady, onFail };
+  }, [onTalk, onLot, onNear, onIdleAct, onActivity, onTalkCancel, onFarWalk, onReady, onFail]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -142,6 +143,7 @@ export default function TownStage3D({
               latest.current.talk = null;
               cbRef.current.onTalkCancel?.();
             },
+            onFarWalk: (w) => cbRef.current.onFarWalk?.(w),
           },
           TOWN_WORLD,
           latest.current.startAt,
@@ -459,6 +461,10 @@ export default function TownStage3D({
         if (!snap) return false;
         const spot = warpSpot(target, snap.residents.filter((r) => !r.inside), snap.player.heading, TOWN_WORLD);
         return !!spot && e.warpPlayer(spot, spot.heading, then);
+      },
+      hurry: () => {
+        const e = flatRef.current ? null : engineRef.current;
+        return !!e && e.hurry();
       },
     }),
     [],

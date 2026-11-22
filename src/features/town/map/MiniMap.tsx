@@ -29,7 +29,7 @@ function same(a: MapSnapshot | null, b: MapSnapshot): boolean {
 /**
  * A small round map in a corner of the stage: the streets round the player, always turned the default way whatever
  * the camera's turn (it turned with the camera until 2026-11-22; once the camera could turn all the way round the
- * owner wanted it fixed; the full map still opens turned like the camera), the player's arrow the way they face, the residents as dots in their house's colour (a ring when something waits). A click opens the
+ * owner wanted it fixed; the full map does not turn either), the player's arrow the way they face, the residents as dots in their house's colour (a ring when something waits). A click opens the
  * full map. Shown on a wide stage only, and hidden during talks and panels (map.css).
  */
 export default function MiniMap({ stage, state, hint, theme, onOpen }: { stage: RefObject<TownStageHandle | null>; state: StageState; hint: string | null; theme: TownTheme; onOpen: () => void }) {

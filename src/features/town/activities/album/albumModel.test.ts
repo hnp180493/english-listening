@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TOWN_PROJECTS } from '../../../../data/townGame';
 import type { TownCelebration } from '../../../../core/town/store';
 import { lockedTitleCount } from '../wardrobe/wardrobeModel';
-import { albumOrder, celebrationMs, celebrationView, DECORATION_NAME, DECORATION_WHERE, progressText } from './albumModel';
+import { albumChains, albumOrder, celebrationMs, celebrationView, DECORATION_NAME, DECORATION_WHERE, progressText } from './albumModel';
 
 describe('album words', () => {
   it('names what every project adds and where', () => {
@@ -26,6 +26,29 @@ describe('album words', () => {
       { id: 'e', unlockedAt: null, progress: 0.2 },
     ];
     expect(albumOrder(list).map((x) => x.id)).toEqual(['d', 'b', 'c', 'a', 'e']);
+  });
+
+  it('folds the achievements into one row per metric, the next step to work on first', () => {
+    const a = (id: string, metric: string, progress: number, unlockedAt: number | null = null) => ({ id, unlockedAt, progress, achievement: { metric: metric as never } });
+    const list = [
+      a('l10', 'lines', 1, 100),
+      a('l50', 'lines', 0.4),
+      a('l150', 'lines', 0.13),
+      a('f1', 'fish', 1, 50),
+      a('s7', 'streakBest', 0.6),
+      a('pa', 'phenomenon', 0.2),
+      a('pb', 'phenomenon', 0.5),
+    ];
+    const chains = albumChains(list);
+    expect(chains.map((c) => c.key)).toEqual(['streakBest', 'phenomenon', 'lines', 'fish']);
+    const lines = chains.find((c) => c.key === 'lines')!;
+    expect(lines.done).toBe(1);
+    expect(lines.current?.id).toBe('l50');
+    expect(chains.find((c) => c.key === 'phenomenon')!.current?.id).toBe('pb');
+    const fish = chains.find((c) => c.key === 'fish')!;
+    expect(fish.current).toBeNull();
+    expect(fish.last.id).toBe('f1');
+    expect(chains.flatMap((c) => c.steps)).toHaveLength(list.length);
   });
 
   it('says what a project adds to the town when it is celebrated', () => {

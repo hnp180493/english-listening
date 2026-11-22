@@ -1,5 +1,5 @@
-// "Sưu tầm" (docs/town.md §10): the achievements (unlocked ones with their date and title, locked ones with how far
-// along they are), the town projects (a bar each, and what they add to the town), and the fish album in short (the
+// "Sưu tầm" (docs/town.md §10): the achievements (one row per chain: the next step and how far along it is, the
+// reached ones folded under "Đã đạt"), the town projects (a bar each, and what they add to the town), and the fish album in short (the
 // pond itself is "Câu cá"). Opening it records the goals that need Ôn tập facts (checkTownUnlocks).
 
 import { useEffect, useState } from 'react';
@@ -9,7 +9,7 @@ import { Icon } from '../../../components/Icon';
 import { checkTownUnlocks, useTownGame } from '../../../core/town/gameStore';
 import { RARITIES, RARITY } from '../../../data/townGame';
 import type { ActivityPanelProps } from './types';
-import { albumOrder, DECORATION_NAME, DECORATION_WHERE, progressText, shortDate } from './album/albumModel';
+import { albumChains, albumOrder, DECORATION_NAME, DECORATION_WHERE, progressText, shortDate } from './album/albumModel';
 import { TierGem } from './eggs/TierGem';
 import './eggs/eggs.css';
 import './album/album.css';
@@ -25,7 +25,8 @@ export default function AlbumPanel({ onClose }: ActivityPanelProps) {
 
   const unlocked = game.achievements.filter((a) => a.unlockedAt !== null).length;
   const doneProjects = game.projects.filter((p) => p.unlockedAt !== null).length;
-  const achievements = albumOrder(game.achievements);
+  const chains = albumChains(game.achievements);
+  const reached = albumOrder(game.achievements).filter((a) => a.unlockedAt !== null);
   const album = game.album;
 
   return (
@@ -45,27 +46,36 @@ export default function AlbumPanel({ onClose }: ActivityPanelProps) {
       {tab === 'achievements' && <p className="town-album-lead">Đã đạt {unlocked} / {game.achievements.length} thành tích. Mỗi thành tích cho một danh hiệu để đeo.</p>}
       {tab === 'achievements' && (
         <ul className="town-album-list" aria-label="Thành tích">
-          {achievements.map((a) => {
-            const done = a.unlockedAt !== null;
+          {chains.map((c) => {
+            const shown = c.current ?? c.last;
+            const done = c.current === null;
             return (
-              <li key={a.achievement.id} className={`town-album-row${done ? ' is-done' : ''}`}>
+              <li key={c.key} className={`town-album-row is-chain${c.done > 0 ? ' is-done' : ''}`}>
                 <span className="town-album-icon" aria-hidden="true">
-                  <Icon icon={done ? Trophy : Lock} size={18} />
+                  <Icon icon={c.done > 0 ? Trophy : Lock} size={16} />
                 </span>
                 <div className="town-album-main">
-                  <p className="town-album-name">{a.achievement.name}</p>
+                  <div className="town-album-head">
+                    <p className="town-album-name">{shown.achievement.name}</p>
+                    {c.steps.length > 1 && (
+                      <span className="town-album-steps" role="img" aria-label={`Đã đạt ${c.done} / ${c.steps.length} bậc`}>
+                        {c.steps.map((s) => (
+                          <span key={s.achievement.id} className={s.unlockedAt !== null ? 'is-on' : undefined} />
+                        ))}
+                      </span>
+                    )}
+                  </div>
                   {done ? (
-                    <>
-                      <p className="town-album-sub">Danh hiệu “{a.achievement.title}”</p>
-                      <p className="town-album-count">Đạt ngày {shortDate(a.unlockedAt!)}</p>
-                    </>
+                    <p className="town-album-sub">Xong cả chuỗi · danh hiệu “{shown.achievement.title}”</p>
                   ) : (
                     <>
-                      <p className="town-album-sub">{a.achievement.blurb}</p>
-                      <div className="town-album-bar" role="progressbar" aria-valuemin={0} aria-valuemax={a.target} aria-valuenow={a.value} aria-label={a.achievement.name}>
-                        <span style={{ width: `${Math.round(a.progress * 100)}%` }} />
+                      <p className="town-album-sub">{shown.achievement.blurb}</p>
+                      <div className="town-album-meter">
+                        <div className="town-album-bar" role="progressbar" aria-valuemin={0} aria-valuemax={shown.target} aria-valuenow={shown.value} aria-label={shown.achievement.name}>
+                          <span style={{ width: `${Math.round(shown.progress * 100)}%` }} />
+                        </div>
+                        <span className="town-album-count">{progressText(shown, shown.achievement.metric)}</span>
                       </div>
-                      <p className="town-album-count">{progressText(a, a.achievement.metric)}</p>
                     </>
                   )}
                 </div>
@@ -73,6 +83,21 @@ export default function AlbumPanel({ onClose }: ActivityPanelProps) {
             );
           })}
         </ul>
+      )}
+      {tab === 'achievements' && reached.length > 0 && (
+        <details className="how town-album-reached">
+          <summary>Đã đạt ({reached.length})</summary>
+          <ul className="town-album-reached-list">
+            {reached.map((a) => (
+              <li key={a.achievement.id}>
+                <span className="town-album-reached-name">{a.achievement.name}</span>
+                <span className="town-album-count">
+                  “{a.achievement.title}” · {shortDate(a.unlockedAt!)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
 
       {tab === 'projects' && (

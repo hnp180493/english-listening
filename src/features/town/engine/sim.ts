@@ -2017,6 +2017,42 @@ export class TownSim {
   /** The player is put at a point at once (out of a room's door), facing `heading` (radians on the grid). */
   placePlayer(at: Pt2, heading: number): void {
     this.cancelErrand();
+    this.putPlayer(at, heading);
+  }
+
+  /** Ground distance (tiles) left on the player's click walk; null with no click walk under way. */
+  walkLeft(): number | null {
+    return this.errand ? pathLeft(this.player) : null;
+  }
+
+  /**
+   * "Đến ngay" during a click walk (docs/town.md §7 "Moving about"): the walk is over at once. The player stands where it
+   * ends, facing the way they were going (a talk: the two face each other), and its `then` runs as on arrival. False
+   * with no click walk under way.
+   */
+  finishWalk(): boolean {
+    const e = this.errand;
+    const p = this.player;
+    if (!e) return false;
+    const end = p.path.length > 0 ? centre(p.path[p.path.length - 1]) : { x: p.x, y: p.y };
+    const heading = Math.hypot(end.x - p.x, end.y - p.y) > 1e-3 ? Math.atan2(end.y - p.y, end.x - p.x) : (p.yaw ?? octAngle(p.oct));
+    this.putPlayer(end, heading);
+    this.errand = null;
+    this.goal = null;
+    this.squeeze = null;
+    if (e.arrival.kind === 'talk') {
+      const r = this.residents.get(e.arrival.placeId);
+      if (r) {
+        face(p, r.x, r.y);
+        face(r, p.x, p.y);
+      }
+    }
+    e.then?.();
+    return true;
+  }
+
+  /** The player stands at a point at once, facing `heading` (radians on the grid); whatever they were doing stays. */
+  private putPlayer(at: Pt2, heading: number): void {
     const p = this.player;
     p.path = [];
     p.x = at.x;

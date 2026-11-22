@@ -58,7 +58,7 @@ function textWidth(text: string, font: string): number {
 }
 
 /**
- * "Bản đồ": the whole town seen from high up, turned like the camera, over the stage. Everything on it is live (the
+ * "Bản đồ": the whole town seen from high up, always turned the default way (never with the camera), over the stage. Everything on it is live (the
  * player, the residents where they are now); pick a place, a resident, an activity or a patch of ground and its card
  * offers "Đi tới" (walk) and "Đến ngay" (a short dip to dark and you are there). Drag / wheel / pinch to look round.
  */
@@ -73,9 +73,9 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
   /** The stage's latest read (the live loop); `seen`: the one the words on the page were made from (the last pick). */
   const snap = useRef<MapSnapshot | null>(start);
   const [seen, setSeen] = useState<MapSnapshot | null>(start);
-  // the map is turned like the camera when it opens, and stays so while it is open (the minimap is the one that never
-  // turns: the owner, 2026-11-22)
-  const [yaw] = useState(() => start?.cameraYaw ?? MAP_YAW0);
+  // the map never turns with the camera: it always lies the default way, like the minimap (the owner, 2026-11-23:
+  // turning the 3D view must not turn the map)
+  const yaw = MAP_YAW0;
   const [opensAt] = useState(() => start?.player ?? TOWN_WORLD.start);
   const [box, setBox] = useState<Box>({ w: 0, h: 0 });
   /** Where the learner has looked (null: as it opened); always shown within the limits of the box. */

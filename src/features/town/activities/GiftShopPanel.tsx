@@ -4,9 +4,10 @@
 //
 // Why a panel of its own and not a tab of the build sheet: building is about the town, gifts are about people, and the
 // other shops (Tiệm trứng) are activity panels too. It has no spot in the world: it opens from the HUD's "Chơi".
+// The gifts are small tiles two or more to a row (a tap buys one), so the shop fits without a long scroll.
 
 import { useState } from 'react';
-import { Gift } from 'lucide-react';
+import { CircleHelp } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import { giftInHand } from '../../../core/town/friendship';
 import { buyTownGift, useTownOverview, useTownProgress } from '../../../core/town/store';
@@ -37,11 +38,13 @@ export default function GiftShopPanel({ sound, onReward }: ActivityPanelProps) {
   };
   return (
     <div className="town-shop">
-      <p className="town-build-hint">{GIFT_RULES}</p>
       <p className="town-shop-balance">
         Bạn có <Coin size={16} />
         <span className="tabular">{balance}</span>
         <span className="sr-only"> xu</span>
+      </p>
+      <p className="town-build-hint town-shop-note" role="status">
+        {note ?? ''}
       </p>
       <ul className="town-shop-list" aria-label="Các món quà">
         {TOWN_GIFTS.filter((g) => !g.romance).map(row)}
@@ -54,9 +57,13 @@ export default function GiftShopPanel({ sound, onReward }: ActivityPanelProps) {
           </ul>
         </>
       )}
-      <p className="town-build-hint" role="status">
-        {note ?? ''}
-      </p>
+      <details className="how">
+        <summary>
+          <Icon icon={CircleHelp} size={18} />
+          Tặng quà thế nào?
+        </summary>
+        <p>{GIFT_RULES}</p>
+      </details>
     </div>
   );
 
@@ -64,20 +71,21 @@ export default function GiftShopPanel({ sound, onReward }: ActivityPanelProps) {
     const held = giftInHand(progress, g.id);
     const poor = g.cost > balance;
     return (
-      <li key={g.id} className="town-shop-row">
-        <span className="town-gift-icon" aria-hidden="true">
-          <Icon icon={Gift} size={18} />
-        </span>
-        <span className="town-shop-name">
-          <span>{g.name}</span>
-          <span className="town-shop-en" lang="en">
-            {g.en}
+      <li key={g.id}>
+        <button type="button" className="town-shop-tile" onClick={() => buy(g.id, g.name, !!g.romance)} disabled={poor} aria-label={`Mua ${g.name}, ${xu(g.cost)}${held > 0 ? `, đang có ${held}` : ''}`}>
+          <span className="town-shop-name">
+            {g.name}
+            {held > 0 && <span className="town-gift-n tabular"> · có {held}</span>}
           </span>
-        </span>
-        {held > 0 && <span className="town-gift-n tabular">Có {held}</span>}
-        <button type="button" className="btn btn-sm" onClick={() => buy(g.id, g.name, !!g.romance)} disabled={poor} aria-label={`Mua ${g.name}, ${xu(g.cost)}`}>
-          <Coin size={15} />
-          <span className="tabular">{g.cost}</span>
+          <span className="town-shop-foot">
+            <span className="town-shop-en" lang="en">
+              {g.en}
+            </span>
+            <span className="town-shop-cost">
+              <Coin size={14} />
+              <span className="tabular">{g.cost}</span>
+            </span>
+          </span>
         </button>
       </li>
     );

@@ -380,6 +380,28 @@ describe('the player under direct control (docs/town.md §7 "Moving about")', ()
     expect(going).toBeLessThanOrEqual(0.15);
   });
 
+  it('"Đến ngay" ends a click walk at once: at its end, facing the way, and what it was for happens', () => {
+    const sim = new TownSim(room(OPEN), seeded(), { x: 2, y: 6 });
+    sim.setState({ built: [], decorations: [] });
+    expect(sim.walkLeft()).toBeNull();
+    expect(sim.finishWalk()).toBe(false);
+    let arrived = 0;
+    expect(sim.walkToTile({ x: 11, y: 6 }, () => arrived++)).toBe(true);
+    drive(sim, 0.4);
+    expect(sim.walkLeft()!).toBeGreaterThan(6);
+    expect(sim.finishWalk()).toBe(true);
+    expect(arrived).toBe(1);
+    expect(sim.player.x).toBeCloseTo(11.5, 5);
+    expect(sim.player.y).toBeCloseTo(6.5, 5);
+    expect(Math.cos(sim.player.yaw!)).toBeGreaterThan(0.9);
+    expect(sim.goal).toBeNull();
+    expect(sim.walkLeft()).toBeNull();
+    // it stays there, and the walk does not arrive a second time
+    drive(sim, 0.5);
+    expect(arrived).toBe(1);
+    expect(sim.player.x).toBeCloseTo(11.5, 5);
+  });
+
   it('Shift runs; a click walk starts as quickly and stops exactly on its end', () => {
     const sim = new TownSim(room(OPEN), seeded(), { x: 2, y: 6 });
     sim.setState({ built: [], decorations: [] });

@@ -64,6 +64,8 @@ export interface EngineCallbacks {
   onActivity?: (id: ActivitySpotId) => void;
   /** A talk being walked to (talkAt) was given up: the learner clicked elsewhere or took the keys. */
   onTalkCancel?: () => void;
+  /** A long click walk is under way (true) or over (false): the page offers "Đến ngay" (hurry) meanwhile. */
+  onFarWalk?: (walking: boolean) => void;
 }
 
 /** Parts of the stage covered by the game's own buttons (CSS px from each edge): tags and the camera keep clear. */
@@ -122,6 +124,11 @@ export interface TownStageHandle {
    */
   travelTo: (target: TravelTarget, mode: TravelMode, then?: () => void) => boolean;
   /**
+   * "Đến ngay" during a click walk (onFarWalk): a short dip to dark and the player is where the walk ends (a talk
+   * walked to: both are in place, or in the room), and what the walk was for happens. False = no walk under way.
+   */
+  hurry: () => boolean;
+  /**
    * The fishing panel's phase (activities/fish PondPhase; null = the panel closed) and the tier of the fish on the
    * line: the player fishes at the end of the pier in the world, the float, bite, catch or escape on the water.
    */
@@ -148,6 +155,8 @@ export interface TownStageProps {
   onActivity?: (id: ActivitySpotId) => void;
   /** A talk being walked to was given up (a click elsewhere, the keys). */
   onTalkCancel?: () => void;
+  /** A long click walk is under way (true) or over (false). */
+  onFarWalk?: (walking: boolean) => void;
   /** The town is on the screen (its first frame is drawn): the page may open a linked conversation over it. */
   onReady?: () => void;
   /** The 3D town could not be made after all (no graphics context, a lost one that did not come back). */

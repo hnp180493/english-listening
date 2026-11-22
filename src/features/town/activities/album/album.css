@@ -223,3 +223,69 @@
     animation: none;
   }
 }
+
+/* ───────── achievements as chains: one tight row per chain, the reached ones folded away ───────── */
+.town-album-row.is-chain {
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-1);
+}
+.town-album-row.is-chain .town-album-icon {
+  width: 30px;
+  height: 30px;
+}
+.town-album-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.town-album-steps {
+  display: inline-flex;
+  flex: none;
+  gap: 3px;
+}
+.town-album-steps > span {
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--text-subtle);
+  border-radius: 50%;
+}
+.town-album-steps > span.is-on {
+  border-color: var(--warn);
+  background: var(--warn);
+}
+.town-album-meter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.town-album-meter > .town-album-bar {
+  flex: 1;
+  margin-top: 0;
+}
+.town-album-meter > .town-album-count {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.town-album-reached-list {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+}
+.town-album-reached-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 var(--space-2);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--fs-sm);
+}
+.town-album-reached-list > li:last-child {
+  border-bottom: 0;
+}
+.town-album-reached-name {
+  color: var(--text);
+}

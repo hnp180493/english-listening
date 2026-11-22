@@ -480,6 +480,12 @@ cosy game:
   it), and braking on the distance left so it stands exactly at the end (`PLAYER_ARRIVE` 0.14 s). A long one is run
   (`RUN_FAR`). Making no way for `STALL_REPATH` 0.3 s (somebody in a narrow way) it looks for another way or asks them
   to step aside, and after `SQUEEZE_AFTER` 1.5 s squeezes past.
+- **"Đến ngay"** (owner, 2026-11-23): while a click walk has more than `HURRY_FROM` 6 tiles to go (kept until
+  `HURRY_UNTIL` 1.5), the stage says so (`onFarWalk`) and the page puts "Đến ngay" at the foot of the stage in place of
+  the main button. A click on it (`hurry`): a short dip to dark and the walk is over (`TownSim.finishWalk`: the
+  player at its end facing the way they were going, what it was for done: an activity's panel, a lot's sheet). A talk
+  walked to (staging): outside, the one talked to is put at their spot too; inside, the room comes at that same dark
+  (no second dip). Checked in headless Edge only (a ground walk, a talk walked to the café; 1600×900 and 390×844).
 - **E / Enter / Space** act on what is within reach of where the player stands now (`nearNow`): an activity's spot or a
   lot's gate within 0.8 tile, else the nearest resident within `TALK_REACH` 1.6 tiles. The main button shows the same
   once the player has stopped (no flicker while walking past people).
@@ -1556,8 +1562,12 @@ panels (`three/loot3d.ts`: the egg shop's reveal, the wardrobe's tiles and its l
   Titles: every title available, the egg titles not owned as locked rows, and how many more come from achievements,
   projects and levels. Pictures: `eggs/LootPicture.tsx` (a pet whole, a hat on the player's head, the player in an
   outfit, a title as a ribbon icon; still pictures cached, the reveal alive; also used by the egg shop's reveal).
-- **Sưu tầm** (`AlbumPanel.tsx`, `album/`): calls `checkTownUnlocks()` when it opens. Thành tích: unlocked first
-  (newest on top, title and date), then the locked ones closest to done (blurb, a bar, "37 / 100 câu"). Dự án: each
+- **Sưu tầm** (`AlbumPanel.tsx`, `album/`): calls `checkTownUnlocks()` when it opens. Thành tích (folded on
+  2026-11-23, the owner found 34 rows "scroll dài quá"): one row per chain (`albumChains`: the achievements of one
+  metric, 10 → 50 → 150 → 300 câu, the eight "Bậc thầy" side by side; 13 rows), showing the step to work on (the
+  locked one closest to done: name, blurb, a bar with "37 / 100 câu" beside it) and a dot per step (filled = reached);
+  chains closest to done first, finished chains last ("Xong cả chuỗi" and the last title). The reached ones, newest
+  first with title and date, are folded in a closed "Đã đạt (n)". Dự án: each
   project with its bar, what it adds to the town and where, its title. Cá: species caught per tier and in all, and a
   pointer to Chơi → Câu cá (the fish panel owns the album itself).
 - **Celebrations** (`album/Celebrations.tsx`, shown by TownPage): the oldest entry of `useTownCelebrations()` as a
@@ -1595,9 +1605,9 @@ The owner asked to see the whole town at once ("thêm bản đồ vào đi tao m
   up a talk still being walked to; in a conversation it waits. Focus goes to the map, and back to the HUD button or
   the town when it closes.
 - **The picture** (`drawMap.ts`, a canvas, redrawn only when the view, the town or the theme changes; about 1.5 ms):
-  the island from the world data, seen from high up at a slant (`MAP_TILT` 0.6) and turned like the camera was when
-  the map opened, so what is up on the stage is up on the map (`mapView.ts`: at the default turn the tile (0, 0) is the
-  top corner, as in town; the minimap, below, is the one that never turns). Grass with an earth cliff under its near edges, the lake, the paths and the plaza, the farm's
+  the island from the world data, seen from high up at a slant (`MAP_TILT` 0.6) and never turned with the camera:
+  it always lies the default way, like the minimap (owner, 2026-11-23) (`mapView.ts`: at the default turn the tile (0, 0) is the
+  top corner, as in town). Grass with an earth cliff under its near edges, the lake, the paths and the plaza, the farm's
   fields, trees as soft round crowns (blossom trees once bought), the fountain once bought, and the houses as small
   blocks with walls and roofs in each place's colours (`PLACE_ART`, the 3D recipes' colours). Honest about building:
   a built place stands in colour; the lots on offer are building sites (a plot of sand with a dashed rim, like the
@@ -1756,7 +1766,9 @@ test, not a guess.
 ### Gifts
 
 - **Tiệm quà** (activity `gifts`, no spot in the world: the HUD's "Chơi"): the 20 gifts of `data/townGifts.ts` for 5–18
-  xu each. A panel and not a tab of the build sheet: building is about the town, gifts are about people, and the other
+  xu each, as small tiles two or more to a row (name; English and price on one line; a tap buys one; 2026-11-23, the
+  owner found the one-per-row list too long), the rules folded in a closed "Tặng quà thế nào?", what was bought said
+  under the balance. A panel and not a tab of the build sheet: building is about the town, gifts are about people, and the other
   shop (Tiệm trứng) is an activity panel too. `gifts.bought[giftId][device]`; the balance subtracts them
   (`economy.spentTotal`).
 - **Tặng quà**: standing next to a resident (a second button beside the main one at the bottom, only with a gift in
@@ -1935,18 +1947,6 @@ talk**:
 - In that case the talk happens **right there** (`TalkSetting` `{ kind: 'here' }`): the player walks up to them
   (`sim.walkToResident`) and the camera frames the two. There is no dip and no room. The panel says
   "Daniel · Gặp trên đường".
-- An episode is told where it belongs, so it waits. The bottom button beside someone out in the town offers "Bắt chuyện
-  với Daniel" without "· Tập 1".
-- A click on their house, the list, the map or "Tới gặp …" still goes to where the talk happens, as before.
-
-**Context** (`data/townStreet.ts`) is one Vietnamese sentence at the top of the chat. It is narration only, with no
-audio. It is true anywhere in the town and depends on the friendship:
-
-- 0–1 hearts: polite ("Thầy Daniel kẹp mấy quyển sách, đi chậm rãi.");
-- 2–4: they stop for you;
-- 5+: they light up;
-- in half of the meetings, once you know one of their facts (data/stories), a scene built on it ("Thầy Daniel cầm hũ
-  mật ong vừa mua: trà tối nay có rồi.").
 - **The talk is one of their street talks** (2026-11-23; the owner on the first version, five unrelated dictation
   sentences: "gặp trên đường sao toàn câu tào lao không liên quan gì nhau vậy?… người ta làm gì có hứng thú học").
   `data/streetTalks/<placeId>.ts` has four per resident (contract `core/town/streetTalkTypes.ts`): two for anybody,
@@ -1959,6 +1959,18 @@ audio. It is true anywhere in the town and depends on the friendship:
   (`applyConversation(…, size)`), so 3 of 4 understood pays as usual. Line ids are `st-<placeId>-<n>-<k>`
   (`placeOfLineId` reads the place from them). Clips: the resident's lines connected + careful in their voice, the
   learner's lines in Puck and Callirrhoe (`audioInventory addStreetTalks`); until generated they play the browser voice.
+- An episode is told where it belongs, so it waits. The bottom button beside someone out in the town offers "Bắt chuyện
+  với Daniel" without "· Tập 1".
+- A click on their house, the list, the map or "Tới gặp …" still goes to where the talk happens, as before.
+
+**Context** (`data/townStreet.ts`) is one Vietnamese sentence at the top of the chat. It is narration only, with no
+audio. It is true anywhere in the town and depends on the friendship:
+
+- 0–1 hearts: polite ("Thầy Daniel kẹp mấy quyển sách, đi chậm rãi.");
+- 2–4: they stop for you;
+- 5+: they light up;
+- in half of the meetings, once you know one of their facts (data/stories), a scene built on it ("Thầy Daniel cầm hũ
+  mật ong vừa mua: trà tối nay có rồi.").
 
 It reads the same all day (seeded by the day and the meeting).
 

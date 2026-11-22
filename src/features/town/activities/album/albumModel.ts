@@ -72,6 +72,47 @@ export function albumOrder<T extends Pick<AchievementView, 'unlockedAt' | 'progr
     .map((x) => x.a);
 }
 
+/**
+ * One row of the album's achievements: the achievements of one metric together (10 → 50 → 150 → 300 câu; the eight
+ * "Bậc thầy" side by side), so the list is a dozen rows, not 34. `current` is the step to work on: the locked one
+ * closest to done (in a chain of growing targets, the next one); null once every step is reached.
+ */
+export interface AlbumChain<T> {
+  key: string;
+  steps: T[];
+  done: number;
+  current: T | null;
+  /** The last reached step (shown when the whole chain is done). */
+  last: T;
+}
+
+type ChainItem = Pick<AchievementView, 'unlockedAt' | 'progress'> & { achievement: Pick<AchievementView['achievement'], 'metric'> };
+
+/** The achievements as chains, in the album's order: the ones with a step closest to done first, finished chains last. */
+export function albumChains<T extends ChainItem>(list: readonly T[]): AlbumChain<T>[] {
+  const groups = new Map<string, T[]>();
+  for (const a of list) {
+    const key = a.achievement.metric;
+    groups.set(key, [...(groups.get(key) ?? []), a]);
+  }
+  const chains = [...groups.entries()].map(([key, steps], i) => {
+    const locked = steps.map((s, j) => ({ s, j })).filter((x) => x.s.unlockedAt === null);
+    locked.sort((x, y) => y.s.progress - x.s.progress || x.j - y.j);
+    const reached = steps.filter((s) => s.unlockedAt !== null);
+    const last = reached.reduce<T | null>((best, s) => (best === null || s.unlockedAt! > best.unlockedAt! ? s : best), null) ?? steps[steps.length - 1];
+    return { chain: { key, steps, done: reached.length, current: locked[0]?.s ?? null, last }, i };
+  });
+  chains.sort((x, y) => {
+    const cx = x.chain.current;
+    const cy = y.chain.current;
+    if (cx && cy) return cy.progress - cx.progress || x.i - y.i;
+    if (cx) return -1;
+    if (cy) return 1;
+    return x.i - y.i;
+  });
+  return chains.map((x) => x.chain);
+}
+
 /** A date as the album shows it ("14/11/2026"), local time. */
 export function shortDate(at: number): string {
   const d = new Date(at);

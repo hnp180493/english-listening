@@ -1,5 +1,5 @@
 import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { CircleHelp, Footprints, Gift, Hammer, Heart, MessageCircle, Sparkles, X } from 'lucide-react';
+import { CircleHelp, FastForward, Footprints, Gift, Hammer, Heart, MessageCircle, Sparkles, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
@@ -445,6 +445,8 @@ export default function TownPage() {
   // an episode's neighbour who drops in is in the room (Episode.tsx: from their first line of each pass)
   const [visitorIn, setVisitorIn] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  /** A long click walk is under way: "Đến ngay" at the foot of the stage ends it at once (stage.hurry). */
+  const [farWalk, setFarWalk] = useState(false);
   const soundRef = useRef(ui.sound);
   useEffect(() => {
     soundRef.current = ui.sound;
@@ -1001,7 +1003,9 @@ export default function TownPage() {
     const id = requestAnimationFrame(() => stage.current?.box()?.scrollIntoView({ block: 'start' }));
     return () => cancelAnimationFrame(id);
   }, [talkShownKey, fullStage.full]);
-  const showPrompt = townReady && !talk && !build && !activity && !map && !gifting && !!prompt;
+  // on a long click walk "Đến ngay" takes the main button's place (the walk is what the learner chose to do now)
+  const showHurry = farWalk && townReady && !flat && !shownTalk && !build && !activity && !map && !gifting;
+  const showPrompt = townReady && !talk && !build && !activity && !map && !gifting && !!prompt && !showHurry;
   // "Tặng quà" beside the main button, standing next to a resident with a gift in hand (one a day each)
   const nearResident = near?.kind === 'resident' ? near.placeId : null;
   const canGiftNear = useCanGift(nearResident);
@@ -1011,7 +1015,7 @@ export default function TownPage() {
   const greetFree = townReady && !flat && !talk && !build && !activity && !map && !gifting && !showWelcome && ui.greet && ui.sound;
   const greet = useGreeting(near, greetFree, useCallback((id: PlaceId) => stage.current?.act(id, 'wave'), []));
   const greetSpeaking = greet.greeting && greet.sounding ? greet.greeting.placeId : null;
-  const insets = useStageInsets(stageBox, `${shownTalk?.key ?? '-'}|${shownBuild ? 'b' : shownActivity ? 'a' + shownActivity : '-'}|${fullStage.full ? 'f' : '-'}|${showPrompt ? 'p' : '-'}|${showWelcome ? 'w' : '-'}|${shownGift ?? '-'}|${townReady ? 'r' : '-'}|${flat ? 'flat' : '3d'}`);
+  const insets = useStageInsets(stageBox, `${shownTalk?.key ?? '-'}|${shownBuild ? 'b' : shownActivity ? 'a' + shownActivity : '-'}|${fullStage.full ? 'f' : '-'}|${showPrompt ? 'p' : showHurry ? 'h' : '-'}|${showWelcome ? 'w' : '-'}|${shownGift ?? '-'}|${townReady ? 'r' : '-'}|${flat ? 'flat' : '3d'}`);
   // on a phone every line of text above the town costs a row of the town
   const [narrow] = useState(narrowStage);
   const talkView = talk ? overview.places.find((p) => p.place.id === talk.place.id) : undefined;
@@ -1064,6 +1068,7 @@ export default function TownPage() {
         state={state}
         onTalk={onStageTalk}
         onTalkCancel={dropTalk}
+        onFarWalk={setFarWalk}
         onLot={openBuild}
         onNear={onNear}
         onIdleAct={onIdleAct}
@@ -1159,6 +1164,19 @@ export default function TownPage() {
                 <span className="town-prompt-gift-label">Tặng quà</span>
               </button>
             )}
+          </div>
+        )}
+
+        {showHurry && (
+          <div className="town-prompt">
+            <button type="button" className="btn btn-primary btn-lg" onClick={() => {
+                stage.current?.hurry();
+                stage.current?.focus();
+              }}
+            >
+              <Icon icon={FastForward} size={18} />
+              Đến ngay
+            </button>
           </div>
         )}
 

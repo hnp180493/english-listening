@@ -205,6 +205,9 @@ const WALK_OFF = 0.05;
 const WALK_OFF_TIME = 0.2;
 /** A one-shot waits at most this long (s) for the body to turn toward where it is aimed. */
 const SHOT_TURN_WAIT = 0.7;
+/** "Đến ngay" is offered on a click walk with more than HURRY_FROM tiles to go, and kept until HURRY_UNTIL are left. */
+const HURRY_FROM = 6;
+const HURRY_UNTIL = 1.5;
 /** In a conversation the two face each other fully this long (s) (the greeting), then turn a little to the viewer. */
 const TALK_GREET = 2.2;
 const TALK_TOWARD_VIEWER = 0.85;
@@ -254,6 +257,8 @@ export class TownEngine3D {
   readonly sim: TownSim;
   private readonly world: TownWorld;
   private cb: EngineCallbacks;
+  /** A click walk long enough for "Đến ngay" is under way (told to the page: onFarWalk). */
+  private farWalk = false;
   private state: StageState = EMPTY_STATE;
   private pal: TownPalette = paletteFor('day');
   private readonly particles = new Particles();
@@ -1660,6 +1665,7 @@ export class TownEngine3D {
     this.lastP.x = pl.x;
     this.lastP.y = pl.y;
     this.updateStaging();
+    this.updateFarWalk();
     this.updateFade(dt);
     for (const e of this.sim.events.splice(0)) {
       if (e.kind === 'say') this.says.set(e.id, this.t + SAY_SECONDS);
@@ -2859,6 +2865,40 @@ export class TownEngine3D {
     const was = this.fish.out() && this.fish.current !== 'caught';
     this.fish.set(phase, tier);
     if (phase === 'caught' && was) this.later.push({ at: this.t + 0.75, run: () => this.playOnce('player', 'cheer') });
+  }
+
+  /**
+   * "Đến ngay" during a click walk (the page's button while onFarWalk says so): a short dip to dark and the walk is
+   * over, the player where it ends and what it was for done (an activity's panel, a lot's sheet). A talk walked to:
+   * the one talked to is at their spot too, or the room comes at that same dark. False with no walk under way, or
+   * while a dip or a room is on the stage.
+   */
+  hurry(): boolean {
+    if (!this.ready || this.paused || this.busy() || this.sim.walkLeft() === null) return false;
+    this.setHover(null);
+    this.dip(() => {
+      const s = this.staged;
+      if (!this.sim.finishWalk()) return;
+      if (s && this.staged === s && s.phase === 'go') {
+        if (s.doorway) {
+          // already at the dark: into the room now (not a second dip)
+          this.enterRoom(s);
+          return;
+        }
+        if (s.spots) this.sim.jumpResident(s.placeId, s.spots.resident);
+      }
+      this.snapToPlayer();
+    });
+    return true;
+  }
+
+  /** Tells the page when a click walk long enough to hurry starts and ends (shown from HURRY_FROM tiles left, until HURRY_UNTIL). */
+  private updateFarWalk(): void {
+    const left = this.sim.walkLeft();
+    const far = left !== null && !this.busy() && left > (this.farWalk ? HURRY_UNTIL : HURRY_FROM);
+    if (far === this.farWalk) return;
+    this.farWalk = far;
+    this.cb.onFarWalk?.(far);
   }
 
   warpPlayer(at: { x: number; y: number }, heading: number, then?: () => void): boolean {
