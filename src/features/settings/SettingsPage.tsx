@@ -34,6 +34,7 @@ import { clampGoal, GOAL_MAX, GOAL_MIN, GOAL_STEP } from '../../core/goals';
 import { clearAiDeviceData, clearTtsCache, useAiStatus } from '../../core/ai';
 import { clearAiTaskCache } from '../../core/aiTasks';
 import { flushFolderSync, useFolderSync } from '../../core/folderSyncController';
+import { cloudAvailable, flushCloudSync, useCloudSync } from '../../core/cloud/cloudController';
 import { navigate, useRoute } from '../../core/nav';
 import { REVIEW_MINUTES_OPTIONS } from '../../core/review/constants';
 import { LISTEN_GOAL_OPTIONS, sanitizeListenGoal, sanitizeReviewMinutes, updateSettings, useSettings, type Settings } from '../../core/settings';
@@ -64,6 +65,7 @@ import {
 import AiSection, { AI_SECTION_ID, VoiceEngineRow } from './AiSection';
 import SectionHead from './SectionHead';
 import SyncSection from './SyncSection';
+import CloudSection from './CloudSection';
 import './settings.css';
 
 const APP_VERSION = '1.0';
@@ -432,7 +434,9 @@ function DataTools() {
   const [busy, setBusy] = useState(false);
   const sync = useFolderSync();
   const manual = sync.status === 'unsupported';
-  const syncOn = sync.status !== 'off' && !manual;
+  const cloud = useCloudSync();
+  const cloudOn = cloud.user !== null && cloud.status !== 'off' && cloud.status !== 'signed-out';
+  const syncOn = (sync.status !== 'off' && !manual) || cloudOn;
   const storage = appStorage();
 
   const onExport = () => {
@@ -485,7 +489,7 @@ function DataTools() {
   /** Bulk change outside saveJSON: let folder sync write it to the folder before the reload. */
   const syncThenReload = async (delay: number) => {
     notifyWrite('*');
-    await Promise.all([flushFolderSync(2000), new Promise((r) => window.setTimeout(r, delay))]);
+    await Promise.all([flushFolderSync(2000), flushCloudSync(3000), new Promise((r) => window.setTimeout(r, delay))]);
     window.location.reload();
   };
 
@@ -674,7 +678,10 @@ function DataTools() {
             <p id={`${uid}-clr-d`} className="set-hint">
               Thao tác này không thể hoàn tác.
               {manual && ' Nếu muốn giữ lại tiến độ, hãy “Xuất tệp” trước.'}
-              {syncOn && ' Thư mục đồng bộ đang bật: tệp trong thư mục cũng sẽ bị xóa trắng, các máy khác sẽ nhận dữ liệu trống khi mở lại.'}
+              {sync.status !== 'off' &&
+                !manual &&
+                ' Thư mục đồng bộ đang bật: tệp trong thư mục cũng sẽ bị xóa trắng, các máy khác sẽ nhận dữ liệu trống khi mở lại.'}
+              {cloudOn && ' Đang đăng nhập tài khoản: dữ liệu Nghe Nối Âm trong tài khoản cũng bị xóa trắng (dữ liệu Daily English không bị đụng tới).'}
             </p>
             <div className="row">
               <button type="button" className="btn set-btn-danger-solid" onClick={onClear} disabled={busy}>
@@ -716,11 +723,17 @@ function AboutSection() {
           Quyền riêng tư
         </summary>
         <ul>
-          <li>Không cần tài khoản, không quảng cáo, không theo dõi.</li>
+          <li>Không bắt buộc tài khoản, không quảng cáo, không theo dõi.</li>
           <li>
-            Tiến độ và cài đặt chỉ lưu trong trình duyệt này (localStorage). Nếu bật <strong>đồng bộ thư mục</strong>, một bản được ghi
+            Tiến độ và cài đặt lưu trong trình duyệt này (localStorage). Nếu bật <strong>đồng bộ thư mục</strong>, một bản được ghi
             thêm vào thư mục bạn chọn.
           </li>
+          {cloudAvailable() && (
+            <li>
+              Nếu <strong>đăng nhập Google</strong>, tiến độ được lưu thêm vào máy chủ Supabase của Daily English, chỉ tài khoản của bạn đọc
+              được. Key AI, lựa chọn giọng AI và đồng hồ nghe không bao giờ được gửi lên.
+            </li>
+          )}
           <li>
             <strong>Nói nhại</strong> dùng nhận dạng giọng nói của trình duyệt: trên Chrome và Edge, âm thanh được gửi tới dịch vụ đám
             mây của Google/Microsoft.
@@ -760,6 +773,7 @@ export default function SettingsPage() {
       <DisplaySection />
       <GoalSection />
       <AiSection />
+      <CloudSection />
       <SyncSection>
         <DataTools />
       </SyncSection>

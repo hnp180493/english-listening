@@ -10,7 +10,7 @@ Read this first. It is the handoff for any agent (Claude Code, Codex, Cursor…)
 - It runs two ways:
   - **dev**: `npm run dev` → http://localhost:5173;
   - **portable**: `npm run portable` builds ONE self-contained HTML file. The user keeps it in OneDrive and opens it from disk (`file://`, origin `null`).
-- Learner data lives in `localStorage`. It can be synced between machines through a user-chosen folder (OneDrive, Google Drive, Dropbox…) via the File System Access API.
+- Learner data lives in `localStorage`. It can be synced between machines through a user-chosen folder (OneDrive, Google Drive, Dropbox…) via the File System Access API, and (optional, 2026-11-22) through a Google sign-in on the Supabase project shared with daily-english (`docs/supabase-sync.md`).
 
 ## 2. The user (owner)
 
@@ -29,7 +29,7 @@ Read this first. It is the handoff for any agent (Claude Code, Codex, Cursor…)
   - `npx tsc -b`: type-check;
   - `npx oxlint`: lint;
   - `npx vitest run`: tests (~2600 tests, should be all green);
-  - `npm run build`: build. The web build splits React (`react-*.js`, ~219 kB) and the built-in content the entry needs (`content-*.js`, ~293 kB: courses, lessons, sentences, chunks, real clips; `stories-*.js`, ~266 kB: the town's episodes, the residents' arcs, the gifts) from the app code (`index-*.js`, ~232 kB) via `codeSplitting.groups` in `vite.config.ts`, so a deploy that only changes app code leaves the other hashed files unchanged. three.js is a third group (`three-*.js`, ~580 kB, 146 kB gzipped), loaded only by the town page; the web build's size limit sits just above it and `chunkSizeGuard` keeps the usual 500 kB warning for every other chunk. No size warning. The portable build is still one bundle;
+  - `npm run build`: build. The web build splits React (`react-*.js`, ~219 kB) and the built-in content the entry needs (`content-*.js`, ~293 kB: courses, lessons, sentences, chunks, real clips; `stories-*.js`, ~266 kB: the town's episodes, the residents' arcs, the gifts) from the app code (`index-*.js`, ~254 kB) via `codeSplitting.groups` in `vite.config.ts`, so a deploy that only changes app code leaves the other hashed files unchanged. three.js is a third group (`three-*.js`, ~580 kB, 146 kB gzipped), loaded only by the town page; the web build's size limit sits just above it and `chunkSizeGuard` keeps the usual 500 kB warning for every other chunk. No size warning. The portable build is still one bundle;
   - `npm run portable -- --out "<folder>"`: single-file build (default output `portable/Nghe-Noi-Am.html`, about 3.0 MB with three.js inlined). One folder goes next to it and must travel with it: `audio/` (shipped clips). The town needs no folder any more; an `art/` folder an earlier build left there is cleared (only the pictures that build copied, by its ledger).
 - Before handing work back: tsc, oxlint and vitest all green, and build OK.
 
@@ -56,8 +56,10 @@ src/
     goals.ts        Home daily plan
     lessons.ts      course/lesson progress
     town/           "Thị trấn" rules: xu, daily tasks, level, synced progress `town-progress`, store, walking map (content `data/town.ts`, layout `data/townWorld.ts`, game `features/town/`, docs/town.md)
-    syncMerge.ts    per-key mergers for folder sync (every synced key needs one + tests)
+    syncMerge.ts    per-key mergers for folder sync and account sync (every synced key needs one + tests)
     folderSync*.ts, backup.ts   folder sync + JSON backup/restore, clearAll ("Xóa dữ liệu")
+    syncLock.ts     one queue for every sync channel (a folder cycle and a cloud cycle never interleave)
+    cloud/          account sync, Google sign-in on Supabase (docs/supabase-sync.md): config (build env), auth (PKCE, no supabase-js), remote (REST + CAS write), cloudSync (pure cycle, tested), cloudController (browser glue)
     tts.ts, audioPlayer.ts      all playback: shipped Gemini clip → AI voice (only voiceEngine 'ai') → browser voice
     audioKey.ts, audioManifest.ts, audioInventory.ts   shipped clips: key per (mode, text), manifest loader, list of every built-in playback (docs/audio.md)
     playback.ts     playback modes: connected (say ?? speakText ?? text) vs careful (written text, slower), AI styles, YouGlish
@@ -89,7 +91,7 @@ public/         icons, manifest, sw.js (service worker, never caches cross-origi
 | `#/stats` | Tiến độ | overview; `?view=report` = Báo cáo tiến bộ (4 tuần / 3 tháng / Tất cả, charts, checkup trend, "Nhận xét", AI coach) |
 | `#/listening` | Nhật ký nghe | log real listening (quick add / stopwatch), milestones (10…1000 h), listenGoal |
 | `#/checkup` | (hidden) | Kiểm tra định kỳ: 10 dictation sentences + 4 passages, 6 parallel forms A–F, every 14 days; score = 0.6 × dictation% + 0.4 × comprehension%; audio = connected version, results record `audioMode: 'connected'` (older results = 'standard', compared with a caveat) |
-| `#/settings` | Cài đặt | voice/theme/goals, Trợ lý AI, data & folder sync, backup, clear |
+| `#/settings` | Cài đặt | voice/theme/goals, Trợ lý AI, Tài khoản (Google sign-in, only in builds with `VITE_SUPABASE_*`), data & folder sync, backup, clear |
 
 ## 6. Rules you must follow
 
@@ -108,7 +110,9 @@ public/         icons, manifest, sw.js (service worker, never caches cross-origi
   - a value replaced as a whole carries its own change time (`settings.changedAt`, custom sentence `updatedAt`, media `prefs.changedAt`): the merge never decides by "which machine wrote anything last";
   - deleting a synced record leaves a tombstone (`recordTombstone`, `core/syncMarkers.ts`; listening log has its own); "Xóa dữ liệu" (`clearAllData`), restore (`restoreBackup`) and "Xóa lịch sử" (`recordKeyReset`) leave a reset marker so other machines drop their older data instead of merging it back;
   - device-only state goes in `DEVICE_LOCAL_KEYS` (e.g. `voice-ai`: the paid AI voice is chosen per browser, never synced or imported);
-  - AI config/usage uses its own prefix `nghe-noi-am-device:`, so it is never synced or backed up.
+  - AI config/usage uses its own prefix `nghe-noi-am-device:`, so it is never synced or backed up. The account session, the account-sync base and the pending sign-in use it too (`nghe-noi-am-device:cloud-*`).
+  - Account sync (`src/core/cloud/`, docs/supabase-sync.md) carries exactly what folder sync carries and merges through the same `mergeData`; a new synced key therefore works in both channels once it has its merger. Its short key must match `^[a-z0-9][a-z0-9-]{0,63}$` (the table's CHECK).
+  - Supabase URL + publishable key come only from the build env (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`: `.env.local`, repository secrets `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` in the deploy workflow), never from the repo. Never a secret / service_role key (refused by `parseCloudConfig`).
   - `loadJSON(key, fallback)` returns the fallback when the stored JSON shape differs from a non-null fallback (a stored `null` for an object key once white-screened every load). Boot steps in `main.tsx` run one by one inside try/catch, and `RootBoundary` wraps the whole app with a rescue card (reload / save a copy / clear).
 - **AI keys:** `baseUrlAllowed` (`src/core/ai/defaults.ts`) is the only gate for base URLs. Cloud kinds accept their official https origin or loopback only; `openai-compatible` accepts https, or http on loopback/LAN. It runs in sanitize (stored configs are repaired) and in `effectiveBaseUrl` at request time. `AiConfig.keyStore: 'session'` keeps keys in sessionStorage only. Reason: every `file://` page shares one origin in Chromium, and so does every project on `hnp180493.github.io`.
 - **Play buttons:** never let a ▶ speak a lone weak-form function word as written while a reduced form is shown (`contradictsShown` / `segmentPlayback` / `annotationPlayback` in `src/core/playback.ts`); such buttons are hidden.
@@ -166,6 +170,7 @@ public/         icons, manifest, sw.js (service worker, never caches cross-origi
   - on a phone a conversation grows the stage to the screen between the bars and scrolls it up, and an episode's first listen keeps the panel to its question (390×844: the room about 340 px high while listening); shorter than about 640 px the strip is still small (230 px at 375×667) and the panel scrolls;
   - leftovers fixed 2026-11-21 (docs/town.md §7, §11), checked only in headless Edge: the path finder takes a diagonal between two trees where a body fits (no more pockets the keys reach and a click does not: tested both ways), a construction site's gate is shut (a barrier; the site was always solid), the hill in the woods is raised in 3D (1.6 high, level top; people, trees, props, the camera and picking follow it), a neighbour who drops in walks in at their first line of each pass (never in the room before), the map and minimap badge only the suggested resident and the re-listens due (legend line in the map's header), and a talk set more than 12 tiles away goes there through the dark instead of a long walk. Nobody has watched the walk-ins or the hill move;
   - motion (the sim's rules since 2026-11-14, docs/town.md §7 Motion): ground speeds, nobody walks through anybody (paths round people, a 0.5-tile hard gap, residents step aside on a narrow way; after 1.5 s with no way the player's click walk squeezes past), the camera eases in and out (in real time at 30 Hz too). Gameplay changes the owner has not approved: residents and the cat stop and wait for somebody in their way, step aside for the player, and the player may stand two tiles from the one they talk to;
+- **Account sync (2026-11-22, docs/supabase-sync.md §5–7):** built and tested (unit, PGlite for the SQL, dev server against a local mock), migration `daily-english/supabase-migrations/18-create-nghe-noi-am-sync.sql` run on the main project on 2026-11-22 (checked: RLS, 4 policies, trigger, execute only for `authenticated`). Still to do by the owner: the redirect URLs in Supabase Auth and the two repository secrets. Nobody has signed in with a real Google account, and the portable paste-code flow was seen only from the web side. Sharing data with daily-english itself (listening minutes, streak, words) is only a proposal (§6), waiting for the owner.
 - **Not tested on real devices:**
   - AI audio unlock on iOS/Safari;
   - IndexedDB on `file://`;

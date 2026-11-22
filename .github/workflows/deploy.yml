@@ -26,7 +26,12 @@ jobs:
       - run: npm ci
       - run: npm test
       # Project site lives under /<repo>/; the app uses hash routing and BASE_URL for the service worker.
+      # Google sign-in / account sync (docs/supabase-sync.md): the Supabase project shared with daily-english. Repository
+      # secrets, so the values stay out of the source; without them the build simply has no "Tài khoản" card.
       - run: npm run build -- --base=/${{ github.event.repository.name }}/
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

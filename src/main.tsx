@@ -4,6 +4,7 @@ import './fonts.css';
 import './index.css';
 import { preloadAudioManifest } from './core/audioManifest';
 import { initFolderSync } from './core/folderSyncController';
+import { initCloudSync } from './core/cloud/cloudController';
 import { reloadReview } from './core/review/api';
 import { getSettings, reloadSettings } from './core/settings';
 import { reloadStats } from './core/stats';
@@ -24,13 +25,12 @@ function safely(step: string, fn: () => void): void {
 safely('theme', () => applyTheme(getSettings().theme));
 
 async function boot() {
-  // Folder sync (OneDrive): if a folder is connected and still allowed, bring this browser's data in
-  // step with the folder file before anything reads it. Never waits longer than ~1.5 s.
-  try {
-    await initFolderSync(1500);
-  } catch {
-    // sync is optional; the app works on local data
-  }
+  // Folder sync (OneDrive) and account sync (Google sign-in, Supabase): if connected, bring this browser's data in
+  // step before anything reads it. Both share one queue (core/syncLock) and never wait longer than ~1.5 s.
+  await Promise.all([
+    initFolderSync(1500).catch(() => undefined), // sync is optional; the app works on local data
+    initCloudSync(1500).catch(() => undefined),
+  ]);
   // Settings/stats were read at import time; pick up whatever the sync wrote.
   safely('settings', reloadSettings);
   safely('stats', reloadStats);

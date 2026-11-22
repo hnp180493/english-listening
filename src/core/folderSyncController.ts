@@ -25,6 +25,7 @@ import {
   type SyncMeta,
 } from './folderSync';
 import { isDeviceLocalKey, onAppWrite } from './storage';
+import { withSyncLock } from './syncLock';
 import type { DataMap } from './syncMerge';
 
 // ───────────────────────── File System Access API (typed locally: not all of it is in lib.dom) ─────────────────────────
@@ -330,7 +331,8 @@ function enqueue(opts: CycleOptions, explicit?: FsDirHandle): Promise<CycleResul
     if (!h || !storage) return { kind: 'error', stage: 'read', message: 'Trình duyệt đang chặn bộ nhớ của trang.' };
     return runCycle(folderOf(h), context(storage), opts);
   };
-  const p = queue.then(run, run);
+  // Shared with account sync (core/cloud): a cloud cycle must not read or write while this one does.
+  const p = withSyncLock(run);
   queue = p.catch(() => undefined);
   return p;
 }
