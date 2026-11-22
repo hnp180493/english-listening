@@ -377,9 +377,10 @@ hear), a green one with a round arrow (a re-listen due).
 low field of view (28°, so the town reads like a model on a table) looks down at 33° from the town's south-east (yaw
 π/4: doors face it; 37° until 2026-11-21, lowered so the houses and trees round the player show, not only the plaza's
 paving). Its resting distance keeps a grown-up (`PERSON_HEIGHT` 0.75 tile; since the legs grew on 2026-11-21 a
-grown-up stands about 0.79, so 5% taller than these figures) about a fifth of the stage high: 127 CSS px on a laptop's
-stage (1224 × 672), 89 px on a 390 px phone (`personPx`: the stage height / 5.3, the width / 4.4, 56…150 px; an
-eighth until 2026-11-21, when a critique found people too small to read). The zoom and the turn are the learner's
+grown-up stands about 0.79, so 5% taller than these figures) about a ninth of the stage high: 75 CSS px on a laptop's
+stage (1224 × 672), 60 px on a 390 px phone (`personPx`: the stage height / 9, the width / 6.5, 48…100 px; an
+eighth until 2026-11-21, when a critique found people too small to read; a fifth until 2026-11-22, when the owner
+found every first look "sát rạc": the learner zooms in with the wheel or a pinch). The zoom and the turn are the learner's
 alone: a pinch zooms within 0.55…1.9 of that, and so does the wheel in full screen, with Ctrl / ⌘ held, or once the
 canvas has the keyboard (a click or Tab put it there): else the wheel scrolls the page past the town. A right-button
 drag turns the view up to 60° either way (the keys turn with it: up is always away from the camera).

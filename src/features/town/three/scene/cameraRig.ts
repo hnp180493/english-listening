@@ -62,13 +62,13 @@ const tanHalf = (fovDeg: number) => Math.tan((fovDeg * Math.PI) / 360);
 
 /** How tall (CSS px) a grown-up stands at the resting zoom on a stage of this size. */
 export function personPx(viewW: number, viewH: number): number {
-  return Math.max(56, Math.min(150, Math.min(viewH / 5.3, viewW / 4.4)));
+  return Math.max(48, Math.min(100, Math.min(viewH / 9, viewW / 6.5)));
 }
 
 /**
- * The resting distance for a stage of this size: a grown-up stands about a fifth of the stage high (about 127 CSS px
- * on a laptop's stage), and on a narrow phone less (its width bounds it: about 89 px on a 390 px phone), so a
- * person and their face read at a glance and the town round them still shows.
+ * The resting distance for a stage of this size: a grown-up stands about a ninth of the stage high (about 75 CSS px
+ * on a laptop's stage, at most 100), and on a narrow phone less (its width bounds it: about 60 px on a 390 px phone),
+ * so the town round the player shows from the first look (owner, 2026-11-22: a fifth was "sát rạc").
  */
 export function restDistance(viewW: number, viewH: number, fov = FOV, pitch = PITCH): number {
   const w = Math.max(1, viewW);

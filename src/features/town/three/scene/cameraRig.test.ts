@@ -72,14 +72,14 @@ describe('3D town camera rig', () => {
     const phone = restDistance(390, 844);
     expect(desk).toBeGreaterThan(5);
     expect(desk).toBeLessThan(40);
-    // a grown-up (0.75 tall) about a fifth of a laptop's stage high, and about 89 px on a phone
+    // a grown-up (0.75 tall) about a ninth of a laptop's stage high, and about 60 px on a phone
     const tall = (d: number, h: number) => (0.75 * Math.cos(PITCH) * h) / (2 * Math.tan((FOV * Math.PI) / 360) * d);
     const laptop = restDistance(1224, 672);
-    expect(tall(laptop, 672)).toBeGreaterThan(120);
-    expect(tall(laptop, 672)).toBeLessThan(135);
-    expect(tall(phone, 844)).toBeGreaterThan(80);
-    expect(tall(phone, 844)).toBeLessThan(95);
-    expect(tall(desk, 900)).toBeLessThanOrEqual(150.01);
+    expect(tall(laptop, 672)).toBeGreaterThan(70);
+    expect(tall(laptop, 672)).toBeLessThan(80);
+    expect(tall(phone, 844)).toBeGreaterThan(55);
+    expect(tall(phone, 844)).toBeLessThan(65);
+    expect(tall(desk, 900)).toBeLessThanOrEqual(100.01);
     expect(Number.isFinite(phone)).toBe(true);
     expect(restDistance(0, 0)).toBeGreaterThan(0);
   });
