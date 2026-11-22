@@ -542,11 +542,14 @@ function angleOf(a: number): number {
   return Math.atan2(Math.sin(a), Math.cos(a));
 }
 
+/** The town in the middle of the world (data/townWorld.ts: 44 × 44 tiles from (16, 12)), where everybody lives. */
+const TOWN = { x: 16, y: 12, w: 44, d: 44 };
+
 describe('TownSim', () => {
   it('starts on the start tile, or where it is told when that is walkable', () => {
     expect(new TownSim(TOWN_WORLD, seeded()).player.tile).toEqual(TOWN_WORLD.start);
-    expect(new TownSim(TOWN_WORLD, seeded(), { x: 14, y: 21 }).player.tile).toEqual({ x: 14, y: 21 });
-    expect(new TownSim(TOWN_WORLD, seeded(), { x: 6, y: 13 }).player.tile).toEqual(TOWN_WORLD.start);
+    expect(new TownSim(TOWN_WORLD, seeded(), { x: 30, y: 33 }).player.tile).toEqual({ x: 30, y: 33 });
+    expect(new TownSim(TOWN_WORLD, seeded(), { x: 22, y: 25 }).player.tile).toEqual(TOWN_WORLD.start);
   });
 
   it('residents are in town only for built places; the cat comes when bought', () => {
@@ -571,22 +574,22 @@ describe('TownSim', () => {
     const sim = new TownSim(TOWN_WORLD, seeded());
     sim.setState({ built: START, decorations: [] });
     let called = 0;
-    expect(sim.walkToTile({ x: 18, y: 24 }, () => called++)).toBe(true);
-    expect(sim.goal).toEqual({ x: 18, y: 24 });
+    expect(sim.walkToTile({ x: 34, y: 36 }, () => called++)).toBe(true);
+    expect(sim.goal).toEqual({ x: 34, y: 36 });
     const arrivals = run(sim, 8);
-    expect(arrivals).toEqual([{ kind: 'tile', tile: { x: 18, y: 24 } }]);
+    expect(arrivals).toEqual([{ kind: 'tile', tile: { x: 34, y: 36 } }]);
     expect(called).toBe(1);
-    expect(sim.player.tile).toEqual({ x: 18, y: 24 });
+    expect(sim.player.tile).toEqual({ x: 34, y: 36 });
     expect(sim.goal).toBeNull();
   });
 
   it('a click on something blocked walks to the nearest free tile', () => {
     const sim = new TownSim(TOWN_WORLD, seeded());
     sim.setState({ built: START, decorations: [] });
-    expect(sim.walkToTile({ x: 21, y: 21 })).toBe(true); // the fountain
+    expect(sim.walkToTile({ x: 37, y: 33 })).toBe(true); // the fountain
     run(sim, 8);
     expect(walkable(sim.player.tile)).toBe(true);
-    expect(gridDistance(sim.player.x, sim.player.y, 21.5, 21.5)).toBeLessThan(90);
+    expect(gridDistance(sim.player.x, sim.player.y, 37.5, 33.5)).toBeLessThan(90);
   });
 
   it('walks up to a resident, who waits; both look at each other; the callback runs once', () => {
@@ -632,13 +635,13 @@ describe('TownSim', () => {
     let second = 0;
     sim.walkToResident('friend', () => first++);
     run(sim, 0.3);
-    sim.walkToTile({ x: 18, y: 24 }, () => second++);
+    sim.walkToTile({ x: 34, y: 36 }, () => second++);
     expect(sim.residents.get('friend')!.engaged).toBe(false);
     run(sim, 10);
     expect([first, second]).toEqual([0, 1]);
     // keys cancel a click walk too
     let third = 0;
-    sim.walkToTile({ x: 23, y: 20 }, () => third++);
+    sim.walkToTile({ x: 39, y: 32 }, () => third++);
     run(sim, 0.2);
     sim.hold({ x: 1, y: 1 });
     run(sim, 0.5);
@@ -652,7 +655,7 @@ describe('TownSim', () => {
     const sim = new TownSim(TOWN_WORLD, seeded(3));
     sim.setState({ built: WORLD_PLACES.map((p) => p.id), decorations: ['cat'] });
     // keep the player far from everybody: the hill in the woods
-    sim.walkToTile({ x: 7, y: 3 });
+    sim.walkToTile({ x: 23, y: 15 });
     const doors = WORLD_PLACES.map((p) => `${p.door.x},${p.door.y}`);
     let moved = 0;
     for (let i = 0; i < 60 * 90; i++) {
@@ -691,7 +694,7 @@ describe('TownSim', () => {
 
     const sim = new TownSim(TOWN_WORLD, seeded(5));
     sim.setState({ built: WORLD_PLACES.map((p) => p.id), decorations: [] });
-    sim.walkToTile({ x: 7, y: 3 });
+    sim.walkToTile({ x: 23, y: 15 });
     const away = (h: { x: number; y: number }) => h.x + h.y < 0 || (h.x < 0 && h.y <= 0) || (h.y < 0 && h.x <= 0);
     // once they have stood a moment (the turn back to the front takes up to four steps), a face: SE, S or SW
     const settled = SETTLE_AFTER + 4 * TURN_STEP + 0.05;
@@ -737,7 +740,7 @@ describe('TownSim', () => {
       expect(Math.min(gap(r.tile, kim.tile), gap(r.tile, sim.player.tile)), r.id).toBeGreaterThan(2);
     }
     sim.engage(null);
-    sim.walkToTile({ x: 7, y: 3 });
+    sim.walkToTile({ x: 23, y: 15 });
     run(sim, 60);
     for (const r of sim.residents.values()) expect(gap(r.tile, r.place.spot), r.id).toBeLessThanOrEqual(3);
   });
@@ -745,7 +748,7 @@ describe('TownSim', () => {
   it('the player walks at the ground speed it says', () => {
     const sim = new TownSim(TOWN_WORLD, seeded());
     sim.setState({ built: START, decorations: [] });
-    sim.walkToTile({ x: 22, y: 27 });
+    sim.walkToTile({ x: 38, y: 39 });
     let top = 0;
     for (let i = 0; i < 120; i++) {
       const { x, y } = sim.player;
@@ -794,11 +797,11 @@ describe('TownSim', () => {
 describe('paths and turns', () => {
   it('pulls a tile path straight wherever the way is clear, never through anything blocked', () => {
     const pairs: [Tile, Tile][] = [
-      [TOWN_WORLD.start, { x: 18, y: 24 }],
-      [TOWN_WORLD.start, { x: 26, y: 16 }],
-      [{ x: 14, y: 21 }, { x: 27, y: 23 }],
-      [{ x: 2, y: 15 }, { x: 40, y: 38 }],
-      [{ x: 8, y: 6 }, { x: 39, y: 2 }],
+      [TOWN_WORLD.start, { x: 34, y: 36 }],
+      [TOWN_WORLD.start, { x: 42, y: 28 }],
+      [{ x: 30, y: 33 }, { x: 43, y: 35 }],
+      [{ x: 18, y: 27 }, { x: 56, y: 50 }],
+      [{ x: 24, y: 18 }, { x: 55, y: 14 }],
     ];
     for (const [from, to] of pairs) {
       if (!walkable(from) || !walkable(to)) continue;
@@ -816,10 +819,10 @@ describe('paths and turns', () => {
       }
     }
     // across open ground: one straight line
-    const open = findPath({ x: 20, y: 23 }, { x: 23, y: 23 });
+    const open = findPath({ x: 36, y: 35 }, { x: 39, y: 35 });
     expect(open.length).toBeGreaterThan(0);
-    expect(lineClear(20.5, 23.5, 23.5, 23.5)).toBe(true);
-    expect(smoothPath(20.5, 23.5, open)).toEqual([{ x: 23, y: 23 }]);
+    expect(lineClear(36.5, 35.5, 39.5, 35.5)).toBe(true);
+    expect(smoothPath(36.5, 35.5, open)).toEqual([{ x: 39, y: 35 }]);
   });
 
   it('keeps the sprite direction until a new one leads clearly (no flicker on a path near an octant edge)', () => {
@@ -938,7 +941,7 @@ describe('paths and turns', () => {
     const all = () => [sim.player, ...sim.residents.values(), sim.cat!];
     let last = new Map(all().map((a) => [a.id, a.oct]));
     for (let i = 0; i < 60 * 120; i++) {
-      if (i % 150 === 0) sim.walkToTile({ x: Math.floor(rng() * TOWN_WORLD.size), y: Math.floor(rng() * TOWN_WORLD.size) });
+      if (i % 150 === 0) sim.walkToTile({ x: TOWN.x + Math.floor(rng() * TOWN.w), y: TOWN.y + Math.floor(rng() * TOWN.d) });
       sim.update(1 / 60);
       for (const a of all()) {
         const d = Math.abs(a.oct - (last.get(a.id) ?? a.oct));
@@ -1078,7 +1081,7 @@ describe('paths and turns', () => {
   it('the cat sits down and gets up through the in-between poses, turns only standing, and sits with room round it', () => {
     const sim = new TownSim(TOWN_WORLD, seeded(13));
     sim.setState({ built: WORLD_PLACES.map((p) => p.id), decorations: ['cat'] });
-    sim.walkToTile({ x: 7, y: 3 });
+    sim.walkToTile({ x: 23, y: 15 });
     const cat = sim.cat as Cat;
     let lastSit = cat.sit;
     let lastOct = cat.oct;
@@ -1123,24 +1126,24 @@ describe('paths and turns', () => {
 
   it('the last corner of a walk is cut when the way is clear (no walking along a row, then a sharp turn)', () => {
     // open plaza ground: a path along a row and then one tile up the column
-    const tiles = [{ x: 22, y: 22 }, { x: 23, y: 22 }, { x: 24, y: 22 }, { x: 24, y: 21 }];
+    const tiles = [{ x: 38, y: 34 }, { x: 39, y: 34 }, { x: 40, y: 34 }, { x: 40, y: 33 }];
     expect(tiles.every((t) => walkable(t))).toBe(true);
-    const pts = smoothPath(21.5, 22.5, tiles);
-    expect(pts[pts.length - 1]).toEqual({ x: 24, y: 21 });
+    const pts = smoothPath(37.5, 34.5, tiles);
+    expect(pts[pts.length - 1]).toEqual({ x: 40, y: 33 });
     // either one straight line, or a corner point before the last tile of the row
     if (pts.length > 1) expect(pts[pts.length - 2].x).toBeLessThan(23.5);
   });
   it('on open ground a click walk goes round somebody standing in its way (they are not shoved aside)', () => {
     // the plaza: the player at (20,22), somebody standing at (22,22), a walk to (24,22) straight through their tile
-    for (const t of [{ x: 20, y: 22 }, { x: 22, y: 22 }, { x: 24, y: 22 }, { x: 22, y: 21 }, { x: 22, y: 23 }]) expect(walkable(t)).toBe(true);
-    const sim = new TownSim(TOWN_WORLD, seeded(7), { x: 20, y: 22 });
+    for (const t of [{ x: 36, y: 34 }, { x: 38, y: 34 }, { x: 40, y: 34 }, { x: 38, y: 33 }, { x: 38, y: 35 }]) expect(walkable(t)).toBe(true);
+    const sim = new TownSim(TOWN_WORLD, seeded(7), { x: 36, y: 34 });
     sim.setState({ built: ['square'], decorations: [] });
     const r = sim.residents.get('square')!;
-    Object.assign(r, { x: 22.5, y: 22.5, tile: { x: 22, y: 22 }, path: [], wanderIn: 1e9 });
+    Object.assign(r, { x: 38.5, y: 34.5, tile: { x: 38, y: 34 }, path: [], wanderIn: 1e9 });
     let arrived = -1;
     let t = 0;
     let closest = Infinity;
-    expect(sim.walkToTile({ x: 24, y: 22 }, () => (arrived = t))).toBe(true);
+    expect(sim.walkToTile({ x: 40, y: 34 }, () => (arrived = t))).toBe(true);
     for (; t < 6; t += 1 / 60) {
       sim.update(1 / 60);
       closest = Math.min(closest, Math.hypot(sim.player.x - r.x, sim.player.y - r.y));
@@ -1149,16 +1152,16 @@ describe('paths and turns', () => {
     // the time of 5.1 tiles at most)
     expect(arrived).toBeGreaterThan(0);
     expect(arrived).toBeLessThan(5.1 / PLAYER_SPEED);
-    expect(Math.hypot(r.x - 22.5, r.y - 22.5)).toBeLessThan(0.01);
+    expect(Math.hypot(r.x - 38.5, r.y - 34.5)).toBeLessThan(0.01);
     expect(closest).toBeGreaterThanOrEqual(0.5);
   });
 
   it('a resident called to talk early in a diagonal step finishes it forwards (no about-face)', () => {
     for (const frac of [0.02, 0.08, 0.14, 0.2]) {
-      const sim = new TownSim(TOWN_WORLD, seeded(), { x: 14, y: 21 });
+      const sim = new TownSim(TOWN_WORLD, seeded(), { x: 30, y: 33 });
       sim.setState({ built: ['square'], decorations: [] });
       const r = sim.residents.get('square')!;
-      Object.assign(r, { x: 22.5 + frac, y: 22.5 + frac, tile: { x: 22, y: 22 }, path: [{ x: 23, y: 23 }], moving: true, v: 0.8, oct: 1, want: 1 });
+      Object.assign(r, { x: 38.5 + frac, y: 34.5 + frac, tile: { x: 38, y: 34 }, path: [{ x: 39, y: 35 }], moving: true, v: 0.8, oct: 1, want: 1 });
       sim.engage('square');
       const c = r.path[0];
       expect(c.x + 0.5 - r.x + (c.y + 0.5 - r.y), `${frac}`).toBeGreaterThan(0);
@@ -1166,7 +1169,8 @@ describe('paths and turns', () => {
   });
 
   it('a click walk never stays stuck behind somebody who cannot make way (one-tile roads, the cat)', { timeout: 30000 }, () => {
-    // every place built and the cat: random walks and talks; these seeds once boxed the player in for good in the
+    // every place built and the cat: random walks and talks in the town (not the countryside round it, which nobody
+    // lives in: a walk to its far corner takes longer than this budget); these seeds once boxed the player in for good in the
     // old west road (row 10 of the 21-tile town) behind residents and the cat getting up and sitting down again
     for (const [hz, seed] of [
       [60, 2],
@@ -1201,7 +1205,7 @@ describe('paths and turns', () => {
 
 describe('motion of the 3D town (planted feet need a body that goes where it faces)', () => {
   it('a long click walk is run, a short one walked; the run turns back into a walk before the end; Shift runs', () => {
-    const sim = new TownSim(TOWN_WORLD, seeded(), { x: 12, y: 22 });
+    const sim = new TownSim(TOWN_WORLD, seeded(), { x: 28, y: 34 });
     sim.setState({ built: [], decorations: [] });
     const top = (tile: Tile, seconds: number) => {
       sim.walkToTile(tile);
@@ -1216,7 +1220,7 @@ describe('motion of the 3D town (planted feet need a body that goes where it fac
       }
       return { most, lastStretch };
     };
-    const far = top({ x: 30, y: 24 }, 20);
+    const far = top({ x: 46, y: 36 }, 20);
     // (sliding round a corner the body may go a hair faster than its pace for a frame)
     expect(far.most).toBeGreaterThan(PLAYER_RUN * 0.99);
     expect(far.most).toBeLessThan(PLAYER_RUN * 1.01);
@@ -1228,12 +1232,12 @@ describe('motion of the 3D town (planted feet need a body that goes where it fac
   });
 
   it('round a corner the walk is an arc: the body faces the way it goes (no crab walk), the pace never drops to a stand', () => {
-    const a = actor({ x: 20, y: 22 });
+    const a = actor({ x: 36, y: 34 });
     a.speed = 1.5;
     a.oct = a.want = 0;
     a.yaw = 0;
     // along the plaza row, then a right-angle turn down the column (open ground)
-    a.path = [{ x: 24, y: 22 }, { x: 24, y: 26 }];
+    a.path = [{ x: 40, y: 34 }, { x: 40, y: 38 }];
     let worst = 0;
     let slowest = Infinity;
     let done = false;
@@ -1245,10 +1249,10 @@ describe('motion of the 3D town (planted feet need a body that goes where it fac
         const off = Math.abs(Math.atan2(Math.sin(Math.atan2(a.y - y, a.x - x) - a.yaw!), Math.cos(Math.atan2(a.y - y, a.x - x) - a.yaw!)));
         worst = Math.max(worst, off);
       }
-      if (i > 15 && !done && a.path.length === 1 && Math.hypot(a.x - 24.5, a.y - 26.5) > 1.2) slowest = Math.min(slowest, d * 60);
+      if (i > 15 && !done && a.path.length === 1 && Math.hypot(a.x - 40.5, a.y - 38.5) > 1.2) slowest = Math.min(slowest, d * 60);
     }
     expect(done).toBe(true);
-    expect([a.x, a.y]).toEqual([24.5, 26.5]);
+    expect([a.x, a.y]).toEqual([40.5, 38.5]);
     expect((worst * 180) / Math.PI).toBeLessThan(15);
     // it slows into the bend, never to a halt
     expect(slowest).toBeGreaterThan(0.5);
@@ -1273,13 +1277,13 @@ describe('motion of the 3D town (planted feet need a body that goes where it fac
   });
 
   it('two walkers kept apart by the gap rule stand a moment, then go round; nobody creeps at a crawl', () => {
-    const sim = new TownSim(TOWN_WORLD, seeded(5), { x: 14, y: 21 });
+    const sim = new TownSim(TOWN_WORLD, seeded(5), { x: 30, y: 33 });
     sim.setState({ built: ['square', 'cafe'], decorations: [] });
     const [r, q] = ['square', 'cafe'].map((id) => sim.residents.get(id as 'square' | 'cafe')!);
     for (const o of [r, q]) o.wanderIn = 1e9;
     // head on along the plaza row
-    Object.assign(r, { x: 20.5, y: 23.5, tile: { x: 20, y: 23 }, path: [{ x: 25, y: 23 }], moving: false, v: 0 });
-    Object.assign(q, { x: 25.5, y: 23.5, tile: { x: 25, y: 23 }, path: [{ x: 20, y: 23 }], moving: false, v: 0 });
+    Object.assign(r, { x: 36.5, y: 35.5, tile: { x: 36, y: 35 }, path: [{ x: 41, y: 35 }], moving: false, v: 0 });
+    Object.assign(q, { x: 41.5, y: 35.5, tile: { x: 41, y: 35 }, path: [{ x: 36, y: 35 }], moving: false, v: 0 });
     // the longest run of frames at a crawl (above a standstill, under a quarter of a stroll's pace), per walker
     const run = [0, 0];
     let crawl = 0;
@@ -1307,8 +1311,8 @@ describe('staging a talk (engine/staging.ts, docs/town.md §7 "Staging")', () =>
     const emma = sim.residents.get('cafe')!;
     const pace = emma.speed;
     let arrived = 0;
-    const residentAt = { x: 24.5, y: 17.5 };
-    const playerAt = { x: 23.75, y: 18.25 };
+    const residentAt = { x: 40.5, y: 29.5 };
+    const playerAt = { x: 39.75, y: 30.25 };
     expect(sim.gather('cafe', residentAt, playerAt, () => arrived++)).toBe(true);
     expect(emma.engaged).toBe(true);
     expect(emma.speed).toBeGreaterThanOrEqual(1.25);
@@ -1324,7 +1328,7 @@ describe('staging a talk (engine/staging.ts, docs/town.md §7 "Staging")', () =>
   it('gather refuses a spot nobody can stand on, and changes nothing then', () => {
     const sim = new TownSim(TOWN_WORLD, seeded());
     sim.setState({ built: START, decorations: [] });
-    expect(sim.gather('cafe', null, { x: 6.5, y: 14.5 })).toBe(false); // the lake
+    expect(sim.gather('cafe', null, { x: 22.5, y: 26.5 })).toBe(false); // the lake
     expect(sim.residents.get('cafe')!.engaged).toBe(false);
     expect(sim.goal).toBeNull();
   });
@@ -1332,11 +1336,11 @@ describe('staging a talk (engine/staging.ts, docs/town.md §7 "Staging")', () =>
   it('a resident goes into a room with the player and comes out of that door later; the player is put out of it', () => {
     const sim = new TownSim(TOWN_WORLD, seeded(), undefined, { clock: () => 10 * 60 });
     sim.setState({ built: START, decorations: [] });
-    const door = { x: 23, y: 17 };
+    const door = { x: 39, y: 29 };
     sim.goInside('cafe', door, 2);
     expect(sim.actor('cafe')).toBeNull();
-    sim.placePlayer({ x: 30.5, y: 30.5 }, Math.PI / 2);
-    expect(sim.player.tile).toEqual({ x: 30, y: 30 });
+    sim.placePlayer({ x: 46.5, y: 42.5 }, Math.PI / 2);
+    expect(sim.player.tile).toEqual({ x: 46, y: 42 });
     expect(sim.player.yaw).toBeCloseTo(Math.PI / 2);
     run(sim, 3);
     // (out of the same door: no stepping out of a wall)
@@ -1346,10 +1350,10 @@ describe('staging a talk (engine/staging.ts, docs/town.md §7 "Staging")', () =>
   it('a resident put further along their walk keeps the rest of it, and halt stops the player where they are', () => {
     const sim = new TownSim(TOWN_WORLD, seeded());
     sim.setState({ built: START, decorations: [] });
-    sim.jumpResident('cafe', { x: 22.5, y: 19.5 }, [{ x: 24, y: 19 }]);
-    expect(sim.residents.get('cafe')!.tile).toEqual({ x: 22, y: 19 });
-    expect(sim.pathOf('cafe')).toEqual([{ x: 24, y: 19 }]);
-    sim.walkToTile({ x: 14, y: 24 });
+    sim.jumpResident('cafe', { x: 38.5, y: 31.5 }, [{ x: 40, y: 31 }]);
+    expect(sim.residents.get('cafe')!.tile).toEqual({ x: 38, y: 31 });
+    expect(sim.pathOf('cafe')).toEqual([{ x: 40, y: 31 }]);
+    sim.walkToTile({ x: 30, y: 36 });
     run(sim, 0.5);
     sim.halt();
     run(sim, 1);

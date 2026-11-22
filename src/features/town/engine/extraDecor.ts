@@ -15,18 +15,18 @@ export interface ExtraDecorPiece {
 export const EXTRA_DECOR: Readonly<Record<string, readonly ExtraDecorPiece[]>> = {
   // Thắp đèn quanh hồ: lotus lanterns floating round the lake's edge (between the lilies), lit at night
   'proj-lake-lights': [
-    { at: { x: 5.6, y: 14.2 } },
-    { at: { x: 10.9, y: 15.6 } },
-    { at: { x: 7.2, y: 18.5 } },
-    { at: { x: 3.9, y: 15.4 } },
-    { at: { x: 9.6, y: 13.2 } },
+    { at: { x: 21.6, y: 26.2 } },
+    { at: { x: 26.9, y: 27.6 } },
+    { at: { x: 23.2, y: 30.5 } },
+    { at: { x: 19.9, y: 27.4 } },
+    { at: { x: 25.6, y: 25.2 } },
   ],
   // Lễ hội mùa thu: the stage on the open meadow south of the plaza, between the residential lane and the school
-  'proj-festival': [{ at: { x: 23.3, y: 30.6 } }],
-  // Bến cá mới: the pier goes on from its old end (WORLD_PROPS pier at 13.2, 15.5, 1.05 tiles long) over the water
-  'proj-pier': [{ at: { x: 12.15, y: 15.5 } }],
+  'proj-festival': [{ at: { x: 39.3, y: 42.6 } }],
+  // Bến cá mới: the pier goes on from its old end (WORLD_PROPS pier at 29.2, 27.5, 1.05 tiles long) over the water
+  'proj-pier': [{ at: { x: 28.15, y: 27.5 } }],
   // Vườn cộng đồng: two by two tiles of beds on the grass behind the boarding house
-  'proj-garden': [{ at: { x: 2, y: 29 } }],
+  'proj-garden': [{ at: { x: 18, y: 41 } }],
   // Tháp đồng hồ: on the grass where the lake path comes in, beside Leo's pavilion, tall enough to be seen from the plaza
-  'proj-clock-tower': [{ at: { x: 16.4, y: 17.6 } }],
+  'proj-clock-tower': [{ at: { x: 32.4, y: 29.6 } }],
 };

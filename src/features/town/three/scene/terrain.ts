@@ -48,7 +48,15 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
   const S = world.size;
   const ground = (x: number, y: number) => groundOf(world, x, y);
   // the hill: its tiles lie on the height field (finer cells, smooth normals); the rest of the town is flat
-  const lift = (x: number, z: number) => groundHeight(x, z, world);
+  // (kept per point: a vertex of the hill's fine cells is asked for by every cell round it, and its normal by the
+  // points beside it; four hills on the 72-tile island took 170 ms of the town's first long task without it)
+  const heights = new Map<number, number>();
+  const lift = (x: number, z: number) => {
+    const k = Math.round(x * 1000) * 1e6 + Math.round(z * 1000);
+    let h = heights.get(k);
+    if (h === undefined) heights.set(k, (h = groundHeight(x, z, world)));
+    return h;
+  };
   const hilly = (x: number, y: number) => lift(x, y) > 0 || lift(x + 1, y) > 0 || lift(x, y + 1) > 0 || lift(x + 1, y + 1) > 0 || lift(x + 0.5, y + 0.5) > 0;
   const isWater = (x: number, y: number) => ground(x, y) === 'water';
   // the pond's shore, rounded (shore.ts): the tiles beside it are drawn along that curve, not along their edges
@@ -99,7 +107,7 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
   const gMid = col(C.grass);
   const sand = col(C.sand);
   const pathC = col(C.path);
-  const grassAt = (vx: number, vz: number): Color => {
+  const grassOf = (vx: number, vz: number): Color => {
     // gentle large patches + a little fine noise
     const n = valueNoise(vx * 0.33, vz * 0.33, 1) * 0.75 + valueNoise(vx * 1.7, vz * 1.7, 2) * 0.25;
     const c = n < 0.5 ? gDeep.clone().lerp(gMid, n * 2) : gMid.clone().lerp(gLight, (n - 0.5) * 2);
@@ -124,6 +132,14 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
     const exact = Math.abs(vx - tx) < 1e-6 && Math.abs(vz - tz) < 1e-6;
     if (water > 0 && exact) c.lerp(sand, 0.9);
     else if (path > 0 && exact) c.lerp(pathC, 0.18);
+    return c;
+  };
+  // (kept per vertex, shared: a vertex belongs to the four cells round it; never changed in place by the callers)
+  const grassKept = new Map<number, Color>();
+  const grassAt = (vx: number, vz: number): Color => {
+    const k = Math.round(vx * 1000) * 1e6 + Math.round(vz * 1000);
+    let c = grassKept.get(k);
+    if (!c) grassKept.set(k, (c = grassOf(vx, vz)));
     return c;
   };
   const plazaA = col(C.plazaA);
@@ -287,7 +303,7 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
     return v;
   };
   const landAt = (px: number, pz: number, g: ReturnType<typeof ground>, d: number) => {
-    const c = g === 'path' ? pathBase.clone() : grassAt(px, pz);
+    const c = g === 'path' ? pathBase.clone() : grassAt(px, pz).clone();
     // the beach: sand at the water's edge, fading into the grass (a path keeps a little of its own colour)
     return c.lerp(sand, Math.max(0, Math.min(1, 1 - d / 0.32)) * (g === 'path' ? 0.55 : 0.9));
   };

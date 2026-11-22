@@ -35,12 +35,12 @@ describe('where a resident is, in words', () => {
     const p = { ...place('cafe'), built: true };
     expect(whereIs(at('cafe', cafe.spot.x + 0.5, cafe.spot.y + 0.5), p)).toBe('đang ở trước nhà');
     expect(whereIs(at('cafe', 3, 3, true), p)).toBe('đang ở trong nhà');
-    expect(whereIs(at('cafe', 40.5, 3.5), p)).toBe('đang ở Nông trại');
+    expect(whereIs(at('cafe', 56.5, 15.5), p)).toBe('đang ở Nông trại');
     expect(whereIs(undefined, p)).toBeNull();
   });
   it('a lodger by the boarding house is at the boarding house', () => {
     const p = { ...place('cinema'), built: false };
-    expect(whereIs(at('cinema', 4.5, 33.5), p)).toBe('đang ở nhà trọ');
+    expect(whereIs(at('cinema', 20.5, 45.5), p)).toBe('đang ở nhà trọ');
     expect(whereIs(at('cinema', 4.5, 33.5, true), p)).toBe('đang ở nhà trọ');
   });
 });
@@ -60,14 +60,14 @@ describe('the card', () => {
     expect(c.wait).toContain(`${lot.cost} xu`);
   });
   it('a resident: their name and their place', () => {
-    const c = cardFor({ kind: 'resident', id: 'cafe' }, overview.places, [at('cafe', 21.5, 21.5)])!;
+    const c = cardFor({ kind: 'resident', id: 'cafe' }, overview.places, [at('cafe', 37.5, 33.5)])!;
     expect(c.title).toBe('Emma');
     expect(c.sub).toContain('Quán cà phê');
     expect(c.sub).toContain('đang ở Quảng trường');
   });
   it('an activity and a patch of ground', () => {
     expect(cardFor({ kind: 'activity', id: 'fish' }, overview.places, [])).toMatchObject({ title: 'Câu cá', activity: 'fish' });
-    expect(cardFor({ kind: 'tile', x: 24.5, y: 36.5 }, overview.places, [])).toMatchObject({ title: 'Bãi cỏ', sub: 'Đi tới đây' });
+    expect(cardFor({ kind: 'tile', x: 40.5, y: 48.5 }, overview.places, [])).toMatchObject({ title: 'Bãi cỏ', sub: 'Đi tới đây' });
   });
 });
 

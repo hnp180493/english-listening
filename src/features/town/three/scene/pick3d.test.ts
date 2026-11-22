@@ -23,19 +23,19 @@ describe('3D town picking', () => {
   it('meets the raised ground of the hill, not the flat under it', () => {
     const lift = (x: number, z: number) => groundHeight(x, z);
     // looking at the hill's top from the camera's side (south-east, 33° down): the point under the pointer is on it
-    const top: [number, number, number] = [8.5, groundHeight(8.5, 6.5), 6.5];
+    const top: [number, number, number] = [24.5, groundHeight(24.5, 18.5), 18.5];
     const r = toward([top[0] + 12, top[1] + 11, top[2] + 12], top);
     const t = rayGround(r, lift)!;
-    expect(r.o.x + r.d.x * t).toBeCloseTo(8.5, 2);
-    expect(r.o.z + r.d.z * t).toBeCloseTo(6.5, 2);
+    expect(r.o.x + r.d.x * t).toBeCloseTo(24.5, 2);
+    expect(r.o.z + r.d.z * t).toBeCloseTo(18.5, 2);
     // the plane y = 0 alone would put it a tile and more further on
     const flat = rayPlaneY(r)!;
     expect(Math.hypot(r.d.x, r.d.z) * (flat - t)).toBeGreaterThan(1);
     // on the slope, and the hovered tile is the one the pointer is over
-    const slope: [number, number, number] = [11.2, groundHeight(11.2, 8.1), 8.1];
+    const slope: [number, number, number] = [27.2, groundHeight(27.2, 20.1), 20.1];
     const r2 = toward([slope[0] + 12, slope[1] + 11, slope[2] + 12], slope);
-    const hit = pick3(r2, [], [], 44, () => true, lift);
-    expect(hit).toMatchObject({ kind: 'tile', tile: { x: 11, y: 8 } });
+    const hit = pick3(r2, [], [], 72, () => true, lift);
+    expect(hit).toMatchObject({ kind: 'tile', tile: { x: 27, y: 20 } });
     // without a field it is the plane
     expect(rayGround(r)).toBeCloseTo(flat);
   });

@@ -50,7 +50,8 @@ export interface MapScene {
   blocks: Block[];
   /** Small round things on the ground: hay bales, the well, bushes, rocks, the fountain. */
   dots: { x: number; y: number; r: number; color: string; rim?: string }[];
-  hill: { x: number; y: number; r: number } | null;
+  /** The hills (a soft light patch each). */
+  hills: { x: number; y: number; r: number }[];
   pier: Pt[] | null;
 }
 
@@ -160,17 +161,17 @@ export function mapScene(state: MapState, world: TownWorld = TOWN_WORLD): MapSce
     const inset = prop.kind === 'inn' || prop.kind === 'bus' ? 0.12 : 0.22;
     blocks.push({ id: `prop:${prop.kind}:${prop.tiles[0].x},${prop.tiles[0].y}`, corners: footprint(boxOf(prop.tiles), inset), h: art.h, art, status: 'prop' });
   }
-  let hill: MapScene['hill'] = null;
+  const hills: MapScene['hills'] = [];
   for (const s of world.scenery ?? []) {
-    if (s.kind === 'hill' && s.at && s.r) hill = { x: s.at.x + 0.5, y: s.at.y + 0.5, r: s.r };
-    else if (s.kind === 'barn' && s.tiles.length > 0) blocks.push({ id: 'barn', corners: footprint(boxOf(s.tiles), 0.1), h: PROP_ART.barn.h, art: PROP_ART.barn, status: 'prop' });
+    if (s.kind === 'hill' && s.at && s.r) hills.push({ x: s.at.x + 0.5, y: s.at.y + 0.5, r: s.r });
+    else if (s.kind === 'barn' && s.tiles.length > 0) blocks.push({ id: `barn:${s.tiles[0].x},${s.tiles[0].y}`, corners: footprint(boxOf(s.tiles), 0.1), h: PROP_ART.barn.h, art: PROP_ART.barn, status: 'prop' });
     else if (s.kind === 'well') for (const t of s.tiles) dots.push({ x: t.x + 0.5, y: t.y + 0.5, r: 0.3, color: C.stone, rim: C.waterDeep });
     else if (s.kind === 'haybale') for (const t of s.tiles) dots.push({ x: t.x + 0.5, y: t.y + 0.5, r: 0.3, color: C.mustard });
     else if (s.kind === 'bush') for (const t of s.tiles) dots.push({ x: t.x + 0.5, y: t.y + 0.5, r: 0.32, color: C.leafDeep });
     else if (s.kind === 'rock') for (const t of s.tiles) dots.push({ x: t.x + 0.5, y: t.y + 0.5, r: 0.28, color: C.rock });
   }
   if (state.decorations.has('fountain')) for (const s of world.decorations.fountain ?? []) dots.push({ x: s.x + 0.5, y: s.y + 0.5, r: 0.55, color: C.waterShallow, rim: C.stone });
-  return { world, water, waterDeep, plaza, paths, fields, trees, blocks, dots, hill, pier };
+  return { world, water, waterDeep, plaza, paths, fields, trees, blocks, dots, hills, pier };
 }
 
 export interface DrawOptions {
@@ -227,8 +228,7 @@ export function drawMap(ctx: CanvasRenderingContext2D, scene: MapScene, v: MapVi
   // the ground, drawn in grid units through the view's matrix
   const m = viewMatrix(v, box);
   ctx.setTransform(m[0] * dpr, m[1] * dpr, m[2] * dpr, m[3] * dpr, m[4] * dpr, m[5] * dpr);
-  if (scene.hill) {
-    const h = scene.hill;
+  for (const h of scene.hills) {
     const g = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.r);
     g.addColorStop(0, ink(C.grassLight));
     g.addColorStop(1, 'rgba(0,0,0,0)');

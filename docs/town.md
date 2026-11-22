@@ -328,7 +328,8 @@ closes), `build=<placeId | 1>` opens the build panel (on that lot), `activity=<i
 only: `r=flat` shows the page as a browser without 3D sees it (below, "Without 3D").
 
 Since 2026-11-21 the world is drawn in real time with three.js (the owner found the sprite town "cheap" and its
-animation poor, and asked for a bigger town: 44 × 44 tiles). Everything in it is built in code at run time: no model,
+animation poor, and asked for a bigger town: 44 × 44 tiles; since 2026-11-22 that town is the middle of a 72 × 72 island
+of countryside, "The countryside" below). Everything in it is built in code at run time: no model,
 no picture file, nothing rendered offline.
 
 | File | What it is |
@@ -519,6 +520,57 @@ Every other lot is a corner of nature (a tree or two and a stone: `lotNature` in
 every time): no fence, no price, nothing to click or hover (`pickAt` skips it, and the "Xây" prompt at its gate does not
 come up). Only its trees and stone block the way (Moving about). The build panel still lists every lot, so any lot can be built in
 any order; the hidden keyboard list keeps one button per lot too.
+
+**The countryside** (2026-11-22; `data/townWorld.ts`). Once the camera moved out (a grown-up a ninth of the stage
+high) the owner found the 44 × 44 town "nhỏ nhỏ", the town itself too small, not the map's frame. The island grew to
+72 × 72 tiles: the town keeps its 44 × 44 tiles in the middle, every coordinate of it moved by (16, 12) (x + 16,
+y + 12: the fountain 21,21 → 37,33, the start 22,23 → 38,35), and a ring of open land goes round it. No new
+buildings, nobody new lives there; the ring is for walking and looking:
+- **Rừng thông** (the far corner, x 0..32 × y 0..26): a dense pine wood with a forest trail from the woods' path up
+  to a bigger hill (9,11: radius 6.5, 1.9 high) with a lookout of two benches, like the old hill's; trees thin out on
+  its slopes.
+- **Cánh đồng** (y 0..11 to the right, and down the right edge to y 23): the farm lane goes on north off the island;
+  a field track runs west from it through the fields to the forest and the big hill, and east to the country road;
+  six fields of the town's own (always in leaf, the farm prop without the activity), a second barn with its well,
+  hay bales, a fence between a field and the road.
+- **Hồ lớn** (x 0..15 below the forest): a big lake; the old lake path goes on down its east shore (the lake road,
+  x 15) to the residential lane, and a shore walk leaves the island west along its north side; benches over the
+  water, two anglers' spots, ducks.
+- **Đồi cỏ** (y 56..71): grassy meadows with two low hills (one with a bench on top) and a lotus pond with ducks; the
+  hills' lane runs from the residential lane past the pond to the main road, and a footpath leaves the island south.
+- **Đường quê** (x 60..71): the country road from the fields down to the main road (which goes on east off the
+  island), the orchard track from the east lane, two rows of fruit trees with a fruit stall under them, and a rest
+  stop (bench, lantern, signpost) where the country road meets the main road.
+
+The lanes make one loop round the town (forest trail → field track → country road → main road → hills' lane → lake
+road), each tied into the old streets where those left the 44-tile island. Everyday life uses it (WORLD_LIFE): the
+ways out (`ends`) are now at the new edge (the main road east, the farm lane north, the shore walk west, the footpath
+south), and passers-by walk past ten more spots in the countryside, so they spend part of their walk out there; seats
+on the new benches, five more chat spots, people tending the fields, two anglers at the big lake, a customer at the
+fruit stall. The map's district labels (`WORLD_DISTRICTS`, 15 now) and the travel menu name the new parts; the map
+draws every hill (`drawMap.ts`, it drew only one). The lots, places, rooms, staging, activities, links (`?talk=`,
+`?build=`, `?activity=`) and what is stored are unchanged: nothing stored holds a coordinate (`town-progress` keeps
+ids; the player's last tile lives only in the page's memory), the town projects' spots (`extraDecor.ts`) moved with the
+town, and the plaza pair of `staging.ts` is measured from the plaza's centre.
+
+What it costs: the trees and grass tufts are instanced per 12 × 12 tiles of the map (`nature.ts CELL`; one mesh per
+kind for the whole map until then), so the camera and the shadow pass skip the cells they do not see: walking, the
+triangles went down (0.26–0.41 M, from 0.43–0.57 M on the 44-tile island, where every tree was drawn every frame),
+draw calls 59–101. The ground keeps each vertex's height and grass colour once (`terrain.ts`; the hills' fine cells
+asked for each height up to five times, and the four hills took 170 ms of the first long task without it); the
+ground of the bigger island still takes about 2.5 times as long to make (84–97 ms against 33–42 ms in Node), but a
+reload's longest task in the production build is 125–130 ms. The overview shows the whole island: 544–548 draw calls,
+1.56–1.59 M triangles, still 60 fps on the owner's laptop GPU.
+
+Checked only in headless Edge on the owner's laptop GPU (ANGLE / D3D11, RTX 3060 Laptop) with a fresh town: the
+player put at seven spots (the plaza, the big hill, the fields, the big lake, the pond, the country road, the old
+woods) and the overview, 1600 × 900 and 390 × 844 (2× pixel ratio), day and night: 60 fps everywhere, the engine's
+own work 1.4–2.8 ms, no console errors; a few screenshots of the new parts and of the map. Tests check the ground
+(three bodies of water, every hill walkable and never steeper than about 32°, no pocket a walk from the start cannot
+reach, everything on its own tile), the colliders against the models, and the path finder against the body. Not
+checked: by a person, walking the lanes by hand, on a real phone or a weak laptop, a rich town in the countryside,
+whether the open meadows and fields read as calm or as empty, and whether passers-by spending part of their walk
+in the countryside leaves the town feeling emptier.
 
 **Toàn màn hình.** The last HUD button (Maximize2 / Minimize2, "Toàn màn hình" / "Thu nhỏ") puts the stage over the
 whole window: the Fullscreen API on the stage's own box when the browser has it (it hides the browser's bars), and
@@ -1029,7 +1081,7 @@ the bank that rounds a corner over the water is only seen, not walked on.
 2026-11-21: 60 fps everywhere checked (1600 × 900 and 390 × 844 at 2× pixel ratio, day and night, a fresh town and a
 rich one with every place, decoration and project, walking, a conversation, every panel): 64–130 draw calls,
 430,000–570,000 triangles, the engine's own work 3.3–5.7 ms a frame (sim, people, camera, overlay; not the GPU). Merged
-geometry (`merge.ts`: one mesh per place, chunked ground, instanced trees and tufts), shared materials and one face
+geometry (`merge.ts`: one mesh per place, chunked ground, instanced trees and tufts per 12 × 12 tiles since 2026-11-22), shared materials and one face
 atlas keep the calls low. A device that cannot keep up gets lighter by itself, one step each time frames stay over
 24 ms for two seconds (`setQuality`): a sharp screen drawn at a lower pixel ratio (never below 1), then a 1024² shadow
 map, then no shadows (their shaders compiled in the background first, `compileAsync`), then 0.75 pixel ratio; eight

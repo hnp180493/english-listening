@@ -47,6 +47,10 @@ describe('the rounded shore', () => {
     for (let ty = 0; ty < S; ty++) {
       for (let tx = 0; tx < S; tx++) {
         if (isWater(tx, ty)) continue;
+        // the drawn water never reaches further than WATER_SLACK past its tiles: only the tiles near it can go wrong
+        let near = false;
+        for (let y = ty - 3; y <= ty + 3 && !near; y++) for (let x = tx - 3; x <= tx + 3; x++) if (isWater(x, y)) near = true;
+        if (!near) continue;
         for (let sy = 0; sy <= 10; sy++) {
           for (let sx = 0; sx <= 10; sx++) {
             const px = tx + sx / 10;

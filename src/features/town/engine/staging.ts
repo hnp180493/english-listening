@@ -47,7 +47,7 @@ export function outward(face: 'x' | 'y'): number {
  * The plaza for a talk with somebody who is not Leo (a lodger whose stall, bench or ticket table stands there): south
  * of the fountain, side by side on the screen (along (1, −1): the default view looks from +x+y), the fountain behind.
  */
-const PLAZA_PAIR = { resident: { x: 21.5, y: 23.6 }, player: { x: 22.3, y: 22.85 } } as const;
+const PLAZA_PAIR = { resident: { x: 0, y: 2.1 }, player: { x: 0.8, y: 1.35 } } as const;
 
 /**
  * Where a talk outside at `at` happens with the resident of `residentId`: at a place's front the resident stands at
@@ -57,7 +57,9 @@ const PLAZA_PAIR = { resident: { x: 21.5, y: 23.6 }, player: { x: 22.3, y: 22.85
 export function outsideSpots(world: TownWorld, at: string, residentId: string): OutsideSpots | null {
   if (at === 'square' && residentId !== 'square') {
     const { plaza } = world;
-    return { resident: { ...PLAZA_PAIR.resident }, player: { ...PLAZA_PAIR.player }, backdrop: { x: plaza.x, y: plaza.y, h: 1.2 } };
+    // (PLAZA_PAIR is measured from the plaza's centre: the town moved when the countryside grew round it)
+    const from = (d: Pt): Pt => ({ x: plaza.x + d.x, y: plaza.y + d.y });
+    return { resident: from(PLAZA_PAIR.resident), player: from(PLAZA_PAIR.player), backdrop: { x: plaza.x, y: plaza.y, h: 1.2 } };
   }
   const p = placeOf(world, at);
   if (!p) return null;

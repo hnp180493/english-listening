@@ -7,18 +7,24 @@ const tileOf = (p: { x: number; y: number }) => ({ x: Math.floor(p.x), y: Math.f
 
 describe('districtAt', () => {
   it('names the part of town a point is in', () => {
-    expect(districtAt(21.5, 21.5)?.id).toBe('plaza');
-    expect(districtAt(40.5, 3.5)?.id).toBe('farm');
-    expect(districtAt(5.5, 15.5)?.id).toBe('park');
-    expect(districtAt(3.5, 31.5)?.id).toBe('homes');
+    expect(districtAt(37.5, 33.5)?.id).toBe('plaza');
+    expect(districtAt(56.5, 15.5)?.id).toBe('farm');
+    expect(districtAt(21.5, 27.5)?.id).toBe('park');
+    expect(districtAt(19.5, 43.5)?.id).toBe('homes');
+    // the countryside round the town (2026-11-22)
+    expect(districtAt(9.5, 11.5)?.id).toBe('forest');
+    expect(districtAt(40.5, 3.5)?.id).toBe('fields');
+    expect(districtAt(7.5, 41.5)?.id).toBe('lake');
+    expect(districtAt(40.5, 64.5)?.id).toBe('hills');
+    expect(districtAt(65.5, 30.5)?.id).toBe('country');
   });
   it('takes the smaller district where two overlap', () => {
     // the bus station's box sits in the corner of the main road's
-    expect(districtAt(37.5, 35.5)?.id).toBe('station');
+    expect(districtAt(53.5, 47.5)?.id).toBe('station');
   });
   it('is null outside every district and the island', () => {
     expect(districtAt(-3, 4)).toBeNull();
-    expect(districtAt(60, 60)).toBeNull();
+    expect(districtAt(80, 80)).toBeNull();
   });
 });
 

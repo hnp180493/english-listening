@@ -46,23 +46,23 @@ describe('what a click on the map lands on', () => {
     const kiosk = WORLD_ACTIVITIES.eggs.look;
     const k = toBox(V, BOX, kiosk.x, kiosk.y, 0.3);
     expect(hitMap(V, BOX, k.x, k.y, SHAPES)).toEqual({ kind: 'activity', id: 'eggs' });
-    const field = toBox(V, BOX, 40.5, 3.6);
+    const field = toBox(V, BOX, 56.5, 15.6);
     expect(hitMap(V, BOX, field.x, field.y, SHAPES)).toEqual({ kind: 'activity', id: 'farm' });
   });
 
   it('open ground: the point of the ground under the pointer', () => {
     // the meadow, nothing standing there
-    const p = toBox(V, BOX, 24.5, 36.5);
+    const p = toBox(V, BOX, 40.5, 48.5);
     const hit = hitMap(V, BOX, p.x, p.y, SHAPES);
     expect(hit?.kind).toBe('tile');
     if (hit?.kind === 'tile') {
-      expect(hit.x).toBeCloseTo(24.5, 6);
-      expect(hit.y).toBeCloseTo(36.5, 6);
+      expect(hit.x).toBeCloseTo(40.5, 6);
+      expect(hit.y).toBeCloseTo(48.5, 6);
     }
   });
 
   it('nothing on the lake or off the island', () => {
-    const lake = toBox(V, BOX, 7.5, 15.5);
+    const lake = toBox(V, BOX, 23.5, 27.5);
     expect(hitMap(V, BOX, lake.x, lake.y, SHAPES)).toBeNull();
     const off = toBox(V, BOX, -6, 22);
     expect(hitMap(V, BOX, off.x, off.y, SHAPES)).toBeNull();

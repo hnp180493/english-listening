@@ -77,12 +77,12 @@ describe('walkable', () => {
 
   it('the town: plaza and streets are open, the pond, the barn and every lot are closed; the fountain once bought', () => {
     expect(walkable(TOWN_WORLD.start)).toBe(true);
-    expect(walkable(P(21, 21))).toBe(true); // the fountain's spot, nothing bought
-    expect(walkable(P(21, 21), walkWorld(TOWN_WORLD, { built: [], decorations: ['fountain'] }))).toBe(false);
-    expect(walkable(P(8, 16))).toBe(false); // the lake
-    expect(walkable(P(20, 21))).toBe(true);
-    expect(walkable(P(35, 2))).toBe(false); // the barn (scenery)
-    expect(walkable(P(8, 6))).toBe(true); // the hill's top (scenery that is ground)
+    expect(walkable(P(37, 33))).toBe(true); // the fountain's spot, nothing bought
+    expect(walkable(P(37, 33), walkWorld(TOWN_WORLD, { built: [], decorations: ['fountain'] }))).toBe(false);
+    expect(walkable(P(24, 28))).toBe(false); // the lake
+    expect(walkable(P(36, 33))).toBe(true);
+    expect(walkable(P(51, 14))).toBe(false); // the barn (scenery)
+    expect(walkable(P(24, 18))).toBe(true); // the hill's top (scenery that is ground)
     for (const p of WORLD_PLACES) {
       expect(walkable(P(p.x, p.y)), p.id).toBe(false);
       expect(walkable(P(p.x + p.w - 1, p.y + p.d - 1)), p.id).toBe(false);
@@ -205,6 +205,6 @@ describe('places', () => {
     expect(placeAtTile(P(3, 2), SMALL)?.id).toBe('home');
     expect(placeAtTile(P(3.4, 1.9), SMALL)?.id).toBe('home');
     expect(placeAtTile(P(4, 2), SMALL)).toBeUndefined();
-    expect(placeAtTile(P(23, 16))?.id).toBe('cafe');
+    expect(placeAtTile(P(39, 28))?.id).toBe('cafe');
   });
 });

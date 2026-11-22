@@ -58,8 +58,8 @@ function walkLength(from: Tile, path: readonly Tile[]): number {
 }
 
 describe('the ground', () => {
-  it('is a square grid of known characters, 44 tiles a side', () => {
-    expect(size).toBe(44);
+  it('is a square grid of known characters, 72 tiles a side', () => {
+    expect(size).toBe(72);
     expect(WORLD_ROWS).toHaveLength(size);
     for (const row of WORLD_ROWS) {
       expect(row).toHaveLength(size);
@@ -69,7 +69,7 @@ describe('the ground', () => {
 
   it('has a round plaza around one fountain, a lake, paths and plenty of trees', () => {
     const f = worldFountain();
-    expect(f).toEqual({ x: 21, y: 21 });
+    expect(f).toEqual({ x: 37, y: 33 });
     expect(groundAt(f!)).toBe('plaza');
     const { plaza } = TOWN_WORLD;
     let plazaTiles = 0;
@@ -98,42 +98,54 @@ describe('the ground', () => {
 
   it('five streets leave the plaza, none of them one straight line', () => {
     const exits = [
-      { x: 21, y: 16 }, // the market street (north)
-      { x: 16, y: 21 }, // to the lake (west)
-      { x: 26, y: 21 }, // the east lane
-      { x: 25, y: 25 }, // the main road (south-east)
-      { x: 18, y: 25 }, // the residential lane (south-west)
+      { x: 37, y: 28 }, // the market street (north)
+      { x: 32, y: 33 }, // to the lake (west)
+      { x: 42, y: 33 }, // the east lane
+      { x: 41, y: 37 }, // the main road (south-east)
+      { x: 34, y: 37 }, // the residential lane (south-west)
     ];
     for (const t of exits) {
       expect(groundAt(t), key(t)).toBe('path');
       expect(NEIGHBOURS.some((d) => groundAt({ x: t.x + d.x, y: t.y + d.y }) === 'plaza'), key(t)).toBe(true);
     }
     // the main road bends: its tiles do not all lie on one diagonal or one row
-    const road = WORLD_ROWS.flatMap((row, y) => [...row].map((c, x) => ({ c, x, y }))).filter((t) => t.c === '=' && t.x >= 25 && t.y >= 25);
+    const road = WORLD_ROWS.flatMap((row, y) => [...row].map((c, x) => ({ c, x, y }))).filter((t) => t.c === '=' && t.x >= 41 && t.y >= 37 && t.x < 60 && t.y < 56);
     expect(new Set(road.map((t) => t.x - t.y)).size).toBeGreaterThan(4);
   });
 
-  it('the lake is one body of water, its middle on the water (the ducks paddle round it)', () => {
+  it('three bodies of water (the park lake, the big lake, the pond), each round: its middle on the water, ducks on it', () => {
     const water: Tile[] = [];
     WORLD_ROWS.forEach((row, y) => [...row].forEach((c, x) => c === '~' && water.push({ x, y })));
-    const seen = new Set([key(water[0])]);
-    const queue = [water[0]];
-    for (let i = 0; i < queue.length; i++) {
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const n = { x: queue[i].x + dx, y: queue[i].y + dy };
-        if (groundAt(n) === 'water' && !seen.has(key(n))) {
-          seen.add(key(n));
-          queue.push(n);
+    const left = new Set(water.map(key));
+    const bodies: Tile[][] = [];
+    for (const t of water) {
+      if (!left.has(key(t))) continue;
+      left.delete(key(t));
+      const body = [t];
+      for (let i = 0; i < body.length; i++) {
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const n = { x: body[i].x + dx, y: body[i].y + dy };
+          if (left.has(key(n))) {
+            left.delete(key(n));
+            body.push(n);
+          }
         }
       }
+      bodies.push(body);
     }
-    expect(seen.size).toBe(water.length);
-    const mid = { x: Math.floor(water.reduce((s, t) => s + t.x + 0.5, 0) / water.length), y: Math.floor(water.reduce((s, t) => s + t.y + 0.5, 0) / water.length) };
-    expect(groundAt(mid)).toBe('water');
+    expect(bodies).toHaveLength(3);
+    for (const body of bodies) {
+      expect(body.length).toBeGreaterThanOrEqual(20);
+      const mid = { x: Math.floor(body.reduce((s, t) => s + t.x + 0.5, 0) / body.length), y: Math.floor(body.reduce((s, t) => s + t.y + 0.5, 0) / body.length) };
+      expect(groundAt(mid), key(mid)).toBe('water');
+      // no water at the island's rim (its frame of grass): two tiles clear of the edge
+      for (const t of body) expect(Math.min(t.x, t.y, size - 1 - t.x, size - 1 - t.y), key(t)).toBeGreaterThanOrEqual(3);
+      const ducks = WORLD_SCENERY.filter((s) => s.kind === 'duck' && body.some((t) => t.x === Math.floor(s.at!.x) && t.y === Math.floor(s.at!.y)));
+      expect(ducks.length, key(body[0])).toBeGreaterThanOrEqual(2);
+    }
   });
 
-  it('the hill rises smoothly to its top and the rest of the town is flat', () => {
-    const hill = WORLD_SCENERY.find((s) => s.kind === 'hill')!;
+  it.each(WORLD_SCENERY.filter((s) => s.kind === 'hill').map((h) => [`${h.at!.x},${h.at!.y}`, h] as const))('the hill at %s rises smoothly to its top and the rest of the town is flat', (_, hill) => {
     const top = { x: hill.at!.x + 0.5, y: hill.at!.y + 0.5 };
     expect(groundHeight(top.x, top.y)).toBeCloseTo(hill.h!);
     // a level top (the viewpoint's benches), then down
@@ -226,9 +238,9 @@ describe('places', () => {
 });
 
 describe('districts', () => {
-  it('ten parts of town, each named, inside the map, with a reachable street to arrive on', () => {
-    expect(WORLD_DISTRICTS).toHaveLength(10);
-    expect(new Set(WORLD_DISTRICTS.map((d) => d.id)).size).toBe(10);
+  it('fifteen parts of town, each named, inside the map, with a reachable street to arrive on', () => {
+    expect(WORLD_DISTRICTS).toHaveLength(15);
+    expect(new Set(WORLD_DISTRICTS.map((d) => d.id)).size).toBe(15);
     expect(TOWN_WORLD.districts).toBe(WORLD_DISTRICTS);
     for (const d of WORLD_DISTRICTS) {
       expect(d.name.length, d.id).toBeGreaterThan(0);

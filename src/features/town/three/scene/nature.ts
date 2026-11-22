@@ -1,5 +1,7 @@
 // Trees, bushes, grass tufts and flowers of the 3D town: a handful of shapes drawn many times each (instancing),
-// swaying gently in the wind (materials.ts `sway`; none under reduced motion).
+// swaying gently in the wind (materials.ts `sway`; none under reduced motion). Each kind is drawn per CELL × CELL
+// tiles of the map (one instanced mesh each), so the camera and the shadow pass skip what they do not see: since the
+// countryside grew round the town (72 × 72 tiles, 2026-11-22) most of the trees are far from the player.
 
 import { Color, Group, InstancedMesh, Object3D, type BufferGeometry } from 'three';
 import type { TreeSpot, Tuft } from './layout';
@@ -66,37 +68,54 @@ export interface Nature {
 
 const o = new Object3D();
 
+/** Tiles per side of a cell of nature (one instanced mesh per kind per cell, culled as a whole). */
+export const CELL = 12;
+
+/** The items grouped by the cell of the map they stand in. */
+export function byCell<T extends { x: number; z: number }>(items: readonly T[]): T[][] {
+  const cells = new Map<string, T[]>();
+  for (const it of items) {
+    const k = `${Math.floor(it.x / CELL)},${Math.floor(it.z / CELL)}`;
+    let list = cells.get(k);
+    if (!list) cells.set(k, (list = []));
+    list.push(it);
+  }
+  return [...cells.values()];
+}
+
 /** How high the ground is under a point (the hill: data/townWorld.ts groundHeight); flat when not given. */
 export type Lift = (x: number, z: number) => number;
 const FLAT: Lift = () => 0;
 
-/** One instanced mesh per kind of tree, each tree a little different (size, turn, colour), standing on the ground. */
+/** One instanced mesh per kind of tree and cell of the map, each tree a little different (size, turn, colour), standing on the ground. */
 export function buildTrees(spots: readonly TreeSpot[], mats: Materials, castShadow = true, lift: Lift = FLAT): Nature {
   const group = new Group();
   group.name = 'trees';
   const geos: BufferGeometry[] = [];
   const kinds: TreeSpot['kind'][] = ['round', 'pine', 'bush', 'blossom'];
   for (const kind of kinds) {
-    const list = spots.filter((s) => s.kind === kind);
-    if (list.length === 0) continue;
+    const all = spots.filter((s) => s.kind === kind);
+    if (all.length === 0) continue;
     const geo = treeGeometry(kind);
     geos.push(geo);
-    const inst = new InstancedMesh(geo, mats.sway, list.length);
-    list.forEach((s, i) => {
-      o.position.set(s.x, lift(s.x, s.z), s.z);
-      o.rotation.set(0, s.seed * Math.PI * 2, 0);
-      o.scale.setScalar(s.scale);
-      o.updateMatrix();
-      inst.setMatrixAt(i, o.matrix);
-      const c = new Color('#ffffff');
-      shadeColor(c, -s.seed * 0.18);
-      if (kind === 'round') c.lerp(new Color(s.seed > 0.6 ? '#e8ffd0' : '#d8f0ff'), 0.25);
-      inst.setColorAt(i, c);
-    });
-    inst.castShadow = castShadow;
-    inst.receiveShadow = true;
-    inst.computeBoundingSphere();
-    group.add(inst);
+    for (const list of byCell(all)) {
+      const inst = new InstancedMesh(geo, mats.sway, list.length);
+      list.forEach((s, i) => {
+        o.position.set(s.x, lift(s.x, s.z), s.z);
+        o.rotation.set(0, s.seed * Math.PI * 2, 0);
+        o.scale.setScalar(s.scale);
+        o.updateMatrix();
+        inst.setMatrixAt(i, o.matrix);
+        const c = new Color('#ffffff');
+        shadeColor(c, -s.seed * 0.18);
+        if (kind === 'round') c.lerp(new Color(s.seed > 0.6 ? '#e8ffd0' : '#d8f0ff'), 0.25);
+        inst.setColorAt(i, c);
+      });
+      inst.castShadow = castShadow;
+      inst.receiveShadow = true;
+      inst.computeBoundingSphere();
+      group.add(inst);
+    }
   }
   return {
     group,
@@ -114,21 +133,23 @@ export function buildTufts(list: readonly Tuft[], mats: Materials, lift: Lift = 
   const geos: BufferGeometry[] = [];
   const grass = list.filter((t) => t.kind === 'grass');
   const flowers = list.filter((t) => t.kind === 'flower');
-  const make = (geo: BufferGeometry, items: readonly Tuft[], tint: (t: Tuft) => Color) => {
-    if (items.length === 0) return;
+  const make = (geo: BufferGeometry, all: readonly Tuft[], tint: (t: Tuft) => Color) => {
+    if (all.length === 0) return;
     geos.push(geo);
-    const inst = new InstancedMesh(geo, mats.sway, items.length);
-    items.forEach((t, i) => {
-      o.position.set(t.x, lift(t.x, t.z), t.z);
-      o.rotation.set(0, t.rot, 0);
-      o.scale.setScalar(t.s);
-      o.updateMatrix();
-      inst.setMatrixAt(i, o.matrix);
-      inst.setColorAt(i, tint(t));
-    });
-    inst.receiveShadow = true;
-    inst.computeBoundingSphere();
-    group.add(inst);
+    for (const items of byCell(all)) {
+      const inst = new InstancedMesh(geo, mats.sway, items.length);
+      items.forEach((t, i) => {
+        o.position.set(t.x, lift(t.x, t.z), t.z);
+        o.rotation.set(0, t.rot, 0);
+        o.scale.setScalar(t.s);
+        o.updateMatrix();
+        inst.setMatrixAt(i, o.matrix);
+        inst.setColorAt(i, tint(t));
+      });
+      inst.receiveShadow = true;
+      inst.computeBoundingSphere();
+      group.add(inst);
+    }
   };
   make(tuftGeometry(), grass, (t) => shadeColor(new Color('#ffffff'), (t.s - 1) * 0.4));
   make(flowerGeometry(), flowers, (t) => new Color(FLOWERS[t.c % FLOWERS.length]));
