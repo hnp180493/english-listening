@@ -5,6 +5,7 @@ import type { CharacterId } from '../contracts';
 import { canvasOf, charStudio, compileStudio, paint } from '../offscreen';
 import { LEG_GROW } from './anim';
 import { createPerson, TILE_SCALE } from './person';
+import { playerLookKey } from './looks';
 
 const cache = new Map<string, HTMLCanvasElement>();
 let warmed: Promise<void> | null = null;
@@ -34,7 +35,7 @@ export function renderPortrait(
   mood: 'neutral' | 'happy' = 'neutral',
   opts: { hat?: string | null; outfit?: string | null } = {},
 ): HTMLCanvasElement {
-  const key = `${id}|${size}|${mood}|${opts.hat ?? ''}|${opts.outfit ?? ''}`;
+  const key = `${id}|${size}|${mood}|${opts.hat ?? ''}|${opts.outfit ?? ''}|${id === 'player' ? playerLookKey() : ''}`;
   const hit = cache.get(key);
   if (hit) {
     // most recently used last

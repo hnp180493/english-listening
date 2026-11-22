@@ -56,7 +56,7 @@ export function HeartIcon({ on, size = 16, className }: { on: boolean; size?: nu
  * `happy` after a right answer. `id` is a place id (its resident) or 'player'. Where this browser cannot draw in
  * 3D, the frame shows the first letter of their name instead.
  */
-export function Portrait({ placeId, size = 52, mood = 'neutral' }: { placeId: CharacterId; size?: number; mood?: PortraitMood }) {
+export function Portrait({ placeId, size = 52, mood = 'neutral', look = '' }: { placeId: CharacterId; size?: number; mood?: PortraitMood; /** The player's look key (three/chars/looks playerLookKey): a new one draws again. */ look?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [plain] = useState(() => !canDraw3d());
   useLayoutEffect(() => {
@@ -67,7 +67,7 @@ export function Portrait({ placeId, size = 52, mood = 'neutral' }: { placeId: Ch
     if (c.width !== px) c.width = c.height = px;
     ctx.clearRect(0, 0, px, px);
     ctx.drawImage(renderPortrait(placeId, px, mood), 0, 0);
-  }, [placeId, size, mood]);
+  }, [placeId, size, mood, look]);
   const name = placeId === 'player' ? 'Bạn' : (townPlace(placeId)?.resident ?? '');
   return (
     <span className={'town-portrait' + (mood === 'happy' ? ' is-happy' : '')} style={{ width: size, height: size, backgroundColor: HUD_ART.portraitSky }} aria-hidden="true">

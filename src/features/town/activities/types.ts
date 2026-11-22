@@ -1,10 +1,10 @@
 // Activities of "Thị trấn" besides talking and building: each is a panel over the stage, opened from its spot in the
 // world (the pier, the farm field, the egg kiosk, the wardrobe, the notice-board album) or from the HUD menu. The gift
 // shop and the Sổ tay ("Thân thiết", docs/town.md §12) have no spot in the world: they open from the HUD menu (and the
-// Sổ tay from a resident's hearts), where they are.
+// Sổ tay from a resident's hearts), where they are. So do "Hẹn hò & gia đình" and "Nhân vật" (docs/town.md §15).
 // Rule for all of them (docs/town.md): every reward comes from LISTENING. Nothing is earned by clicking alone.
 
-export type ActivityId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | 'gifts' | 'journal';
+export type ActivityId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | 'gifts' | 'journal' | 'character' | 'love';
 
 /** The activities with a spot in the world (data/townWorld ActivitySpotId): the player walks there first. */
 export const SPOT_ACTIVITIES = ['fish', 'farm', 'eggs', 'wardrobe', 'album'] as const;
@@ -26,6 +26,8 @@ export const ACTIVITIES: readonly ActivityInfo[] = [
   { id: 'album', name: 'Sưu tầm', blurb: 'Bộ sưu tập cá, thành tích, danh hiệu.' },
   { id: 'gifts', name: 'Tiệm quà', blurb: 'Mua quà tặng người dân, mỗi người một món mỗi ngày.' },
   { id: 'journal', name: 'Sổ tay', blurb: 'Độ thân với từng người, điều bạn biết về họ.' },
+  { id: 'love', name: 'Hẹn hò & gia đình', blurb: 'Thân đủ thì tỏ tình, hẹn hò, cưới, có con.' },
+  { id: 'character', name: 'Nhân vật', blurb: 'Nam hay nữ, tên, màu da, kiểu tóc.' },
 ];
 
 /** What a panel may ask the page to do. The page owns the stage, the HUD and the toast. */

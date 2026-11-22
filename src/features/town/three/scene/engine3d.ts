@@ -24,7 +24,7 @@ import { pick3, stickyTile, type Hit3, type PickBox, type PickPerson, type Ray }
 import { lightRig } from './palette3d';
 import { SEAT_TOP } from './props3d';
 import { TownScene, type Built } from './world3d';
-import { doorwayOf, outsideSpots, sameSetting, type Doorway, type OutsideSpots, type StorySetting } from '../../engine/staging';
+import { doorwayOf, outsideSpots, sameSetting, type Doorway, type OutsideSpots, type TalkSetting } from '../../engine/staging';
 import { buildInterior, isInteriorId, type InteriorId, type RoomSet } from '../interiors/rooms';
 import { RoomStage } from './roomStage';
 import { FishShow, pierWalk, type FishPhase } from './fishShow';
@@ -125,7 +125,7 @@ export function talkIsFar(player: { x: number; y: number }, stand: { x: number; 
 /** A talk being staged (docs/town.md §7 "Staging"): where, and how far along. */
 interface Staged {
   placeId: PlaceId;
-  setting: StorySetting;
+  setting: TalkSetting;
   /** A neighbour who is in the room too (an episode's visitor), by place id. */
   visitor: PlaceId | null;
   /**
@@ -515,8 +515,19 @@ export class TownEngine3D {
     if (this.focus && !this.sim.residents.has(this.focus)) this.focus = null;
     if (this.first) this.night = state.theme === 'night' ? 1 : 0;
     const p = this.people.get('player');
-    if (p) this.dressPlayer(p.ch);
+    if (p && (state.body ?? '') !== this.playerBody) {
+      // the learner changed their character (docs/town.md §15): the next frame makes the new one where they stand
+      this.playerBody = state.body ?? '';
+      p.ch.root.removeFromParent();
+      p.ch.dispose();
+      this.people.delete('player');
+    } else if (p) this.dressPlayer(p.ch);
+    this.playerBody = state.body ?? '';
+    this.playerName = state.playerName || 'Bạn';
   }
+
+  /** The player's look the model was made with (StageState.body). */
+  private playerBody = '';
 
   setPaused(paused: boolean): void {
     if (paused !== this.paused) this.quiet();
@@ -809,18 +820,23 @@ export class TownEngine3D {
    * A talk with the resident of `placeId` happens at `setting` (data/townStories.ts episodeSetting / quickChatSetting).
    * 'inside': the player walks to the room's door in the town (the resident walks there too when they are in sight,
    * else they are inside already), a dip to dark, the room. 'outside': both walk to the place's front and the camera
-   * frames them there. `ready` runs once the two are in place (the page opens the panel then): at the dark of the dip
+   * frames them there. 'here': a resident met out in the town; the player walks up to them and they talk right there
+   * (docs/town.md §14). `ready` runs once the two are in place (the page opens the panel then): at the dark of the dip
    * for a room. `instant`: no walk (a link, a stage made again): they are there at once. Another talk staged already
    * with the same resident and setting just stays (ready at once); a different one is reached by a dip to dark.
    * False when the resident is not in town.
    */
-  talkAt(placeId: PlaceId, setting: StorySetting, opts: { visitor?: PlaceId | null; instant?: boolean }, ready: () => void): boolean {
+  talkAt(placeId: PlaceId, setting: TalkSetting, opts: { visitor?: PlaceId | null; instant?: boolean }, ready: () => void): boolean {
     if (!this.sim.residents.has(placeId)) return false;
     const visitor = opts.visitor && opts.visitor !== placeId ? opts.visitor : null;
     const s = this.staged;
     if (s && s.placeId === placeId && sameSetting(s.setting, setting) && (s.phase === 'room' || s.phase === 'outside')) {
       s.ready = null;
       ready();
+      return true;
+    }
+    if (setting.kind === 'here') {
+      this.talkHere({ placeId, setting, visitor: null, phase: 'go', ready, doorway: null, spots: null, arrivedAt: -1, retryAt: 0, hid: false, cancelled: false }, !!opts.instant || !this.ready);
       return true;
     }
     const inside = setting.kind === 'inside' && isInteriorId(setting.room);
@@ -867,6 +883,22 @@ export class TownEngine3D {
       this.cut(next);
     }
     return true;
+  }
+
+  /**
+   * A talk where the two met in the street: the player walks up to the resident (who waits where they are) and they
+   * talk there; no walk when it cannot be made (or `now`: a stage made again), the resident steps over instead.
+   */
+  private talkHere(s: Staged, now: boolean): void {
+    this.dropStaging();
+    this.staged = s;
+    const there = () => {
+      if (this.staged !== s || s.phase !== 'go') return;
+      this.sim.engage(s.placeId);
+      this.sim.bringOver(s.placeId);
+      this.talkOutside(s);
+    };
+    if (now || !this.sim.walkToResident(s.placeId, there)) there();
   }
 
   /** The talk is over (the panel closed): out of the room through the dark, or the camera back on the player. */
@@ -1451,7 +1483,7 @@ export class TownEngine3D {
     } else if (hit.kind === 'resident' || (hit.kind === 'place' && hit.built)) {
       // the page decides what the talk is and where it happens (talkAt), then both walk there
       const id = hit.placeId;
-      if (this.cb.onTalk) this.cb.onTalk(id);
+      if (this.cb.onTalk) this.cb.onTalk(id, hit.kind === 'resident');
       else if (!this.sim.walkToResident(id)) this.sim.walkToDoor(id);
     } else if (hit.kind === 'place') {
       const id = hit.placeId;
@@ -1499,7 +1531,7 @@ export class TownEngine3D {
         if (!n) this.cb.onIdleAct?.();
         else if (n.kind === 'activity') this.cb.onActivity?.(n.id);
         else if (n.kind === 'resident') {
-          if (this.cb.onTalk) this.cb.onTalk(n.placeId);
+          if (this.cb.onTalk) this.cb.onTalk(n.placeId, true);
           else this.sim.walkToResident(n.placeId);
         } else this.cb.onLot?.(n.placeId);
       }

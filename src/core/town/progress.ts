@@ -76,7 +76,7 @@
 //   first check (no hint). Only that browser adds to its own bucket, so they merge by max per device and field (like
 //   `earned`); the town's one real measure ("gõ đúng khi nghe") is the sum over browsers.
 // - daily rows (version 5, optional): `bond` the residents whose quick-chat friendship points were paid today,
-//   `gifted` the residents given a gift today (sets: union).
+//   `gifted` the residents given a gift today, `street` the residents met in the street today (sets: union).
 // Every field only grows (the look aside, which is ordered by its own time), so the merge (core/syncMerge mergeTown)
 // is idempotent, commutative and associative. The caps keep those laws: "the newest N keys of a union" does not
 // depend on the order of merging.
@@ -136,10 +136,12 @@ export interface DailyCount {
   bond?: string[];
   /** Residents given a gift today (version 5, ./friendship; sorted place ids). */
   gifted?: string[];
+  /** Residents met in the street today whose meeting paid its friendship points (./friendship; sorted place ids). */
+  street?: string[];
 }
 
 /** The optional sets of DailyCount (merge: union; parse: dropped when empty). */
-export const DAILY_SETS = ['bond', 'gifted'] as const;
+export const DAILY_SETS = ['bond', 'gifted', 'street'] as const;
 export type DailySet = (typeof DAILY_SETS)[number];
 
 /** The optional counters of DailyCount (merge: max; parse: dropped when 0). */

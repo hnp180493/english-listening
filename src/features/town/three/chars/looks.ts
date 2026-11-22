@@ -79,7 +79,32 @@ export function isCastId(id: CharacterId): boolean {
 
 /** The look of a cast member; anybody else gets a seeded passer-by look from their id. */
 export function castLook(id: CharacterId): CharacterLook {
+  if (id === 'player' && playerOverride) return playerOverride;
   return CAST[id] ?? passerLook(hashString(id));
+}
+
+/** The learner's own character (the creator, docs/town.md §15); null = the default player. */
+let playerOverride: CharacterLook | null = null;
+let playerKey = '';
+
+/** Use this look for 'player' from now on (every new player model, room and portrait). True when it changed. */
+export function setPlayerLook(look: CharacterLook | null): boolean {
+  const key = look ? JSON.stringify(look) : '';
+  if (key === playerKey) return false;
+  playerOverride = look;
+  playerKey = key;
+  return true;
+}
+
+/** A short key of the player's look now ('' = the default): a cache or a model made with another one is stale. */
+export function playerLookKey(): string {
+  return playerKey;
+}
+
+/** The look of a created character: skin, hair, and for a woman lashes; the player's dungarees either way. */
+export function profileLook(p: { gender: 'male' | 'female'; skin: string; hair: HairSpec['style']; hairColor: string }): CharacterLook {
+  const base = CAST.player;
+  return { ...base, skin: p.skin, hair: hair(p.hair, p.hairColor), extras: p.gender === 'female' ? ['dungarees', 'lashes'] : ['dungarees'] };
 }
 
 // ───────────────────────── passers-by ─────────────────────────

@@ -11,6 +11,7 @@
 //   a choice in an episode                              its `points` (−20…+30, derived from the choice first made)
 //   a quick chat with at least 3 of 5 lines understood  +15, once per resident per day (stored per browser)
 //   the first finished conversation of the day with them +5  (stored per browser)
+//   … a quick chat met in the street, 3 of 5 understood  +10 more, once per resident per day (stored per browser)
 //   a gift: loved +80, liked +40, neutral +10, disliked −20, one gift per resident per day (stored per browser)
 //
 // The derived part cannot be counted twice by two machines (the episode and choice records merge by max / first);
@@ -53,6 +54,7 @@ export const FRIEND_POINTS = {
   relisten: 10,
   chat: 15,
   hello: 5,
+  street: 10,
 } as const;
 
 export type GiftTaste = 'loves' | 'likes' | 'neutral' | 'dislikes';
@@ -183,9 +185,10 @@ export function metToday(progress: TownProgress, placeId: string, now: number): 
 /**
  * A quick chat with `placeId` just ended with `understood` of its lines right. `firstToday`: no conversation with them
  * was finished today before this one (metToday, read BEFORE the conversation is noted). +15 once per resident per day
- * for CHAT_BOND_LINES lines understood, +5 for the first of the day.
+ * for CHAT_BOND_LINES lines understood, +5 for the first of the day. `street`: they were met out in the town and the
+ * chat happened there (docs/town.md §14): +10 more once per resident per day, for the same lines understood.
  */
-export function applyChatFriendship(progress: TownProgress, placeId: string, understood: number, firstToday: boolean, now: number, device: string): FriendWrite {
+export function applyChatFriendship(progress: TownProgress, placeId: string, understood: number, firstToday: boolean, now: number, device: string, street = false): FriendWrite {
   if (!townPlace(placeId) || !isDeviceId(device)) return { progress, points: 0 };
   const day = townDay(now);
   let next = progress;
@@ -193,6 +196,11 @@ export function applyChatFriendship(progress: TownProgress, placeId: string, und
   if (understood >= CHAT_BOND_LINES && !dayHas(progress, day, 'bond', placeId)) {
     const w = addFriendPoints(next, placeId, FRIEND_POINTS.chat, device);
     next = updateDaily(w.progress, day, device, (c) => ({ ...c, bond: [...(c.bond ?? []), placeId] }), false);
+    points += w.points;
+  }
+  if (street && understood >= CHAT_BOND_LINES && !dayHas(progress, day, 'street', placeId)) {
+    const w = addFriendPoints(next, placeId, FRIEND_POINTS.street, device);
+    next = updateDaily(w.progress, day, device, (c) => ({ ...c, street: [...(c.street ?? []), placeId] }), false);
     points += w.points;
   }
   if (firstToday) {
@@ -311,7 +319,7 @@ export interface GiftHeld {
 
 /** Every gift in hand, in the shop's order. */
 export function giftsInHand(progress: TownProgress): GiftHeld[] {
-  return TOWN_GIFTS.map((gift) => ({ gift, n: giftInHand(progress, gift.id) })).filter((g) => g.n > 0);
+  return TOWN_GIFTS.filter((gift) => !gift.romance).map((gift) => ({ gift, n: giftInHand(progress, gift.id) })).filter((g) => g.n > 0);
 }
 
 /** What the resident of `placeId` thinks of a gift (anything their arc does not list: 'neutral'). */
@@ -344,7 +352,7 @@ export type GiveResult =
 
 /** Give `giftId` to the resident of `placeId`: one less in hand, their reaction, the points; once per resident a day. */
 export function giveGift(progress: TownProgress, placeId: string, giftId: string, now: number, device: string): GiveResult {
-  if (!townPlace(placeId) || !townGift(giftId)) return { ok: false, reason: 'unknown' };
+  if (!townPlace(placeId) || !townGift(giftId) || townGift(giftId)?.romance) return { ok: false, reason: 'unknown' };
   if (!isDeviceId(device)) return { ok: false, reason: 'device' };
   if (giftInHand(progress, giftId) <= 0) return { ok: false, reason: 'none' };
   if (giftedToday(progress, placeId, now)) return { ok: false, reason: 'today' };

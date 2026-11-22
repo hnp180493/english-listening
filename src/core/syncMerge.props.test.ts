@@ -14,6 +14,7 @@ import {
   mergeReview,
   mergeSettings,
   mergeTown,
+  mergeLife,
   mergeValue,
 } from './syncMerge';
 import { parseDrillStore, rollDaily } from '../features/drill/drillStore';
@@ -222,6 +223,19 @@ describe('merger laws', () => {
     const reviewed = ['dict:a', 'dict:b', 'dict:c'].filter(() => maybe());
     return { day, ids: reviewed, exempt: reviewed.filter(() => maybe()), extraSec: ri(2) * 300, enrolled: ri(4) };
   };
+  // town-life (docs/town.md §15): the character (newer wins, ties by text), first step times, children, choices, talks
+  checkLaws('town life', mergeLife, () => {
+    if (maybe(0.05)) return pick<unknown>([null, 'junk', [], { court: 7 }]);
+    const ids = ['cafe', 'park', 'square', 'Bad Id', '__proto__'];
+    return {
+      version: 1,
+      profile: pick<unknown>([null, { gender: pick(['male', 'female']), name: pick(['Phước', 'Na']), skin: '#f6d3b8', hair: pick(['short', 'bun']), hairColor: '#3b2a22', at: pick([T0, T0 + 1, T0 + 2]) }, { gender: 'x' }]),
+      court: Object.fromEntries(ids.filter(() => maybe(0.5)).map((id) => [id, { dating: pick([0, T0, T0 + 1, T0 + 2]), date1: pick([0, T0 + 3, T0 + 4]), married: pick([0, 0, T0 + 9]) }])),
+      kids: Object.fromEntries(['kid-1', 'kid-2', 'kid-3', 'kid-4'].filter(() => maybe(0.4)).map((id) => [id, { name: pick(['Bin', 'Na']), gender: pick(['boy', 'girl']), born: pick([T0, T0 + 1, T0 + 5]), at: pick([T0, T0 + 1, T0 + 2]) }])),
+      choices: Object.fromEntries(['cafe-date-1', 'park-date-2'].filter(() => maybe()).map((id) => [id, { o: pick([id + '-a', id + '-b']), at: pick([T0, T0 + 1]) }])),
+      talked: Object.fromEntries(townDays.slice(ri(50), 60).filter(() => maybe(0.3)).map((d) => [d, [pick(['spouse', 'kid-1'])]])),
+    };
+  });
   checkLaws('review daily (two local days)', mergeReview, () => ({
     version: 1,
     cards: {},

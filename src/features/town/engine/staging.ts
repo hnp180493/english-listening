@@ -4,7 +4,10 @@
 // - 'inside' room R: the player walks to R's door in the town (the boarding house's door for 'inn', the pavilion's for
 //   'square'), the stage fades into R's room (three/interiors) and back out to that door afterwards;
 // - 'outside' at P: both walk to P's front (the resident at their own spot by the door, the player beside them on the
-//   screen; at the plaza a lodger and the player stand south of the fountain) and the talk is framed there.
+//   screen; at the plaza a lodger and the player stand south of the fountain) and the talk is framed there;
+// - 'here': a resident met out in the town (clicked, or E beside them, away from where their talk would happen) is
+//   talked to where they stand (docs/town.md §14 "Gặp trên đường": the owner, 2026-11-22, clicked Daniel on a path
+//   and was taken into the boarding house). The player walks up to them; nobody goes anywhere.
 // Pure numbers on the sim's tile grid (the centre of tile (3, 4) is (3.5, 4.5)), tested in staging.test.ts.
 
 import type { StorySetting } from '../../../core/town/story';
@@ -12,6 +15,15 @@ import { walkable } from '../../../core/town/map';
 import type { Tile, TownWorld, WorldPlace } from '../../../data/townWorld';
 
 export type { StorySetting } from '../../../core/town/story';
+
+/** Where a talk is staged: a story setting, or right where the two met in the street. */
+export type TalkSetting = StorySetting | { kind: 'here' };
+
+/**
+ * A resident met this far (tiles, as the crow flies) from where their talk would happen (the room's door, their spot
+ * outside) is out in the town: the talk happens where they stand, not there.
+ */
+export const STREET_FAR = 5;
 
 export interface Pt {
   x: number;
@@ -104,7 +116,8 @@ export function doorwayOf(world: TownWorld, room: string): Doorway | null {
 }
 
 /** Where the player stands when the talk begins: in front of the room's door, or their spot outside. Null = unknown. */
-export function playerStand(world: TownWorld, setting: StorySetting, residentId: string): Pt | null {
+export function playerStand(world: TownWorld, setting: TalkSetting, residentId: string): Pt | null {
+  if (setting.kind === 'here') return null;
   if (setting.kind === 'inside') {
     const d = doorwayOf(world, setting.room);
     return d ? centre(d.door) : null;
@@ -113,9 +126,19 @@ export function playerStand(world: TownWorld, setting: StorySetting, residentId:
 }
 
 /** Two settings are the same staging. */
-export function sameSetting(a: StorySetting | null, b: StorySetting | null): boolean {
+export function sameSetting(a: TalkSetting | null, b: TalkSetting | null): boolean {
   if (!a || !b) return a === b;
+  if (a.kind === 'here' || b.kind === 'here') return a.kind === b.kind;
   if (a.kind === 'inside' && b.kind === 'inside') return a.room === b.room;
   if (a.kind === 'outside' && b.kind === 'outside') return a.at === b.at;
   return false;
+}
+
+/**
+ * The resident of `residentId`, standing at `at`, is out in the town: more than STREET_FAR tiles from where a talk at
+ * `setting` would put the player. False when that place is unknown in this world (the talk happens where it happens).
+ */
+export function metInStreet(world: TownWorld, setting: StorySetting, residentId: string, at: Pt): boolean {
+  const stand = playerStand(world, setting, residentId);
+  return !!stand && Math.hypot(at.x - stand.x, at.y - stand.y) > STREET_FAR;
 }

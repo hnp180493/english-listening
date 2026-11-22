@@ -6,7 +6,7 @@ import type { ReactNode, Ref } from 'react';
 import type { ActivitySpotId, PlaceId, Tile } from '../../../data/townWorld';
 import type { EmoteKind } from './draw/overlay';
 import type { Marker, StageState } from './sim';
-import type { StorySetting } from './staging';
+import type { TalkSetting } from './staging';
 
 export type { EmoteKind } from './draw/overlay';
 export type { Marker, StageState } from './sim';
@@ -54,7 +54,8 @@ export type TravelTarget = { kind: 'place'; id: PlaceId } | { kind: 'resident'; 
 export type TravelMode = 'walk' | 'warp';
 
 export interface EngineCallbacks {
-  onTalk?: (placeId: PlaceId) => void;
+  /** `inPerson`: the resident themself was clicked (or E beside them), not their house. */
+  onTalk?: (placeId: PlaceId, inPerson: boolean) => void;
   onLot?: (placeId: PlaceId) => void;
   onNear?: (near: Near) => void;
   /** Enter / E / Space with nobody beside the player. */
@@ -77,10 +78,10 @@ export interface TownStageHandle {
   /**
    * Stage a talk with a place's resident where it happens (docs/town.md §7 "Staging"): both walk there (to the room's
    * door, then a dip to dark into the room; or to the place's front), and `ready` runs once they are in place (the panel
-   * opens then). `visitor`: a neighbour in the room too; `instant`: there at once (a link). False = no world (open the
+   * opens then); 'here': where the resident stands, met in the street. `visitor`: a neighbour in the room too; `instant`: there at once (a link). False = no world (open the
    * panel at once).
    */
-  talkAt: (placeId: PlaceId, setting: StorySetting, opts: { visitor?: PlaceId | null; instant?: boolean }, ready: () => void) => boolean;
+  talkAt: (placeId: PlaceId, setting: TalkSetting, opts: { visitor?: PlaceId | null; instant?: boolean }, ready: () => void) => boolean;
   /** The talk is over: out of the room through the dark, or the camera back on the player. */
   endTalk: () => void;
   /** A little picture popping up over somebody's head. */
@@ -128,8 +129,11 @@ export type FishStagePhase = 'idle' | 'waiting' | 'bite' | 'listening' | 'caught
 
 export interface TownStageProps {
   state: StageState;
-  /** A resident (or their house) was clicked, or Enter / E pressed beside them: the page stages the talk (talkAt). */
-  onTalk?: (placeId: PlaceId) => void;
+  /**
+   * A resident (or their house) was clicked, or Enter / E pressed beside them: the page stages the talk (talkAt).
+   * `inPerson`: the resident themself, not their house (met in the street, the talk may happen right there).
+   */
+  onTalk?: (placeId: PlaceId, inPerson: boolean) => void;
   /** The player reached the gate of an empty lot after clicking it, or pressed Enter there. */
   onLot?: (placeId: PlaceId) => void;
   /** Who the player now stands next to (null = nobody): lets the shell offer "Nói chuyện" / "Xây". */

@@ -1,0 +1,183 @@
+/* "Hẹn hò, cưới, con" and "Nhân vật" (docs/town.md §15): panels inside the activity sheet. Tokens only. */
+
+.town-love {
+  display: grid;
+  gap: var(--space-3);
+}
+.town-love-title {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.town-love-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.town-love-name {
+  margin: 0;
+  font-weight: 600;
+}
+.town-love-sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-love-steps,
+.town-love-kids {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-love-step,
+.town-love-kids li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.town-love-kids li {
+  display: grid;
+  justify-content: start;
+  gap: 0;
+}
+.town-love-step-label {
+  font-weight: 500;
+}
+.town-love-need {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* a text scene */
+.town-chat {
+  display: grid;
+  gap: var(--space-3);
+}
+.town-chat-lines {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* the button stays in reach while the lines grow (the sheet scrolls) */
+.town-chat > .town-talk-foot,
+.town-chat > .town-chat-choice {
+  position: sticky;
+  bottom: 0;
+  padding-top: var(--space-2);
+  background: var(--surface);
+}
+.town-chat-line {
+  display: grid;
+  gap: 2px;
+  max-width: 92%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.town-chat-line.is-you {
+  justify-self: end;
+  background: var(--accent-soft);
+}
+.town-chat-line.is-narr {
+  justify-self: center;
+  max-width: 100%;
+  background: transparent;
+}
+.town-chat-who {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-chat-en {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-weight: 500;
+}
+.town-chat-play {
+  flex: none;
+}
+.town-chat-vi,
+.town-chat-narr {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-chat-narr {
+  font-style: italic;
+  text-align: center;
+}
+.town-chat-choice {
+  display: grid;
+  gap: var(--space-2);
+}
+.town-chat-q {
+  margin: 0;
+  font-weight: 600;
+}
+.town-chat-choice .town-reply-text {
+  display: grid;
+  gap: 2px;
+}
+
+/* the creator */
+.town-me-preview {
+  display: flex;
+  justify-content: center;
+}
+.town-me-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.town-me-row.is-wrap {
+  flex-wrap: wrap;
+}
+.town-me-field {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-me-set {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.town-me-set legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-me-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.town-me-swatch {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.town-me-swatch.is-on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+.btn.is-on {
+  border-color: var(--accent);
+}

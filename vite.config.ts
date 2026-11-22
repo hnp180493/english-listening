@@ -106,6 +106,8 @@ const webBuild: UserConfig['build'] = {
           { name: 'react', test: /node_modules[/\\](react|react-dom|scheduler)[/\\]/ },
           // the town's episodes and the residents' arcs (data/stories, "Thân thiết"): over 200 kB of their own
           { name: 'stories', test: /src[/\\]data[/\\](townStories|townGifts|stories[/\\])/ },
+          // the text scenes of courtship, marriage and children (data/romance, docs/town.md §15) and the street meetings
+          { name: 'romance', test: /src[/\\]data[/\\](romance[/\\]|townStreet)/ },
           { name: 'content', test: /src[/\\]data[/\\](courses[/\\]|lessons|sentences|chunks|realClips)/ },
           { name: 'three', test: /node_modules[/\\]three[/\\]/ },
         ],

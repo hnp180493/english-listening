@@ -114,6 +114,19 @@ describe('quick chats', () => {
     // the next day: again
     expect(applyChatFriendship(one.progress, 'cafe', 3, false, NOW + DAY, LAPTOP).points).toBe(15);
   });
+
+  it('met in the street: +10 more once per resident a day, for the same 3 lines understood', () => {
+    const p = emptyTownProgress();
+    const met = applyChatFriendship(p, 'school', 3, true, NOW, LAPTOP, true);
+    expect(met.points).toBe(30);
+    expect(met.progress.daily[townDay(NOW)][LAPTOP].street).toEqual(['school']);
+    // met again the same day (on any browser once synced): nothing more from the street
+    expect(applyChatFriendship(met.progress, 'school', 5, false, NOW + 1000, PHONE, true).points).toBe(0);
+    // too little understood: no street points either
+    expect(applyChatFriendship(p, 'school', 2, false, NOW, LAPTOP, true).points).toBe(0);
+    // the next day: again
+    expect(applyChatFriendship(met.progress, 'school', 3, false, NOW + DAY, LAPTOP, true).points).toBe(25);
+  });
 });
 
 describe('episodes that wait for friendship', () => {

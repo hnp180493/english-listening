@@ -10,7 +10,8 @@ import { Gift } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import { giftInHand } from '../../../core/town/friendship';
 import { buyTownGift, useTownOverview, useTownProgress } from '../../../core/town/store';
-import { TOWN_GIFTS } from '../../../data/townGifts';
+import { TOWN_GIFTS, type TownGift } from '../../../data/townGifts';
+import { useTownLife } from '../../../core/town/lifeStore';
 import { Coin } from '../art';
 import { playSfx } from '../sfx';
 import { xu } from '../shellModel';
@@ -22,14 +23,16 @@ export default function GiftShopPanel({ sound, onReward }: ActivityPanelProps) {
   const progress = useTownProgress();
   const { balance } = useTownOverview();
   const [note, setNote] = useState<string | null>(null);
-  const buy = (id: string, name: string) => {
+  // the bouquet and the ring only once the learner has made their character (docs/town.md §15)
+  const courting = !!useTownLife().profile;
+  const buy = (id: string, name: string, romance = false) => {
     const r = buyTownGift(id);
     if (!r.ok) {
       setNote(r.reason === 'poor' ? `Còn thiếu ${xu(r.missing)}.` : 'Chưa mua được, thử lại nhé.');
       return;
     }
     playSfx('pop', sound);
-    setNote(`Đã mua ${name}. Đứng cạnh ai đó rồi bấm “Tặng quà”.`);
+    setNote(romance ? `Đã mua ${name}. Đứng cạnh người ấy rồi bấm “Hẹn hò”.` : `Đã mua ${name}. Đứng cạnh ai đó rồi bấm “Tặng quà”.`);
     onReward({ label: `Đã mua ${name}` });
   };
   return (
@@ -41,32 +44,42 @@ export default function GiftShopPanel({ sound, onReward }: ActivityPanelProps) {
         <span className="sr-only"> xu</span>
       </p>
       <ul className="town-shop-list" aria-label="Các món quà">
-        {TOWN_GIFTS.map((g) => {
-          const held = giftInHand(progress, g.id);
-          const poor = g.cost > balance;
-          return (
-            <li key={g.id} className="town-shop-row">
-              <span className="town-gift-icon" aria-hidden="true">
-                <Icon icon={Gift} size={18} />
-              </span>
-              <span className="town-shop-name">
-                <span>{g.name}</span>
-                <span className="town-shop-en" lang="en">
-                  {g.en}
-                </span>
-              </span>
-              {held > 0 && <span className="town-gift-n tabular">Có {held}</span>}
-              <button type="button" className="btn btn-sm" onClick={() => buy(g.id, g.name)} disabled={poor} aria-label={`Mua ${g.name}, ${xu(g.cost)}`}>
-                <Coin size={15} />
-                <span className="tabular">{g.cost}</span>
-              </button>
-            </li>
-          );
-        })}
+        {TOWN_GIFTS.filter((g) => !g.romance).map(row)}
       </ul>
+      {courting && (
+        <>
+          <h3 className="town-shop-head">Hẹn hò</h3>
+          <ul className="town-shop-list" aria-label="Hoa và nhẫn">
+            {TOWN_GIFTS.filter((g) => g.romance).map(row)}
+          </ul>
+        </>
+      )}
       <p className="town-build-hint" role="status">
         {note ?? ''}
       </p>
     </div>
   );
+
+  function row(g: TownGift) {
+    const held = giftInHand(progress, g.id);
+    const poor = g.cost > balance;
+    return (
+      <li key={g.id} className="town-shop-row">
+        <span className="town-gift-icon" aria-hidden="true">
+          <Icon icon={Gift} size={18} />
+        </span>
+        <span className="town-shop-name">
+          <span>{g.name}</span>
+          <span className="town-shop-en" lang="en">
+            {g.en}
+          </span>
+        </span>
+        {held > 0 && <span className="town-gift-n tabular">Có {held}</span>}
+        <button type="button" className="btn btn-sm" onClick={() => buy(g.id, g.name, !!g.romance)} disabled={poor} aria-label={`Mua ${g.name}, ${xu(g.cost)}`}>
+          <Coin size={15} />
+          <span className="tabular">{g.cost}</span>
+        </button>
+      </li>
+    );
+  }
 }

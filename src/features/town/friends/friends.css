@@ -360,3 +360,11 @@
     animation: none;
   }
 }
+
+/* "Hẹn hò" in the gift shop: the bouquet and the ring (docs/town.md §15) */
+.town-shop-head {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}

@@ -328,13 +328,15 @@ interface Conversation {
   heartsBefore: number;
   friendBefore: number;
   result: TownConversationResult | null;
+  /** Met out in the town and talked to there (docs/town.md §14): a little more friendship (./friendship). */
+  street: boolean;
 }
 
 /** The conversation going on in this tab (page state: a reload simply starts a new one). */
 let conversation: Conversation | null = null;
 
-function newConversation(placeId: string, lineIds: string[] | null, progress: TownProgress): Conversation {
-  return { placeId, lineIds, answers: new Map(), outcomes: [], earned: 0, heartsBefore: friendHearts(progress, placeId), friendBefore: friendPoints(progress, placeId), result: null };
+function newConversation(placeId: string, lineIds: string[] | null, progress: TownProgress, street = false): Conversation {
+  return { placeId, lineIds, answers: new Map(), outcomes: [], earned: 0, heartsBefore: friendHearts(progress, placeId), friendBefore: friendPoints(progress, placeId), result: null, street };
 }
 
 export type TownConversationStart =
@@ -346,9 +348,10 @@ export type TownConversationStart =
  * Begin a conversation with the resident of `placeId`: its five lines (core/town/visit pickVisitLines) with their
  * meanings already drawn, so they do not move while the learner answers. A resident whose place is not built yet
  * (a lodger at the boarding house) talks like any other. Starting again drops a conversation left in the middle
- * (its answered lines are already saved).
+ * (its answered lines are already saved). `street`: the resident was met out in the town and the chat happens there
+ * (docs/town.md §14): understanding it pays a little more friendship, once a day.
  */
-export function startTownConversation(placeId: string): TownConversationStart {
+export function startTownConversation(placeId: string, street = false): TownConversationStart {
   const place = townPlace(placeId);
   if (!place) return { ok: false, reason: 'unknown' };
   const progress = loadTownProgress();
@@ -358,7 +361,7 @@ export function startTownConversation(placeId: string): TownConversationStart {
     return { ok: false, reason: 'silent' };
   }
   const pool = placeLines(placeId);
-  conversation = newConversation(placeId, lines.map((l) => l.id), progress);
+  conversation = newConversation(placeId, lines.map((l) => l.id), progress, street);
   // a look-alike pair is never made of another line of this conversation (its meaning would be easy to rule out)
   const said = new Set(lines.map((l) => l.id));
   const turns: TownTurn[] = lines.map((line) => ({ line, choices: choicesFor(line, pool, choiceSeed(progress, line.id), said) }));
@@ -490,7 +493,7 @@ export function recordTownAnswer(line: TownLine, outcome: LineOutcome, now: numb
       const end = applyConversation(next, conv.placeId, conv.outcomes, now, device);
       if (end.finished) {
         const understood = conv.outcomes.filter((o) => o !== 'wrong').length;
-        next = applyChatFriendship(end.progress, conv.placeId, understood, firstToday, now, device).progress;
+        next = applyChatFriendship(end.progress, conv.placeId, understood, firstToday, now, device, conv.street).progress;
         bonus = end.bonus;
         tasksPaid.push(...end.tasksPaid);
         ended = { tasksPaid: end.tasksPaid };

@@ -9,9 +9,14 @@ export interface TownGift {
   /** English name, as residents say it in dialogue. */
   en: string;
   cost: number;
+  /**
+   * Not a gift of the day: the bouquet a confession needs and the ring a proposal needs ("Hẹn hò, cưới, con",
+   * docs/town.md §15). Sold only once the learner has made their character; never in the gift picker.
+   */
+  romance?: boolean;
 }
 
-const gift = (id: string, name: string, en: string, cost: number): TownGift => ({ id, name, en, cost });
+const gift = (id: string, name: string, en: string, cost: number, romance = false): TownGift => (romance ? { id, name, en, cost, romance } : { id, name, en, cost });
 
 export const TOWN_GIFTS: readonly TownGift[] = [
   gift('iced-latte', 'Latte đá', 'an iced latte', 6),
@@ -34,6 +39,8 @@ export const TOWN_GIFTS: readonly TownGift[] = [
   gift('headphones', 'Tai nghe', 'headphones', 18),
   gift('dog-treats', 'Bánh thưởng cho chó', 'dog treats', 6),
   gift('spicy-noodles', 'Mì cay', 'spicy noodles', 5),
+  gift('bouquet', 'Bó hoa tỏ tình', 'a bouquet', 30, true),
+  gift('ring', 'Nhẫn cầu hôn', 'a ring', 150, true),
 ];
 
 export function townGift(id: string): TownGift | undefined {

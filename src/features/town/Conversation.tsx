@@ -24,6 +24,7 @@ import { useCanGift } from './friends/useCanGift';
 import { soundAlikeNote, talkSummary, typedVerdictOf, verdictOf, type Verdict } from './shellModel';
 import { stopSfx } from './sfx';
 import { ignoredKeyTarget, SPEAK_DELAY_MS } from './talkKeys';
+import type { StreetTalkView } from './streetModel';
 import { useLinePlayer, type LinePlay } from './useLinePlayer';
 
 /** The resident's portrait in the panel: big enough to read the face, a little smaller on a phone. */
@@ -57,6 +58,10 @@ export interface ConversationProps {
   onFinished: (results: readonly TownAnswerResult[]) => void;
   onLeave: () => void;
   onAgain: () => void;
+  /** Met out in the town (docs/town.md §14): the scene at the start, their parting words at the end. */
+  street?: StreetTalkView | null;
+  /** "Đi cùng … tới …": go with them to where their next episode waits. */
+  onInvite?: () => void;
   /** The panel itself, once it is on the page (the page measures it); null when it leaves. */
   onBox?: (el: HTMLElement | null) => void;
 }
@@ -65,7 +70,7 @@ export interface ConversationProps {
  * A conversation with a resident, in a panel over the bottom of the stage: five lines, each heard (never read)
  * and answered by picking what it meant; then what the conversation came to.
  */
-export default function Conversation({ place, turns, met, friend, onJournal, onGiven, onShop, onSpeaking, onAnswered, onFinished, onLeave, onAgain, onBox }: ConversationProps) {
+export default function Conversation({ place, turns, met, friend, onJournal, onGiven, onShop, onSpeaking, onAnswered, onFinished, onLeave, onAgain, street, onInvite, onBox }: ConversationProps) {
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<TownAnswerResult[]>([]);
   const [done, setDone] = useState(false);
@@ -155,8 +160,9 @@ export default function Conversation({ place, turns, met, friend, onJournal, onG
         {announce}
       </p>
 
+      {!done && index === 0 && street?.scene && <p className="town-ep-scene">{street.scene}</p>}
       {done || !turn ? (
-        <TalkResult place={place} results={results} met={met} onLeave={onLeave} onAgain={onAgain} onGiven={onGiven} onShop={onShop} />
+        <TalkResult place={place} results={results} met={met} onLeave={onLeave} onAgain={onAgain} onGiven={onGiven} onShop={onShop} street={street} onInvite={onInvite} />
       ) : (
         <Turn key={turn.line.id} turn={turn} speaker={place.resident} met={met[index] ?? false} last={index + 1 >= turns.length} onSpeaking={onSpeaking} onAnswered={answered} onNext={next} />
       )}
@@ -557,9 +563,11 @@ interface TalkResultProps {
   onAgain: () => void;
   onGiven?: ConversationProps['onGiven'];
   onShop?: () => void;
+  street?: StreetTalkView | null;
+  onInvite?: () => void;
 }
 
-function TalkResult({ place, results, met, onLeave, onAgain, onGiven, onShop }: TalkResultProps) {
+function TalkResult({ place, results, met, onLeave, onAgain, onGiven, onShop, street, onInvite }: TalkResultProps) {
   const s = talkSummary(results, met, place.resident);
   const homeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -615,6 +623,8 @@ function TalkResult({ place, results, met, onLeave, onAgain, onGiven, onShop }: 
           {s.levelTitle && <li>Danh hiệu mới: {s.levelTitle}</li>}
         </ul>
       )}
+      {/* met in the street: they ask you round to where their story goes on, or say how close you must get first */}
+      {street?.invite && onInvite ? <p className="town-talk-parting">{street.invite.text}</p> : street?.hint ? <p className="town-talk-parting">{street.hint}</p> : null}
       {gifting && <GiftGive placeId={place.id} onGiven={onGiven} onShop={onShop} />}
       <div className="town-talk-foot">
         {!gifting && canGift && (
@@ -623,9 +633,15 @@ function TalkResult({ place, results, met, onLeave, onAgain, onGiven, onShop }: 
             Tặng quà
           </button>
         )}
-        <button type="button" className="btn" onClick={onAgain}>
-          Nói chuyện tiếp
-        </button>
+        {street?.invite && onInvite ? (
+          <button type="button" className="btn" onClick={onInvite}>
+            {street.invite.go}
+          </button>
+        ) : (
+          <button type="button" className="btn" onClick={onAgain}>
+            Nói chuyện tiếp
+          </button>
+        )}
         <button ref={homeRef} type="button" className="btn btn-primary" onClick={onLeave}>
           Về thị trấn
         </button>

@@ -4,7 +4,7 @@ import { Icon } from '../../../components/Icon';
 import { TOWN_WORLD, type PlaceId } from '../../../data/townWorld';
 import type { MapResident, MapSnapshot, Marker, SafeInsets, TownStageHandle, TownStageProps } from '../engine/stage';
 import { warpSpot } from '../map/mapGeo';
-import type { StorySetting } from '../engine/staging';
+import type { TalkSetting } from '../engine/staging';
 import { talkIsFar, TownEngine3D } from './scene/engine3d';
 
 function isTyping(target: EventTarget | null): boolean {
@@ -107,7 +107,7 @@ export default function TownStage3D({
     hint,
     full,
     /** The talk staged now (made again with the engine: there at once), and its ready not yet run. */
-    talk: null as { placeId: PlaceId; setting: StorySetting; visitor: PlaceId | null; ready: (() => void) | null } | null,
+    talk: null as { placeId: PlaceId; setting: TalkSetting; visitor: PlaceId | null; ready: (() => void) | null } | null,
     startAt,
   });
 
@@ -133,7 +133,7 @@ export default function TownStage3D({
           overlay,
           skyRef.current,
           {
-            onTalk: (id) => cbRef.current.onTalk?.(id),
+            onTalk: (id, inPerson) => cbRef.current.onTalk?.(id, inPerson),
             onLot: (id) => cbRef.current.onLot?.(id),
             onNear: (n) => cbRef.current.onNear?.(n),
             onIdleAct: () => cbRef.current.onIdleAct?.(),

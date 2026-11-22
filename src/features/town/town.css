@@ -1061,6 +1061,13 @@
   margin: 0;
   color: var(--text-muted);
 }
+/* met in the street: their parting words (docs/town.md §14) */
+.town-talk-parting {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-style: italic;
+}
 .town-result-extra {
   display: grid;
   gap: var(--space-1);

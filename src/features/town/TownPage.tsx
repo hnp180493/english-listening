@@ -1,5 +1,5 @@
 import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { CircleHelp, Footprints, Gift, Hammer, MessageCircle, Sparkles, X } from 'lucide-react';
+import { CircleHelp, Footprints, Gift, Hammer, Heart, MessageCircle, Sparkles, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
@@ -7,7 +7,7 @@ import { prefersReducedMotion } from '../../core/motion';
 import { hrefFor, parseHash } from '../../core/nav';
 import { useSettings } from '../../core/settings';
 import { resolveTheme, systemPrefersDark } from '../../core/theme';
-import { lineProgress, typedTotals } from '../../core/town/progress';
+import { knowsFact, lineProgress, typedTotals } from '../../core/town/progress';
 import {
   buyTownItem,
   loadTownProgress,
@@ -41,7 +41,10 @@ import Episode from './Episode';
 import type { FishStagePhase, MapSnapshot, Near, SafeInsets, TownStageHandle, TownTheme, TravelMode, TravelTarget } from './engine/stage';
 import MiniMap from './map/MiniMap';
 import TownMap from './map/TownMap';
-import { playerStand, type StorySetting } from './engine/staging';
+import { metInStreet, playerStand, type TalkSetting } from './engine/staging';
+import { homeSetting, streetTalkView } from './streetModel';
+import { townRomanceSteps, useTownLife } from '../../core/town/lifeStore';
+import { profileLook, setPlayerLook } from './three/chars/looks';
 import { disposeHats } from './three/chars/hats';
 import { disposeSharedMaterials } from './three/chars/materials';
 import { disposePortraits } from './three/chars/portrait';
@@ -241,6 +244,8 @@ type Talk =
       place: TownPlace;
       turns: TownTurn[];
       met: boolean[];
+      /** Met out in the town and talked to right there (docs/town.md §14 "Gặp trên đường"). */
+      street?: boolean;
     }
   /** "Chuyện ở thị trấn": an episode (or its re-listen) waits at the place. */
   | { kind: 'episode'; key: number; place: TownPlace; start: Extract<TownEpisodeStart, { ok: true }> };
@@ -275,26 +280,39 @@ function releaseTownGraphics(): void {
 /**
  * Begin a conversation at a place (core/town/store): the episode that waits there (a due re-listen, else the next
  * episode to hear), else the quick chat: five lines with their meanings, and for each line whether the learner had
- * answered it before. `quick`: the quick chat whatever waits. Null for an empty lot or an unknown place.
+ * answered it before. `quick`: the quick chat whatever waits; `street`: a quick chat where the two met in the street
+ * (docs/town.md §14: an episode is told where it belongs, so it waits). Null for an empty lot or an unknown place.
  */
-function beginTalk(placeId: string, key: number, quick = false): Talk | null {
-  if (!quick) {
+function beginTalk(placeId: string, key: number, quick = false, street = false): Talk | null {
+  if (!quick && !street) {
     const e = startTownEpisode(placeId);
     if (e.ok) return { kind: 'episode', key, place: e.place, start: e };
   }
   const progress = loadTownProgress();
-  const r = startTownConversation(placeId);
+  const r = startTownConversation(placeId, street);
   if (!r.ok) return null;
-  return { kind: 'quick', key, place: r.place, turns: r.turns, met: r.turns.map((t) => (lineProgress(progress, t.line.id)?.tries ?? 0) > 0) };
+  return { kind: 'quick', key, place: r.place, turns: r.turns, met: r.turns.map((t) => (lineProgress(progress, t.line.id)?.tries ?? 0) > 0), street };
 }
 
 /**
  * Where a talk happens now (docs/town.md §9 "Where it happens"): an episode's setting (its lodger setting while the
- * place is not built), or the quick chat's.
+ * place is not built), or the quick chat's; 'here' for a chat where the two met in the street.
  */
-function talkSetting(t: Talk, places: readonly TownPlaceView[]): StorySetting {
+function talkSetting(t: Talk, places: readonly TownPlaceView[]): TalkSetting {
+  if (t.kind === 'quick' && t.street) return { kind: 'here' };
   const built = (id: string) => places.some((p) => p.place.id === id && p.built);
   return t.kind === 'episode' ? episodeSetting(t.start.episode, built) : quickChatSetting(t.place.id, built);
+}
+
+/**
+ * The resident of `placeId` stands out in the town now (docs/town.md §14): in sight, and away from where a talk with
+ * them would happen at home. False without a world (the page without 3D).
+ */
+function metOutside(stage: TownStageHandle | null, places: readonly TownPlaceView[], placeId: string): boolean {
+  const at = stage?.mapSnapshot()?.residents.find((r) => r.id === placeId);
+  const view = places.find((p) => p.place.id === placeId);
+  if (!at || at.inside || !view) return false;
+  return metInStreet(TOWN_WORLD, homeSetting(view, places), placeId, at);
 }
 
 /** The neighbour who is in the room for an episode (Ben at the café…), by place id. */
@@ -349,7 +367,8 @@ export default function TownPage() {
   const theme = useTownTheme();
   const overview = useTownOverview();
   // the town's one real measure (docs/town.md §13), shown only in "Thị trấn này để làm gì?"
-  const typedMeasure = typedMeasureText(typedTotals(useTownProgress()));
+  const progressNow = useTownProgress();
+  const typedMeasure = typedMeasureText(typedTotals(progressNow));
   const ui = useTownUi();
   const stage = useRef<TownStageHandle>(null);
   const xuRef = useRef<HTMLSpanElement>(null);
@@ -394,6 +413,12 @@ export default function TownPage() {
     return isPlaceId(params.talk) && !linked ? { wanted: params.talk } : null;
   });
   const [near, setNear] = useState<Near>(null);
+  /** The resident beside the player stands out in the town (docs/town.md §14), read when they came near. */
+  const [nearStreet, setNearStreet] = useState(false);
+  const onNear = useCallback((n: Near) => {
+    setNear(n);
+    setNearStreet(n?.kind === 'resident' ? metOutside(stage.current, overviewRef.current.places, n.placeId) : false);
+  }, []);
   // an activity's panel is open (the pier, the farm field, the egg kiosk, the wardrobe, the album)
   // ?activity=<id> (e.g. Ôn tập's "Về nông trại") opens that panel once the town is drawn
   const [activity, setActivity] = useState<ActivityId | null>(() => ACTIVITIES.find((a) => a.id === params.activity)?.id ?? null);
@@ -425,11 +450,20 @@ export default function TownPage() {
   const pet = game.look.pet?.id;
   const extraDecor = game.decorations;
   const look = useMemo(() => ({ hat, outfit, pet }), [hat, outfit, pet]);
+  // the learner's own character (docs/town.md §15): the player's model, room and portrait use it. Set while rendering
+  // (it only changes a module's look, idempotent): the stage, a child, applies its state before this page's effects.
+  const life = useTownLife();
+  const profile = life.profile;
+  const body = useMemo(() => {
+    const l = profile ? profileLook(profile) : null;
+    setPlayerLook(l);
+    return l ? JSON.stringify(l) : '';
+  }, [profile]);
   // the farm field in the world shows the learner's review cards (the same field the farm's panel reads)
   const farmField = useTownFarm().field;
   const farmKey = fieldLook(farmField, FARM_LOOK_SLOTS).slots.join(',');
   const farm = useMemo(() => farmKey.split(',') as CropStage[], [farmKey]);
-  const state = useMemo(() => ({ ...stageStateOf(overview, theme), look, extraDecor, farm }), [overview, theme, look, extraDecor, farm]);
+  const state = useMemo(() => ({ ...stageStateOf(overview, theme), look, extraDecor, farm, body, playerName: profile?.name }), [overview, theme, look, extraDecor, farm, body, profile?.name]);
   const lotLabels = useMemo(() => lotLabelsOf(overview), [overview]);
   const suggested = useMemo(() => suggestedPlace(overview.places), [overview.places]);
 
@@ -440,10 +474,16 @@ export default function TownPage() {
    * talk is decides where it happens (talkSetting), the stage takes both there (docs/town.md §7 "Staging": a walk to
    * the room's door and a dip into the room, or a walk to the place's front), and the panel opens once they are in
    * place. Until then a click elsewhere or the keys give the talk up (onTalkCancel), Esc too.
+   *
+   * `how`: 'person' when the resident themself was clicked (or E beside them): met out in the town, away from where
+   * their talk would happen, they are talked to right there (docs/town.md §14 "Gặp trên đường"); 'street' keeps a
+   * talk in the street ("Nói chuyện tiếp" after one); 'place' (their house, a list, the map, the main button) goes to
+   * where it happens.
    */
-  const startTalk = useCallback((placeId: string, quick = false) => {
+  const startTalk = useCallback((placeId: string, quick = false, how: 'place' | 'person' | 'street' = 'place') => {
     talkCount.current += 1;
-    const next = beginTalk(placeId, talkCount.current, quick);
+    const street = how === 'street' || (how === 'person' && metOutside(stage.current, overviewRef.current.places, placeId));
+    const next = beginTalk(placeId, talkCount.current, quick, street);
     if (!next) {
       // an unknown place, or one with nothing to say: just walk up to them
       stage.current?.walkTo(placeId as PlaceId);
@@ -553,6 +593,8 @@ export default function TownPage() {
 
   /** Talk to a resident: the stage takes both where the talk happens. */
   const goTalk = startTalk;
+  /** The stage: a resident clicked (in person: maybe met in the street) or their house. */
+  const onStageTalk = useCallback((id: string, inPerson: boolean) => startTalk(id, false, inPerson ? 'person' : 'place'), [startTalk]);
 
   /** Where the xu counter is, in the stage's own pixels: coins fly there. */
   const xuPoint = useCallback(() => {
@@ -846,11 +888,13 @@ export default function TownPage() {
   // ───────────────────────── what the one button at the bottom offers ─────────────────────────
 
   const nearPlace = near && near.kind !== 'activity' ? overview.places.find((p) => p.place.id === near.placeId) : undefined;
+  // beside somebody out in the town: the button offers a chat right there, not their episode (it waits at home)
+  const nearShown = nearPlace && nearStreet ? { ...nearPlace, episode: null } : nearPlace;
   const nearActivity = near?.kind === 'activity' ? ACTIVITIES.find((a) => a.id === near.id) : undefined;
-  const prompt: { icon: typeof Hammer; text: string; build: boolean; id: string; activity?: ActivityId } | null = nearActivity
+  const prompt: { icon: typeof Hammer; text: string; build: boolean; id: string; activity?: ActivityId; person?: boolean } | null = nearActivity
     ? { icon: Sparkles, text: nearActivity.name, build: false, id: nearActivity.id, activity: nearActivity.id }
     : near?.kind === 'resident' && nearPlace
-      ? { icon: MessageCircle, text: talkPrompt(nearPlace, true), build: false, id: nearPlace.place.id }
+      ? { icon: MessageCircle, text: talkPrompt(nearShown ?? nearPlace, true), build: false, id: nearPlace.place.id, person: true }
       : near?.kind === 'lot' && nearPlace && !nearPlace.built
         ? { icon: Hammer, text: `Xây ${nearPlace.place.name} · ${xu(nearPlace.cost)}`, build: true, id: nearPlace.place.id }
         : suggested
@@ -859,12 +903,13 @@ export default function TownPage() {
   const promptId = prompt?.id;
   const promptBuilds = prompt?.build ?? false;
   const promptActivity = prompt?.activity ?? null;
+  const promptPerson = prompt?.person ?? false;
   const runPrompt = useCallback(() => {
     if (!promptId) return;
     if (promptActivity) openActivity(promptActivity);
     else if (promptBuilds) openBuild(promptId);
-    else goTalk(promptId);
-  }, [promptId, promptBuilds, promptActivity, openActivity, openBuild, goTalk]);
+    else goTalk(promptId, false, promptPerson ? 'person' : 'place');
+  }, [promptId, promptBuilds, promptActivity, promptPerson, openActivity, openBuild, goTalk]);
   const onIdleAct = useCallback(() => {
     if (suggested) goTalk(suggested.place.id);
   }, [suggested, goTalk]);
@@ -904,6 +949,8 @@ export default function TownPage() {
   // "Tặng quà" beside the main button, standing next to a resident with a gift in hand (one a day each)
   const nearResident = near?.kind === 'resident' ? near.placeId : null;
   const canGiftNear = useCanGift(nearResident);
+  // beside somebody this character can court (or the spouse): "Hẹn hò" opens their page (docs/town.md §15)
+  const canLoveNear = !!nearResident && !!profile && townRomanceSteps(nearResident).length > 0;
   // a resident greets the player who stops beside them, in free play only (friends/useGreeting)
   const greetFree = townReady && !flat && !talk && !build && !activity && !map && !gifting && !showWelcome && ui.greet && ui.sound;
   const greet = useGreeting(near, greetFree, useCallback((id: PlaceId) => stage.current?.act(id, 'wave'), []));
@@ -912,11 +959,20 @@ export default function TownPage() {
   // on a phone every line of text above the town costs a row of the town
   const [narrow] = useState(narrowStage);
   const talkView = talk ? overview.places.find((p) => p.place.id === talk.place.id) : undefined;
+  // met in the street: what you see of them there, and what they say before you part (docs/town.md §14)
+  const streetKey = shownTalk?.kind === 'quick' && shownTalk.street ? shownTalk.key : null;
+  const streetView = useMemo(() => {
+    if (streetKey === null || !talkView) return null;
+    return streetTalkView(talkView, overview.places, (fact) => knowsFact(progressNow, fact), Date.now(), streetKey);
+    // the scene is drawn once per meeting: not again when the hearts move during it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streetKey]);
   // the panel names where the talk happens ("Grace · Nhà trọ" while she lodges there, "Ben · Quảng trường" at his stall)
   const shownPlace = shownTalk?.place;
   const panelPlace = useMemo(() => {
     if (!talk || !shownPlace) return undefined;
     const setting = talkSetting(talk, overview.places);
+    if (setting.kind === 'here') return { ...shownPlace, name: 'Gặp trên đường' };
     const at = setting.kind === 'inside' ? setting.room : setting.at;
     if (at === shownPlace.id) return shownPlace;
     const name = at === 'inn' ? 'Nhà trọ' : (overview.places.find((p) => p.place.id === at)?.place.name ?? shownPlace.name);
@@ -950,10 +1006,10 @@ export default function TownPage() {
         flat={flat}
         ref={stage}
         state={state}
-        onTalk={startTalk}
+        onTalk={onStageTalk}
         onTalkCancel={dropTalk}
         onLot={openBuild}
-        onNear={setNear}
+        onNear={onNear}
         onIdleAct={onIdleAct}
         onActivity={openActivity}
         onReady={onStageReady}
@@ -1027,6 +1083,20 @@ export default function TownPage() {
               <Icon icon={prompt.icon} size={18} />
               {prompt.text}
             </button>
+            {nearResident && canLoveNear && near?.kind === 'resident' && prompt.id === nearResident && (
+              <button
+                type="button"
+                className="btn btn-lg town-prompt-gift"
+                onClick={() => {
+                  setJournalFor(nearResident);
+                  openActivity('love', 'hud');
+                }}
+                aria-label={`Hẹn hò với ${overview.places.find((p) => p.place.id === nearResident)?.place.resident ?? ''}`}
+              >
+                <Icon icon={Heart} size={18} />
+                <span className="town-prompt-gift-label">{life.court[nearResident]?.married ? 'Gia đình' : 'Hẹn hò'}</span>
+              </button>
+            )}
             {nearResident && canGiftNear && near?.kind === 'resident' && prompt.id === nearResident && (
               <button type="button" className="btn btn-lg town-prompt-gift" onClick={() => setGifting(nearResident)} aria-label={`Tặng quà cho ${overview.places.find((p) => p.place.id === nearResident)?.place.resident ?? ''}`}>
                 <Icon icon={Gift} size={18} />
@@ -1072,6 +1142,12 @@ export default function TownPage() {
 
         {shownTalk?.kind === 'quick' && (
           <Conversation
+            street={streetView}
+            onInvite={() => {
+              const id = shownTalk.place.id;
+              endTalk();
+              startTalk(id);
+            }}
             key={shownTalk.key}
             place={panelPlace ?? shownTalk.place}
             turns={shownTalk.turns}
@@ -1087,7 +1163,7 @@ export default function TownPage() {
             onAnswered={onAnswered}
             onFinished={onFinished}
             onLeave={endTalk}
-            onAgain={() => startTalk(shownTalk.place.id)}
+            onAgain={() => startTalk(shownTalk.place.id, false, shownTalk.street ? 'street' : 'place')}
           />
         )}
         {shownTalk?.kind === 'episode' && (

@@ -1918,3 +1918,124 @@ phê, a wrong sound-alike pick with its note, a typed check with a close miss �
 the right words shown, the result card, the explainer's measure; no horizontal scroll, no text under 13 px. Not
 checked: a typed line inside an episode on screen (only through the store), the wide-stage layout, a real phone
 keyboard over the panel, and how any of it feels after a week.
+
+## 14. Gặp trên đường: a resident met out in the town (2026-11-22)
+
+The owner clicked Daniel on a path and the talk jumped into the boarding house ("tao gặp thằng này ngoài đường, bấm
+vào thì nó bắt về phòng trọ nói chuyện… mày làm game cũng phải logic tí chứ"). Now **where you meet someone is where you
+talk**:
+
+- A click on the resident themself, or E / the main button beside them, passes `inPerson` (engine `onTalk(id, true)`).
+  The page reads where they stand (`mapSnapshot`) and compares it with where their talk would happen at home
+  (`streetModel.homeSetting`: their waiting episode's setting, else the quick chat's). If they are more than
+  `STREET_FAR` (5 tiles) from it (`engine/staging.ts metInStreet`), they are **out in the town**.
+- In that case the talk is a quick chat **right there** (`TalkSetting` `{ kind: 'here' }`): the player walks up to
+  them (`sim.walkToResident`) and the camera frames the two. There is no dip and no room. The panel says
+  "Daniel · Gặp trên đường".
+- An episode is told where it belongs, so it waits. The bottom button beside someone out in the town offers "Bắt chuyện
+  với Daniel" without "· Tập 1".
+- A click on their house, the list, the map or "Tới gặp …" still goes to where the talk happens, as before.
+
+**Context** (`data/townStreet.ts`) is one Vietnamese sentence at the top of the chat. It is narration only, with no
+audio. It is true anywhere in the town and depends on the friendship:
+
+- 0–1 hearts: polite ("Thầy Daniel kẹp mấy quyển sách, đi chậm rãi.");
+- 2–4: they stop for you;
+- 5+: they light up;
+- in half of the meetings, once you know one of their facts (data/stories), a scene built on it ("Thầy Daniel cầm hũ
+  mật ong vừa mua: trà tối nay có rồi.").
+
+It reads the same all day (seeded by the day and the meeting).
+
+**Parting words** (`streetModel.streetTalkView`):
+
+- If their next episode waits at home, the result card says so ("Daniel dặn lúc nào rảnh thì ghé nhà trọ: có chuyện
+  muốn kể với bạn."). Its second button becomes "Đi cùng Daniel tới nhà trọ": the street talk ends and the episode's
+  staging begins, so the two walk there together (or dip if it is more than 12 tiles away).
+- If the next episode waits for friendship, the card says how close you must get first ("Thân hơn nữa (cần 2 tim) thì
+  Emma sẽ kể thêm chuyện riêng.").
+
+**Friendship** (owner: "phải liên quan với nhau để chiếm tình cảm npc"): a street chat with 3 of 5 understood pays +10
+more, once per resident a day (`FRIEND_POINTS.street`, town-progress daily set `street`, union merge). This is on top
+of the chat's +15 and the day's +5.
+
+Checked:
+
+- unit tests (`townStreet`, `streetModel`, staging `metInStreet`, friendship);
+- in headless Edge, a street talk with Daniel 23 tiles away: the walk, the panel "Gặp trên đường" and the scene line.
+
+Not checked: the result card's invite on screen, or "Đi cùng" walking together.
+
+## 15. Hẹn hò, cưới, con; Nhân vật (2026-11-22)
+
+The owner asked: "nên có tán gái, kết hôn và sinh con nữa, có thể chọn nhân vật". Their choices:
+
+- who you court follows from your character: a man courts Emma, Mia, Sarah, Kim, Lily; a woman courts Leo, Ben, Sam,
+  Tom, Daniel. Zoe and Max are together in their own story; Grace is the town's grandmother;
+- you make your own character;
+- children grow and talk;
+- the way in is hearts plus dates.
+
+Then: "không nhất thiết là cứ phải dùng hội thoại gemini, nhiều cái cứ trò chuyện bình thường là được". So all of
+this is **text scenes**: an English line, its Vietnamese meaning, and a ▶ that reads it in the browser voice
+(`speak(…, { browserOnly: true })`). There are no shipped clips and never a paid request.
+
+**Stored**: `town-life` (synced; `core/town/life.ts`, merger `mergeLife`, laws in syncMerge.props.test):
+
+- the character: gender, name, skin, hair style and colour; the newer `at` wins;
+- per resident, the time of each step (dating, date1–3, engaged, married); the earliest wins, and the partner is the
+  earliest `dating`;
+- children (name, boy / girl, born; at most 3);
+- the first choice per scene;
+- per day, who was talked with (the last 40 days).
+
+Friendship points and the bouquet / ring stay in town-progress.
+
+**The way** (`core/town/romance.ts romanceSteps`, IO `lifeStore.ts`): one step a day.
+
+| Step | Needs | Friendship |
+|---|---|---|
+| Tỏ tình | 8 hearts and a bouquet (Tiệm quà, 30 xu; sold once you have a character) | +50 |
+| Hẹn hò lần 1–3 | one a day | +40 each |
+| Cầu hôn | the 3 dates, 10 hearts, a ring (150 xu) | +60 |
+| Đám cưới | the next day | +60 |
+| Each day after | one exchange with the spouse; one play with each child | +10 / +5 |
+| Có em bé | 3 days after the wedding; another only once the youngest is 14 days old | +20 |
+
+A scene's choice adds its own points once.
+
+Children are babies for days 0–6, toddlers for 7–20, and at school from day 21. Their scenes are in
+`data/romance/kids.ts`.
+
+**Content**: `data/romance/<placeId>.ts`, one `Suitor` each, holds the confession, three dates in places of the town,
+the proposal, the vows and 8 daily exchanges. They were written against each resident's arc and facts (Leo's sister's
+baby, Ben's dad's counter, Daniel's novel…). `data/romance/kids.ts` holds 6 baby, 10 toddler and 12 child scenes. The
+contract is in `core/town/romanceTypes.ts`; tests are in `core/town/romance.test.ts`.
+
+**On screen**:
+
+- The character's name shows over the player's head (`StageState.playerName`, "Bạn" without a character).
+- "Nhân vật" (activity `character`) is the creator, with a live portrait. "Lưu" rebuilds the player in the town:
+  `three/chars/looks setPlayerLook`, `StageState.body`, `engine3d.setState` drops the old model. The gender cannot
+  change while you have a partner.
+- "Hẹn hò & gia đình" (activity `love`) shows:
+  - the candidates with their hearts;
+  - a candidate's page with the next step or why it waits;
+  - married life: the steps, the children with their ages;
+  - the baby's naming.
+- Standing next to a candidate or the spouse, a "Hẹn hò" (or "Gia đình") button sits beside the main button.
+- `romance/StoryChat.tsx` plays a scene line by line, with its choice.
+
+Not built yet:
+
+- the spouse and the children in the 3D town (no new model follows you; the children exist only in the panel);
+- a wedding event on the plaza with the townsfolk.
+
+Not checked:
+
+- any of it on screen beyond type-check and unit tests;
+- the English of the 300-odd lines, by a person;
+- the step costs and points, which are guesses;
+- the 'you' lines of the voiced episodes keep their one voice whatever the character's gender;
+- a few dates happen at places this town does not draw (a library, an orchard, a Saturday market): only words in a
+  text scene for now.

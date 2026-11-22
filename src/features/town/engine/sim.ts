@@ -55,6 +55,10 @@ export interface StageState {
   theme: TownTheme;
   /** What the player wears and who follows them. Left out = nothing worn, nobody following. */
   look?: PlayerLook;
+  /** The learner's own character (three/chars/looks playerLookKey): a new key rebuilds the player's model. */
+  body?: string;
+  /** Their character's name over their head (default "Bạn"). */
+  playerName?: string;
   /** Ids of town "projects" decorations to draw (engine/extraDecor.ts knows where each one stands; unknown ids are skipped). */
   extraDecor?: readonly string[];
   /**

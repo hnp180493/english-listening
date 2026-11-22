@@ -17,6 +17,7 @@ import {
   type Tombstones,
 } from './syncMarkers';
 import { mergeTownProgress, parseTownProgress } from './town/progress';
+import { mergeTownLife, parseTownLife } from './town/life';
 
 /** Full storage key (with prefix) → raw stored JSON string, as in Backup.data. */
 export type DataMap = Record<string, string>;
@@ -594,6 +595,13 @@ export const mergeProgressHistory: Merger = (newer, older) => mergeHistoryStores
  */
 export const mergeTown: Merger = (newer, older) => mergeTownProgress(parseTownProgress(newer), parseTownProgress(older));
 
+/**
+ * town-life (Thị trấn: the learner's character, courtship, children; core/town/life): the character is replaced as a
+ * whole and the newer change time wins; each step of a courtship keeps the first time it happened anywhere; a child's
+ * name keeps its newer edit; a choice the first one made; the days' talked sets their union (the last 40 days).
+ */
+export const mergeLife: Merger = (newer, older) => mergeTownLife(parseTownLife(newer), parseTownLife(older));
+
 /** Short key (without prefix) → merge strategy. Keys not listed (unknown): newer side wins. */
 const MERGERS: Record<string, Merger> = {
   settings: mergeSettings,
@@ -614,6 +622,7 @@ const MERGERS: Record<string, Merger> = {
   'checkup-results': mergeCheckups,
   'progress-history': mergeProgressHistory,
   'town-progress': mergeTown,
+  'town-life': mergeLife,
 };
 
 function tryParse(raw: string): { ok: true; value: unknown } | { ok: false } {

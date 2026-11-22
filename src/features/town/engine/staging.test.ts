@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { walkable } from '../../../core/town/map';
 import { QUICK_CHAT_SETTINGS, TOWN_STORIES, INN_SETTING } from '../../../data/townStories';
 import { TOWN_WORLD } from '../../../data/townWorld';
-import { doorwayOf, outsideSpots, outward, playerStand, sameSetting, type StorySetting } from './staging';
+import { doorwayOf, metInStreet, outsideSpots, outward, playerStand, sameSetting, STREET_FAR, type StorySetting } from './staging';
 
 const tile = (p: { x: number; y: number }) => ({ x: Math.floor(p.x), y: Math.floor(p.y) });
 const inPlace = (p: { x: number; y: number }) => TOWN_WORLD.places.some((q) => p.x >= q.x && p.x < q.x + q.w && p.y >= q.y && p.y < q.y + q.d);
@@ -81,5 +81,27 @@ describe('staging a talk', () => {
     expect(sameSetting({ kind: 'inside', room: 'cafe' }, { kind: 'outside', at: 'cafe' })).toBe(false);
     expect(sameSetting({ kind: 'outside', at: 'park' }, { kind: 'outside', at: 'square' })).toBe(false);
     expect(sameSetting(null, null)).toBe(true);
+  });
+});
+
+describe('met in the street (docs/town.md §14)', () => {
+  it('a resident far from where their talk would happen is out in the town; one by their door is at home', () => {
+    const inn: StorySetting = { kind: 'inside', room: 'inn' };
+    const door = playerStand(TOWN_WORLD, inn, 'school')!;
+    expect(metInStreet(TOWN_WORLD, inn, 'school', { x: door.x + 1, y: door.y })).toBe(false);
+    expect(metInStreet(TOWN_WORLD, inn, 'school', { x: door.x + STREET_FAR + 1, y: door.y })).toBe(true);
+    const front: StorySetting = { kind: 'outside', at: 'cafe' };
+    const at = playerStand(TOWN_WORLD, front, 'cafe')!;
+    expect(metInStreet(TOWN_WORLD, front, 'cafe', at)).toBe(false);
+    expect(metInStreet(TOWN_WORLD, front, 'cafe', { x: at.x, y: at.y - STREET_FAR - 0.5 })).toBe(true);
+    // a place this world does not have: never the street
+    expect(metInStreet(TOWN_WORLD, { kind: 'outside', at: 'moon' }, 'cafe', { x: 0, y: 0 })).toBe(false);
+  });
+
+  it('a talk in the street stands nowhere in particular and is the same staging as another one there', () => {
+    expect(playerStand(TOWN_WORLD, { kind: 'here' }, 'cafe')).toBeNull();
+    expect(sameSetting({ kind: 'here' }, { kind: 'here' })).toBe(true);
+    expect(sameSetting({ kind: 'here' }, { kind: 'outside', at: 'cafe' })).toBe(false);
+    expect(sameSetting({ kind: 'inside', room: 'inn' }, { kind: 'here' })).toBe(false);
   });
 });
