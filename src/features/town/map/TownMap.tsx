@@ -73,8 +73,9 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
   /** The stage's latest read (the live loop); `seen`: the one the words on the page were made from (the last pick). */
   const snap = useRef<MapSnapshot | null>(start);
   const [seen, setSeen] = useState<MapSnapshot | null>(start);
-  // the map is turned like the camera when it opens, and stays so while it is open
-  const [yaw] = useState(() => start?.cameraYaw ?? MAP_YAW0);
+  // the map always lies the same way (the default view's), whatever way the camera was turned: since the camera turns
+  // all the way round (2026-11-22) the owner wants the map fixed ("xoay map ở ngoài thì đừng có làm bản đồ xoay theo")
+  const yaw = MAP_YAW0;
   const [opensAt] = useState(() => start?.player ?? TOWN_WORLD.start);
   const [box, setBox] = useState<Box>({ w: 0, h: 0 });
   /** Where the learner has looked (null: as it opened); always shown within the limits of the box. */

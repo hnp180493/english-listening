@@ -384,7 +384,10 @@ eighth until 2026-11-21, when a critique found people too small to read; a fifth
 found every first look "sát rạc": the learner zooms in with the wheel or a pinch). The zoom and the turn are the learner's
 alone: a pinch zooms within 0.55…1.9 of that, and so does the wheel in full screen, with Ctrl / ⌘ held, or once the
 canvas has the keyboard (a click or Tab put it there): else the wheel scrolls the page past the town. A right-button
-drag turns the view up to 60° either way (the keys turn with it: up is always away from the camera).
+drag (the middle button too, or two fingers) turns the view all the way round (until 2026-11-22 only 60° either way:
+the owner asked for 360°; `yawAfter`); the keys turn with it: up is always away from the camera. Seen from the back
+the houses show their plain walls (doors, signs and most windows are on the two faces the default view sees), and a
+talk outside stands its two side by side on the screen only from the default view.
 - **In free play it follows the player and nothing else.** What it looks at is the player (`followPoint`: a point
   `FOLLOW_LEAD` 0.073 s ahead of them along the way they go), eased by a critically damped spring of `FOLLOW_W` 11
   (`springStep`, no overshoot: the lead, on the pace smoothed at 40/s, stays at 0.8/ω), so the player stays in the
@@ -1592,9 +1595,10 @@ The owner asked to see the whole town at once ("thêm bản đồ vào đi tao m
   up a talk still being walked to; in a conversation it waits. Focus goes to the map, and back to the HUD button or
   the town when it closes.
 - **The picture** (`drawMap.ts`, a canvas, redrawn only when the view, the town or the theme changes; about 1.5 ms):
-  the island from the world data, seen from high up at a slant (`MAP_TILT` 0.6) and turned like the camera was when
-  the map opened, so what is up on the stage is up on the map (`mapView.ts`: at the default turn the tile (0, 0) is the
-  top corner, as in town). Grass with an earth cliff under its near edges, the lake, the paths and the plaza, the farm's
+  the island from the world data, seen from high up at a slant (`MAP_TILT` 0.6), always turned the same way, the
+  default view's (`MAP_YAW0`: the tile (0, 0) is the top corner, as in town), however the camera is turned (until
+  2026-11-22 it opened turned like the camera; once the camera could turn all the way round the owner wanted the map
+  fixed). The player's arrow shows which way they face on it. Grass with an earth cliff under its near edges, the lake, the paths and the plaza, the farm's
   fields, trees as soft round crowns (blossom trees once bought), the fountain once bought, and the houses as small
   blocks with walls and roofs in each place's colours (`PLACE_ART`, the 3D recipes' colours). Honest about building:
   a built place stands in colour; the lots on offer are building sites (a plot of sand with a dashed rim, like the

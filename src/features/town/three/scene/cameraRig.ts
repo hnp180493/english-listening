@@ -16,8 +16,8 @@ export const PERSON_HEIGHT = 0.75;
 /** The learner's own zoom (wheel / pinch) stays within these factors of the resting distance. */
 export const ZOOM_MIN = 0.55;
 export const ZOOM_MAX = 1.9;
-/** The camera may turn this far either way from the default view (drag with the right button, or two fingers). */
-export const YAW_SWING = (60 * Math.PI) / 180;
+/** Radians the camera turns for a drag of one CSS px (the right or middle button, or two fingers): about 1,050 px all the way round. */
+export const YAW_PER_PX = 0.006;
 
 export interface Basis {
   /** Screen right, on the ground plane. */
@@ -188,7 +188,10 @@ export function zoomAfter(zoom: number, change: { wheel?: number; pinch?: number
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 }
 
-/** The yaw after a drag of `dx` CSS px, within YAW_SWING of the default view. */
+/**
+ * The yaw after a drag of `dx` CSS px: all the way round, as often as the learner likes (until 2026-11-22 it stopped
+ * 60° either side of the default view; the owner: "sao mày không cho xoay bản đồ 360 độ?").
+ */
 export function yawAfter(yaw: number, dx: number): number {
-  return Math.min(YAW0 + YAW_SWING, Math.max(YAW0 - YAW_SWING, yaw - dx * 0.006));
+  return yaw - dx * YAW_PER_PX;
 }

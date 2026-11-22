@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { springStep } from '../../engine/spring';
-import { basisOf, cameraPosition, clampToIsland, EDGE_HOLD, fitDistance, FOLLOW_LEAD, FOLLOW_W, followPoint, FOV, groundHalfExtent, insetShift, keyDirection, PITCH, restDistance, YAW0, YAW_SWING, yawAfter, ZOOM_MAX, ZOOM_MIN, zoomAfter, followStiffness, followLead, FOLLOW_W_NARROW } from './cameraRig';
+import { basisOf, cameraPosition, clampToIsland, EDGE_HOLD, fitDistance, FOLLOW_LEAD, FOLLOW_W, followPoint, FOV, groundHalfExtent, insetShift, keyDirection, PITCH, restDistance, YAW0, YAW_PER_PX, yawAfter, ZOOM_MAX, ZOOM_MIN, zoomAfter, followStiffness, followLead, FOLLOW_W_NARROW } from './cameraRig';
 import type { P3 } from './coords';
 
 const dot = (a: P3, b: P3) => a.x * b.x + a.y * b.y + a.z * b.z;
@@ -176,11 +176,14 @@ describe('3D town camera rig', () => {
     expect(z).toBe(ZOOM_MIN);
     expect(zoomAfter(1, { wheel: -100 })).toBeLessThan(1);
     expect(zoomAfter(1, { pinch: 2 })).toBeCloseTo(Math.max(ZOOM_MIN, 0.5));
+    // the turn has no stop: a long drag goes all the way round (and on), and back the same way
     let y = YAW0;
-    for (let i = 0; i < 100; i++) y = yawAfter(y, 100);
-    expect(y).toBeCloseTo(YAW0 - YAW_SWING);
-    for (let i = 0; i < 100; i++) y = yawAfter(y, -100);
-    expect(y).toBeCloseTo(YAW0 + YAW_SWING);
+    const round = (2 * Math.PI) / YAW_PER_PX;
+    for (let i = 0; i < 100; i++) y = yawAfter(y, round / 100);
+    expect(y).toBeCloseTo(YAW0 - 2 * Math.PI);
+    expect(Math.cos(y)).toBeCloseTo(Math.cos(YAW0));
+    for (let i = 0; i < 300; i++) y = yawAfter(y, -round / 200);
+    expect(y).toBeCloseTo(YAW0 + Math.PI);
   });
 });
 
