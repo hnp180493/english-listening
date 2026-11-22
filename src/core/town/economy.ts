@@ -8,6 +8,7 @@
 //   a right answer that does not raise the line                     1 xu
 //   a line of an episode (step 2): 3 / 2 the first time understood, then 1; never kept as a first listen
 //   a wrong answer                                                  0
+//   a line TYPED right (./typing, now and then instead of a pick)   +2 on top of the above
 //   a conversation of 5 lines with all 5 right                     +5 xu
 //   the three daily tasks of the day (./daily)                     5 to 10 xu each, once a day each
 //   the game loops (fishing, the farm, eggs: ./fishing ./farm ./eggs) small, capped per day (docs/town.md §10)
@@ -19,14 +20,21 @@ import { placeLines, TOWN_DECORATIONS, TOWN_PLACES, townDecoration, townPlace } 
 import { EGG_COST } from '../../data/townGame';
 import { TOWN_GIFTS } from '../../data/townGifts';
 import { noteConversation, noteLine, type TaskPayout } from './daily';
-import { addBought, addEarned, earnedTotal, eggCountTotal, giftCount, hasBought, isLineId, lineProgress, linesStats, recordLine, type LineBest, type TownProgress, type TownStats } from './progress';
+import { addBought, addEarned, addTyped, earnedTotal, eggCountTotal, giftCount, hasBought, isLineId, lineProgress, linesStats, recordLine, type LineBest, type TownProgress, type TownStats } from './progress';
 import { allStoryLines, storyLineById } from './storyLines';
-import { VISIT_SIZE, type LineOutcome, type TownPlace } from './types';
+import { VISIT_SIZE, type LineOutcome, type TownPlace, type TypedMark } from './types';
 
 // ───────────────────────── earning ─────────────────────────
 
 export const LINE_REWARD = { first: 3, replayed: 2, again: 1 } as const;
 export const CONVERSATION_BONUS = 5;
+/** Xu on top of the line's own for a typed check typed right (with or without the hint): typing is harder than a pick. */
+export const TYPED_BONUS = 2;
+
+/** The extra xu of a typed check: TYPED_BONUS when it was typed right, 0 otherwise (and for a pick). */
+export function typedBonus(typed: TypedMark | null | undefined): number {
+  return typed === 'ok' || typed === 'helped' ? TYPED_BONUS : 0;
+}
 
 /**
  * Xu for one answered line whose best so far was `prevBest`. A right answer that raises the line pays for the level
@@ -282,21 +290,27 @@ export interface AnswerEffect {
   tasksPaid: TaskPayout[];
   /** The line's best before this answer. */
   prevBest: LineBest;
+  /** Of `reward`, the extra for a line typed right (typedBonus). */
+  typedXu: number;
 }
 
 /**
  * Everything one answered line changes, in one step: the line's record, its xu (into the bucket of `device`), the
  * day's counters and any daily task just reached. The input is not changed. An unusable line id changes nothing.
  * A line of an episode is kept as understood, never as a first listen (keptOutcome), and paid by storyLineReward.
+ * `typed`: the line was a typed check (./typing), not a pick: it is counted in the typed checks of `device`
+ * (progress `typed`, the town's real measure) and, typed right, pays TYPED_BONUS more.
  */
-export function applyAnswer(progress: TownProgress, lineId: string, outcome: LineOutcome, now: number, device: string): AnswerEffect {
+export function applyAnswer(progress: TownProgress, lineId: string, outcome: LineOutcome, now: number, device: string, typed?: TypedMark | null): AnswerEffect {
   const prevBest = (isLineId(lineId) && lineProgress(progress, lineId)?.best) || 0;
   const kept = keptOutcome(lineId, outcome);
   const recorded = recordLine(progress, lineId, kept, now);
-  if (recorded === progress) return { progress, reward: 0, tasksPaid: [], prevBest };
-  const reward = isStoryLineId(lineId) ? storyLineReward(prevBest, outcome) : lineReward(prevBest, outcome);
-  const noted = noteLine(addEarned(recorded, device, reward), kept, now, device);
-  return { progress: noted.progress, reward, tasksPaid: noted.tasksPaid, prevBest };
+  if (recorded === progress) return { progress, reward: 0, tasksPaid: [], prevBest, typedXu: 0 };
+  const typedXu = outcome === 'wrong' ? 0 : typedBonus(typed);
+  const reward = (isStoryLineId(lineId) ? storyLineReward(prevBest, outcome) : lineReward(prevBest, outcome)) + typedXu;
+  const counted = typed ? addTyped(recorded, device, typed === 'ok' && outcome !== 'wrong') : recorded;
+  const noted = noteLine(addEarned(counted, device, reward), kept, now, device);
+  return { progress: noted.progress, reward, tasksPaid: noted.tasksPaid, prevBest, typedXu };
 }
 
 export interface ConversationEffect {

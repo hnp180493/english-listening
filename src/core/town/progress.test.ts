@@ -26,7 +26,7 @@ import type { LineOutcome } from './types';
 
 const T = 1_800_000_000_000;
 const EMPTY = {
-  version: 5,
+  version: 6,
   lines: {},
   earned: {},
   bought: [],
@@ -43,6 +43,7 @@ const EMPTY = {
   facts: {},
   choices: {},
   gifts: { bought: {}, given: {} },
+  typed: {},
 };
 const make = (p: Partial<TownProgress>): TownProgress => ({ ...emptyTownProgress(), ...p });
 /** 'YYYY-MM-DD' `n` days after 2026-11-01. */
@@ -168,7 +169,7 @@ describe('recordLine', () => {
   it('touches the lines only: xu, purchases and days are carried over as they are', () => {
     const p = make({ earned: { 'd-aaaa0001': 9 }, bought: ['home'], days: ['2026-11-13'] });
     const q = recordLine(p, 's001', 'first', T);
-    expect(q).toMatchObject({ version: 5, earned: p.earned, bought: p.bought, daily: {}, days: p.days });
+    expect(q).toMatchObject({ version: 6, earned: p.earned, bought: p.bought, daily: {}, days: p.days });
     expect(q.earned).toBe(p.earned);
   });
 

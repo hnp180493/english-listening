@@ -21,6 +21,9 @@ import {
   talkPrompt,
   talkSummary,
   taskCount,
+  soundAlikeNote,
+  typedMeasureText,
+  typedVerdictOf,
   verdictOf,
 } from './shellModel';
 
@@ -162,6 +165,34 @@ describe('what the game says to an answer', () => {
   });
 });
 
+describe('the typed check and the sound-alikes (docs/town.md §13)', () => {
+  it('a typed check: praised for the first listen only on a line never answered before', () => {
+    expect(typedVerdictOf('first', false)).toMatchObject({ tone: 'ok', title: 'Gõ đúng ngay lần nghe đầu!', sfx: 'first' });
+    expect(typedVerdictOf('first', true)).toMatchObject({ tone: 'ok', title: 'Gõ đúng rồi!' });
+    expect(typedVerdictOf('replayed', false).title).toBe('Gõ đúng rồi!');
+    expect(typedVerdictOf('wrong', false)).toMatchObject({ tone: 'bad', sfx: 'wrong' });
+  });
+
+  it('a wrong sound-alike says where the two differ by ear', () => {
+    expect(soundAlikeNote('âm h bị nuốt')).toBe('Nghĩa bạn chọn là của một câu nghe gần giống. Chỗ khác: âm h bị nuốt.');
+  });
+
+  it('the measure: nothing before the first check, hedged while small, never xu or hearts', () => {
+    expect(typedMeasureText({ n: 0, ok: 0 })).toBeNull();
+    const few = typedMeasureText({ n: 3, ok: 2 })!;
+    expect(few).toContain('gõ đúng ngay 2 trên 3 lần');
+    expect(few).toContain('chưa nói lên nhiều');
+    expect(few).toContain('không phải thước đo');
+    expect(typedMeasureText({ n: 40, ok: 30 })).not.toContain('chưa nói lên nhiều');
+  });
+
+  it('a conversation says whether its typed line was typed right', () => {
+    expect(talkSummary([answer('first')], [false], 'Emma').typedRight).toBeNull();
+    expect(talkSummary([answer('first'), answer('wrong', { typed: 'miss' })], [false, false], 'Emma').typedRight).toBe(false);
+    expect(talkSummary([answer('replayed', { typed: 'helped' })], [false], 'Emma').typedRight).toBe(true);
+  });
+});
+
 function answer(outcome: LineOutcome, extra: Partial<TownAnswerResult> = {}): TownAnswerResult {
   const level = { index: 0, title: 'Khách lạ', xp: 0, nextAt: 15, nextTitle: 'Người quen', progress: 0 };
   return {
@@ -180,6 +211,8 @@ function answer(outcome: LineOutcome, extra: Partial<TownAnswerResult> = {}): To
     heartsAfter: 0,
     review: null,
     conversation: null,
+    typed: null,
+    typedXu: 0,
     progress: emptyTownProgress(),
     saved: true,
     ...extra,

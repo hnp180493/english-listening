@@ -175,7 +175,9 @@ export function storyChoices(lineId: string, episode: StoryEpisode, seed: number
   // never another form of the same moment (an option, a variant): it means nearly the same
   const base = storyLineById(lineId)?.line.base ?? lineId;
   const pool = placeStoryLines(episode.placeId).filter((l) => l.id === lineId || (storyLineById(l.id)?.line.base ?? l.id) !== base);
-  return choicesFor(line, pool, seed);
+  // a look-alike pair is never made of another line of this episode (just heard in the whole exchange)
+  const own = new Set(episodeTownLines(episode).map((l) => l.id));
+  return choicesFor(line, pool, seed, own);
 }
 
 /**

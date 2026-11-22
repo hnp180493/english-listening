@@ -18,7 +18,8 @@ import {
 } from '../../core/dictation/custom';
 import type { ProgressMap } from '../../core/dictation/progress';
 import { LEVEL_LABEL } from './constants';
-import { annotationCount, detectedPhenomena } from './decodeCache';
+import { annotationCount, detectedPhenomena, listPlayback } from './decodeCache';
+import { CONNECTED_TITLE } from '../../core/playback';
 import { scrollBehavior } from '../../core/motion';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import { PhenomenonChips } from './WhyWrong';
@@ -463,7 +464,14 @@ export default function CustomManager({
                       </div>
                     ) : (
                       <div className="dict-mgr-actions">
-                        <PlayButton text={c.text} size="sm" label="Nghe" variant="ghost" />
+                        <PlayButton
+                          text={listPlayback(c).text}
+                          mode="connected"
+                          size="sm"
+                          label="Nghe"
+                          variant="ghost"
+                          title={CONNECTED_TITLE}
+                        />
                         <button type="button" className="btn btn-sm btn-ghost" onClick={() => onPractice(c.id)}>
                           Luyện
                         </button>

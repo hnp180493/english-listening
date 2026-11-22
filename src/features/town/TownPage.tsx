@@ -7,13 +7,14 @@ import { prefersReducedMotion } from '../../core/motion';
 import { hrefFor, parseHash } from '../../core/nav';
 import { useSettings } from '../../core/settings';
 import { resolveTheme, systemPrefersDark } from '../../core/theme';
-import { lineProgress } from '../../core/town/progress';
+import { lineProgress, typedTotals } from '../../core/town/progress';
 import {
   buyTownItem,
   loadTownProgress,
   startTownConversation,
   startTownEpisode,
   useTownOverview,
+  useTownProgress,
   type TownAnswerResult,
   type TownEpisodeGistResult,
   type TownEpisodeResult,
@@ -49,7 +50,7 @@ import { disposeOffscreen } from './three/offscreen';
 import { disposeThumbs } from './three/thumbs';
 import TownStage3D from './three/TownStage3D';
 import { wantsFlat, webglAvailable } from './three/webgl';
-import { lotLabel, lotLabelsOf, stageStateOf, suggestedPlace, talkLabel, talkPrompt, xu, type Verdict } from './shellModel';
+import { lotLabel, lotLabelsOf, stageStateOf, suggestedPlace, talkLabel, talkPrompt, typedMeasureText, xu, type Verdict } from './shellModel';
 import { playSfx, warmSfx } from './sfx';
 import TownHud from './TownHud';
 import GiftSheet from './friends/GiftSheet';
@@ -347,6 +348,8 @@ function FlatTown({ places, suggested, onTalk }: { places: readonly TownPlaceVie
 export default function TownPage() {
   const theme = useTownTheme();
   const overview = useTownOverview();
+  // the town's one real measure (docs/town.md §13), shown only in "Thị trấn này để làm gì?"
+  const typedMeasure = typedMeasureText(typedTotals(useTownProgress()));
   const ui = useTownUi();
   const stage = useRef<TownStageHandle>(null);
   const xuRef = useRef<HTMLSpanElement>(null);
@@ -1128,6 +1131,11 @@ export default function TownPage() {
             Nói thật với nhau: giọng trong app rõ hơn người thật nhiều, và chọn 1 trong 3 nghĩa dễ hơn hẳn việc tự nghe ra ngoài đời. Xây xong cả thị trấn nghĩa là bạn đã quen
             tai với {overview.totals.total} câu này, chưa phải nghe được phim hay người bản xứ. Việc đó vẫn cần nhiều giờ nghe tiếng Anh thật.
           </p>
+          <p>
+            Vì vậy mỗi lần trò chuyện có một câu không cho chọn nghĩa mà bắt gõ lại cụm vừa nghe. Câu nào có thể thì một nghĩa sai là nghĩa của một câu nghe gần giống
+            (can với can’t, him với them…), để đoán mò không còn dễ trúng.
+          </p>
+          {typedMeasure && <p>{typedMeasure}</p>}
         </div>
       </details>
     </div>

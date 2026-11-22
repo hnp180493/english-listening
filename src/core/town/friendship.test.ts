@@ -291,6 +291,6 @@ describe('stored (version 5)', () => {
 
   it('a version 4 value reads with no friendship', () => {
     const p = parseTownProgress({ version: 4, lines: {}, earned: { [LAPTOP]: 5 } });
-    expect(p).toMatchObject({ version: 5, friends: {}, facts: {}, choices: {}, gifts: { bought: {}, given: {} } });
+    expect(p).toMatchObject({ version: 6, friends: {}, facts: {}, choices: {}, gifts: { bought: {}, given: {} } });
   });
 });

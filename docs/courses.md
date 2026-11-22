@@ -299,6 +299,14 @@ left as is. How to write it:
   7 silence, 10 aa, 11 ae, 12 ah, 13 ao, 14 aw, 15 ax, 16 ay, 17 b, 18 ch, 19 d, 20 dh, 21 eh, 22 er, 23 ey, 24 f,
   25 g, 26 h, 27 ih, 28 iy, 29 jh, 30 k, 31 l, 32 m, 33 n, 34 ng, 35 ow, 36 oy, 37 p, 38 r, 39 s, 40 sh, 41 t,
   42 th, 43 uh, 44 uw, 45 v, 46 w, 47 y, 48 z, 49 zh ("muss go" → m ah s g ow).
+- Probed 2026-11-22 for the cross-word flaps and assimilations still sent as written (nothing changed, so no
+  shipped clip went missing): /n/ → /m/ has no safe form ("imm black" ay eh m eh m, "em black" eh m, "um black"
+  ah m, "awm mute" ao m, "ahm mute" ey ey ch eh m): keep "in" / "on". A flapped "it" after a long word or "about"
+  stays written ("turningid" n jh ih d, "aboutid" uh). Read right but not generated: "tryid on" (t r ay ih d aa n),
+  "havid in" (h ae v ih d ih n), "hurcher feelings" (h er r ch ax r). Generating them would change 8 shipped
+  connected clips (180 characters: dictation s122, s124, s226 with their "Từng cụm" chunks and shadowing step, town
+  friend-4-05), and they are invented spellings Gemini was not heard reading; add them only together with a clip
+  regeneration the owner runs. "eachet" (iy ch ax t) and "thish year" (dh ax ih sh y) are wrong.
 - Check: `DECODER_DUMP=1 npx vitest run src/core/decoder/dump.test.ts --reporter=verbose` prints `~>` (what the
   engine gets) under every built-in sentence. The generated forms live in `src/core/decoder/tables.ts`
   (`speak` on reductions/contractions, `WEAK_SPEAK`, `H_FORMS`, `H_GLUE_STEM`, `HAVE_SPEAK`, `ELISION_SPEAK`,

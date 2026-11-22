@@ -62,3 +62,17 @@ export type LineOutcome = 'first' | 'replayed' | 'wrong';
 
 /** Lines said in one conversation. */
 export const VISIT_SIZE = 5;
+
+/**
+ * What a careless ear changes when it takes a line for another one that sounds nearly the same (docs/town.md §13):
+ * 'can' can ↔ can't, 'want' want to ↔ won't, 'ed' a past -ed dropped or added, 'd' a light 'd (I'd ↔ I, she'd call ↔
+ * she called), 'll' a light 'll, 'pronoun' an h dropped (him ↔ them, her ↔ him), 'number' -teen ↔ -ty, 'nt' a light
+ * n't (wasn't ↔ was), 'have' a light have (should have ↔ should), 'link' a word boundary linked away (eat yet ↔ eat it).
+ */
+export type SoundAlikeKind = 'can' | 'want' | 'ed' | 'd' | 'll' | 'pronoun' | 'number' | 'nt' | 'have' | 'link';
+
+/**
+ * A typed check of a line (docs/town.md §13): 'ok' = the words typed right at the first check, 'helped' = right
+ * after the close-miss hint, 'miss' = not right (or given up).
+ */
+export type TypedMark = 'ok' | 'helped' | 'miss';

@@ -44,7 +44,8 @@ import {
 import { EGG_GRANT_LABEL, grantKind } from './eggs';
 import type { FactId, StoryEpisode, StoryLine, StorySpeaker } from './story';
 import { resolveEpisode, storyLineById, storyTownLine } from './storyLines';
-import { VISIT_SIZE, type LineOutcome, type TownLine, type TownPlace } from './types';
+import { typedIndex, typingTask, type TypingTask } from './typing';
+import { VISIT_SIZE, type LineOutcome, type TownLine, type TownPlace, type TypedMark } from './types';
 import { settleTown, type TownReviewFacts } from './unlocks';
 import { choiceSeed, choicesFor, conversationLines, visitSummary, type LineChoices, type VisitSummary } from './visit';
 
@@ -290,6 +291,11 @@ export function useTownOverview(): TownOverview {
 export interface TownTurn {
   line: TownLine;
   choices: LineChoices;
+  /**
+   * Set on the one line of a conversation (or of an episode's step 2) that is TYPED instead of picked (./typing,
+   * docs/town.md §13): the gap to type. Absent on every other line.
+   */
+  typing?: TypingTask;
 }
 
 export interface TownConversationResult {
@@ -353,7 +359,17 @@ export function startTownConversation(placeId: string): TownConversationStart {
   }
   const pool = placeLines(placeId);
   conversation = newConversation(placeId, lines.map((l) => l.id), progress);
-  return { ok: true, place, turns: lines.map((line) => ({ line, choices: choicesFor(line, pool, choiceSeed(progress, line.id)) })) };
+  // a look-alike pair is never made of another line of this conversation (its meaning would be easy to rule out)
+  const said = new Set(lines.map((l) => l.id));
+  const turns: TownTurn[] = lines.map((line) => ({ line, choices: choicesFor(line, pool, choiceSeed(progress, line.id), said) }));
+  // one line of the five is typed: a line never answered before if there is one; the seed moves with every answer
+  const seed = lines.reduce((sum, l) => sum + choiceSeed(progress, l.id), 0);
+  const typed = typedIndex(placeId, lines.map((line) => ({ line, met: choiceSeed(progress, line.id) > 0 })), seed);
+  if (typed >= 0) {
+    const task = typingTask(turns[typed].line.text);
+    if (task) turns[typed] = { ...turns[typed], typing: task };
+  }
+  return { ok: true, place, turns };
 }
 
 /**
@@ -432,6 +448,10 @@ export interface TownAnswerResult {
   review: RecordResult | null;
   /** Set on the answer that completed the conversation (the same value finishTownConversation returns). */
   conversation: TownConversationResult | null;
+  /** The line was a typed check (./typing) and how it went; null for a pick. */
+  typed: TypedMark | null;
+  /** Of `reward`, the extra for a line typed right (./economy TYPED_BONUS). */
+  typedXu: number;
   progress: TownProgress;
   /** false: storage refused the town write (the answer counts for this session only). */
   saved: boolean;
@@ -444,9 +464,10 @@ export interface TownAnswerResult {
  * was missed); Ôn tập for a miss (enrolMissed). Never throws.
  *
  * A line answered twice within one conversation (a double click, a React effect run twice) is recorded once: the
- * second call returns the first result.
+ * second call returns the first result. `typed`: the line was a typed check (./typing), counted on its own and paid
+ * a little more when typed right (./economy applyAnswer).
  */
-export function recordTownAnswer(line: TownLine, outcome: LineOutcome, now: number = Date.now()): TownAnswerResult {
+export function recordTownAnswer(line: TownLine, outcome: LineOutcome, now: number = Date.now(), typed: TypedMark | null = null): TownAnswerResult {
   const before = loadTownProgress();
   const conv = conversationOf(line, before);
   const again = conv?.answers.get(line.id);
@@ -455,7 +476,7 @@ export function recordTownAnswer(line: TownLine, outcome: LineOutcome, now: numb
   const device = townDevice();
   const placeId = placeOfLineId(line.id);
   const heartsBefore = placeId ? friendHearts(before, placeId) : 0;
-  const answer = applyAnswer(before, line.id, outcome, now, device);
+  const answer = applyAnswer(before, line.id, outcome, now, device, typed);
   let next = answer.progress;
   let bonus = 0;
   const tasksPaid = [...answer.tasksPaid];
@@ -506,6 +527,8 @@ export function recordTownAnswer(line: TownLine, outcome: LineOutcome, now: numb
     heartsAfter,
     review,
     conversation: null,
+    typed,
+    typedXu: answer.typedXu,
     progress,
     saved,
   };
@@ -657,6 +680,8 @@ interface EpisodeRun {
   levelBefore: TownLevel;
   friendBefore: number;
   factsBefore: Set<string>;
+  /** The base line of step 2 that is typed (./typing), null when none. */
+  typedBase: string | null;
   result: TownEpisodeResult | null;
 }
 
@@ -667,8 +692,11 @@ function factNotes(ids: readonly FactId[]): TownFactNote[] {
   return ids.map((id) => ({ id, vi: storyFact(id)?.fact.vi ?? '' })).filter((f) => f.vi);
 }
 
-/** Every line of `episode` as said now in `progress` (facts known, choices made), with its meanings. */
-export function episodeTurns(episode: StoryEpisode, progress: TownProgress): TownEpisodeTurn[] {
+/**
+ * Every line of `episode` as said now in `progress` (facts known, choices made), with its meanings. The line whose
+ * base is `typedBase` is typed (./typing) when what it says now has a gap.
+ */
+export function episodeTurns(episode: StoryEpisode, progress: TownProgress, typedBase: string | null = null): TownEpisodeTurn[] {
   const resolved = resolveEpisode(
     episode,
     (f) => knowsFact(progress, f),
@@ -679,6 +707,7 @@ export function episodeTurns(episode: StoryEpisode, progress: TownProgress): Tow
     const pick: TownEpisodePick | null = r.choice
       ? { options: r.choice.options.map((c) => ({ id: c.id, intent: c.intent, text: c.text, vi: c.vi, ...(c.say ? { say: c.say } : {}) })), chosen: r.choice.chosen }
       : null;
+    const typing = !pick && typedBase !== null && r.base === typedBase ? typingTask(line.text) : null;
     return {
       line,
       choices: pick ? { options: [], answer: 0 } : storyChoices(r.id, episode, choiceSeed(progress, r.id)),
@@ -686,8 +715,25 @@ export function episodeTurns(episode: StoryEpisode, progress: TownProgress): Tow
       speaker: speakerName(r.who, episode.placeId),
       base: r.base,
       pick,
+      ...(typing ? { typing } : {}),
     };
   });
+}
+
+/**
+ * The base line of a new episode's step 2 that is typed (./typing typedIndex): one of its plain lines (never a choice),
+ * a line never answered before first. null for a re-listen (it has no step 2) or when no line has a gap.
+ */
+function episodeTypedBase(episode: StoryEpisode, progress: TownProgress, mode: EpisodeMode): string | null {
+  if (mode !== 'new') return null;
+  const turns = episodeTurns(episode, progress);
+  const seed = turns.reduce((sum, t) => sum + choiceSeed(progress, t.line.id), 0) + (episodeProgress(progress, episode.id)?.stage ?? 0);
+  const i = typedIndex(
+    episode.id,
+    turns.map((t) => ({ line: t.line, met: choiceSeed(progress, t.line.id) > 0, eligible: !t.pick })),
+    seed,
+  );
+  return i >= 0 ? turns[i].base : null;
 }
 
 /**
@@ -704,7 +750,8 @@ export function startTownEpisode(placeId: string, now: number = Date.now()): Tow
   if (!next) return { ok: false, reason: 'none' };
   const { episode, mode } = next;
   const e = episodeProgress(progress, episode.id);
-  const turns = episodeTurns(episode, progress);
+  const typedBase = episodeTypedBase(episode, progress, mode);
+  const turns = episodeTurns(episode, progress, typedBase);
   episodeRun = {
     episode,
     mode,
@@ -721,6 +768,7 @@ export function startTownEpisode(placeId: string, now: number = Date.now()): Tow
     levelBefore: townLevel(progress),
     friendBefore: friendPoints(progress, placeId),
     factsBefore: new Set(Object.keys(progress.facts)),
+    typedBase,
     result: null,
   };
   return {
@@ -813,7 +861,7 @@ export function recordEpisodeChoice(lineId: string, optionId: string, now: numbe
   const saved = w.progress === before ? true : write(w.progress, now);
   const progress = loadTownProgress();
   run.picks.set(lineId, choiceOf(progress, lineId)?.o ?? w.chosen);
-  return { first: w.first, chosen: run.picks.get(lineId) ?? w.chosen, points: w.points, learned: factNotes(w.learned), turns: episodeTurns(run.episode, progress), saved };
+  return { first: w.first, chosen: run.picks.get(lineId) ?? w.chosen, points: w.points, learned: factNotes(w.learned), turns: episodeTurns(run.episode, progress, run.typedBase), saved };
 }
 
 /**
@@ -822,7 +870,7 @@ export function recordEpisodeChoice(lineId: string, optionId: string, now: numbe
  * (`talk:<line id>`: the option or variant said has its own) when it has none. A line answered twice in one run is
  * recorded once. Never throws.
  */
-export function recordEpisodeLine(line: TownLine, outcome: LineOutcome, now: number = Date.now()): TownAnswerResult {
+export function recordEpisodeLine(line: TownLine, outcome: LineOutcome, now: number = Date.now(), typed: TypedMark | null = null): TownAnswerResult {
   const found = storyLineById(line.id);
   const base = found?.line.base ?? line.id;
   const run = episodeRun && episodeRun.need.has(base) ? episodeRun : null;
@@ -832,7 +880,7 @@ export function recordEpisodeLine(line: TownLine, outcome: LineOutcome, now: num
   const device = townDevice();
   const placeId = run?.episode.placeId ?? found?.episode.placeId;
   const hearts = placeId ? friendHearts(before, placeId) : 0;
-  const answer = applyAnswer(before, line.id, outcome, now, device);
+  const answer = applyAnswer(before, line.id, outcome, now, device, typed);
   const saved = answer.progress === before ? true : write(answer.progress, now);
   const progress = loadTownProgress();
   try {
@@ -861,6 +909,8 @@ export function recordEpisodeLine(line: TownLine, outcome: LineOutcome, now: num
     heartsAfter: placeId ? friendHearts(progress, placeId) : 0,
     review,
     conversation: null,
+    typed,
+    typedXu: answer.typedXu,
     progress,
     saved,
   };

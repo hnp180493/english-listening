@@ -7,8 +7,10 @@ import type { ListenTally } from '../../core/dictation/listens';
 import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_TITLE, CONNECTED_SLOW_TITLE, CONNECTED_TITLE } from '../../core/playback';
 import { recordTownAnswer, type TownAnswerResult, type TownGiftGive, type TownTurn } from '../../core/town/store';
 import type { SpeakVoice } from '../../core/tts';
-import type { TownPlace } from '../../core/town/types';
+import type { TownPlace, TypedMark } from '../../core/town/types';
 import { canAnswer, lineOutcome, notePlay } from '../../core/town/visit';
+import { SOUND_ALIKE_LABEL } from '../../core/town/soundAlike';
+import { judgeTyped, typedOutcome, type TypedJudge } from '../../core/town/typing';
 import type { PlaceId } from '../../data/townWorld';
 import { NEXT_GUARD_MS } from '../dictation/constants';
 import { dictationAudio, safeDecode, type DictationAudio } from '../dictation/decodeCache';
@@ -19,7 +21,7 @@ import FriendHearts from './friends/FriendHearts';
 import GiftGive from './friends/GiftGive';
 import { heartsText, pointsText, type GiftReactionView } from './friends/friendModel';
 import { useCanGift } from './friends/useCanGift';
-import { talkSummary, verdictOf, type Verdict } from './shellModel';
+import { soundAlikeNote, talkSummary, typedVerdictOf, verdictOf, type Verdict } from './shellModel';
 import { stopSfx } from './sfx';
 import { ignoredKeyTarget, SPEAK_DELAY_MS } from './talkKeys';
 import { useLinePlayer, type LinePlay } from './useLinePlayer';
@@ -175,8 +177,11 @@ export interface TurnProps {
   audio?: DictationAudio;
   /** The speaker's voice (an episode line); omitted = the app's voice. */
   voice?: SpeakVoice | null;
-  /** Records the answer (an episode line: recordEpisodeLine); omitted = recordTownAnswer. */
-  record?: (line: TownTurn['line'], outcome: NonNullable<ReturnType<typeof lineOutcome>>) => TownAnswerResult;
+  /**
+   * Records the answer (an episode line: recordEpisodeLine); omitted = recordTownAnswer. `typed`: the line was a typed
+   * check (core/town/typing), and how it went.
+   */
+  record?: (line: TownTurn['line'], outcome: NonNullable<ReturnType<typeof lineOutcome>>, now?: number, typed?: TypedMark | null) => TownAnswerResult;
   /** The last line's button (default "Xem kết quả"). */
   lastLabel?: string;
 }
@@ -185,6 +190,8 @@ export interface TurnProps {
 export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext, audio: given, voice, record = recordTownAnswer, lastLabel = 'Xem kết quả' }: TurnProps) {
   const resident = speaker;
   const { line, choices } = turn;
+  // this line is typed instead of picked (core/town/typing, docs/town.md §13)
+  const typing = turn.typing ?? null;
   const audio = useMemo(() => given ?? dictationAudio(line), [given, line]);
   const decoded = useMemo(() => safeDecode(line.text), [line.text]);
   const [tally, setTally] = useState<ListenTally | null>(null);
@@ -193,6 +200,8 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
   const [result, setResult] = useState<TownAnswerResult | null>(null);
   // the usual muted "sẽ quay lại trong Ôn tập" line, for a miss that put the sentence there
   const [note, setNote] = useState<string | null>(null);
+  // a wrong pick that sounds like the line: where the two differ by ear (kept on a phone too)
+  const [alikeNote, setAlikeNote] = useState<string | null>(null);
   const answeredAt = useRef(0);
 
   const player = useLinePlayer(
@@ -222,22 +231,72 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
   }, [sounding, onSpeaking]);
 
   const heard = canAnswer(tally);
-  const verdict = result ? verdictOf(result.outcome, met) : null;
+  const verdict = result ? (typing ? typedVerdictOf(result.outcome, met) : verdictOf(result.outcome, met)) : null;
+
+  // ───── a typed check: the words of the gap, one more try with a hint after a close miss ─────
+  const [typed, setTyped] = useState('');
+  const [judge, setJudge] = useState<TypedJudge | null>(null);
+  const [retried, setRetried] = useState(false);
+  const [nudge, setNudge] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const check = useCallback(
+    (giveUp = false) => {
+      if (answeredAt.current || !typing || !canAnswer(tallyRef.current)) return;
+      const j = judgeTyped(typing.target, giveUp ? '' : typed);
+      if (!giveUp && j.verdict === 'empty') {
+        setNudge(true);
+        inputRef.current?.focus();
+        return;
+      }
+      setNudge(false);
+      if (!giveUp && !j.correct && j.verdict === 'close' && !retried) {
+        // close: one more try, with the first letters
+        setRetried(true);
+        setJudge(j);
+        inputRef.current?.focus();
+        return;
+      }
+      const mark: TypedMark = j.correct ? (retried ? 'helped' : 'ok') : 'miss';
+      const outcome = typedOutcome(mark, tallyRef.current);
+      if (!outcome) return;
+      answeredAt.current = Date.now();
+      stop();
+      const r = record(line, outcome, answeredAt.current, mark);
+      setJudge(j);
+      setResult(r);
+      setNote(reviewNoteVi(r.review, answeredAt.current));
+      onAnswered(r, typedVerdictOf(r.outcome, met));
+    },
+    [typing, typed, retried, line, met, onAnswered, stop, record],
+  );
+  // the field takes the keyboard once the line has sounded (not on a touch screen: the keyboard would cover the stage)
+  useEffect(() => {
+    if (!typing || !heard || answeredAt.current) return;
+    try {
+      if (!window.matchMedia('(pointer: fine)').matches) return;
+    } catch {
+      return;
+    }
+    inputRef.current?.focus({ preventScroll: true });
+  }, [typing, heard]);
 
   const pick = useCallback(
     (i: number) => {
-      if (answeredAt.current || i < 0 || i >= choices.options.length) return;
+      if (answeredAt.current || typing || i < 0 || i >= choices.options.length) return;
       const outcome = lineOutcome(i === choices.answer, tallyRef.current);
       if (!outcome) return;
       answeredAt.current = Date.now();
       stop();
-      const r = record(line, outcome);
+      const r = record(line, outcome, answeredAt.current);
       setPicked(i);
       setResult(r);
+      // a wrong meaning that sounds like the line: say where the two differ by ear
+      const kind = i !== choices.answer ? choices.alike?.[i] : null;
+      setAlikeNote(kind ? soundAlikeNote(SOUND_ALIKE_LABEL[kind]) : null);
       setNote(reviewNoteVi(r.review, answeredAt.current));
       onAnswered(r, verdictOf(r.outcome, met));
     },
-    [choices, line, met, onAnswered, stop, record],
+    [choices, line, met, onAnswered, stop, record, typing],
   );
 
   const goNext = useCallback(() => {
@@ -359,6 +418,7 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
               {line.text}
             </p>
           )}
+          {alikeNote && <p className="town-note town-alike-note">{alikeNote}</p>}
           {note && <p className="town-note">{note}</p>}
           {result.tasksPaid.map((t) => (
             <p key={t.id} className="town-bonus">
@@ -385,9 +445,79 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
         </div>
       )}
 
+      {typing ? (
+        <div className={'town-type' + (result ? ' is-locked' : '')} role="group" aria-label={`Gõ lại cụm ${resident} vừa nói`}>
+          <p className="town-ask">
+            Gõ lại cụm {resident} vừa nói
+            {!result && <span className="town-type-why"> · gõ đúng được thêm xu</span>}
+          </p>
+          <p className="town-type-line" lang="en">
+            {typing.before && <span>{typing.before} </span>}
+            {typing.lead}
+            <input
+              ref={inputRef}
+              className={'input town-type-input' + (result ? (result.outcome === 'wrong' ? ' is-bad' : ' is-ok') : '')}
+              style={{ width: `${Math.min(22, Math.max(7, typing.target.length + 3))}ch` }}
+              value={typed}
+              onChange={(e) => {
+                setTyped(e.target.value);
+                if (nudge) setNudge(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' || e.nativeEvent.isComposing || e.repeat) return;
+                e.preventDefault();
+                if (!answeredAt.current) check();
+              }}
+              readOnly={!!result}
+              maxLength={80}
+              placeholder={judge && !result ? judge.hint : ''}
+              aria-label={`Cụm ${resident} vừa nói (${typing.target.split(/\s+/).length} từ)`}
+              aria-invalid={result ? result.outcome === 'wrong' : undefined}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              enterKeyHint="done"
+            />
+            {typing.trail}
+            {typing.after && <span> {typing.after}</span>}
+          </p>
+          {!result && judge?.verdict === 'close' && (
+            <p className="town-type-hint" role="status">
+              Gần đúng rồi{judge.ending ? ', để ý đuôi từ' : ''}. Gợi ý: <span className="respell">{judge.hint}</span>. Nghe lại rồi sửa nhé.
+            </p>
+          )}
+          {!result && nudge && (
+            <p className="town-type-hint" role="status">
+              Gõ những gì bạn nghe được, dù chỉ một từ.
+            </p>
+          )}
+          {result && result.outcome === 'wrong' && (
+            <p className="town-type-fix">
+              Cụm đúng là <strong lang="en">{typing.target}</strong>
+              {typed.trim() ? (
+                <>
+                  , bạn gõ <s lang="en">{typed.trim()}</s>
+                </>
+              ) : null}
+            </p>
+          )}
+          {result && <p className="town-type-vi">Nghĩa: {line.vi}</p>}
+          {!result && (
+            <div className="town-type-actions">
+              <button type="button" className={'btn btn-sm' + (heard ? ' btn-primary' : '')} onClick={() => check()} disabled={!heard} aria-keyshortcuts="Enter">
+                Kiểm tra
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => check(true)} disabled={!heard}>
+                Chịu, xem đáp án
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
       <div className={'town-replies' + (result ? ' is-locked' : '')} role="group" aria-label={`${resident} vừa nói gì?`}>
         <p className="town-ask">{resident} vừa nói gì?</p>
-        <div className="town-reply-list" ref={listRef}>
+        <div className={'town-reply-list' + (choices.options.length === 4 ? ' is-four' : '')} ref={listRef}>
           {choices.options.map((vi, i) => {
             const right = !!result && i === choices.answer;
             const wrong = !!result && i === picked && i !== choices.answer;
@@ -405,6 +535,7 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
           })}
         </div>
       </div>
+      )}
 
       {result && (
         <div className="town-talk-foot">
@@ -472,9 +603,10 @@ function TalkResult({ place, results, met, onLeave, onAgain, onGiven, onShop }: 
       ) : (
         <p className="town-result-none">Lần này chưa có xu. Nghe lại từng câu rồi thử lần nữa nhé.</p>
       )}
-      {(s.firstNew > 0 || gained !== 0 || s.levelTitle) && (
+      {(s.firstNew > 0 || gained !== 0 || s.levelTitle || s.typedRight !== null) && (
         <ul className="town-result-extra">
           {s.firstNew > 0 && <li>Nghe một lần đã hiểu: {s.firstNew} câu</li>}
+          {s.typedRight !== null && <li>Gõ lại cụm vừa nghe: {s.typedRight ? 'đúng' : 'chưa đúng'}</li>}
           {gained !== 0 && conv && (
             <li>
               Thân với {place.resident}: {pointsText(gained)} · {heartsText(heartsOf(conv.friendAfter))}

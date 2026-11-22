@@ -144,7 +144,7 @@ describe('an episode', () => {
     expect(r.tasksPaid.map((x) => x.id)).toEqual(['episode']);
     expect(town.finishTownEpisode(NOW + 70_000)).toBe(r);
     const t = stored(TOWN);
-    expect(t.version).toBe(5);
+    expect(t.version).toBe(6);
     expect(t.episodes['cafe-1']).toEqual({ stage: 1, at: NOW + 60_000, okAt: NOW + 60_000, firstGist: 2, bestLines: 2 });
     // a step-2 line was heard once already in the whole exchange: it counts for "Hiểu 8 câu", never as a first listen
     expect(t.daily[TODAY][DEVICE]).toMatchObject({ talks: 1, lines: 2, first: 0, met: ['cafe'], eps: 1 });

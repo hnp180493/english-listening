@@ -3,7 +3,7 @@
 import { decode } from '../../core/decoder';
 import { clozeTokens } from '../../core/dictation/cloze';
 import { splitWords } from '../../core/dictation/normalize';
-import { connectedText, sayOf, segmentSpeech } from '../../core/playback';
+import { connectedText, sayOf, segmentSpeech, type PlaybackPlan } from '../../core/playback';
 import type { DecodeResult, Phenomenon } from '../../core/types';
 
 const MAX_CACHE = 800;
@@ -120,4 +120,13 @@ export function dictationAudio(sentence: { text: string; level?: number }): Dict
     careful: sentence.text,
     level: sentence.level,
   };
+}
+
+/**
+ * "Nghe" of a sentence listed outside the exercise ("Câu của tôi", the "Tạo bằng AI" preview): the exercise's own
+ * connected audio at the learner's rate, so the list sounds like the exercise and an AI clip made here is the one the
+ * exercise reuses (same text + style). No careful button there: the careful version comes after checking.
+ */
+export function listPlayback(sentence: { text: string }): PlaybackPlan {
+  return { text: dictationAudio(sentence).connected, mode: 'connected' };
 }

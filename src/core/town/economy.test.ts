@@ -306,7 +306,7 @@ describe('applyAnswer', () => {
   it('an unusable line id changes nothing and pays nothing', () => {
     const p = rich(5);
     for (const bad of ['', '__proto__', 'constructor', 'x'.repeat(201)]) {
-      expect(applyAnswer(p, bad, 'first', NOW, DEV)).toEqual({ progress: p, reward: 0, tasksPaid: [], prevBest: 0 });
+      expect(applyAnswer(p, bad, 'first', NOW, DEV)).toEqual({ progress: p, reward: 0, tasksPaid: [], prevBest: 0, typedXu: 0 });
     }
   });
 });

@@ -88,6 +88,10 @@ describe('friendship in an episode', () => {
       ['cafe-3-03', 'cafe-3-03', false],
     ]);
     expect(s.turns[1].pick).toEqual({ options: expect.arrayContaining([expect.objectContaining({ id: 'cafe-3-02-b', intent: 'Từ chối khéo' })]), chosen: null });
+    // one plain line of step 2 is typed (core/town/typing), never the choice line
+    const typedBases = s.turns.filter((t) => t.typing).map((t) => t.base);
+    expect(typedBases.length).toBeLessThanOrEqual(1);
+    expect(typedBases).not.toContain('cafe-3-02');
     town.recordEpisodeGist(true, 1, NOW + 2000);
     town.recordEpisodeLine(s.turns[0].line, 'first', NOW + 2000);
     // not finished while the choice is not made
@@ -98,6 +102,8 @@ describe('friendship in an episode', () => {
     // the next line now remembers it
     expect(c.turns[2].line).toMatchObject({ id: 'cafe-3-03-v1', text: 'Great, I saved you a seat.' });
     expect(c.turns[2].choices.options[c.turns[2].choices.answer]).toBe('Tuyệt, tôi giữ chỗ cho bạn rồi.');
+    // the typed line stays the same line of the episode when a choice changes what is said
+    for (const t of c.turns) if (t.typing) expect(typedBases).toContain(t.base);
     expect(town.recordEpisodeChoice('cafe-3-01', 'x', NOW)).toBeNull();
     const r = town.finishTownEpisode(NOW + 2001)!;
     expect(r.learned.map((f) => f.id).sort()).toEqual(['cafe:loves-jazz', 'you:jazz-yes']);

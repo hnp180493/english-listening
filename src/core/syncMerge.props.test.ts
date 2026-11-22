@@ -175,6 +175,13 @@ describe('merger laws', () => {
       { bought: 'x' },
       null,
     ]);
+  // version 6: typed checks per browser (n answered, ok typed right), junk buckets and values included
+  const townTyped = () =>
+    Object.fromEntries(
+      [...townDevices, 'NOT A DEVICE', '__proto__']
+        .filter(() => maybe(0.5))
+        .map((d) => [d, pick<unknown>([{ n: ri(6), ok: ri(6) }, { n: 3, ok: 9 }, { n: 2.5 }, { ok: 1 }, { n: -1, ok: -1 }, null, 'x'])]),
+    );
   checkLaws(
     'town progress',
     mergeTown,
@@ -184,8 +191,8 @@ describe('merger laws', () => {
       const from = ri(40);
       const span = townDays.slice(from, from + 1 + ri(70));
       return {
-        version: pick([2, 3, 4, 5, 5, 6, 7]),
-        // a newer build's top-level fields: kept and relayed in a version 6+ value, junk in a version 5 one
+        version: pick([2, 3, 4, 5, 6, 6, 7, 8]),
+        // a newer build's top-level fields: kept and relayed in a version 7+ value, junk in a version 6 one
         ...(maybe(0.4) ? { garden: pick<unknown>([{ beds: ri(3) }, { beds: ri(3), at: T0 + ri(3) }, [1, 2], 'x', null]) } : {}),
         ...(maybe(0.3) ? { pets2: { n: ri(2) }, 'Bad Key': 1, prototype: 2 } : {}),
         ...(maybe(0.7) ? { episodes: townEpisodes() } : {}),
@@ -200,6 +207,7 @@ describe('merger laws', () => {
             }
           : {}),
         ...(maybe(0.6) ? { friends: townFriends(), facts: townFacts(), choices: townChoices(), gifts: townGifts() } : {}),
+        ...(maybe(0.6) ? { typed: townTyped() } : {}),
         lines: townLines(),
         earned: Object.fromEntries([...townDevices, 'NOT A DEVICE'].filter(() => maybe(0.6)).map((d) => [d, pick([0, 3, 12, 12.5, 40, -2])])),
         bought: townItems.filter(() => maybe(0.4)),

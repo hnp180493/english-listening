@@ -29,7 +29,8 @@ import { weakestPhenomenon } from '../../core/goals';
 import { loadStats } from '../../core/stats';
 import { PHENOMENA, type Level, type Phenomenon } from '../../core/types';
 import { SENTENCES } from '../../data/sentences';
-import { safeDecode } from '../dictation/decodeCache';
+import { listPlayback, safeDecode } from '../dictation/decodeCache';
+import { CONNECTED_TITLE } from '../../core/playback';
 import { AiBusy, AiErrorLine, AiSetupLink } from './AiAction';
 import { useAiTask } from './useAiTask';
 import './ai.css';
@@ -310,7 +311,7 @@ export default function AiGenerator({
                     </span>
                     {it.vi && <span className="ai-gen-vi">{it.vi}</span>}
                   </label>
-                  <PlayButton text={it.text} size="sm" variant="ghost" title={`Nghe "${it.text}"`} />
+                  <PlayButton text={listPlayback(it).text} mode="connected" size="sm" variant="ghost" title={`Nghe "${it.text}" (${CONNECTED_TITLE.toLowerCase()})`} />
                 </li>
               ))}
             </ul>

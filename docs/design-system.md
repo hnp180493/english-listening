@@ -570,6 +570,12 @@ back.", 2/2 on "Tellim I'll callim back."). Every sentence shown with annotation
   noreferrer"`), real YouTube clips of native speakers; no embed, no key. Muted underlined text link with a 14px
   `ExternalLink` icon, on its own row under the play buttons (lesson examples, compare cards, decoder). Texts over
   4 words search the first connected stretch (2–4 words, `youglishPhrase`), because YouGlish matches exact phrases.
+- Dictation "Câu của tôi" list and the "Tạo bằng AI" preview (2026-11-22): their one ghost "Nghe" plays the
+  exercise's own connected audio (`listPlayback` in `features/dictation/decodeCache.ts` = `dictationAudio().connected`,
+  `mode: 'connected'`, title `CONNECTED_TITLE`), so the list sounds like the exercise and an AI clip made from the
+  list is the one the exercise reuses (same text + style). No "Rõ từng từ" there: the rows show no annotations, the
+  row is already full on a phone, and the careful version comes after checking in the exercise. Click-only, nothing
+  prefetched.
 - Unchanged: single words (word tables, spelling quizzes: normal + slow), minimal pairs, real media audio.
 - AI voice (free keys allow a few speech requests a minute, ~30 a day): only the current item is prefetched
   (`PREFETCH_AHEAD_DEFAULT = 0`), careful clips are never prefetched, and the cache key is text + style. On a 429

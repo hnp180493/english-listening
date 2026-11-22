@@ -24,6 +24,8 @@
 //     facts:    { [factId]: firstAt },
 //     choices:  { [lineId]: { o: optionId, at } },
 //     gifts:    { bought: { [giftId]: { [deviceId]: n } }, given: { [giftId]: { [deviceId]: n } } },
+//     // version 6: typed checks (docs/town.md §13 "Gõ lại cụm vừa nghe", ./typing)
+//     typed:    { [deviceId]: { n, ok } },
 //   }
 // - lines.best: 0 = answered, not understood yet; 1 = understood with replays or a slower play; 2 = understood on
 //   the first listen. It only ever grows: a wrong answer later never takes a line away.
@@ -70,6 +72,9 @@
 // - choices: per choice line of an episode, the option first chosen and when: the earlier one wins (equal times: the
 //   smaller id), so two machines that chose differently before a sync both keep the first.
 // - gifts: gifts bought and given, per gift and browser (max per device). Gifts in hand = bought − given.
+// - typed (version 6, ./typing): typed checks per browser: `n` checks answered, `ok` of them typed right at the
+//   first check (no hint). Only that browser adds to its own bucket, so they merge by max per device and field (like
+//   `earned`); the town's one real measure ("gõ đúng khi nghe") is the sum over browsers.
 // - daily rows (version 5, optional): `bond` the residents whose quick-chat friendship points were paid today,
 //   `gifted` the residents given a gift today (sets: union).
 // Every field only grows (the look aside, which is ordered by its own time), so the merge (core/syncMerge mergeTown)
@@ -206,6 +211,12 @@ export interface ChoiceRecord {
   at: number;
 }
 
+/** Typed checks of one browser (./typing): `n` answered, `ok` typed right at the first check. */
+export interface TypedBucket {
+  n: number;
+  ok: number;
+}
+
 /** Gifts bought and given (./friendship), per gift and browser. */
 export interface GiftState {
   bought: Record<string, Record<string, number>>;
@@ -232,6 +243,8 @@ export interface TownProgress {
   facts: Record<string, number>;
   choices: Record<string, ChoiceRecord>;
   gifts: GiftState;
+  // version 6: typed checks (./typing)
+  typed: Record<string, TypedBucket>;
 }
 
 /** Stage 1 is the finish, stages 2..5 come with the four re-listens (./episodes RELISTEN_DAYS); at 5 nothing is due. */
@@ -242,7 +255,7 @@ const MAX_EPISODE_LINES = 50;
 /** The most tasks a day row fixes (./daily TASKS_PER_DAY). */
 export const DAY_TASKS_MAX = 3;
 /** The version this build writes. A stored value with a higher version was written by a newer build (see parse). */
-export const TOWN_VERSION = 5;
+export const TOWN_VERSION = 6;
 /** The highest version a stored value may claim (a higher one is junk and reads as this build's). */
 const MAX_VERSION = 1000;
 /** Unknown top-level fields of a newer build's value kept: how many, and the size of each as JSON. */
@@ -315,6 +328,7 @@ export function emptyTownProgress(): TownProgress {
     facts: {},
     choices: {},
     gifts: emptyGifts(),
+    typed: {},
   };
 }
 
@@ -578,11 +592,26 @@ function parseGifts(raw: unknown): GiftState {
   return { bought: parseIdDeviceCounts(raw.bought, MAX_GIFT_KINDS), given: parseIdDeviceCounts(raw.given, MAX_GIFT_KINDS) };
 }
 
+function parseTyped(raw: unknown): Record<string, TypedBucket> {
+  const out: Record<string, TypedBucket> = {};
+  if (!isObj(raw)) return out;
+  for (const dev of Object.keys(raw).filter(isDevice).sort().slice(0, MAX_DEVICES)) {
+    const b = raw[dev];
+    if (!isObj(b)) continue;
+    const n = clampInt(b.n, MAX_COUNT);
+    // a check typed right is a check answered
+    const ok = Math.min(n, clampInt(b.ok, MAX_COUNT));
+    if (n > 0) out[dev] = { n, ok };
+  }
+  return out;
+}
+
 /**
  * Defensive parse of whatever storage, a backup or the synced folder holds: junk reads as "nothing understood,
  * nothing earned", never as a crash. Keys come out sorted (equal content gives equal JSON). Any version is read:
  * a version 1 value simply has no earned / bought / daily / days, a version 2 value no episodes, a version 3 value
- * none of the game loops, a version 4 value no friendship (nothing chosen, known, bought or given).
+ * none of the game loops, a version 4 value no friendship (nothing chosen, known, bought or given), a version 5 value
+ * no typed checks.
  */
 export function parseTownProgress(raw: unknown): TownProgress {
   const out = emptyTownProgress();
@@ -611,6 +640,7 @@ export function parseTownProgress(raw: unknown): TownProgress {
   out.facts = parseFacts(raw.facts);
   out.choices = parseChoices(raw.choices);
   out.gifts = parseGifts(raw.gifts);
+  out.typed = parseTyped(raw.typed);
   if (!newer) return out;
   out.version = version;
   return withExtras(out, parseExtras(raw));
@@ -775,6 +805,17 @@ function mergeChoices(a: Record<string, ChoiceRecord>, b: Record<string, ChoiceR
   return out;
 }
 
+/** Max per browser and field (each browser only adds to its own bucket). */
+function mergeTyped(a: Record<string, TypedBucket>, b: Record<string, TypedBucket>): Record<string, TypedBucket> {
+  const out: Record<string, TypedBucket> = {};
+  for (const dev of [...new Set([...Object.keys(a), ...Object.keys(b)])].sort().slice(0, MAX_DEVICES)) {
+    const x = own(a, dev) ?? { n: 0, ok: 0 };
+    const y = own(b, dev) ?? { n: 0, ok: 0 };
+    out[dev] = { n: Math.max(x.n, y.n), ok: Math.max(x.ok, y.ok) };
+  }
+  return out;
+}
+
 /** A canonical string of a look (the tie-break of two looks changed at the same time). */
 const lookKey = (l: TownLook): string => LOOK_SLOTS.map((s) => l[s] ?? '').join('|');
 
@@ -791,7 +832,8 @@ export function mergeLook(a: TownLook, b: TownLook): TownLook {
  * catch, min of the first catch and of the best time), union of the farm days, union of the egg grants and max per
  * device of the egg counters, union of the owned items and of the unlocks (min of the first time), the later look;
  * version 5: max per resident, side and device of the friendship points, union of the facts (min of the first time),
- * the earlier choice per choice line, max per gift and device of the gifts bought and given.
+ * the earlier choice per choice line, max per gift and device of the gifts bought and given; version 6: max per device
+ * and field of the typed checks.
  */
 export function mergeTownProgress(a: TownProgress, b: TownProgress): TownProgress {
   const out = emptyTownProgress();
@@ -839,6 +881,7 @@ export function mergeTownProgress(a: TownProgress, b: TownProgress): TownProgres
   out.facts = mergeTimes(a.facts, b.facts, MAX_FACTS);
   out.choices = mergeChoices(a.choices, b.choices);
   out.gifts = { bought: mergeIdDeviceCounts(a.gifts.bought, b.gifts.bought, MAX_GIFT_KINDS), given: mergeIdDeviceCounts(a.gifts.given, b.gifts.given, MAX_GIFT_KINDS) };
+  out.typed = mergeTyped(a.typed, b.typed);
   out.version = Math.max(TOWN_VERSION, a.version, b.version);
   return withExtras(out, mergeExtras(townExtras(a), townExtras(b)));
 }
@@ -885,6 +928,27 @@ export function addEarned(progress: TownProgress, device: string, xu: number): T
   const add = count(xu);
   if (add === 0 || !isDevice(device)) return progress;
   return { ...progress, earned: { ...progress.earned, [device]: Math.min(MAX_XU, (own(progress.earned, device) ?? 0) + add) } };
+}
+
+/** One more typed check in the bucket of `device` (the input is not changed): `ok` when typed right at the first check. */
+export function addTyped(progress: TownProgress, device: string, ok: boolean): TownProgress {
+  if (!isDevice(device)) return progress;
+  const prev = own(progress.typed, device) ?? { n: 0, ok: 0 };
+  const n = Math.min(MAX_COUNT, prev.n + 1);
+  return { ...progress, typed: { ...progress.typed, [device]: { n, ok: Math.min(n, prev.ok + (ok ? 1 : 0)) } } };
+}
+
+/** Typed checks on all browsers together: answered, and typed right at the first check. */
+export function typedTotals(progress: TownProgress): TypedBucket {
+  let n = 0;
+  let ok = 0;
+  for (const dev of Object.keys(progress.typed)) {
+    const b = own(progress.typed, dev);
+    if (!b) continue;
+    n += b.n;
+    ok += b.ok;
+  }
+  return { n, ok };
 }
 
 export function hasBought(progress: TownProgress, id: string): boolean {

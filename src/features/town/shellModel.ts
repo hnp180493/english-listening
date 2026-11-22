@@ -135,6 +135,28 @@ export function verdictOf(outcome: LineOutcome, met: boolean): Verdict {
   return { tone: 'ok', title: 'Đúng rồi!', emote: 'sparkle', sfx: 'right' };
 }
 
+/** What the game says to a typed check (core/town/typing): the same rules as verdictOf, in the words of typing. */
+export function typedVerdictOf(outcome: LineOutcome, met: boolean): Verdict {
+  if (outcome === 'wrong') return { tone: 'bad', title: 'Chưa đúng…', emote: 'question', sfx: 'wrong' };
+  if (outcome === 'first' && !met) return { tone: 'ok', title: 'Gõ đúng ngay lần nghe đầu!', emote: 'heart', sfx: 'first' };
+  return { tone: 'ok', title: 'Gõ đúng rồi!', emote: 'sparkle', sfx: 'right' };
+}
+
+/** What a wrong pick that was a sound-alike of the line says (core/town/soundAlike): how the two differ by ear. */
+export function soundAlikeNote(label: string): string {
+  return `Nghĩa bạn chọn là của một câu nghe gần giống. Chỗ khác: ${label}.`;
+}
+
+/**
+ * The town's one real measure (docs/town.md §13): typed checks typed right at the first check, over all browsers.
+ * null before the first one (no zeros before there is data). Small numbers are hedged; xu and hearts are never it.
+ */
+export function typedMeasureText(t: { n: number; ok: number }): string | null {
+  if (!(t.n > 0)) return null;
+  const hedge = t.n < 20 ? ' Còn ít lần nên con số này chưa nói lên nhiều.' : '';
+  return `Phần gõ lại cụm vừa nghe là con số gần với khả năng nghe nhất ở đây: bạn gõ đúng ngay ${t.ok} trên ${t.n} lần.${hedge} Xu, danh hiệu và tim là điểm trò chơi, không phải thước đo khả năng nghe.`;
+}
+
 export interface TalkSummary {
   lines: number;
   understood: number;
@@ -152,6 +174,8 @@ export interface TalkSummary {
   heartsAfter: number;
   /** The new title when a level was reached during the conversation. */
   levelTitle: string | null;
+  /** The typed check of the conversation (core/town/typing): typed right or not; null when none was answered. */
+  typedRight: boolean | null;
   title: string;
 }
 
@@ -162,6 +186,7 @@ export function talkSummary(results: readonly TownAnswerResult[], met: readonly 
   let lineXu = 0;
   let bonus = 0;
   let levelTitle: string | null = null;
+  let typedRight: boolean | null = null;
   const tasks: TaskPayout[] = [];
   results.forEach((r, i) => {
     if (r.outcome !== 'wrong') understood += 1;
@@ -170,6 +195,7 @@ export function talkSummary(results: readonly TownAnswerResult[], met: readonly 
     bonus += r.bonus;
     tasks.push(...r.tasksPaid);
     if (r.leveledUp) levelTitle = r.levelAfter.title;
+    if (r.typed) typedRight = r.outcome !== 'wrong';
   });
   const lines = results.length;
   const total = lineXu + bonus + tasks.reduce((sum, t) => sum + t.reward, 0);
@@ -190,6 +216,7 @@ export function talkSummary(results: readonly TownAnswerResult[], met: readonly 
     heartsBefore: results[0]?.heartsBefore ?? 0,
     heartsAfter: results[results.length - 1]?.heartsAfter ?? 0,
     levelTitle,
+    typedRight,
     title,
   };
 }

@@ -861,6 +861,66 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-2);
 }
+/* four meanings (a line with a sound-alike: two look-alike pairs, docs/town.md §13): two by two */
+.town-reply-list.is-four {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* a typed check (docs/town.md §13): the sentence with one gap to type */
+.town-type {
+  display: grid;
+  gap: var(--space-2);
+}
+.town-type .town-ask {
+  margin: 0;
+}
+.town-type-why {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}
+.town-type-line {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  line-height: 2.1;
+  overflow-wrap: anywhere;
+}
+.input.town-type-input {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  min-height: 38px;
+  margin: 0 2px;
+  padding: 4px 10px;
+  font-size: var(--fs-base);
+  vertical-align: baseline;
+}
+.input.town-type-input.is-ok {
+  border-color: var(--ok);
+  background: var(--ok-bg);
+}
+.input.town-type-input.is-bad {
+  border-color: var(--bad);
+  background: var(--bad-bg);
+}
+.town-type-hint,
+.town-type-fix,
+.town-type-vi {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.town-type-hint {
+  color: var(--text-muted);
+}
+.town-type-vi {
+  color: var(--text-muted);
+}
+.town-type-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
 .town-reply {
   display: flex;
   align-items: flex-start;
@@ -1427,6 +1487,10 @@
   .town-turn .town-note {
     display: none;
   }
+  /* where a sound-alike picked differs from the line by ear: the one note worth its room on a phone */
+  .town-turn .town-alike-note {
+    display: block;
+  }
   /* the gist follow-up ("Nghe từng câu sẽ rõ hơn.") is short and is the only next step: keep it on a phone */
   .town-turn .town-ep-verdict .town-note {
     display: block;
@@ -1465,12 +1529,16 @@
   .town-step {
     width: 14px;
   }
-  .town-reply-list {
+  .town-reply-list,
+  .town-reply-list.is-four {
     grid-template-columns: minmax(0, 1fr);
   }
   .town-reply {
     min-height: 48px;
     padding-block: 11px;
+  }
+  .town-type-line {
+    font-size: var(--fs-base);
   }
   /* after the answer only the right meaning and the one picked stay: the sentence needs the room */
   .town-reply.is-idle,

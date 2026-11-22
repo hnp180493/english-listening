@@ -16,7 +16,7 @@ const REVIEW = P + 'review-cards';
 const DEVICE = 'd-test0001';
 const [L1, L2, L3] = placeLines('cafe');
 const EMPTY = {
-  version: 5,
+  version: 6,
   lines: {},
   earned: {},
   bought: [],
@@ -33,6 +33,7 @@ const EMPTY = {
   facts: {},
   choices: {},
   gifts: { bought: {}, given: {} },
+  typed: {},
 };
 
 let map: Map<string, string>;
@@ -128,7 +129,7 @@ describe('town store', () => {
     const r = town.recordTownAnswer(L1, 'first', NOW); // already at its best: 1 xu
     expect(r).toMatchObject({ reward: 1, prevBest: 2, balance: 1 });
     expect(r.levelBefore.xp).toBe(5);
-    expect(stored(TOWN).version).toBe(5);
+    expect(stored(TOWN).version).toBe(6);
     expect(stored(TOWN).lines[L2.id]).toEqual({ best: 1, tries: 2, at: 6 });
   });
 
@@ -321,6 +322,22 @@ describe('recordTownAnswer', () => {
     expect(town.recordTownAnswer(line, 'first', NOW + 1)).toMatchObject({ reward: 3, balance: 3, conversation: null });
   });
 
+  it('a typed check: counted on its own (typed), paid 2 more when right; a miss enrols the card like a wrong pick', async () => {
+    const town = await fresh();
+    const right = town.recordTownAnswer(L1, 'first', NOW, 'ok');
+    expect(right).toMatchObject({ typed: 'ok', typedXu: 2, reward: 5, balance: 5 });
+    expect(stored(TOWN).typed).toEqual({ [DEVICE]: { n: 1, ok: 1 } });
+    expect(stored(TOWN).lines[L1.id]).toMatchObject({ best: 2, tries: 1 });
+    const miss = town.recordTownAnswer(L2, 'wrong', NOW + 1, 'miss');
+    expect(miss).toMatchObject({ typed: 'miss', typedXu: 0, reward: 0 });
+    expect(miss.review?.reason).toBe('enrolled');
+    expect(Object.keys(stored(REVIEW).cards)).toEqual([`dict:${L2.id}`]);
+    expect(stored(TOWN).typed).toEqual({ [DEVICE]: { n: 2, ok: 1 } });
+    // a pick is no typed check
+    expect(town.recordTownAnswer(L3, 'first', NOW + 2)).toMatchObject({ typed: null, typedXu: 0, reward: 3 });
+    expect(stored(TOWN).typed).toEqual({ [DEVICE]: { n: 2, ok: 1 } });
+  });
+
   it('still answers when storage refuses everything', async () => {
     const town = await fresh();
     storage.setItem = () => {
@@ -335,7 +352,7 @@ describe('recordTownAnswer', () => {
 });
 
 describe('a conversation', () => {
-  it('starts with five lines of the place and their three meanings, fixed for the whole conversation', async () => {
+  it('starts with five lines of the place and their meanings, fixed for the whole conversation; one line is typed', async () => {
     const town = await fresh();
     const start = town.startTownConversation('cafe');
     if (!start.ok) throw new Error(start.reason);
@@ -344,9 +361,15 @@ describe('a conversation', () => {
     const pool = placeLines('cafe').map((l) => l.id);
     for (const turn of start.turns) {
       expect(pool).toContain(turn.line.id);
-      expect(turn.choices.options).toHaveLength(3);
+      // three meanings, or four when the line has a sound-alike (two look-alike pairs: core/town/visit choicesFor)
+      expect(turn.choices.options.length).toBeGreaterThanOrEqual(3);
+      expect(turn.choices.options.length).toBeLessThanOrEqual(4);
       expect(turn.choices.options[turn.choices.answer]).toBe(turn.line.vi);
     }
+    // exactly one line of the five is typed instead of picked (core/town/typing), its gap 1 to 4 words of the line
+    const typed = start.turns.filter((t) => t.typing);
+    expect(typed).toHaveLength(1);
+    expect(typed[0].line.text).toContain(typed[0].typing!.target);
     expect(new Set(start.turns.map((t) => t.line.id)).size).toBe(5);
     expect(town.finishTownConversation()).toBeNull();
   });
@@ -499,7 +522,14 @@ describe('a conversation', () => {
     const start = town.startTownConversation('cafe');
     if (!start.ok) throw new Error(start.reason);
     const pool = placeLines('cafe');
-    for (const turn of start.turns) expect(turn.choices).toEqual(choicesFor(turn.line, pool, 0));
+    const said = new Set(start.turns.map((t) => t.line.id));
+    for (const turn of start.turns) expect(turn.choices).toEqual(choicesFor(turn.line, pool, 0, said));
+    // a look-alike pair (four options: the line, its sound-alike, another line and its own) is never another line of the
+    // same conversation
+    for (const turn of start.turns) {
+      if (turn.choices.options.length !== 4) continue;
+      for (const other of start.turns) if (other !== turn) expect(turn.choices.options).not.toContain(other.line.vi);
+    }
     town.recordTownAnswer(start.turns[0].line, 'wrong', NOW);
     const again = town.startTownConversation('cafe');
     if (!again.ok) throw new Error(again.reason);

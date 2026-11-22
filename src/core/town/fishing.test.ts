@@ -62,7 +62,8 @@ describe('the items a fish says', () => {
           const s = SENTENCES.find((x) => x.id === c.item.ref)!;
           expect(c.item.play.kind).toBe('line');
           expect(c.item.ask).toBe('meaning');
-          expect(c.options).toHaveLength(3);
+          // three meanings, or four when the sentence has a sound-alike (core/town/visit choicesFor)
+          expect([3, 4]).toContain(c.options.length);
           expect(c.options[c.answer]).toBe(s.vi);
           expect(s.focus).toContain(species.phenomenon);
         }

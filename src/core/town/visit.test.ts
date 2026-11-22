@@ -19,6 +19,7 @@ import {
   VISIT_SIZE,
   visitSummary,
 } from './visit';
+import { soundAlikesOf } from './soundAlike';
 
 const T = 1_800_000_000_000;
 const line = (id: string, level: 1 | 2 | 3, vi = `nghĩa ${id}`): TownLine => ({ id, text: `text ${id}`, vi, level });
@@ -79,8 +80,9 @@ describe('pickVisitLines', () => {
 });
 
 describe('choicesFor', () => {
-  it('for every line of the town: three different meanings, the right one once, the others from the same place', () => {
-    const positions = [0, 0, 0];
+  it('for every line of the town: different meanings, the right one once, the others from the same place or sound-alikes', () => {
+    const positions = [0, 0, 0, 0];
+    let fours = 0;
     let sameLevel = 0;
     let wrongTotal = 0;
     for (const place of TOWN_PLACES) {
@@ -88,22 +90,35 @@ describe('choicesFor', () => {
       const byVi = new Map(pool.map((l) => [l.vi, l]));
       for (const l of pool) {
         const c = choicesFor(l, pool, 0);
-        expect(c.options).toHaveLength(CHOICE_COUNT);
+        // a line with one sound-alike gets four (two look-alike pairs), every other line three
+        const own = soundAlikesOf(l).map((a) => a.vi);
+        expect(c.options).toHaveLength(own.length === 1 && c.alike?.length === 4 ? 4 : CHOICE_COUNT);
+        if (c.options.length === 4) fours += 1;
         expect(c.options[c.answer]).toBe(l.vi);
-        expect(new Set(c.options).size).toBe(CHOICE_COUNT);
+        expect(new Set(c.options).size).toBe(c.options.length);
         expect(c.options.filter((o) => o === l.vi)).toHaveLength(1);
         positions[c.answer] += 1;
+        // a pair of another line (its meaning and its sound-alike) may stand next to the line's own sound-alike
+        const pairs = new Set(pool.flatMap((x) => soundAlikesOf(x).map((a) => a.vi)));
         c.options.forEach((o, i) => {
           if (i === c.answer) return;
+          if (own.includes(o)) {
+            expect(c.alike?.[i], `${l.id}: "${o}" is marked as its sound-alike`).toBe(soundAlikesOf(l).find((a) => a.vi === o)!.kind);
+            return;
+          }
+          expect(c.alike?.[i] ?? null).toBeNull();
+          if (pairs.has(o)) return;
           const from = byVi.get(o);
           expect(from, `${l.id}: "${o}" is a line of ${place.name}`).toBeDefined();
           wrongTotal += 1;
-          if (from!.level === l.level) sameLevel += 1;
+          if (from!.level === l.level || c.options.length === 4) sameLevel += 1;
         });
       }
     }
     // the right meaning is not parked at one position
-    for (const n of positions) expect(n).toBeGreaterThan(60);
+    for (const n of positions.slice(0, 3)) expect(n).toBeGreaterThan(60);
+    // the sound-alikes are used: every place has a few lines with one (data/townSoundAlikes, derived ones)
+    expect(fours).toBeGreaterThan(15);
     // same-level meanings whenever the place has them (every topic has several lines per level)
     expect(sameLevel).toBe(wrongTotal);
   });
@@ -117,7 +132,7 @@ describe('choicesFor', () => {
         expect(choicesFor(l, pool, seed).answer).not.toBe(choicesFor(l, pool, seed + 1).answer);
         seen.add(choicesFor(l, pool, seed).answer);
       }
-      expect(seen.size).toBe(3); // every position gets its turn
+      expect(seen.size).toBe(choicesFor(l, pool, 0).options.length); // every position gets its turn
     }
     // not every repeat offers the same two wrong meanings
     const l = pool[0];
@@ -243,11 +258,12 @@ describe('choicesFor', () => {
         }
         for (const seed of [0, 1, 2]) {
           const c = choicesFor(l, pool, seed);
-          const [w1, w2] = c.options.filter((_, i) => i !== c.answer);
-          chosen += confusability(l.vi, w1) + confusability(l.vi, w2);
-          chosenN += 2;
+          // the topic meanings (a sound-alike is close in words on purpose: nearSame guards it, tested below)
+          const wrong = c.options.filter((_, i) => i !== c.answer && !c.alike?.[i]);
+          for (const w of wrong) chosen += confusability(l.vi, w);
+          chosenN += wrong.length;
           // not the same sentence in other words (what nearSame guards): the shared-word share stays below 1
-          for (const [a, b] of [[l.vi, w1], [l.vi, w2], [w1, w2]]) expect(confusability(a, b), `${l.id}: "${a}" / "${b}"`).toBeLessThan(0.9);
+          for (const w of wrong) expect(confusability(l.vi, w), `${l.id}: "${l.vi}" / "${w}"`).toBeLessThan(0.9);
         }
       }
     }

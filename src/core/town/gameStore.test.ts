@@ -108,7 +108,7 @@ describe('eggs and the wardrobe', () => {
     const { game, store } = await fresh();
     expect(store.townCelebrations()).toEqual([]);
     game.finishCast(game.startCast(NOW), { correct: false, plays: 1, ms: 100 }, NOW);
-    expect(stored(TOWN).version).toBe(5);
+    expect(stored(TOWN).version).toBe(6);
     expect(stored(TOWN).eggs.grants).toEqual(['gist:cafe-1']);
     expect(store.townCelebrations().map((c) => c.key)).toEqual(expect.arrayContaining(['egg:gist:cafe-1', 'achievement:nghe-y-chinh', 'achievement:tap-dau-tien']));
     store.clearTownCelebrations(['egg:gist:cafe-1']);

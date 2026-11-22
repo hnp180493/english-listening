@@ -453,10 +453,11 @@ describe('town-progress (Thị trấn)', () => {
     facts: Record<string, number>;
     choices: Record<string, unknown>;
     gifts: { bought: Record<string, unknown>; given: Record<string, unknown> };
+    typed: Record<string, { n: number; ok: number }>;
   };
   const merge = (n: unknown, o: unknown) => mergeTown(n, o) as Town;
   const town = (p: Partial<Town>): Town => ({
-    version: 5,
+    version: 6,
     lines: {},
     earned: {},
     bought: [],
@@ -473,6 +474,7 @@ describe('town-progress (Thị trấn)', () => {
     facts: {},
     choices: {},
     gifts: { bought: {}, given: {} },
+    typed: {},
     ...p,
   });
   const LAPTOP = 'd-laptop01';
@@ -545,7 +547,7 @@ describe('town-progress (Thị trấn)', () => {
     expect(merge('x', [1, 2])).toEqual(town({}));
     // a value of this build's version: unknown fields are junk (a newer build's are kept: the test below)
     const messy = {
-      version: 5,
+      version: 6,
       extra: true,
       lines: { s001: { best: 7, tries: 2.5, at: 'no', more: 1 }, s002: { best: 0, tries: 0 }, s003: null },
       earned: { [LAPTOP]: 7.9, [PHONE]: -3, 'NOT A DEVICE': 5 },
@@ -557,12 +559,12 @@ describe('town-progress (Thị trấn)', () => {
     expect(({} as Record<string, unknown>).best).toBeUndefined();
   });
 
-  it("a newer build's value (version > 5): its unknown top-level fields are relayed, never dropped", () => {
+  it("a newer build's value (version > 6): its unknown top-level fields are relayed, never dropped", () => {
     // an old portable copy in the synced folder must not strip what a newer build added (docs/town.md §10 Stored)
-    const newer = { ...town({ lines: { s001: { best: 1, tries: 1, at: 5 } } }), version: 6, garden: { beds: [1, 2] }, 'Bad Key': 1 };
+    const newer = { ...town({ lines: { s001: { best: 1, tries: 1, at: 5 } } }), version: 7, garden: { beds: [1, 2] }, 'Bad Key': 1 };
     const mine = town({ earned: { [LAPTOP]: 4 } });
     const m = merge(newer, mine) as Town & Record<string, unknown>;
-    expect(m.version).toBe(6);
+    expect(m.version).toBe(7);
     expect(m.garden).toEqual({ beds: [1, 2] });
     expect(m).not.toHaveProperty('Bad Key');
     expect(m).toMatchObject({ lines: { s001: { best: 1, tries: 1, at: 5 } }, earned: { [LAPTOP]: 4 } });

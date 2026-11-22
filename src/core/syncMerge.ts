@@ -586,8 +586,10 @@ export const mergeProgressHistory: Merger = (newer, older) => mergeHistoryStores
  * other's; two lists: the one whose ids come first). Version 5 (friendship, docs/town.md §12): friendship points per
  * resident, side (won / lost) and browser, max per browser; facts as a union (min of the first time); per choice line
  * the earlier choice (a tie: the smaller option id); gifts bought / given per gift and browser, max per browser; daily
- * rows' `bond` / `gifted` sets as unions. Junk and unknown fields are dropped; versions 1 to 4 merge as they are. A
- * value of a NEWER build (version > 5) keeps its unknown top-level fields and its version: this build relays them (one
+ * rows' `bond` / `gifted` sets as unions. Version 6 (typed checks, docs/town.md §13): per browser the max of the checks
+ * answered and of those typed right (a browser only adds to its own). Junk and unknown fields are dropped; versions 1
+ * to 5 merge as they are. A value of a NEWER build (version > 6) keeps its unknown top-level fields and its version:
+ * this build relays them (one
  * copy's value whole) instead of stripping them (core/town/progress parseTownProgress).
  */
 export const mergeTown: Merger = (newer, older) => mergeTownProgress(parseTownProgress(newer), parseTownProgress(older));

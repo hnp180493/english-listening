@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { CAREFUL_RATE, CONNECTED_SLOW_RATE } from '../../core/playback';
-import { chunksOf, dictationAudio, mergeShortChunks, safeDecode, targetTokens } from './decodeCache';
+import { chunksOf, dictationAudio, listPlayback, mergeShortChunks, safeDecode, targetTokens } from './decodeCache';
 import { playbackFor } from './usePlayer';
 
 const AUDIO = { connected: 'Whaddaya wanna do?', careful: 'What do you want to do?', level: 2 };
@@ -52,5 +52,27 @@ describe('dictationAudio / chunksOf', () => {
     expect(mergeShortChunks(['Hello.'])).toEqual(['Hello.']);
     expect(mergeShortChunks(['Go'])).toEqual(['Go']);
     expect(mergeShortChunks([])).toEqual([]);
+  });
+});
+
+describe('listPlayback: "Nghe" in "Câu của tôi" and the "Tạo bằng AI" preview', () => {
+  it('plays the connected version, never the plain written text of a sentence the decoder changes', () => {
+    expect(listPlayback({ text: 'Turn it off, please.' })).toEqual({ text: 'Turnid off, please.', mode: 'connected' });
+    expect(listPlayback({ text: 'What do you want to do?' })).toEqual({ text: 'Whaddaya wanna do?', mode: 'connected' });
+  });
+
+  it("is exactly the exercise's \"Nghe\" (same text + mode, so the same clip / AI cache entry)", () => {
+    for (const text of ["Tell him I'll call him back.", "I'm going to get a cup of coffee.", 'Give him a call.', 'Hello.']) {
+      const ex = playbackFor('normal', dictationAudio({ text, level: 2 }), 1);
+      const pl = listPlayback({ text });
+      expect(pl.text, text).toBe(ex.text);
+      expect(pl.mode, text).toBe(ex.mode);
+    }
+  });
+
+  it('a sentence with nothing to connect stays as written; the careful text is never what it plays', () => {
+    expect(listPlayback({ text: 'Hello.' }).text).toBe('Hello.');
+    const t = "Tell him I'll call him back.";
+    expect(listPlayback({ text: t }).text).not.toBe(dictationAudio({ text: t }).careful);
   });
 });

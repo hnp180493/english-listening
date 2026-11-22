@@ -95,6 +95,9 @@ to be **hard**:
 Example at Quán cà phê: "Bạn ăn gì chưa?" is offered next to "Bạn muốn ăn gì?"; "Cho tôi một ly cà phê." next to
 "Cho tôi một tách trà.".
 
+Since 2026-11-22 this is the fallback: a line with a sound-alike gets the meaning of what a careless ear hears
+instead, and one line of each conversation is typed rather than picked (§13).
+
 Deterministic for (line, pool, seed). The seed is the line's tries so far (`choiceSeed`), and the right meaning is at
 a different position for seed n and n + 1: a line asked again never shows the answer where it was.
 `startTownConversation` draws the meanings once, so they do not move while the learner answers.
@@ -210,6 +213,7 @@ never as a crash; `__proto__`-like keys are refused):
   // version 4, the game loops (§10 "Stored"): fish, farmDays, eggs, owned, look, unlocks; daily rows get optional
   // counters fish, fishFirst, fishXu, harvest, eps, perfect
   // version 5, friendship (§12 "Stored"): friends, facts, choices, gifts; daily rows get optional sets bond, gifted
+  // version 6, typed checks (§13): typed: { [deviceId]: { n, ok } }
 }
 ```
 
@@ -244,6 +248,7 @@ machine wrote last" anywhere.
 | `facts` (v5) | union, min of the first time |
 | `choices` (v5) | per choice line: the earlier choice; the same time: the smaller option id |
 | `gifts` (v5) | `bought` / `given` per gift and device: max |
+| `typed` (v6) | `n` / `ok` per device: max (each browser only adds to its own bucket, §13) |
 
 Idempotent, commutative, associative, caps included ("the newest N keys of a union" does not depend on the order of
 merging): `syncMerge.props.test.ts` checks the laws on random towns, junk, version 1 and version 2 values and junk
@@ -1770,3 +1775,93 @@ horizontal scroll at 390 px. The voices of the arcs were the browser's (no clips
 heard the reactions and greetings in their Gemini voices, or judged the point values. Found and fixed on the way: a pick
 gave the episode new lines, and the automatic first whole listen (an effect on `listenAll`) started again under the
 line-by-line step; it now runs once, on mount (`Episode.tsx`).
+
+## 13. Listening, not guessing: sound-alikes and typed checks (2026-11-22)
+
+Picking 1 of 3 Vietnamese meanings can be guessed (33 %), and the wrong meanings of §2 are confusable on paper, not by
+sound. Two changes make a right answer need the ear, without new audio (the learner only ever hears the real line;
+options are Vietnamese text; nothing is generated or paid for).
+
+### Sound-alike meanings (`core/town/soundAlike.ts`, `data/townSoundAlikes.ts`)
+
+A wrong option is, where possible, the meaning of what a careless ear would hear instead:
+
+- **authored** (`TOWN_SOUND_ALIKES`, by line id): can ↔ can't, want to ↔ won't, a dropped -ed, a light 'd / 'll / have
+  / n't, him ↔ her, a linked boundary ("eat yet" ↔ "eat it"), one -teen ↔ -ty. Each entry keeps the English it stands
+  for (`heard`, never shown or spoken) so it can be checked: it must differ from the line by 1–3 words
+  (`closeVariant`), or the entry stops applying (a rewritten line never gets a stale meaning). Left out where the two
+  mean the same in Vietnamese or the sound-alike makes no sense.
+- **derived by rule**: him ↔ them (the line's one "anh ấy / ông ấy / thằng bé …" ↔ its one "họ", only when no other
+  he / they disagrees) and -teen ↔ -ty (the number said once in English and once in the Vietnamese, in words or digits).
+  `NO_DERIVED` lists the lines where the derived one would be absurd ("mẹ tôi tròn mười sáu").
+
+Coverage today: 40 of the 300 quick-chat lines and 24 of the 1,067 story lines (options included) have one; every place
+has at least one quick-chat line with one, most have 2–7. Every other line keeps §2's meanings.
+
+How they are offered (`choicesFor`; `LineChoices.alike` marks which option is the line's own sound-alike):
+
+| The line has | Options |
+| --- | --- |
+| two or more sound-alikes | the right meaning and two of them (three look-alikes) |
+| one | the right meaning, its sound-alike, and another line of the place with ITS sound-alike: four options in two look-alike pairs (`decoyPair`); with no such line, the sound-alike and one §2 meaning (three) |
+| none | §2, unchanged (three) |
+
+**Why four.** Three options where two look alike leave 50 % to a learner who simply bets on the pair. Two pairs take
+that away (25 % for a guess). The pair never comes from another line of the same conversation or episode (its meaning
+was just heard and would be easy to rule out). A line with one sound-alike at a place with no other one (today one line
+each at Cửa hàng, Trường học and Phòng khám) still shows three options, so a learner who spots the pair has 50 % there.
+After a wrong pick of a sound-alike, the panel says where the two differ by ear ("Chỗ khác: âm h bị nuốt …",
+`SOUND_ALIKE_LABEL`), on a phone too.
+
+Examples (Quán cà phê, seed 0):
+
+- "I want to go home." → Mình muốn về nhà. / Mình sẽ không về nhà. / Mình tìm thấy chìa khóa của cô ấy rồi. / Mình tìm
+  thấy chìa khóa của anh ấy rồi.
+- "Tell him I said hi." → Nhắn với anh ấy là mình gửi lời chào nhé. / Nhắn với họ là mình gửi lời chào nhé. (derived),
+  and a look-alike pair of another line of the place.
+- "She said she'd call us back, but we haven't heard from her yet." → Cô ấy bảo sẽ gọi lại … / Cô ấy bảo đã gọi lại
+  rồi … / Về tới nhà mình nhắn cho. / Về tới nhà là mình hay nhắn cho bạn.
+
+### Typed checks (`core/town/typing.ts`, the `Turn` panel in `Conversation.tsx`)
+
+One line of every quick chat and one plain line of every new episode's step 2 ("Từng câu") is TYPED instead of picked:
+the sentence is shown with one gap, the words of one connected-speech event of the line (`typingTask`: the decoder's
+annotation that changes the sound most, reduction first … linking last, 1–4 words, never the whole sentence; about 99 %
+of the lines have one). A line never answered before is chosen first (`typedIndex`), so typing is listening, not
+remembering a text seen earlier. Never a choice line of an episode; the same line stays typed when a choice changes what
+later lines say.
+
+- Judged like Chép chính tả's "Điền từ" (`judgeTyped`: `checkBlank` + `align`): "wanna" = "want to", "I would" = "I'd",
+  a one-letter slip in a long word is right, a dropped -ed is not. A **close miss** (half the words right, a dropped
+  ending, or a short gap off by a letter or two) gets one more try with the first letters as a hint ("w___ t_"), like
+  "Gợi ý" there. "Chịu, xem đáp án" gives up (a miss).
+- It counts as the line's answer (`typedOutcome`): right at the first check after one normal play = `first`, with
+  replays or after the hint = `replayed`, a miss = `wrong` (the review card is enrolled exactly as for a wrong pick).
+  Nothing played: nothing recorded.
+- **Xu:** the line's own xu (§3) plus `TYPED_BONUS` 2 when typed right (with or without the hint); a miss pays 0.
+- **Recorded on its own** (`typed`, version 6, per browser: `n` checks answered, `ok` typed right at the first check;
+  merged by max per device and field, like `earned`; `syncMerge.props.test.ts` checks the laws). It is the town's one
+  number close to a measure, shown modestly in "Thị trấn này để làm gì?" (`typedMeasureText`: "gõ đúng ngay x trên n
+  lần", hedged under 20 checks, saying that xu, titles and hearts are game points, not a measure). Nothing shows before
+  the first check. The result card of a quick chat says whether its typed line was right.
+
+### Honest limits
+
+- The gap is shown with the rest of the sentence around it, so a typed check measures hearing ONE chunk with context,
+  not a whole sentence; `ok` can also count a line answered (and shown) before, when every line of the conversation had
+  been (`typedIndex` prefers new lines).
+- Sound-alikes cover a small part of the town (above); most lines still have only §2's meanings. The authored Vietnamese
+  was written by hand and checked by the tests for shape and fit, not by a native speaker or the owner.
+- Typing on a phone is slower than a tap. Nobody has played it for days, so one typed line per conversation and a bonus
+  of 2 xu are guesses.
+
+### Checked, and not
+
+Unit tests: `soundAlike.test.ts` (every authored entry applies and is offered, the rules, the two-pair layout and the
+fallback), `typing.test.ts` (gaps on every line, the choice of the typed line, the judge, the outcome, the stored field,
+the pay), the store (`recordTownAnswer` with a typed check, one typed line per conversation, the typed line of an episode
+kept through a choice) and the merge laws. In the dev server at 375×812, dark and light: a four-option line of Quán cà
+phê, a wrong sound-alike pick with its note, a typed check with a close miss → hint → right (+4 xu), a typed miss with
+the right words shown, the result card, the explainer's measure; no horizontal scroll, no text under 13 px. Not
+checked: a typed line inside an episode on screen (only through the store), the wide-stage layout, a real phone
+keyboard over the panel, and how any of it feels after a week.
