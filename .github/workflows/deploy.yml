@@ -30,8 +30,9 @@ jobs:
       # secrets, so the values stay out of the source; without them the build simply has no "Tài khoản" card.
       - run: npm run build -- --base=/${{ github.event.repository.name }}/
         env:
-          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          # Repository secrets or repository variables (both public values; whichever is set)
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
