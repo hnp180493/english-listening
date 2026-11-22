@@ -77,6 +77,11 @@ export function townDecoration(id: string): TownDecoration | undefined {
 
 /** The id of the place where a line is said, if it is a line of the town. */
 export function placeOfLineId(lineId: string): string | undefined {
+  // a street talk's line (data/streetTalks, `st-<placeId>-<n>-<k>`)
+  if (lineId.startsWith('st-')) {
+    const p = lineId.split('-')[1];
+    return TOWN_PLACES.some((x) => x.id === p) ? p : undefined;
+  }
   if (!placeOfLine) {
     placeOfLine = new Map();
     for (const [placeId, lines] of build()) for (const l of lines) placeOfLine.set(l.id, placeId);

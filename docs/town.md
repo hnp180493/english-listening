@@ -1932,8 +1932,8 @@ talk**:
   The page reads where they stand (`mapSnapshot`) and compares it with where their talk would happen at home
   (`streetModel.homeSetting`: their waiting episode's setting, else the quick chat's). If they are more than
   `STREET_FAR` (5 tiles) from it (`engine/staging.ts metInStreet`), they are **out in the town**.
-- In that case the talk is a quick chat **right there** (`TalkSetting` `{ kind: 'here' }`): the player walks up to
-  them (`sim.walkToResident`) and the camera frames the two. There is no dip and no room. The panel says
+- In that case the talk happens **right there** (`TalkSetting` `{ kind: 'here' }`): the player walks up to them
+  (`sim.walkToResident`) and the camera frames the two. There is no dip and no room. The panel says
   "Daniel · Gặp trên đường".
 - An episode is told where it belongs, so it waits. The bottom button beside someone out in the town offers "Bắt chuyện
   với Daniel" without "· Tập 1".
@@ -1947,6 +1947,18 @@ audio. It is true anywhere in the town and depends on the friendship:
 - 5+: they light up;
 - in half of the meetings, once you know one of their facts (data/stories), a scene built on it ("Thầy Daniel cầm hũ
   mật ong vừa mua: trà tối nay có rồi.").
+- **The talk is one of their street talks** (2026-11-23; the owner on the first version, five unrelated dictation
+  sentences: "gặp trên đường sao toàn câu tào lao không liên quan gì nhau vậy?… người ta làm gì có hứng thú học").
+  `data/streetTalks/<placeId>.ts` has four per resident (contract `core/town/streetTalkTypes.ts`): two for anybody,
+  one from 3 hearts, one that builds on a fact learned in their episodes. Each is a short, coherent exchange of 5–7
+  lines: they speak first and last, the two take turns. Their lines are the listening checks of the conversation:
+  hear → pick the meaning, one typed, the connected-speech reveal after each answer. The learner's own line is shown
+  above the check it answers (`TownTurn.before`, "Phước: … / meaning") and said first in the character's voice, then
+  the resident answers. `core/town/streetTalk.ts pickStreetTalk` brings up the least-heard open talk, a fact one or a
+  closer one first; "Nói chuyện tiếp" brings the next. The conversation's size is its own number of checks
+  (`applyConversation(…, size)`), so 3 of 4 understood pays as usual. Line ids are `st-<placeId>-<n>-<k>`
+  (`placeOfLineId` reads the place from them). Clips: the resident's lines connected + careful in their voice, the
+  learner's lines in Puck and Callirrhoe (`audioInventory addStreetTalks`); until generated they play the browser voice.
 
 It reads the same all day (seeded by the day and the meeting).
 

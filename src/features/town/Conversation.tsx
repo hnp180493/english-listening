@@ -27,6 +27,10 @@ import { ignoredKeyTarget, SPEAK_DELAY_MS } from './talkKeys';
 import type { StreetTalkView } from './streetModel';
 import { useLinePlayer, type LinePlay } from './useLinePlayer';
 import { quickChatVoice } from '../../core/town/storyAudio';
+import { CAST_VOICES } from '../../core/town/voices';
+import { PLAYER_FEMALE } from '../../core/town/romanceAudio';
+import { useTownLife } from '../../core/town/lifeStore';
+import { speak } from '../../core/tts';
 
 /** The resident's portrait in the panel: big enough to read the face, a little smaller on a phone. */
 function portraitSize(): number {
@@ -72,6 +76,9 @@ export interface ConversationProps {
  * and answered by picking what it meant; then what the conversation came to.
  */
 export default function Conversation({ place, turns, met, friend, onJournal, onGiven, onShop, onSpeaking, onAnswered, onFinished, onLeave, onAgain, street, onInvite, onBox }: ConversationProps) {
+  // the learner's character: their name and voice for their own lines in a street talk
+  const profile = useTownLife().profile;
+  const you = useMemo(() => ({ name: profile?.name ?? 'Bạn', voice: profile?.gender === 'female' ? PLAYER_FEMALE : CAST_VOICES.player }), [profile?.name, profile?.gender]);
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<TownAnswerResult[]>([]);
   const [done, setDone] = useState(false);
@@ -165,7 +172,7 @@ export default function Conversation({ place, turns, met, friend, onJournal, onG
       {done || !turn ? (
         <TalkResult place={place} results={results} met={met} onLeave={onLeave} onAgain={onAgain} onGiven={onGiven} onShop={onShop} street={street} onInvite={onInvite} />
       ) : (
-        <Turn key={turn.line.id} turn={turn} speaker={place.resident} met={met[index] ?? false} last={index + 1 >= turns.length} onSpeaking={onSpeaking} onAnswered={answered} onNext={next} voice={quickChatVoice(place.id, turn.line)} />
+        <Turn key={turn.line.id} turn={turn} speaker={place.resident} met={met[index] ?? false} last={index + 1 >= turns.length} onSpeaking={onSpeaking} onAnswered={answered} onNext={next} voice={turn.line.id.startsWith('st-') ? (CAST_VOICES[place.id] ?? null) : quickChatVoice(place.id, turn.line)} you={you} />
       )}
     </section>
   );
@@ -184,6 +191,8 @@ export interface TurnProps {
   audio?: DictationAudio;
   /** The speaker's voice (an episode line); omitted = the app's voice. */
   voice?: SpeakVoice | null;
+  /** The learner's character (a street talk's own lines, turn.before): their name and voice. */
+  you?: { name: string; voice: SpeakVoice };
   /**
    * Records the answer (an episode line: recordEpisodeLine); omitted = recordTownAnswer. `typed`: the line was a typed
    * check (core/town/typing), and how it went.
@@ -194,7 +203,7 @@ export interface TurnProps {
 }
 
 /** One line: heard (never read) and answered by picking what it meant, then shown the way it was said. */
-export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext, audio: given, voice, record = recordTownAnswer, lastLabel = 'Xem kết quả' }: TurnProps) {
+export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext, audio: given, voice, you, record = recordTownAnswer, lastLabel = 'Xem kết quả' }: TurnProps) {
   const resident = speaker;
   const { line, choices } = turn;
   // this line is typed instead of picked (core/town/typing, docs/town.md §13)
@@ -225,11 +234,21 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
   );
   const { canSpeak, playing, pending, play, stop } = player;
 
-  // the resident speaks by themselves once the camera is there
+  // the resident speaks by themselves once the camera is there; in a street talk the learner's own line comes first
+  const before = turn.before;
+  const sayBefore = useCallback(() => (before ? speak(before.text, { mode: 'connected', voice: you?.voice ?? null, browserOnly: true, auto: true }) : Promise.resolve()), [before, you?.voice]);
   useEffect(() => {
-    const id = window.setTimeout(() => void play('normal', { toggle: false, auto: true }), SPEAK_DELAY_MS);
-    return () => window.clearTimeout(id);
-  }, [play]);
+    let gone = false;
+    const id = window.setTimeout(() => {
+      void sayBefore().then(() => {
+        if (!gone) void play('normal', { toggle: false, auto: true });
+      });
+    }, SPEAK_DELAY_MS);
+    return () => {
+      gone = true;
+      window.clearTimeout(id);
+    };
+  }, [play, sayBefore]);
 
   const sounding = playing !== null && !pending;
   useEffect(() => {
@@ -372,6 +391,18 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
 
   return (
     <div className="town-turn">
+      {before && (
+        <div className="town-you-said">
+          <span className="town-you-who">{you?.name ?? 'Bạn'}</span>
+          <p className="town-you-en" lang="en">
+            {before.text}
+            <button type="button" className="btn btn-ghost btn-sm btn-icon" onClick={() => void sayBefore()} aria-label="Nghe lại câu của bạn" title="Nghe lại câu của bạn">
+              <Icon icon={Play} size={14} />
+            </button>
+          </p>
+          <p className="town-you-vi">{before.vi}</p>
+        </div>
+      )}
       {!result ? (
         <div className={'town-bubble' + (sounding ? ' is-live' : '')}>
           <SoundBars on={sounding} />

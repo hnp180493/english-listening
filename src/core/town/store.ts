@@ -13,6 +13,8 @@
 
 import { useMemo, useSyncExternalStore } from 'react';
 import { placeLines, placeOfLineId, townPlace } from '../../data/town';
+import { streetTalksOf } from '../../data/streetTalks';
+import { pickStreetTalk, streetPlan, type StreetBefore } from './streetTalk';
 import { achievement, townProject } from '../../data/townGame';
 import { deviceId } from '../history';
 import { ensureReconciled, readReviewStore, recordReview, type RecordResult } from '../review/api';
@@ -296,6 +298,8 @@ export interface TownTurn {
    * docs/town.md §13): the gap to type. Absent on every other line.
    */
   typing?: TypingTask;
+  /** A street talk (docs/town.md §14): what the learner's character said just before this line (shown, voiced). */
+  before?: StreetBefore;
 }
 
 export interface TownConversationResult {
@@ -355,16 +359,23 @@ export function startTownConversation(placeId: string, street = false): TownConv
   const place = townPlace(placeId);
   if (!place) return { ok: false, reason: 'unknown' };
   const progress = loadTownProgress();
-  const lines = conversationLines(progress, placeId);
+  // met in the street: one of their street talks, a coherent exchange (docs/town.md §14), when one is open
+  const talk = street ? pickStreetTalk(streetTalksOf(placeId), friendHearts(progress, placeId), (f) => knowsFact(progress, f), (id) => lineProgress(progress, id)?.tries ?? 0) : null;
+  const plan = talk ? streetPlan(talk) : null;
+  const lines = plan ? plan.map((p) => p.line) : conversationLines(progress, placeId);
   if (lines.length === 0) {
     conversation = null;
     return { ok: false, reason: 'silent' };
   }
+  // a street talk's wrong meanings come from the place's other lines, never from this talk (they would give its next lines away)
   const pool = placeLines(placeId);
   conversation = newConversation(placeId, lines.map((l) => l.id), progress, street);
   // a look-alike pair is never made of another line of this conversation (its meaning would be easy to rule out)
   const said = new Set(lines.map((l) => l.id));
-  const turns: TownTurn[] = lines.map((line) => ({ line, choices: choicesFor(line, pool, choiceSeed(progress, line.id), said) }));
+  const turns: TownTurn[] = lines.map((line, i) => {
+    const before = plan?.[i].before;
+    return { line, choices: choicesFor(line, pool, choiceSeed(progress, line.id), said), ...(before ? { before } : {}) };
+  });
   // one line of the five is typed: a line never answered before if there is one; the seed moves with every answer
   const seed = lines.reduce((sum, l) => sum + choiceSeed(progress, l.id), 0);
   const typed = typedIndex(placeId, lines.map((line) => ({ line, met: choiceSeed(progress, line.id) > 0 })), seed);
@@ -490,7 +501,7 @@ export function recordTownAnswer(line: TownLine, outcome: LineOutcome, now: numb
     if (complete) {
       // the first conversation of the day with them: read before this one is noted
       const firstToday = !metToday(next, conv.placeId, now);
-      const end = applyConversation(next, conv.placeId, conv.outcomes, now, device);
+      const end = applyConversation(next, conv.placeId, conv.outcomes, now, device, conv.lineIds?.length ?? VISIT_SIZE);
       if (end.finished) {
         const understood = conv.outcomes.filter((o) => o !== 'wrong').length;
         next = applyChatFriendship(end.progress, conv.placeId, understood, firstToday, now, device, conv.street).progress;

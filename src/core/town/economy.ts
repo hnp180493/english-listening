@@ -331,9 +331,10 @@ export interface ConversationEffect {
  * early) or an unknown place: nothing happens. A place not built yet counts like any other: its resident lodges at
  * the boarding house and talks all the same.
  */
-export function applyConversation(progress: TownProgress, placeId: string, outcomes: readonly LineOutcome[], now: number, device: string): ConversationEffect {
-  if (outcomes.length < VISIT_SIZE || !townPlace(placeId)) return { progress, finished: false, perfect: false, bonus: 0, tasksPaid: [] };
-  const bonus = conversationBonus(outcomes);
+export function applyConversation(progress: TownProgress, placeId: string, outcomes: readonly LineOutcome[], now: number, device: string, size: number = VISIT_SIZE): ConversationEffect {
+  // `size`: the lines of this conversation (a street talk has 3 or 4, docs/town.md §14)
+  if (outcomes.length < size || !townPlace(placeId)) return { progress, finished: false, perfect: false, bonus: 0, tasksPaid: [] };
+  const bonus = conversationBonus(outcomes, size);
   const noted = noteConversation(addEarned(progress, device, bonus), placeId, now, device, bonus > 0);
   return { progress: noted.progress, finished: true, perfect: bonus > 0, bonus, tasksPaid: noted.tasksPaid };
 }

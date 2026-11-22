@@ -56,7 +56,10 @@ import { KID_LINES, SUITORS } from '../data/romance';
 import { placeLines, TOWN_PLACES } from '../data/town';
 import type { TownLine } from './town/types';
 import { CAST_VOICES } from './town/voices';
-import { romanceAudioText, romanceVoice, type SceneCast } from './town/romanceAudio';
+import { PLAYER_FEMALE, romanceAudioText, romanceVoice, type SceneCast } from './town/romanceAudio';
+import { STREET_TALKS } from '../data/streetTalks';
+import { streetPlan } from './town/streetTalk';
+import type { StreetTalk } from './town/streetTalkTypes';
 import type { ChatLine, KidLines, RomanceScene, Suitor } from './town/romanceTypes';
 
 /** Where a clip is played from (first use wins when several share one clip). */
@@ -125,6 +128,8 @@ export interface InventoryContent {
   arcs?: readonly ResidentArc[];
   /** Quick chats, on the street too: each place's lines (data/town placeLines) in its resident's voice, both modes. */
   quickChats?: readonly { placeId: string; lines: readonly TownLine[] }[];
+  /** Street talks (data/streetTalks): the resident's lines in their voice, both modes; the learner's in both player voices. */
+  streetTalks?: readonly StreetTalk[];
   /** "Hẹn hò, cưới, con": the courtship scenes and the children's (data/romance), each speaker in their own voice. */
   romance?: { suitors: readonly Suitor[]; kids: KidLines };
 }
@@ -146,6 +151,7 @@ export function defaultInventoryContent(): InventoryContent {
     arcs: RESIDENT_ARCS,
     quickChats: TOWN_PLACES.map((p) => ({ placeId: p.id, lines: placeLines(p.id) })),
     romance: { suitors: SUITORS, kids: KID_LINES },
+    streetTalks: STREET_TALKS,
   };
 }
 
@@ -399,6 +405,22 @@ function addQuickChats(c: Collector, quick: NonNullable<InventoryContent['quickC
   }
 }
 
+function addStreetTalks(c: Collector, talks: readonly StreetTalk[]): void {
+  // Conversation (a street talk): the resident's line as a quick chat line (dictationAudio, both modes, their voice);
+  // the learner's line before it (turn.before) said as written in the character's voice, a man's or a woman's
+  for (const talk of talks) {
+    const voice = CAST_VOICES[talk.placeId];
+    for (const p of streetPlan(talk)) {
+      if (voice) {
+        const a = dictationAudio(p.line);
+        c.add('town', p.line.id, 'main', 'connected', a.connected, false, voice);
+        c.add('town', p.line.id, 'careful', 'careful', a.careful, false, voice);
+      }
+      if (p.before) for (const v of [CAST_VOICES.player, PLAYER_FEMALE]) c.add('town', `${p.line.id}#you`, 'main', 'connected', p.before.text, false, v);
+    }
+  }
+}
+
 function addRomance(c: Collector, { suitors, kids }: NonNullable<InventoryContent['romance']>): void {
   const sayScene = (scene: RomanceScene, cast: SceneCast) => {
     const lines: { line: ChatLine; ref: string }[] = scene.lines.map((line, i) => ({ line, ref: `${scene.id}#${i}` }));
@@ -455,6 +477,7 @@ export function buildAudioInventory(content: InventoryContent = defaultInventory
   addStories(c, content.stories, content.arcs ?? []);
   if (content.quickChats) addQuickChats(c, content.quickChats);
   if (content.romance) addRomance(c, content.romance);
+  if (content.streetTalks) addStreetTalks(c, content.streetTalks);
   return c.result();
 }
 
