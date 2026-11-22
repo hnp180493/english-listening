@@ -5,7 +5,7 @@ import type { MapSnapshot, StageState, TownStageHandle } from '../engine/stage';
 import { drawMap, mapScene } from './drawMap';
 import { MAP_ART, markerColor } from './mapArtData';
 import { PLACE_ART } from './mapGeo';
-import { arrowRotation, miniView, toBox } from './mapView';
+import { arrowRotation, MAP_YAW0, miniView, toBox } from './mapView';
 import './map.css';
 
 /** The minimap's size (CSS px; map.css .town-map-mini) and how many tile edges from the player to its rim. */
@@ -16,7 +16,7 @@ const MINI_RADIUS = 11;
 function same(a: MapSnapshot | null, b: MapSnapshot): boolean {
   if (!a) return false;
   const near = (x: number, y: number) => Math.abs(x - y) < 0.004;
-  if (!near(a.player.x, b.player.x) || !near(a.player.y, b.player.y) || !near(a.player.heading, b.player.heading) || !near(a.cameraYaw, b.cameraYaw)) return false;
+  if (!near(a.player.x, b.player.x) || !near(a.player.y, b.player.y) || !near(a.player.heading, b.player.heading)) return false;
   if (a.residents.length !== b.residents.length) return false;
   for (let i = 0; i < a.residents.length; i++) {
     const p = a.residents[i];
@@ -27,8 +27,9 @@ function same(a: MapSnapshot | null, b: MapSnapshot): boolean {
 }
 
 /**
- * A small round map in a corner of the stage: the streets round the player, turned with the camera (up on it is up
- * on the screen), the residents as dots in their house's colour (a ring when something waits). A click opens the
+ * A small round map in a corner of the stage: the streets round the player, always turned the default way whatever
+ * the camera's turn (it turned with the camera until 2026-11-22; once the camera could turn all the way round the
+ * owner wanted it fixed; the full map still opens turned like the camera), the player's arrow the way they face, the residents as dots in their house's colour (a ring when something waits). A click opens the
  * full map. Shown on a wide stage only, and hidden during talks and panels (map.css).
  */
 export default function MiniMap({ stage, state, hint, theme, onOpen }: { stage: RefObject<TownStageHandle | null>; state: StageState; hint: string | null; theme: TownTheme; onOpen: () => void }) {
@@ -71,7 +72,7 @@ export default function MiniMap({ stage, state, hint, theme, onOpen }: { stage: 
       if (c.width !== px) c.width = c.height = px;
       const box = { w: MINI_PX, h: MINI_PX };
       const rim = MINI_PX / 2;
-      const v = miniView(s.player, s.cameraYaw, rim, MINI_RADIUS);
+      const v = miniView(s.player, MAP_YAW0, rim, MINI_RADIUS);
       const p = palRef.current;
       drawMap(ctx, sceneRef.current, v, box, dpr, p, { mini: { rim } });
       // the residents: dots in their house's colour, a ring in their marker's for the suggested one and a re-listen
@@ -96,7 +97,7 @@ export default function MiniMap({ stage, state, hint, theme, onOpen }: { stage: 
         ctx.stroke();
       }
       // the player in the middle, the arrow the way they face
-      const turn = arrowRotation(s.player.heading, s.cameraYaw, 1);
+      const turn = arrowRotation(s.player.heading, MAP_YAW0, 1);
       ctx.save();
       ctx.translate(rim, rim);
       ctx.rotate(turn);
