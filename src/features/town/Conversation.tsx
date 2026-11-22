@@ -26,6 +26,7 @@ import { stopSfx } from './sfx';
 import { ignoredKeyTarget, SPEAK_DELAY_MS } from './talkKeys';
 import type { StreetTalkView } from './streetModel';
 import { useLinePlayer, type LinePlay } from './useLinePlayer';
+import { quickChatVoice } from '../../core/town/storyAudio';
 
 /** The resident's portrait in the panel: big enough to read the face, a little smaller on a phone. */
 function portraitSize(): number {
@@ -164,7 +165,7 @@ export default function Conversation({ place, turns, met, friend, onJournal, onG
       {done || !turn ? (
         <TalkResult place={place} results={results} met={met} onLeave={onLeave} onAgain={onAgain} onGiven={onGiven} onShop={onShop} street={street} onInvite={onInvite} />
       ) : (
-        <Turn key={turn.line.id} turn={turn} speaker={place.resident} met={met[index] ?? false} last={index + 1 >= turns.length} onSpeaking={onSpeaking} onAnswered={answered} onNext={next} />
+        <Turn key={turn.line.id} turn={turn} speaker={place.resident} met={met[index] ?? false} last={index + 1 >= turns.length} onSpeaking={onSpeaking} onAnswered={answered} onNext={next} voice={quickChatVoice(place.id, turn.line)} />
       )}
     </section>
   );

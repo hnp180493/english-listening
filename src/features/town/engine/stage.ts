@@ -84,6 +84,10 @@ export interface TownStageHandle {
   talkAt: (placeId: PlaceId, setting: TalkSetting, opts: { visitor?: PlaceId | null; instant?: boolean }, ready: () => void) => boolean;
   /** The talk is over: out of the room through the dark, or the camera back on the player. */
   endTalk: () => void;
+  /** A courtship scene here (docs/town.md §15): the resident beside the player, the camera on the two. False = no world. */
+  meet: (placeId: PlaceId, ready: () => void) => boolean;
+  /** The town gathers round the player (a wedding), all but these. */
+  crowd: (except: readonly PlaceId[]) => void;
   /** A little picture popping up over somebody's head. */
   emote: (target: 'player' | PlaceId, kind: EmoteKind) => void;
   /** Somebody plays a short animation once: a nod ('yes'), a head shake ('no'), a wave. Nothing under reduced motion. */

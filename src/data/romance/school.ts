@@ -68,8 +68,8 @@ export const SUITOR: Suitor = {
     },
     {
       id: 'school-date-2',
-      title: 'Hẹn hò lần hai: cái lườm trong thư viện',
-      scene: 'Tối thứ Năm, câu lạc bộ hội thoại đã tan, chỉ còn hai người trong góc thư viện.',
+      title: 'Hẹn hò lần hai: cái lườm bên tủ sách',
+      scene: 'Tối thứ Năm, câu lạc bộ hội thoại đã tan, chỉ còn hai người bên tủ sách cuối lớp.',
       lines: [
         { who: 'you', en: "I finally brought your book back. It's a bit late.", vi: 'Cuối cùng em cũng trả sách cho anh. Hơi muộn một chút.' },
         { who: 'them', en: 'Three weeks late. You know what that means.', vi: 'Muộn ba tuần. Em biết thế nghĩa là gì rồi đấy.' },

@@ -38,6 +38,15 @@ export interface PlayerLook {
 export type Marker = 'new' | 'repeat' | 'heart' | 'story' | 'relisten';
 
 /** Everything the stage is told from outside: plain data the game shell computes. */
+/** A child of the learner's character who walks behind them (docs/town.md §15). */
+export interface StageKid {
+  id: string;
+  /** Looks: a seeded child look with the player's skin and a parent's hair colour; smaller while a toddler. */
+  skin: string;
+  hair: string;
+  toddler: boolean;
+}
+
 export interface StageState {
   /** Ids of the places that are built (the others are empty lots, and their residents are not in town). */
   built: readonly string[];
@@ -59,6 +68,8 @@ export interface StageState {
   body?: string;
   /** Their character's name over their head (default "Bạn"). */
   playerName?: string;
+  /** Their children old enough to walk (docs/town.md §15): they follow the player, the youngest last. */
+  kids?: readonly StageKid[];
   /** Ids of town "projects" decorations to draw (engine/extraDecor.ts knows where each one stands; unknown ids are skipped). */
   extraDecor?: readonly string[];
   /**

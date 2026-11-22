@@ -118,6 +118,13 @@ export const ROOMS_KEPT = 3;
  * A talk whose setting is further than this from the player (tiles, as the crow flies: the map's WARP_FAR) is reached
  * through the dark (a dip, both put in place), never by a walk of ten seconds and more.
  */
+/** A small stable number from a text (a child's seeded look). */
+function hashOf(text: string): number {
+  let h = 0;
+  for (const c of text) h = (h * 31 + c.charCodeAt(0)) | 0;
+  return Math.abs(h);
+}
+
 export function talkIsFar(player: { x: number; y: number }, stand: { x: number; y: number }): boolean {
   return Math.hypot(stand.x - player.x, stand.y - player.y) > WARP_FAR;
 }
@@ -252,6 +259,8 @@ export class TownEngine3D {
   private readonly particles = new Particles();
   private people = new Map<string, Person>();
   private pet: { kind: string; p: Pet3D; x: number; y: number; walking: boolean; heading: number } | null = null;
+  /** The learner's children walking behind the player (StageState.kids, docs/town.md §15). */
+  private kids: { key: string; ch: Character3D; x: number; y: number; walking: boolean; heading: number; action: CharAction }[] = [];
   private trail: { x: number; y: number }[] = [];
   private viewW = 1;
   private viewH = 1;
@@ -781,6 +790,8 @@ export class TownEngine3D {
     for (const p of this.people.values()) p.ch.dispose();
     this.people.clear();
     this.pet?.p.dispose();
+    for (const k of this.kids) k.ch.dispose();
+    this.kids = [];
     this.pet = null;
     this.room?.dispose();
     this.room = null;
@@ -899,6 +910,49 @@ export class TownEngine3D {
       this.talkOutside(s);
     };
     if (now || !this.sim.walkToResident(s.placeId, there)) there();
+  }
+
+  /**
+   * A text scene of a courtship happens here (docs/town.md §15): the resident is put beside the player (on open ground
+   * on the side away from the camera) and the camera frames the two, as a talk outside. endTalk lets them go.
+   */
+  meet(placeId: PlaceId, ready: () => void): boolean {
+    if (!this.sim.residents.has(placeId)) return false;
+    const p = this.sim.player;
+    const sides = [
+      { x: 0.75, y: -0.75 },
+      { x: -0.75, y: 0.75 },
+      { x: 1.06, y: 0 },
+      { x: 0, y: -1.06 },
+      { x: -1.06, y: 0 },
+      { x: 0, y: 1.06 },
+    ];
+    const at = sides.map((d) => ({ x: p.x + d.x, y: p.y + d.y })).find((c) => walkable({ x: Math.floor(c.x), y: Math.floor(c.y) }, this.sim.world)) ?? { x: p.x + 0.75, y: p.y - 0.75 };
+    this.dropStaging();
+    const s: Staged = { placeId, setting: { kind: 'here' }, visitor: null, phase: 'go', ready, doorway: null, spots: null, arrivedAt: -1, retryAt: 0, hid: false, cancelled: false };
+    this.staged = s;
+    this.sim.jumpResident(placeId, at);
+    this.sim.engage(placeId);
+    this.talkOutside(s);
+    return true;
+  }
+
+  /**
+   * The town comes round (a wedding on the plaza, docs/town.md §15): every resident but the two walks in from a little
+   * way off to a ring round the player, then everyday life takes them back.
+   */
+  crowd(except: readonly PlaceId[]): void {
+    const p = this.sim.player;
+    const ids = [...this.sim.residents.keys()].filter((id) => !except.includes(id));
+    ids.forEach((id, i) => {
+      const a = (i / Math.max(1, ids.length)) * Math.PI * 2 + 0.4;
+      const near = { x: p.x + Math.cos(a) * 2.6, y: p.y + Math.sin(a) * 2.6 };
+      const far = { x: p.x + Math.cos(a) * 7, y: p.y + Math.sin(a) * 7 };
+      const ok = (c: { x: number; y: number }) => walkable({ x: Math.floor(c.x), y: Math.floor(c.y) }, this.sim.world);
+      if (!ok(near)) return;
+      this.sim.jumpResident(id, ok(far) ? far : near);
+      this.sim.hurryOn(id, near);
+    });
   }
 
   /** The talk is over (the panel closed): out of the room through the dark, or the camera back on the player. */
@@ -1653,6 +1707,7 @@ export class TownEngine3D {
       this.updateNear();
       this.syncPeople(dt);
       this.updatePet(dt);
+      this.updateKids(dt);
     }
     // following the player, the camera keeps the sim's own time (a late frame moves the two together: the player stays
     // in the middle); a glide to a shot is never more than 1.5 usual frames ahead in a late frame (cameraDt)
@@ -2387,6 +2442,74 @@ export class TownEngine3D {
     pet.p.root.position.set(pet.x, this.town.lift(pet.x, pet.y), pet.y);
     pet.p.setHeading(pet.heading, this.still);
     pet.p.update(this.still ? 0 : dt, pet.walking && dt > 0 ? step / dt : 0);
+  }
+
+  /** The learner's children walk behind the player, after the pet (the youngest last), in step with them. */
+  private updateKids(dt: number): void {
+    const want = this.state.kids ?? [];
+    const key = (k: (typeof want)[number]) => `${k.id}|${k.skin}|${k.hair}|${k.toddler ? 't' : 'c'}`;
+    if (this.kids.length !== want.length || this.kids.some((k, i) => k.key !== key(want[i]))) {
+      for (const k of this.kids) {
+        this.town.scene.remove(k.ch.root);
+        k.ch.dispose();
+      }
+      const pl = this.sim.player;
+      this.kids = want.map((k, i) => {
+        const base = passerLook(hashOf(k.id), true);
+        const look = { ...base, skin: k.skin, hair: { ...base.hair, color: k.hair }, scale: (base.scale ?? 0.8) * (k.toddler ? 0.78 : 1) };
+        const ch = createCharacter(`kid:${k.id}`, look);
+        shade(ch.root);
+        ch.setNight(this.night);
+        this.town.scene.add(ch.root);
+        const heading = octantHeading(pl.oct);
+        ch.setHeading(heading, true);
+        return { key: key(k), ch, x: pl.x - 0.6 * (i + 1), y: pl.y + 0.6 * (i + 1), walking: false, heading, action: 'idle' as CharAction };
+      });
+    }
+    if (this.kids.length === 0) return;
+    const pl = this.sim.player;
+    this.kids.forEach((kid, i) => {
+      // a point of the player's trail further back than the pet
+      let left = PET_BEHIND + 0.75 * (i + 1) + (this.pet ? 0.4 : 0);
+      let at = { x: pl.x, y: pl.y };
+      for (let j = this.trail.length - 1; j > 0 && left > 0; j--) {
+        const a = this.trail[j];
+        const b = this.trail[j - 1];
+        const l = Math.hypot(a.x - b.x, a.y - b.y);
+        if (l >= left) {
+          at = { x: a.x + ((b.x - a.x) * left) / l, y: a.y + ((b.y - a.y) * left) / l };
+          left = 0;
+        } else {
+          at = b;
+          left -= l;
+        }
+      }
+      if (left > 0) at = { x: pl.x + 0.55 * (i + 1), y: pl.y + 0.5 * (i + 1) };
+      const dx = at.x - kid.x;
+      const dy = at.y - kid.y;
+      const dist = Math.hypot(dx, dy);
+      // far behind (a dip, a warp): there at once
+      if (dist > 6) {
+        kid.x = at.x;
+        kid.y = at.y;
+      }
+      const step = Math.min(dist, (pl.speed * 1.1 + dist * 2) * dt);
+      kid.walking = dist > 0.05;
+      if (dist > 1e-6 && dist <= 6) {
+        kid.x += (dx / dist) * step;
+        kid.y += (dy / dist) * step;
+        if (kid.walking) kid.heading = headingOf(dx, dy);
+      }
+      if (!kid.walking && !pl.moving) kid.heading = octantHeading(pl.oct);
+      const action: CharAction = kid.walking ? (pl.speed > 2.2 ? 'run' : 'walk') : 'idle';
+      if (action !== kid.action) {
+        kid.action = action;
+        kid.ch.setAction(action);
+      }
+      kid.ch.root.position.set(kid.x, this.town.lift(kid.x, kid.y), kid.y);
+      kid.ch.setHeading(kid.heading, this.still);
+      kid.ch.update(this.still ? 0 : dt, kid.walking && dt > 0 ? step / dt : 0);
+    });
   }
 
   private spawnPetals(dt: number): void {

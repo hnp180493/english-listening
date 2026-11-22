@@ -126,3 +126,31 @@ describe('the scenes (data/romance)', () => {
     expect(KID_LINES.child.length).toBeGreaterThanOrEqual(10);
   });
 });
+
+describe('where each scene happens (data/romance/places)', () => {
+  it('every confession, date and proposal has a spot in this town; vows are on the plaza', async () => {
+    const { SCENE_SPOTS, sceneSpot } = await import('../../data/romance/places');
+    const { TOWN_WORLD } = await import('../../data/townWorld');
+    const districts = new Set<string>((TOWN_WORLD.districts ?? []).map((d) => d.id));
+    const places = new Set(TOWN_PLACES.map((p) => p.id));
+    for (const s of SUITORS) {
+      for (const scene of [s.confess, ...s.dates, s.proposal]) {
+        const spot = SCENE_SPOTS[scene.id];
+        expect(spot, scene.id).toBeDefined();
+        if (spot.kind === 'place') expect(places.has(spot.id), scene.id).toBe(true);
+        if (spot.kind === 'district') expect(districts.has(spot.id), scene.id).toBe(true);
+      }
+      expect(sceneSpot(s.vows.id)).toEqual({ kind: 'district', id: 'plaza' });
+      expect(sceneSpot(s.daily[0].id)).toBeNull();
+    }
+  });
+
+  it('a date at a place still an empty lot waits for it to be built', () => {
+    const life = withStep(man(), 'cafe', 'dating', T);
+    // Emma's second date is at the cinema
+    const two = withStep(life, 'cafe', 'date1', T + DAY);
+    const notYet = romanceSteps(two, 'cafe', { ...facts(9), built: (id) => id !== 'cinema' }, T + 2 * DAY)[0];
+    expect(notYet).toMatchObject({ kind: 'date', ready: false, need: 'Cần xây Rạp phim trước', spot: { kind: 'place', id: 'cinema' } });
+    expect(romanceSteps(two, 'cafe', { ...facts(9), built: () => true }, T + 2 * DAY)[0]).toMatchObject({ ready: true });
+  });
+});

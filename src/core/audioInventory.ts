@@ -52,6 +52,12 @@ import { quizPlayback } from '../features/lessons/quizPlayback';
 import { wordAudio } from '../features/review/wordModel';
 import { chunkSource, CUSTOM_EXAMPLES, resolveSource, sentenceSource, type ShadowSource } from '../features/shadowing/sources';
 import { buildSteps } from '../features/shadowing/steps';
+import { KID_LINES, SUITORS } from '../data/romance';
+import { placeLines, TOWN_PLACES } from '../data/town';
+import type { TownLine } from './town/types';
+import { CAST_VOICES } from './town/voices';
+import { romanceAudioText, romanceVoice, type SceneCast } from './town/romanceAudio';
+import type { ChatLine, KidLines, RomanceScene, Suitor } from './town/romanceTypes';
 
 /** Where a clip is played from (first use wins when several share one clip). */
 export type ClipSource = 'dictation' | 'decoder' | 'lesson' | 'checkup' | 'chunk' | 'shadowing' | 'home' | 'guide' | 'pairs' | 'words' | 'settings' | 'town';
@@ -117,6 +123,10 @@ export interface InventoryContent {
   stories: readonly StoryEpisode[];
   /** The residents' arcs ("Thân thiết"): gift reactions and greetings, in the resident's voice (their episodes are in `stories`). */
   arcs?: readonly ResidentArc[];
+  /** Quick chats, on the street too: each place's lines (data/town placeLines) in its resident's voice, both modes. */
+  quickChats?: readonly { placeId: string; lines: readonly TownLine[] }[];
+  /** "Hẹn hò, cưới, con": the courtship scenes and the children's (data/romance), each speaker in their own voice. */
+  romance?: { suitors: readonly Suitor[]; kids: KidLines };
 }
 
 export function defaultInventoryContent(): InventoryContent {
@@ -134,6 +144,8 @@ export function defaultInventoryContent(): InventoryContent {
     shadowSuggestions: CUSTOM_EXAMPLES,
     stories: TOWN_STORIES,
     arcs: RESIDENT_ARCS,
+    quickChats: TOWN_PLACES.map((p) => ({ placeId: p.id, lines: placeLines(p.id) })),
+    romance: { suitors: SUITORS, kids: KID_LINES },
   };
 }
 
@@ -369,6 +381,43 @@ function addStories(c: Collector, stories: readonly StoryEpisode[], arcs: readon
   }
 }
 
+/**
+ * "Hẹn hò, cưới, con" (docs/town.md §15, features/town/romance/StoryChat): every spoken line of the courtship scenes
+ * in its speaker's voice (core/town/romanceAudio romanceVoice; a called-out name left out, romanceAudioText), and the
+ * children's scenes once per spouse (their voice, and so the learner's character's) and per child's sex.
+ */
+function addQuickChats(c: Collector, quick: NonNullable<InventoryContent['quickChats']>): void {
+  // Conversation: quickChatVoice(placeId, line) → speak(dictationAudio(line) …, { voice })
+  for (const { placeId, lines } of quick) {
+    const voice = CAST_VOICES[placeId];
+    if (!voice) continue;
+    for (const line of lines) {
+      const a = dictationAudio(line);
+      c.add('town', `${line.id}@${placeId}`, 'main', 'connected', a.connected, false, voice);
+      c.add('town', `${line.id}@${placeId}`, 'careful', 'careful', a.careful, false, voice);
+    }
+  }
+}
+
+function addRomance(c: Collector, { suitors, kids }: NonNullable<InventoryContent['romance']>): void {
+  const sayScene = (scene: RomanceScene, cast: SceneCast) => {
+    const lines: { line: ChatLine; ref: string }[] = scene.lines.map((line, i) => ({ line, ref: `${scene.id}#${i}` }));
+    for (const o of scene.choice?.options ?? []) {
+      lines.push({ line: { who: 'you', en: o.en, vi: o.vi }, ref: o.id });
+      o.reply.forEach((line, i) => lines.push({ line, ref: `${o.id}#${i}` }));
+    }
+    for (const { line, ref } of lines) {
+      const voice = romanceVoice(line.who, cast);
+      const text = line.en ? romanceAudioText(line.en) : null;
+      if (voice && text) c.add('town', ref, 'main', 'connected', text, false, voice);
+    }
+  };
+  for (const s of suitors) {
+    for (const scene of [s.confess, ...s.dates, s.proposal, s.vows, ...s.daily]) sayScene(scene, { placeId: s.placeId });
+    for (const kid of ['boy', 'girl'] as const) for (const scene of [...kids.baby, ...kids.toddler, ...kids.child]) sayScene(scene, { placeId: s.placeId, kid });
+  }
+}
+
 function addShadowing(c: Collector, sentences: readonly Sentence[], chunks: readonly Chunk[], suggestions: readonly string[]): void {
   // SourcePicker: a suggestion chip fills the custom box; starting turns it into resolveSource({ text })
   const suggested = suggestions.map((text) => resolveSource({ text }, sentences, chunks)).filter((s): s is ShadowSource => !!s);
@@ -404,6 +453,8 @@ export function buildAudioInventory(content: InventoryContent = defaultInventory
   // SettingsPage "Thử giọng" with the Gemini clips: the connected sample (the same clip as decoder example 0)
   c.add('settings', 'sample', 'main', 'connected', connectedText(content.settingsSample, null, content.exampleSay[content.settingsSample]));
   addStories(c, content.stories, content.arcs ?? []);
+  if (content.quickChats) addQuickChats(c, content.quickChats);
+  if (content.romance) addRomance(c, content.romance);
   return c.result();
 }
 

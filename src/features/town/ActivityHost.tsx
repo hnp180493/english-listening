@@ -17,7 +17,7 @@ export interface ActivityHostProps extends ActivityPanelProps {
  * build panel: a side sheet on a wide stage, a bottom sheet on a phone, the town still living around it. The host
  * gives the frame (title, ✕, Esc, focus); the panel (activities/registry.ts PANELS, loaded on first use) the rest.
  */
-export default function ActivityHost({ id, onClose, onReward, sound, onFish, focus, onTalk, onOpen }: ActivityHostProps) {
+export default function ActivityHost({ id, onClose, onReward, sound, onFish, focus, onTalk, onOpen, onScene, onSceneEnd }: ActivityHostProps) {
   const titleId = useId();
   const boxRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function ActivityHost({ id, onClose, onReward, sound, onFish, foc
           }
         >
           <FishStageContext.Provider value={id === 'fish' ? (onFish ?? null) : null}>
-            <Panel onClose={onClose} onReward={onReward} sound={sound} focus={focus} onTalk={onTalk} onOpen={onOpen} />
+            <Panel onClose={onClose} onReward={onReward} sound={sound} focus={focus} onTalk={onTalk} onOpen={onOpen} onScene={onScene} onSceneEnd={onSceneEnd} />
           </FishStageContext.Provider>
         </Suspense>
       </div>

@@ -409,6 +409,10 @@ export default function TownStage3D({
         latest.current.talk = null;
         engineRef.current?.endTalk();
       },
+      meet: (placeId, ready) => (flatRef.current ? false : (engineRef.current?.meet(placeId, ready) ?? false)),
+      crowd: (except) => {
+        if (!flatRef.current) engineRef.current?.crowd(except);
+      },
       emote: (target, kind) => engineRef.current?.emote(target, kind),
       act: (target, anim) => engineRef.current?.act(target, anim),
       burst: (kind, at, to) => engineRef.current?.burst(kind, at, to),

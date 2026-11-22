@@ -5,6 +5,7 @@
 
 import { KID_LINES, suitorOf } from '../../data/romance';
 import { townPlace } from '../../data/town';
+import { sceneSpot, type SceneSpot } from '../../data/romance/places';
 import { townDay } from './progress';
 import { courtStage, datesDone, daysOld, kidAge, kidsOf, lastStep, MAX_KIDS, partnerOf, talkedOn, type CourtStep, type TownLife } from './life';
 import type { RomanceScene } from './romanceTypes';
@@ -40,6 +41,18 @@ export interface RomanceStep {
   need: string | null;
   /** The court step it records when done. */
   records?: CourtStep;
+  /** Where the scene happens in the town (data/romance/places): the stage takes the two there first. */
+  spot?: SceneSpot | null;
+}
+
+/** A step whose scene happens at a place still an empty lot waits for it ("Cần xây Rạp phim trước"). */
+function placed(step: RomanceStep, facts: RomanceFacts): RomanceStep {
+  const spot = step.scene ? sceneSpot(step.scene.id) : null;
+  const out = { ...step, spot };
+  if (spot?.kind === 'place' && facts.built && !facts.built(spot.id) && step.ready) {
+    return { ...out, ready: false, need: `Cần xây ${townPlace(spot.id)?.name ?? 'nơi hẹn'} trước` };
+  }
+  return out;
 }
 
 export interface RomanceFacts {
@@ -47,6 +60,8 @@ export interface RomanceFacts {
   /** Bouquets / rings in hand (town-progress gifts). */
   bouquets: number;
   rings: number;
+  /** A place stands (a date at the cinema needs the cinema). Omitted: every place stands. */
+  built?: (placeId: string) => boolean;
 }
 
 const rotate = <T>(list: readonly T[], n: number): T | null => (list.length ? list[((n % list.length) + list.length) % list.length] : null);
@@ -57,6 +72,10 @@ const dayIndex = (now: number) => Math.floor((now - new Date(now).getTimezoneOff
  * cannot court, or no character made yet). Steps that wait say why.
  */
 export function romanceSteps(life: TownLife, placeId: string, facts: RomanceFacts, now: number): RomanceStep[] {
+  return stepsOf(life, placeId, facts, now).map((s) => placed(s, facts));
+}
+
+function stepsOf(life: TownLife, placeId: string, facts: RomanceFacts, now: number): RomanceStep[] {
   const profile = life.profile;
   const suitor = suitorOf(placeId);
   const name = townPlace(placeId)?.resident ?? '';

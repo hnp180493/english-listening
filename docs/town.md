@@ -2029,10 +2029,22 @@ contract is in `core/town/romanceTypes.ts`; tests are in `core/town/romance.test
 - Standing next to a candidate or the spouse, a "Hẹn hò" (or "Gia đình") button sits beside the main button.
 - `romance/StoryChat.tsx` plays a scene line by line, with its choice.
 
-Not built yet:
+**In the town** (2026-11-22, "còn gì chưa làm thì làm tiếp"):
 
-- the spouse and the children in the 3D town (no new model follows you; the children exist only in the panel);
-- a wedding event on the plaza with the townsfolk.
+- Every confession, date and proposal happens where its scene says (`data/romance/places.ts` SCENE_SPOTS: a
+  place's door, the pier, the farm field, a part of town such as the park, the orchard, the woods' hill or the
+  fields). "Bắt đầu" dips there (the map's warp, `travelTo(…, 'warp')`), puts the one courted beside the player
+  (`stage.meet`, a talk outside) and the camera frames the two. Closing the scene, or the panel, lets them go.
+- A scene at a place still an empty lot waits for it ("Cần xây Rạp phim trước"): courting asks you to build the town.
+- The wedding is on the plaza: the whole town walks in round the two (`stage.crowd`). Confetti and hearts come at
+  the "yes", the proposal, the wedding and a new baby.
+- Children old enough to walk (toddlers smaller) follow the player behind the pet (`StageState.kids`,
+  `engine3d.updateKids`): a seeded child look with the player's skin and, alternately, the spouse's or the player's
+  hair colour. Babies stay at home (only in the panel). Daily life and the children's scenes happen where you stand,
+  with the spouse brought beside you.
+- Daniel's second date moved from a library the town does not have to the classroom's bookshelf.
+
+Not built yet: a home of your own (the spouse still lives at their place); the children have no name tags.
 
 Not checked:
 
@@ -2040,5 +2052,28 @@ Not checked:
 - the English of the 300-odd lines, by a person;
 - the step costs and points, which are guesses;
 - the 'you' lines of the voiced episodes keep their one voice whatever the character's gender;
-- a few dates happen at places this town does not draw (a library, an orchard, a Saturday market): only words in a
-  text scene for now.
+- the dates' places were checked against the 72 × 72 town (orchard, woods' hill, fields, pier, farm); a "Saturday
+  market" on the plaza is only words.
+
+### Voices (2026-11-22)
+
+The owner first said text was enough, then: "mỗi người nên một giọng vì đây là game mà, vẫn xài gemini đi". So:
+
+- **Courtship and children's scenes** (`core/town/romanceAudio.ts`): each line is said as it appears (▶ says it again),
+  when the town's sound is on, in its speaker's voice:
+  - the one courted / the spouse: their own CAST_VOICES voice;
+  - the learner's character: Puck for a man, Callirrhoe (`PLAYER_FEMALE`) for a woman, depending on who they court;
+  - a boy: Achird; a girl: Autonoe; both with a "small child's high, playful voice" style.
+
+  A name the learner chose cannot be in a shipped clip. A name called out at the start or the end of a line is left
+  out of the audio while the text shows it; a line that needs a name in the middle is read by the browser voice. In
+  the children's scenes the spouse's lines exist once per spouse, the child's once per boy / girl. Missing clips play
+  the browser voice of the right sex, never a paid request (`browserOnly`).
+- **Quick chats, on the street too** (`storyAudio.quickChatVoice`): every resident says their quick-chat lines in their
+  own voice once those clips ship. Until then it is the app's Kore clip, the same as Chép chính tả, so nothing
+  degrades to the browser voice before `npm run audio:generate`.
+- **To generate**: 2,036 new clips, about 74,600 characters:
+  - 600 quick-chat clips (25,206 characters): 300 lines × connected + careful;
+  - 1,436 scene clips (49,425 characters).
+
+  The owner runs it.

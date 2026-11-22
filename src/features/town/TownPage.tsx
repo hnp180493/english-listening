@@ -44,7 +44,10 @@ import TownMap from './map/TownMap';
 import { metInStreet, playerStand, type TalkSetting } from './engine/staging';
 import { homeSetting, streetTalkView } from './streetModel';
 import { townRomanceSteps, useTownLife } from '../../core/town/lifeStore';
-import { profileLook, setPlayerLook } from './three/chars/looks';
+import { castLook, profileLook, setPlayerLook } from './three/chars/looks';
+import { kidAge, kidsOf, partnerOf } from '../../core/town/life';
+import type { SceneSpot } from '../../data/romance/places';
+import type { StageKid } from './engine/sim';
 import { disposeHats } from './three/chars/hats';
 import { disposeSharedMaterials } from './three/chars/materials';
 import { disposePortraits } from './three/chars/portrait';
@@ -304,6 +307,15 @@ function talkSetting(t: Talk, places: readonly TownPlaceView[]): TalkSetting {
   return t.kind === 'episode' ? episodeSetting(t.start.episode, built) : quickChatSetting(t.place.id, built);
 }
 
+/** Where the map's travel takes the player for a courtship scene's spot (data/romance/places). */
+function spotTarget(spot: SceneSpot | null): TravelTarget | null {
+  if (!spot) return null;
+  if (spot.kind === 'place') return isPlaceId(spot.id) ? { kind: 'place', id: spot.id } : null;
+  if (spot.kind === 'activity') return { kind: 'activity', id: spot.id };
+  const d = TOWN_WORLD.districts?.find((x) => x.id === spot.id);
+  return d ? { kind: 'tile', x: d.arrive.x + 0.5, y: d.arrive.y + 0.5 } : null;
+}
+
 /**
  * The resident of `placeId` stands out in the town now (docs/town.md §14): in sight, and away from where a talk with
  * them would happen at home. False without a world (the page without 3D).
@@ -463,7 +475,20 @@ export default function TownPage() {
   const farmField = useTownFarm().field;
   const farmKey = fieldLook(farmField, FARM_LOOK_SLOTS).slots.join(',');
   const farm = useMemo(() => farmKey.split(',') as CropStage[], [farmKey]);
-  const state = useMemo(() => ({ ...stageStateOf(overview, theme), look, extraDecor, farm, body, playerName: profile?.name }), [overview, theme, look, extraDecor, farm, body, profile?.name]);
+  // the children old enough to walk follow the player (docs/town.md §15): the player's skin, a parent's hair
+  const spouse = partnerOf(life);
+  const married = !!(spouse && life.court[spouse]?.married);
+  const [kidsAt] = useState(() => Date.now());
+  const kidsKey = married && profile ? kidsOf(life).filter(({ kid }) => kidAge(kid.born, kidsAt) !== 'baby').map(({ id }, i) => `${id}:${i}`).join(',') : '';
+  const kids = useMemo<StageKid[]>(() => {
+    if (!kidsKey || !profile || !spouse) return [];
+    const other = castLook(spouse).hair.color;
+    return kidsOf(life)
+      .filter(({ kid }) => kidAge(kid.born, kidsAt) !== 'baby')
+      .map(({ id, kid }, i) => ({ id, skin: profile.skin, hair: i % 2 === 0 ? other : profile.hairColor, toddler: kidAge(kid.born, kidsAt) === 'toddler' }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kidsKey, profile, spouse]);
+  const state = useMemo(() => ({ ...stageStateOf(overview, theme), look, extraDecor, farm, body, playerName: profile?.name, kids }), [overview, theme, look, extraDecor, farm, body, profile?.name, kids]);
   const lotLabels = useMemo(() => lotLabelsOf(overview), [overview]);
   const suggested = useMemo(() => suggestedPlace(overview.places), [overview.places]);
 
@@ -593,6 +618,37 @@ export default function TownPage() {
 
   /** Talk to a resident: the stage takes both where the talk happens. */
   const goTalk = startTalk;
+
+  /**
+   * A courtship scene (docs/town.md §15): a dip to where it happens (a place's door, the pier, a part of town), the one
+   * courted beside the player, the camera on the two; a wedding brings the whole town round.
+   */
+  const onScene = useCallback(({ placeId, spot, wedding }: { placeId: string; spot: SceneSpot | null; wedding: boolean }) => {
+    const st = stage.current;
+    if (!st) return;
+    const id = placeId as PlaceId;
+    const here = () => {
+      st.meet(id, () => {});
+      if (wedding) st.crowd([id]);
+    };
+    const target = spotTarget(spot);
+    if (!target || !st.travelTo(target, 'warp', here)) here();
+  }, []);
+  const onSceneEnd = useCallback(
+    ({ placeId, celebrate }: { placeId: string; celebrate: boolean }) => {
+      const st = stage.current;
+      if (!st) return;
+      if (celebrate) {
+        st.burst('confetti', placeId as PlaceId);
+        st.burst('confetti', 'player');
+        st.emote(placeId as PlaceId, 'heart');
+        st.emote('player', 'heart');
+        sfx('task');
+      }
+      st.endTalk();
+    },
+    [sfx],
+  );
   /** The stage: a resident clicked (in person: maybe met in the street) or their house. */
   const onStageTalk = useCallback((id: string, inPerson: boolean) => startTalk(id, false, inPerson ? 'person' : 'place'), [startTalk]);
 
@@ -1135,6 +1191,8 @@ export default function TownPage() {
               goTalk(id);
             }}
             onOpen={(id) => openActivity(id, 'hud')}
+            onScene={onScene}
+            onSceneEnd={onSceneEnd}
           />
         )}
         {shownGift && <GiftSheet placeId={shownGift} onClose={closeGift} onGiven={(r, v) => onGiven(r, v, shownGift)} onShop={giftToShop} />}

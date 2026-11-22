@@ -4,6 +4,8 @@
 // Sổ tay from a resident's hearts), where they are. So do "Hẹn hò & gia đình" and "Nhân vật" (docs/town.md §15).
 // Rule for all of them (docs/town.md): every reward comes from LISTENING. Nothing is earned by clicking alone.
 
+import type { SceneSpot } from '../../../data/romance/places';
+
 export type ActivityId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | 'gifts' | 'journal' | 'character' | 'love';
 
 /** The activities with a spot in the world (data/townWorld ActivitySpotId): the player walks there first. */
@@ -43,4 +45,11 @@ export interface ActivityPanelProps {
   onTalk?: (placeId: string) => void;
   /** Open another activity's panel instead (the gift picker's "Tới Tiệm quà"). */
   onOpen?: (id: ActivityId) => void;
+  /**
+   * A courtship scene begins (docs/town.md §15): the stage takes the player where it happens (`spot`, data/romance/places;
+   * null = here) and puts the one courted beside them; `wedding`: the town gathers round.
+   */
+  onScene?: (scene: { placeId: string; spot: SceneSpot | null; wedding: boolean }) => void;
+  /** The scene is over (or left): the camera back on the player; `celebrate` for a yes, a proposal, a wedding. */
+  onSceneEnd?: (end: { placeId: string; celebrate: boolean }) => void;
 }

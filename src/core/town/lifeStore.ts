@@ -9,6 +9,7 @@ import { emptyTownLife, mergeTownLife, parseTownLife, withChoice, withKid, withP
 import { addGiftCount, townDay } from './progress';
 import { BOUQUET, RING, romanceSteps, STEP_POINTS, type RomanceStep } from './romance';
 import { commitTown, loadTownProgress, townDevice, type TownCelebration } from './store';
+import { isBuilt } from './economy';
 
 let session: TownLife | null = null;
 let cacheRaw: string | null | undefined;
@@ -99,7 +100,7 @@ export function saveProfile(p: Omit<PlayerProfile, 'at'>, now: number = Date.now
 /** What the learner can do next with this resident now (./romance romanceSteps, with the hearts and gifts in hand). */
 export function townRomanceSteps(placeId: string, now: number = Date.now()): RomanceStep[] {
   const progress = loadTownProgress();
-  return romanceSteps(loadTownLife(), placeId, { hearts: friendHearts(progress, placeId), bouquets: giftInHand(progress, BOUQUET), rings: giftInHand(progress, RING) }, now);
+  return romanceSteps(loadTownLife(), placeId, { hearts: friendHearts(progress, placeId), bouquets: giftInHand(progress, BOUQUET), rings: giftInHand(progress, RING), built: (id) => isBuilt(progress, id) }, now);
 }
 
 export interface RomanceDone {

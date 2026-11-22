@@ -2,7 +2,7 @@
 // the partner (and what it waits for), then married life: the day's exchange with the spouse, each child's, a baby.
 // A step plays as a text scene (./StoryChat) right here; finishing it records it and pays its friendship points.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import { daysOld, kidAge, kidsOf, partnerOf, type Kid } from '../../../core/town/life';
@@ -21,7 +21,7 @@ import './romance.css';
 
 const AGE_LABEL = { baby: 'Em bé', toddler: 'Mới biết đi', child: 'Đi học' } as const;
 
-export default function LovePanel({ focus, onOpen, onReward, sound }: ActivityPanelProps) {
+export default function LovePanel({ focus, onOpen, onReward, sound, onScene, onSceneEnd }: ActivityPanelProps) {
   const life = useTownLife();
   const overview = useTownOverview();
   // re-read the steps when hearts or gifts in hand move
@@ -34,6 +34,21 @@ export default function LovePanel({ focus, onOpen, onReward, sound }: ActivityPa
   const [note, setNote] = useState<string | null>(null);
   // the children's ages as of opening the panel
   const [now] = useState(() => Date.now());
+  // a scene staged in the town ends with the panel too (closed, Esc): the camera goes back to the player
+  const staged = useRef<string | null>(null);
+  useEffect(
+    () => () => {
+      if (staged.current) onSceneEnd?.({ placeId: staged.current, celebrate: false });
+    },
+    [onSceneEnd],
+  );
+  const begin = (s: RomanceStep) => {
+    setPlaying(s);
+    // a baby is named first; the scene (and the stage) after
+    if (s.kind === 'baby') return;
+    staged.current = s.placeId;
+    onScene?.({ placeId: s.placeId, spot: s.spot ?? null, wedding: s.kind === 'wedding' });
+  };
 
   if (!life.profile) {
     return (
@@ -55,6 +70,10 @@ export default function LovePanel({ focus, onOpen, onReward, sound }: ActivityPa
       const r = finishRomanceStep(playing, choice ? { id: choice.id, points: choice.points } : null, playing.kind === 'baby' ? (baby ?? undefined) : undefined);
       setPlaying(null);
       setBaby(null);
+      if (staged.current) {
+        onSceneEnd?.({ placeId: staged.current, celebrate: r.ok && (playing.kind === 'confess' || playing.kind === 'proposal' || playing.kind === 'wedding' || playing.kind === 'baby') });
+        staged.current = null;
+      }
       if (!r.ok) {
         setNote('Chưa ghi được bước này, thử lại sau nhé.');
         return;
@@ -68,13 +87,30 @@ export default function LovePanel({ focus, onOpen, onReward, sound }: ActivityPa
     return (
       <div className="town-love">
         <h3 className="town-love-title">{playing.scene.title}</h3>
-        <StoryChat scene={playing.scene} them={townPlace(playing.placeId)?.resident ?? ''} you={you} kid={playing.kind === 'baby' ? (baby?.name ?? '') : kidName(playing.kidId)} onDone={done} />
+        <StoryChat
+          scene={playing.scene}
+          them={townPlace(playing.placeId)?.resident ?? ''}
+          you={you}
+          kid={playing.kind === 'baby' ? (baby?.name ?? '') : kidName(playing.kidId)}
+          cast={{ placeId: playing.placeId, kid: playing.kind === 'baby' ? baby?.gender : kids.find((k) => k.id === playing.kidId)?.kid.gender }}
+          autoplay={sound}
+          onDone={done}
+        />
       </div>
     );
   }
   // naming a baby first
   if (playing?.kind === 'baby') {
-    return <BabyForm onCancel={() => setPlaying(null)} onDone={(b) => setBaby(b)} />;
+    return (
+      <BabyForm
+        onCancel={() => setPlaying(null)}
+        onDone={(b) => {
+          setBaby(b);
+          staged.current = playing.placeId;
+          onScene?.({ placeId: playing.placeId, spot: null, wedding: false });
+        }}
+      />
+    );
   }
 
   const view = open ? overview.places.find((p) => p.place.id === open) : undefined;
@@ -106,7 +142,7 @@ export default function LovePanel({ focus, onOpen, onReward, sound }: ActivityPa
               <li key={s.kind + (s.kidId ?? '')} className="town-love-step">
                 <span className="town-love-step-label">{s.label}</span>
                 {s.ready ? (
-                  <button type="button" className="btn btn-sm btn-soft" onClick={() => setPlaying(s)}>
+                  <button type="button" className="btn btn-sm btn-soft" onClick={() => begin(s)}>
                     Bắt đầu
                   </button>
                 ) : (

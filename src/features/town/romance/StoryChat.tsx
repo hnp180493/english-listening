@@ -1,11 +1,15 @@
-// A text scene of "Hẹn hò, cưới, con" (docs/town.md §15): the lines one at a time, each English line with its
-// Vietnamese meaning and a ▶ that reads it in the browser voice (no shipped clip, never a paid request: owner,
-// 2026-11-22, "nhiều cái cứ trò chuyện bình thường là được"), at most one choice, then "Xong".
+// A scene of "Hẹn hò, cưới, con" (docs/town.md §15): the lines one at a time, each English line with its Vietnamese
+// meaning, said as it appears in the speaker's own Gemini voice (owner, 2026-11-22: "mỗi người nên một giọng vì đây là
+// game mà, vẫn xài gemini đi"; core/town/romanceAudio): the shipped clip when there is one, else the browser voice of
+// that sex (never a paid request). ▶ says it again. At most one choice, then "Xong".
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Volume2 } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
-import { speak } from '../../../core/tts';
+import { speak, stopSpeaking } from '../../../core/tts';
+import { hasShippedClip, peekAudioManifest } from '../../../core/audioManifest';
+import { audioKey } from '../../../core/audioKey';
+import { romancePlayback, type SceneCast } from '../../../core/town/romanceAudio';
 import { fillLine } from '../../../core/town/romance';
 import type { ChatLine, ChatOption, RomanceScene } from '../../../core/town/romanceTypes';
 
@@ -15,6 +19,10 @@ export interface StoryChatProps {
   them: string;
   you: string;
   kid?: string;
+  /** Who is in it, for the voices: the one courted / the spouse, and the child's sex. */
+  cast: SceneCast;
+  /** Say each line as it appears (the page's sound setting); ▶ always says it. */
+  autoplay?: boolean;
   /** Played through: the option picked, if the scene had a choice. */
   onDone: (choice: ChatOption | null) => void;
 }
@@ -24,7 +32,7 @@ interface Shown {
   key: string;
 }
 
-export default function StoryChat({ scene, them, you, kid = '', onDone }: StoryChatProps) {
+export default function StoryChat({ scene, them, you, kid = '', cast, autoplay = true, onDone }: StoryChatProps) {
   const [count, setCount] = useState(1);
   const [picked, setPicked] = useState<ChatOption | null>(null);
   const footRef = useRef<HTMLButtonElement>(null);
@@ -53,6 +61,23 @@ export default function StoryChat({ scene, them, you, kid = '', onDone }: StoryC
   useEffect(() => {
     footRef.current?.focus({ preventScroll: true });
   }, [finished]);
+  const say = (line: ChatLine) => {
+    const p = line.en ? romancePlayback(line, cast, fillLine(line.en, you, kid)) : null;
+    if (!p) return;
+    // the shipped clip (a called-out name left out of it); without one, the browser voice reads the line as shown
+    const m = peekAudioManifest();
+    const clip = p.clip && m && hasShippedClip(m, audioKey(p.mode, p.clip, p.voice)) ? p.clip : null;
+    void speak(clip ?? p.fallback, { mode: p.mode, voice: p.voice, browserOnly: true });
+  };
+  // each new line is said as it appears (narration is not)
+  const lastKey = shown.length ? shown[shown.length - 1].key : '';
+  useEffect(() => {
+    if (!autoplay || !lastKey) return;
+    const s = shown[shown.length - 1];
+    if (s?.line.en) say(s.line);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastKey, autoplay]);
+  useEffect(() => () => stopSpeaking(), []);
   const name = (who: ChatLine['who']) => (who === 'them' ? them : who === 'you' ? you : who === 'kid' ? kid || 'Bé' : '');
   const fill = (t: string) => fillLine(t, you, kid);
   return (
@@ -69,7 +94,7 @@ export default function StoryChat({ scene, them, you, kid = '', onDone }: StoryC
                 {line.en && (
                   <p className="town-chat-en" lang="en">
                     {fill(line.en)}
-                    <button type="button" className="btn btn-ghost btn-sm btn-icon town-chat-play" onClick={() => void speak(fill(line.en!), { browserOnly: true })} aria-label="Nghe câu này" title="Nghe câu này">
+                    <button type="button" className="btn btn-ghost btn-sm btn-icon town-chat-play" onClick={() => say(line)} aria-label="Nghe câu này" title="Nghe câu này">
                       <Icon icon={Volume2} size={15} />
                     </button>
                   </p>
