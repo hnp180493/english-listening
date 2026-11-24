@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type Ref } from 'react';
-import { BookOpen, Check, Heart, UserRound, Egg, Fish, Gift, Flame, Hammer, ListChecks, Map as MapIcon, Maximize2, Minimize2, Shirt, Sprout, Sparkles, Trophy, Volume2, VolumeX } from 'lucide-react';
+import { BookOpen, Coffee, Check, Heart, UserRound, Egg, Fish, Gift, Flame, Hammer, ListChecks, Map as MapIcon, Maximize2, Minimize2, Shirt, Sprout, Sparkles, Trophy, Volume2, VolumeX } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import Popover from '../../components/Popover';
 import { prefersReducedMotion } from '../../core/motion';
@@ -8,7 +8,7 @@ import { ACTIVITIES, type ActivityId } from './activities/types';
 import { Coin } from './art';
 
 /** The icon of each activity in the "Chơi" menu. */
-const ACTIVITY_ICONS: Readonly<Record<ActivityId, typeof Fish>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound };
+const ACTIVITY_ICONS: Readonly<Record<ActivityId, typeof Fish>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee };
 import { levelLabel, taskCount, xu } from './shellModel';
 
 /** A number that counts towards its new value instead of jumping (instant under reduced motion). */

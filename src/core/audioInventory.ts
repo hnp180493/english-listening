@@ -58,6 +58,8 @@ import type { TownLine } from './town/types';
 import { CAST_VOICES } from './town/voices';
 import { PLAYER_FEMALE, romanceAudioText, romanceVoice, type SceneCast } from './town/romanceAudio';
 import { STREET_TALKS } from '../data/streetTalks';
+import { CAFE_ORDERS } from '../data/townCafe';
+import type { CafeOrder } from './town/cafeTypes';
 import { streetPlan } from './town/streetTalk';
 import type { StreetTalk } from './town/streetTalkTypes';
 import type { ChatLine, KidLines, RomanceScene, Suitor } from './town/romanceTypes';
@@ -130,6 +132,8 @@ export interface InventoryContent {
   quickChats?: readonly { placeId: string; lines: readonly TownLine[] }[];
   /** Street talks (data/streetTalks): the resident's lines in their voice, both modes; the learner's in both player voices. */
   streetTalks?: readonly StreetTalk[];
+  /** "Phụ quầy cà phê" (data/townCafe): every order in its customer's voice, connected + careful. */
+  cafeOrders?: readonly CafeOrder[];
   /** "Hẹn hò, cưới, con": the courtship scenes and the children's (data/romance), each speaker in their own voice. */
   romance?: { suitors: readonly Suitor[]; kids: KidLines };
 }
@@ -152,6 +156,7 @@ export function defaultInventoryContent(): InventoryContent {
     quickChats: TOWN_PLACES.map((p) => ({ placeId: p.id, lines: placeLines(p.id) })),
     romance: { suitors: SUITORS, kids: KID_LINES },
     streetTalks: STREET_TALKS,
+    cafeOrders: CAFE_ORDERS,
   };
 }
 
@@ -421,6 +426,18 @@ function addStreetTalks(c: Collector, talks: readonly StreetTalk[]): void {
   }
 }
 
+function addCafe(c: Collector, orders: readonly CafeOrder[]): void {
+  // CafePanel sayOrder(order, careful): dictationAudio(order) connected / careful in the customer's voice (the old cast
+  // always speaks in its Gemini voice: owner, 2026-11-24)
+  for (const o of orders) {
+    const voice = CAST_VOICES[o.placeId];
+    if (!voice) continue;
+    const a = dictationAudio(o);
+    c.add('town', o.id, 'main', 'connected', a.connected, false, voice);
+    c.add('town', o.id, 'careful', 'careful', a.careful, false, voice);
+  }
+}
+
 function addRomance(c: Collector, { suitors, kids }: NonNullable<InventoryContent['romance']>): void {
   const sayScene = (scene: RomanceScene, cast: SceneCast) => {
     const lines: { line: ChatLine; ref: string }[] = scene.lines.map((line, i) => ({ line, ref: `${scene.id}#${i}` }));
@@ -478,6 +495,7 @@ export function buildAudioInventory(content: InventoryContent = defaultInventory
   if (content.quickChats) addQuickChats(c, content.quickChats);
   if (content.romance) addRomance(c, content.romance);
   if (content.streetTalks) addStreetTalks(c, content.streetTalks);
+  if (content.cafeOrders) addCafe(c, content.cafeOrders);
   return c.result();
 }
 

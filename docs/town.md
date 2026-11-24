@@ -2107,3 +2107,51 @@ The owner first said text was enough, then: "mỗi người nên một giọng v
   - 1,436 scene clips (49,425 characters).
 
   The owner runs it.
+
+## 16. Phụ quầy cà phê: the short game to come back for (2026-11-24)
+
+The owner asked: "thị trấn có bao nhiêu game này thôi hả? không có game gì gây nghiện giữ chân người học à", and when
+told nobody could promise that: "sao mày không thử đi tham khảo ở trên mạng". What the reading came to, and how the
+game uses it:
+
+| What keeps a short game played | Source | Here |
+|---|---|---|
+| One action, understood at a glance, no tutorial | Unity / MAG Interactive, Supersonic on hyper-casual design | hear the order → tap the tiles → "Giao" |
+| A patience meter, a combo a miss resets, rising pace | Smith et al., "Order-fulfillment games" (FDG 2019); Tapper, Diner Dash | the bar under the customer, ×1.25 … ×3, less patience as the skill rises |
+| Learning is fastest near 85% right | Wilson et al., Nature Communications 2019 | the skill goes up 0.5 for a right tray and down 2.8 for a miss (0.85 / 0.15), and picks the order's level and the patience |
+| One simple day streak | Duolingo's retention team (Lenny's Newsletter) | "N ngày liền đứng quầy": a day with one shift, nothing else to it |
+| A personal best to beat; the end of a run decides if you play again | devlogs on combo / score design; Kwalee on end-of-level pacing | "Còn 40 điểm nữa là phá kỷ lục 310", "Chơi lại" is the one button |
+| A daily reward that cannot be farmed | Game Developer on daily rewards | 24 xu a day over all browsers; score and record still count after |
+
+Nobody can know it holds people until somebody plays it for days: these are the known ingredients, not a promise.
+
+**The game** (`core/town/cafe.ts`, `cafeStore.ts`, `features/town/activities/CafePanel.tsx`, activity `cafe`, first in
+"Chơi"):
+
+- A shift is up to 12 customers; 3 misses end it. A customer is one of the twelve residents (never Emma: it is her
+  counter). They SAY an order (`data/townCafe.ts`, 10 each: 4 plain, 4 with two kinds or a number, 2 that must really
+  be heard: a change of mind, a "no …", near sound-alikes such as "a nice iced tea").
+- The learner taps what was asked for on twelve tiles (Vietnamese names: hearing "an iced latte" and tapping
+  "Latte đá" is understanding, not matching letters), up to 3 of a kind, "−" takes one back, and serves. The tray must
+  be exactly the order.
+- The patience starts with the customer's first word: 8 s + 2.2 s a thing (+2.5 s for a level 3), times
+  1 − 0.04 × skill, never under 6 s. "Nghe lại" (R) costs nothing but time, and the first-listen bonus.
+- Points for a right tray: 10 a level + up to 10 for speed + 5 for hearing it once, times the combo.
+- After a miss the order shows as it was said, with its meaning and the right tray, for 3.2 s. The result lists every
+  missed order with its connected-speech reveal, "Nghe" and "Rõ từng từ": the learning moment of the game.
+- Orders got right least often come first, so a missed one comes back in a later shift.
+- Starting a shift takes the player to the café's door with Emma beside them (`onScene`). The customers show as
+  portraits in the panel, not in the 3D town.
+
+**Stored**: `town-cafe` (synced; merger `mergeCafe`, laws in syncMerge.props.test): the best score, the skill the next
+shift starts from (one under where the last ended), per order how often served / right, per day and browser the
+shifts, xu paid, best and whether Emma's friendship was paid. Xu (score / 30, to the day's cap) and +10 friendship
+with Emma (8 right trays in a shift, once a day) go to town-progress.
+
+**Voices**: each customer's own Gemini voice (`audioInventory addCafe`: the 120 orders, connected + careful, 240
+clips). The owner's rule, 2026-11-24: "nhân vật mới thì mới xài trình duyệt, nhân vật cũ luôn xài gemini": the old
+cast always gets clips, only a NEW character speaks with the browser voice. Until the clips are generated the
+browser voice of the customer's sex plays; never a paid request (`browserOnly`).
+
+Not done: customers walking up to the counter in 3D; a card in Ôn tập for a missed order (it only comes back inside
+the game); the daily tasks do not know the café.

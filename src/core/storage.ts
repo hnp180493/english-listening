@@ -88,6 +88,7 @@ export const KEYS = {
   checkups: 'checkup-results', // finished "Kiểm tra định kỳ" results (synced), see core/benchmark.ts
   history: 'progress-history', // daily-aggregate archive for the progress report (synced), see core/history.ts
   town: 'town-progress', // "Thị trấn": lines understood, xu earned per device, purchases, daily tasks (synced), see core/town/progress.ts
+  townCafe: 'town-cafe', // "Thị trấn": the café game's best score, skill, days (synced), see core/town/cafe.ts
   townLife: 'town-life', // "Thị trấn": the learner's own character, courtship, marriage, children (synced), see core/town/life.ts
   tombstones: 'tombstones', // deleted custom sentences / media items (synced, pruned after a while), see core/syncMarkers.ts
   reset: 'reset', // "Xóa dữ liệu" / restore / "Xóa lịch sử" marker (synced): older data elsewhere is dropped, see core/syncMarkers.ts

@@ -15,6 +15,7 @@ import {
   mergeSettings,
   mergeTown,
   mergeLife,
+  mergeCafe,
   mergeValue,
 } from './syncMerge';
 import { parseDrillStore, rollDaily } from '../features/drill/drillStore';
@@ -234,6 +235,19 @@ describe('merger laws', () => {
       kids: Object.fromEntries(['kid-1', 'kid-2', 'kid-3', 'kid-4'].filter(() => maybe(0.4)).map((id) => [id, { name: pick(['Bin', 'Na']), gender: pick(['boy', 'girl']), born: pick([T0, T0 + 1, T0 + 5]), at: pick([T0, T0 + 1, T0 + 2]) }])),
       choices: Object.fromEntries(['cafe-date-1', 'park-date-2'].filter(() => maybe()).map((id) => [id, { o: pick([id + '-a', id + '-b']), at: pick([T0, T0 + 1]) }])),
       talked: Object.fromEntries(townDays.slice(ri(50), 60).filter(() => maybe(0.3)).map((d) => [d, [pick(['spouse', 'kid-1'])]])),
+    };
+  });
+  // town-cafe (docs/town.md §16): best score, skill (newer), per-order counts, per-day per-browser rows
+  checkLaws('town cafe', mergeCafe, () => {
+    if (maybe(0.05)) return pick<unknown>([null, 'junk', [], { days: 7 }]);
+    return {
+      version: 1,
+      best: pick<unknown>([null, { score: pick([120, 300, 300]), at: pick([T0, T0 + 1, T0 + 2]) }, { score: 'x' }]),
+      skill: pick<unknown>([null, { v: pick([0, 2.5, 7]), at: pick([T0, T0 + 1, T0 + 2]) }, { v: 99, at: T0 }]),
+      orders: Object.fromEntries(['cf-shop-1', 'cf-park-10', 'Bad Id', '__proto__'].filter(() => maybe()).map((id) => [id, { n: ri(5), ok: ri(5) }])),
+      days: Object.fromEntries(
+        townDays.slice(ri(10), 75).filter(() => maybe(0.2)).map((d) => [d, Object.fromEntries([...townDevices, 'NOT A DEVICE'].filter(() => maybe(0.5)).map((dev) => [dev, { runs: ri(3), xu: ri(24), best: ri(400), bond: ri(2) }]))]),
+      ),
     };
   });
   checkLaws('review daily (two local days)', mergeReview, () => ({

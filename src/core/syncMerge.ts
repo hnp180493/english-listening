@@ -18,6 +18,7 @@ import {
 } from './syncMarkers';
 import { mergeTownProgress, parseTownProgress } from './town/progress';
 import { mergeTownLife, parseTownLife } from './town/life';
+import { mergeTownCafe, parseTownCafe } from './town/cafe';
 
 /** Full storage key (with prefix) → raw stored JSON string, as in Backup.data. */
 export type DataMap = Record<string, string>;
@@ -602,6 +603,12 @@ export const mergeTown: Merger = (newer, older) => mergeTownProgress(parseTownPr
  */
 export const mergeLife: Merger = (newer, older) => mergeTownLife(parseTownLife(newer), parseTownLife(older));
 
+/**
+ * town-cafe (Thị trấn: "Phụ quầy cà phê", core/town/cafe): the higher best score, the newer skill, per order the max
+ * of its counts, per day and browser the max of each field (shifts, xu paid, best, bond); the newest 60 days.
+ */
+export const mergeCafe: Merger = (newer, older) => mergeTownCafe(parseTownCafe(newer), parseTownCafe(older));
+
 /** Short key (without prefix) → merge strategy. Keys not listed (unknown): newer side wins. */
 const MERGERS: Record<string, Merger> = {
   settings: mergeSettings,
@@ -623,6 +630,7 @@ const MERGERS: Record<string, Merger> = {
   'progress-history': mergeProgressHistory,
   'town-progress': mergeTown,
   'town-life': mergeLife,
+  'town-cafe': mergeCafe,
 };
 
 function tryParse(raw: string): { ok: true; value: unknown } | { ok: false } {

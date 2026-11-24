@@ -6,7 +6,7 @@
 
 import type { SceneSpot } from '../../../data/romance/places';
 
-export type ActivityId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | 'gifts' | 'journal' | 'character' | 'love';
+export type ActivityId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | 'gifts' | 'journal' | 'character' | 'love' | 'cafe';
 
 /** The activities with a spot in the world (data/townWorld ActivitySpotId): the player walks there first. */
 export const SPOT_ACTIVITIES = ['fish', 'farm', 'eggs', 'wardrobe', 'album'] as const;
@@ -21,6 +21,7 @@ export interface ActivityInfo {
 }
 
 export const ACTIVITIES: readonly ActivityInfo[] = [
+  { id: 'cafe', name: 'Phụ quầy cà phê', blurb: 'Nghe khách gọi món, giao đúng trước khi khách hết kiên nhẫn.' },
   { id: 'fish', name: 'Câu cá', blurb: 'Nghe cá "nói", bắt đúng là câu được.' },
   { id: 'farm', name: 'Nông trại', blurb: 'Câu cần ôn là cây chín: ôn là thu hoạch.' },
   { id: 'eggs', name: 'Tiệm trứng', blurb: 'Ấp trứng ra thú cưng, mũ áo, danh hiệu.' },

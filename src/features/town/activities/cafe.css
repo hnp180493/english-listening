@@ -1,0 +1,231 @@
+/* "Phụ quầy cà phê" (docs/town.md §16): the counter inside the activity sheet. Tokens only. */
+
+.town-cafe {
+  display: grid;
+  gap: var(--space-3);
+}
+.town-cafe-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.town-cafe-score {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+}
+.town-cafe-sub {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.town-cafe-facts {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+}
+.town-cafe-facts li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* the shift's line: lives, customer count, combo, points */
+.town-cafe-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-cafe-hearts {
+  display: inline-flex;
+  gap: 2px;
+  color: var(--text-muted);
+}
+.town-cafe-hearts .is-on {
+  color: var(--bad);
+}
+.town-cafe-count {
+  color: var(--text-muted);
+}
+.town-cafe-combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--warn);
+}
+.town-cafe-points {
+  margin-left: auto;
+  font-size: var(--fs-md);
+}
+
+/* the customer and their patience */
+.town-cafe-guest {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.town-cafe-guest-body {
+  display: grid;
+  flex: 1;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.town-cafe-guest-name {
+  font-weight: 600;
+}
+.town-cafe-patience {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+.town-cafe-patience-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: left center;
+  animation: town-cafe-wait linear forwards;
+}
+@keyframes town-cafe-wait {
+  from {
+    transform: scaleX(1);
+  }
+  70% {
+    background: var(--accent);
+  }
+  to {
+    transform: scaleX(0);
+    background: var(--bad);
+  }
+}
+.town-cafe-verdict {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-cafe-verdict.is-ok {
+  color: var(--ok);
+}
+.town-cafe-verdict.is-bad {
+  color: var(--bad);
+}
+
+/* the counter: twelve tiles */
+.town-cafe-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-cafe-grid li {
+  position: relative;
+}
+.town-cafe-tile {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-2) var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.town-cafe-tile:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.town-cafe-tile.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.town-cafe-tile-name {
+  line-height: 1.2;
+  text-align: center;
+}
+.town-cafe-tile-n {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-align: center;
+}
+.town-cafe-less {
+  position: absolute;
+  top: -6px;
+  left: -4px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* what was said, after a miss and in the result */
+.town-cafe-said {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.town-cafe-said-en {
+  margin: 0;
+  font-weight: 600;
+}
+.town-cafe-said-vi {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-cafe-missed-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-cafe-missed-row {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.town-cafe-missed-btns {
+  display: flex;
+  gap: var(--space-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .town-cafe-patience-fill {
+    animation-timing-function: steps(8);
+  }
+}
