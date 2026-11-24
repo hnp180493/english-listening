@@ -3,9 +3,10 @@
 
 import { useSyncExternalStore } from 'react';
 import { KEYS, onAppWrite, saveJSON, STORAGE_PREFIX } from '../storage';
-import { CAFE_BOND, emptyTownCafe, mergeTownCafe, parseTownCafe, recordShift, type Shift, type TownCafe } from './cafe';
+import { CAFE_BOND, CUSTOMER_BOND, emptyTownCafe, mergeTownCafe, parseTownCafe, recordShift, type Shift, type TownCafe } from './cafe';
+import { CAFE_ORDERS } from '../../data/townCafe';
 import { addFriendPoints } from './friendship';
-import { addEarned, townDay } from './progress';
+import { addEarned, dayHas, townDay, updateDaily } from './progress';
 import { commitTown, loadTownProgress, townDevice } from './store';
 
 let session: TownCafe | null = null;
@@ -86,6 +87,8 @@ export interface ShiftResult {
   record: boolean;
   /** Friendship points with Emma this shift added (0 when already paid today or too few served). */
   bond: number;
+  /** Customers served right whose friendship grew with this shift (place ids; once a day each). */
+  friends: string[];
   saved: boolean;
 }
 
@@ -109,8 +112,17 @@ export function finishShift(shift: Shift, now: number = Date.now()): ShiftResult
     progress = w.progress;
     bond = w.points;
   }
+  // whoever was served right gets a little closer, once a day each (the games feed the friendships, docs/town.md §18)
+  const friends: string[] = [];
+  for (const line of shift.lines) {
+    const who = line.outcome === 'right' ? CAFE_ORDERS.find((o) => o.id === line.orderId)?.placeId : undefined;
+    if (!who || friends.includes(who) || dayHas(progress, day, 'served', who)) continue;
+    const w = addFriendPoints(progress, who, CUSTOMER_BOND, device);
+    progress = updateDaily(w.progress, day, device, (d) => ({ ...d, served: [...(d.served ?? []), who] }), false);
+    friends.push(who);
+  }
   const committed = progress !== loadTownProgress() ? commitTown(progress, now).saved : true;
-  const result: ShiftResult = { xu: pay.xu, capped: pay.xu < Math.floor(shift.score / 30), record: pay.record, bond, saved: saved && committed };
+  const result: ShiftResult = { xu: pay.xu, capped: pay.xu < Math.floor(shift.score / 30), record: pay.record, bond, friends, saved: saved && committed };
   done.set(shift, result);
   return result;
 }

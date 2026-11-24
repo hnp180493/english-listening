@@ -138,10 +138,14 @@ export interface DailyCount {
   gifted?: string[];
   /** Residents met in the street today whose meeting paid its friendship points (./friendship; sorted place ids). */
   street?: string[];
+  /** Residents served right at the café counter today whose friendship was paid (./cafeStore; sorted place ids). */
+  served?: string[];
+  /** Residents who had a delivery from the café today (./deliveryStore; sorted place ids). */
+  sent?: string[];
 }
 
 /** The optional sets of DailyCount (merge: union; parse: dropped when empty). */
-export const DAILY_SETS = ['bond', 'gifted', 'street'] as const;
+export const DAILY_SETS = ['bond', 'gifted', 'street', 'served', 'sent'] as const;
 export type DailySet = (typeof DAILY_SETS)[number];
 
 /** The optional counters of DailyCount (merge: max; parse: dropped when 0). */

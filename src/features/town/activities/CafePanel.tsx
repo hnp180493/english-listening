@@ -4,7 +4,7 @@
 // Rules and numbers: core/town/cafe.ts. One action a screen: "Mở quầy" → "Giao" → "Chơi lại".
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bean, CakeSlice, Citrus, Coffee, Cookie, CupSoda, Dessert, Flame, GlassWater, Heart, Leaf, RotateCcw, Sandwich, Snowflake, Soup, Turtle, Volume2, type LucideIcon } from 'lucide-react';
+import { Package, Bean, CakeSlice, Citrus, Coffee, Cookie, CupSoda, Dessert, Flame, GlassWater, Heart, Leaf, RotateCcw, Sandwich, Snowflake, Soup, Turtle, Volume2, type LucideIcon } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import SpokenSentence from '../../../components/SpokenSentence';
 import { CAREFUL_LABEL, CAREFUL_RATE } from '../../../core/playback';
@@ -26,6 +26,7 @@ import {
   type Shift,
 } from '../../../core/town/cafe';
 import { finishShift, useTownCafe, type ShiftResult } from '../../../core/town/cafeStore';
+import { deliveriesLeftNow } from '../../../core/town/deliveryStore';
 import { CAFE_ITEMS, type CafeBasket, type CafeItemId, type CafeOrder } from '../../../core/town/cafeTypes';
 import { townDay } from '../../../core/town/progress';
 import { CAST_VOICES } from '../../../core/town/voices';
@@ -76,7 +77,7 @@ interface Verdict {
   points: number;
 }
 
-export default function CafePanel({ onReward, sound, onScene, onSceneEnd }: ActivityPanelProps) {
+export default function CafePanel({ onReward, sound, onScene, onSceneEnd, onOpen }: ActivityPanelProps) {
   const cafe = useTownCafe();
   const [shift, setShift] = useState<Shift | null>(null);
   const [order, setOrder] = useState<CafeOrder | null>(null);
@@ -279,6 +280,7 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd }: Acti
           )}
           {result.xu === 0 && shift.score >= 30 && <li>Quầy đã trả đủ xu hôm nay; điểm và kỷ lục vẫn tính.</li>}
           {result.bond > 0 && <li>Emma quý bạn hơn: thân thiết +{result.bond}</li>}
+          {result.friends.length > 0 && <li>Khách quý bạn hơn: {result.friends.map((id) => townPlace(id)?.resident).join(', ')}</li>}
         </ul>
         {missed.length > 0 && (
           <div className="town-cafe-missed">
@@ -291,6 +293,12 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd }: Acti
           </div>
         )}
         <div className="town-talk-foot">
+          {deliveriesLeftNow() > 0 && (
+            <button type="button" className="btn" onClick={() => onOpen?.('delivery')}>
+              <Icon icon={Package} size={16} />
+              Emma nhờ giao {deliveriesLeftNow()} đơn
+            </button>
+          )}
           <button type="button" className="btn btn-primary" onClick={open} autoFocus>
             <Icon icon={RotateCcw} size={16} />
             Chơi lại

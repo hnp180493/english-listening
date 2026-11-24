@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CircleHelp, FastForward, Footprints, Gift, Hammer, Heart, MessageCircle, Sparkles, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
@@ -40,9 +40,9 @@ import Conversation from './Conversation';
 import Episode from './Episode';
 import type { FishStagePhase, MapSnapshot, Near, SafeInsets, TownStageHandle, TownTheme, TravelMode, TravelTarget } from './engine/stage';
 import MiniMap from './map/MiniMap';
-import TownMap from './map/TownMap';
 import { metInStreet, playerStand, type TalkSetting } from './engine/staging';
 import { homeSetting, streetTalkView } from './streetModel';
+import { getCarrying, handDelivery, useCarrying } from '../../core/town/deliveryStore';
 import { townRomanceSteps, useTownLife } from '../../core/town/lifeStore';
 import { castLook, profileLook, setPlayerLook } from './three/chars/looks';
 import { kidAge, kidsOf, partnerOf } from '../../core/town/life';
@@ -67,6 +67,11 @@ import { useGreeting } from './friends/useGreeting';
 import { inertOutside } from './inertOutside';
 import { getTownUi, setTownUi, useTownUi } from './townUi';
 import './town.css';
+
+/** The card of an order in hand (docs/town.md §18): its own chunk, loaded when an order is first taken. */
+const DeliveryChip = lazy(() => import('./DeliveryChip'));
+/** The full map ("Bản đồ", M): its own chunk, loaded when it is first opened. */
+const TownMap = lazy(() => import('./map/TownMap'));
 
 /** The town follows the app's theme: night in the dark theme, day in the light one. */
 function useTownTheme(): TownTheme {
@@ -454,6 +459,8 @@ export default function TownPage() {
     if (params.build) return { wanted: isPlaceId(params.build) ? params.build : null };
     return isPlaceId(params.talk) && !linked ? { wanted: params.talk } : null;
   });
+  /** An order for Emma in hand (docs/town.md §18). */
+  const carried = useCarrying();
   const [near, setNear] = useState<Near>(null);
   /** The resident beside the player stands out in the town (docs/town.md §14), read when they came near. */
   const [nearStreet, setNearStreet] = useState(false);
@@ -538,6 +545,14 @@ export default function TownPage() {
    * where it happens.
    */
   const startTalk = useCallback((placeId: string, quick = false, how: 'place' | 'person' | 'street' = 'place') => {
+    // carrying an order for Emma (docs/town.md §18): whoever is walked up to is offered it, instead of a talk
+    if (getCarrying()?.state === 'carrying') {
+      const give = () => void handDelivery(placeId);
+      // out in the town: walk up to them first; indoors (or no world): they come to the door for it
+      const inside = stage.current?.mapSnapshot()?.residents.find((r) => r.id === placeId)?.inside ?? true;
+      if (inside || !stage.current?.walkTo(placeId as PlaceId, give)) give();
+      return;
+    }
     talkCount.current += 1;
     const street = how === 'street' || (how === 'person' && metOutside(stage.current, overviewRef.current.places, placeId));
     const next = beginTalk(placeId, talkCount.current, quick, street);
@@ -1035,7 +1050,9 @@ export default function TownPage() {
   }, [talkShownKey, fullStage.full]);
   // on a long click walk "Đến ngay" takes the main button's place (the walk is what the learner chose to do now)
   const showHurry = farWalk && townReady && !flat && !shownTalk && !build && !activity && !map && !gifting;
-  const showPrompt = townReady && !talk && !build && !activity && !map && !gifting && !!prompt && !showHurry;
+  // (the card that ends a delivery has its own main button: the town's waits behind it)
+  const deliveryEnded = !!carried && carried.state !== 'carrying';
+  const showPrompt = townReady && !talk && !build && !activity && !map && !gifting && !!prompt && !showHurry && !deliveryEnded;
   // "Tặng quà" beside the main button, standing next to a resident with a gift in hand (one a day each)
   const nearResident = near?.kind === 'resident' ? near.placeId : null;
   const canGiftNear = useCanGift(nearResident);
@@ -1212,6 +1229,11 @@ export default function TownPage() {
 
         {/* on a phone a cheer would cover the two who talk (the panel leaves only a strip): it waits for the talk to end */}
         <Celebrations paused={!townReady || (narrow && !!shownTalk)} onShow={onCelebrate} />
+        {carried && !talk && !shownActivity && (
+          <Suspense fallback={null}>
+            <DeliveryChip onOpen={(id) => openActivity(id, 'hud')} />
+          </Suspense>
+        )}
 
         <p className="town-toast" role="status">
           {toast && !talk ? <span className="town-toast-box">{toast}</span> : null}
@@ -1219,11 +1241,11 @@ export default function TownPage() {
 
         {shownBuild && <BuildSheet overview={overview} wanted={shownBuild.wanted} onBuy={onBuy} onClose={closeBuild} />}
         {!flat && townReady && !map && !showWelcome && <MiniMap stage={stage} state={state} hint={suggested ? suggested.place.id : null} theme={theme} onOpen={() => openMap('stage')} />}
-        {map && <TownMap stage={stage} start={mapStart} overview={overview} state={state} hint={suggested ? (suggested.place.id as PlaceId) : null} theme={theme} leaving={map === 'leaving'} onClose={closeMap} onTravel={travel} onJournal={(id) => {
+        {map && <Suspense fallback={null}><TownMap stage={stage} start={mapStart} overview={overview} state={state} hint={suggested ? (suggested.place.id as PlaceId) : null} theme={theme} leaving={map === 'leaving'} onClose={closeMap} onTravel={travel} onJournal={(id) => {
               closeMap();
               setJournalFor(id);
               openActivity('journal', 'hud');
-            }} />}
+            }} /></Suspense>}
 
         {shownActivity && (
           <ActivityHost

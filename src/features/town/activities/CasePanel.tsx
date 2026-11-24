@@ -3,7 +3,7 @@
 // the notebook and a cliffhanger. Rules: core/town/cases.ts. One action a screen: listen → answer → "Xong hôm nay".
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Play, RotateCcw, Turtle, Volume2 } from 'lucide-react';
+import { Check, Coffee, Play, RotateCcw, Turtle, Volume2 } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import SpokenSentence from '../../../components/SpokenSentence';
 import { CAREFUL_LABEL, CAREFUL_RATE } from '../../../core/playback';
@@ -30,7 +30,7 @@ function sayLine(placeId: string, line: CaseLine, level: 1 | 2 | 3, careful = fa
   return careful ? speak(a.careful, { mode: 'careful', rate: CAREFUL_RATE, voice, browserOnly: true }) : speak(a.connected, { mode: 'connected', voice, browserOnly: true });
 }
 
-export default function CasePanel({ onReward, sound, onClose }: ActivityPanelProps) {
+export default function CasePanel({ onReward, sound, onClose, onOpen }: ActivityPanelProps) {
   const stored = useTownCases();
   const [now] = useState(() => Date.now());
   // the chapter being played stays on the screen after it is solved (the stored value has moved on by then)
@@ -163,6 +163,10 @@ export default function CasePanel({ onReward, sound, onClose }: ActivityPanelPro
         </div>
         {!last && <p className="town-build-hint">Kỳ sau mở vào ngày mai.</p>}
         <div className="town-talk-foot">
+          <button type="button" className="btn btn-ghost" onClick={() => onOpen?.('cafe')}>
+            <Icon icon={Coffee} size={16} />
+            Ra phụ quầy Emma
+          </button>
           <button type="button" className="btn btn-primary" onClick={onClose}>
             {last ? 'Đóng vụ án' : 'Xong hôm nay'}
           </button>

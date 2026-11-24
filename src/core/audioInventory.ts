@@ -60,6 +60,8 @@ import { PLAYER_FEMALE, romanceAudioText, romanceVoice, type SceneCast } from '.
 import { STREET_TALKS } from '../data/streetTalks';
 import { CAFE_ORDERS } from '../data/townCafe';
 import { TOWN_CASES } from '../data/cases';
+import { DELIVERIES } from '../data/townDeliveries';
+import type { DeliveryOrder } from './town/deliveryTypes';
 import { caseLineId } from './town/cases';
 import type { TownCase } from './town/caseTypes';
 import type { CafeOrder } from './town/cafeTypes';
@@ -135,6 +137,8 @@ export interface InventoryContent {
   quickChats?: readonly { placeId: string; lines: readonly TownLine[] }[];
   /** Street talks (data/streetTalks): the resident's lines in their voice, both modes; the learner's in both player voices. */
   streetTalks?: readonly StreetTalk[];
+  /** "Giao hàng cho Emma" (data/townDeliveries): Emma's words for each order, connected, her voice. */
+  deliveries?: readonly DeliveryOrder[];
   /** "Vụ án ở thị trấn" (data/cases): every testimony line in its witness's voice, connected + careful. */
   cases?: readonly TownCase[];
   /** "Phụ quầy cà phê" (data/townCafe): every order in its customer's voice, connected + careful. */
@@ -163,6 +167,7 @@ export function defaultInventoryContent(): InventoryContent {
     streetTalks: STREET_TALKS,
     cafeOrders: CAFE_ORDERS,
     cases: TOWN_CASES,
+    deliveries: DELIVERIES,
   };
 }
 
@@ -432,6 +437,14 @@ function addStreetTalks(c: Collector, talks: readonly StreetTalk[]): void {
   }
 }
 
+function addDeliveries(c: Collector, orders: readonly DeliveryOrder[]): void {
+  // deliveryAudio sayDelivery(order): dictationAudio({ text, level }).connected in Emma's voice; the result card shows
+  // the decoded line, and "Rõ từng từ" is not offered there, so connected only
+  const voice = CAST_VOICES.cafe;
+  if (!voice) return;
+  for (const o of orders) c.add('town', o.id, 'main', 'connected', dictationAudio({ text: o.text, level: o.level }).connected, false, voice);
+}
+
 function addCases(c: Collector, cases: readonly TownCase[]): void {
   // CasePanel sayLine(placeId, line, level, careful): dictationAudio({ text, level }) in the witness's voice
   for (const cs of cases) {
@@ -521,6 +534,7 @@ export function buildAudioInventory(content: InventoryContent = defaultInventory
   if (content.streetTalks) addStreetTalks(c, content.streetTalks);
   if (content.cafeOrders) addCafe(c, content.cafeOrders);
   if (content.cases) addCases(c, content.cases);
+  if (content.deliveries) addDeliveries(c, content.deliveries);
   return c.result();
 }
 

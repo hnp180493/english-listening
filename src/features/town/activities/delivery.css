@@ -1,0 +1,86 @@
+/* "Giao hàng cho Emma" (docs/town.md §18): the panel, the chip over the stage and the card that ends a delivery.
+ * Tokens only. */
+
+.town-dl {
+  display: grid;
+  gap: var(--space-3);
+}
+.town-dl-emma {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.town-dl-emma > div {
+  flex: 1;
+  min-width: 0;
+}
+.town-dl-name {
+  margin: 0;
+  font-weight: 600;
+}
+.town-dl-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* over the stage, under the HUD: the order on its way */
+.town-dl-chip {
+  position: absolute;
+  top: 64px;
+  left: var(--space-3);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: calc(100% - 2 * var(--space-3) - 64px);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.town-dl-chip-text {
+  min-width: 0;
+}
+
+/* how it ended */
+.town-dl-card {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  left: var(--space-3);
+  z-index: 4;
+  display: grid;
+  gap: var(--space-3);
+  max-width: 440px;
+  max-height: calc(100% - 96px);
+  margin-left: auto;
+  padding: var(--space-4);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+}
+.town-dl-said {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.town-dl-en {
+  margin: 0;
+  font-weight: 600;
+}
+.town-dl-vi {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}

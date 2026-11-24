@@ -24,6 +24,8 @@ export const SCORE_PER_XU = 30;
 /** Right trays in a shift for the day's friendship with Emma (+CAFE_BOND points, once a day). */
 export const CAFE_BOND_SERVED = 8;
 export const CAFE_BOND = 10;
+/** Friendship with a customer served right (once a day each). */
+export const CUSTOMER_BOND = 3;
 
 export const SKILL_MAX = 10;
 export const SKILL_UP = 0.5;

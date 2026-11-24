@@ -2191,3 +2191,34 @@ content `data/cases/`, contract `core/town/caseTypes.ts`):
 
 Not done: the witnesses are portraits in the panel, not met in the 3D town; a solved chapter cannot be replayed; a
 missed detail does not enter Ôn tập; only three cases (fifteen days).
+
+## 18. The games belong together; Giao hàng cho Emma (2026-11-24)
+
+The owner, with the café and the mystery live: "that's it? có 2 game thôi à? các game này nọ cần có context và liên
+quan với nhau". Two menu entries with no reason in the story and no way from one to the other were not a game. The
+rule since then: **a game is a job at a resident's place, given for a reason, and one job leads to the next.**
+
+- **Phụ quầy cà phê → the customers.** Every resident served right at the counter grows a little closer
+  (`CUSTOMER_BOND` +3, once a day each: town-progress daily set `served`), besides Emma's +10. The result names them
+  ("Khách quý bạn hơn: Sam, Kim"). So the fast game feeds the hearts that open episodes and courtship.
+- **Phụ quầy cà phê → Giao hàng.** A finished shift makes two orders to carry (four a day at most); the result offers
+  "Emma nhờ giao N đơn".
+- **Giao hàng → the one it was for.** Emma SAYS who the order is for (`data/townDeliveries.ts`, 4 per resident, her
+  voice). The better the learner knows that resident, the less she spells out (`delivery.ts deliveryLevel`): a stranger
+  is named with their place, from 1 heart they are described by their job, from 3 hearts by something the learner
+  knows from their stories (the dog's name, what they love, what happened to them). Knowing the town is what finds
+  them. The panel closes, a chip sits over the stage ("Nghe lại", ✕ to give up), and the learner walks up to whoever
+  they think she meant: a click on a resident or their house offers the order instead of starting a talk
+  (`TownPage startTalk`, `deliveryStore.handDelivery`). The right one thanks the learner in their own voice (their
+  shipped gift reaction, no new clip), +8 friendship once a day each (daily set `sent`), 4 xu (+2 when Emma was heard
+  once and nobody else was tried). A wrong one says it is not theirs; two wrong and the order has gone cold.
+- **Giao hàng → Vụ án.** The card that ends a delivery shows Emma's words with their connected-speech reveal, and
+  when today's chapter of the mystery is open, "Vụ án: kỳ N đang mở". A solved chapter offers "Ra phụ quầy Emma".
+
+The order in hand lives in this tab only (`deliveryStore`: a reload drops it; nothing was paid yet).
+
+Clips: Emma's 48 delivery lines, connected only (`audioInventory addDeliveries`).
+
+Not done: Ben's shop and Sam's station have no job yet (a checkout with prices and numbers, a departure board with
+times); the delivery has no clock; the recipient does not react in 3D beyond the camera's usual framing; the daily
+tasks ("Việc hôm nay") do not know these games.
