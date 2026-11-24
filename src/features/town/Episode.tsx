@@ -100,6 +100,12 @@ export default function Episode({ place, start, friend, onJournal, onGiven, onSh
   const [result, setResult] = useState<TownEpisodeResult | null>(null);
   const [announce, setAnnounce] = useState('');
   const [mood, setMood] = useState<PortraitMood>('neutral');
+  // after the episode: shy and pleased when it won friendship, then how they took a gift
+  const [giftMood, setGiftMood] = useState<PortraitMood | null>(null);
+  const given: EpisodeProps['onGiven'] = (r, view) => {
+    setGiftMood(view.mood);
+    onGiven?.(r, view);
+  };
   const [faceSize] = useState(portraitSize);
   const placeId = place.id as PlaceId;
 
@@ -291,7 +297,7 @@ export default function Episode({ place, start, friend, onJournal, onGiven, onSh
   return (
     <section ref={setBox} className={'town-talk town-ep' + (done ? ' is-result' : '') + (step === 'listen' && !heard && !gistResult ? ' is-hearing' : '')} role="group" aria-label={tl`${episodeHeading(episode, relisten)}, với ${place.resident}`} tabIndex={-1}>
       <header className="town-talk-head">
-        <Portrait placeId={placeId} size={faceSize} mood={mood} />
+        <Portrait placeId={placeId} size={faceSize} mood={giftMood ?? (result && result.friendAfter > result.friendBefore ? 'love' : mood)} />
         <div className="town-talk-who">
           <span className="town-talk-name">
             {place.resident}
@@ -410,7 +416,7 @@ export default function Episode({ place, start, friend, onJournal, onGiven, onSh
       )}
 
       {step === 'result' && result && (
-        <EpisodeResult result={result} start={start} turns={turns} place={place} pass={pass} items={items} footRef={footRef} onLeave={onLeave} onQuick={onQuick} onGiven={onGiven} onShop={onShop} />
+        <EpisodeResult result={result} start={start} turns={turns} place={place} pass={pass} items={items} footRef={footRef} onLeave={onLeave} onQuick={onQuick} onGiven={given} onShop={onShop} />
       )}
     </section>
   );

@@ -3,7 +3,6 @@
 // waits for the graphics card.
 
 import type { CharacterId } from './engine/sim';
-import type { PortraitMood } from './art';
 import { renderPortrait, warmPortraitShaders } from './three/chars/portrait';
 import { canDraw3d } from './three/offscreen';
 
@@ -26,7 +25,7 @@ type IdleWindow = Window & { requestIdleCallback?: (run: () => void, o?: { timeo
 export function prewarmPortraits(ids: readonly CharacterId[]): () => void {
   if (!canDraw3d()) return () => undefined;
   const px = Math.round(talkFaceSize() * Math.min(3, window.devicePixelRatio || 1));
-  const jobs: [CharacterId, Exclude<PortraitMood, 'sad'>][] = [];
+  const jobs: [CharacterId, 'neutral' | 'happy'][] = [];
   for (const id of ids) jobs.push([id, 'neutral'], [id, 'happy']);
   const w = window as IdleWindow;
   let handle = 0;

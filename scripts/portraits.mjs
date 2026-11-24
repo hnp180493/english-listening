@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * The residents' drawn portraits (docs/portrait-prompts.md): takes the pictures the owner made in a free AI chat
- * (portraits-src/<name>.png, <name>-cuoi.png, <name>-buon.png, any of png / jpg / jpeg / webp), crops each to a square
- * (the middle, the top kept for a tall picture), makes it 512 px WebP in public/portraits/<placeId>.webp / -happy /
- * -sad and
+ * (portraits-src/<name>.png, <name>-cuoi.png, -buon, -ngai, -ngac, -camdong, -doi; any of png / jpg / jpeg / webp),
+ * crops each to a square (the middle, the top kept for a tall picture), makes it 512 px WebP in
+ * public/portraits/<placeId>.webp / -happy / -sad / -love / -surprised / -moved / -pout and
  * writes src/features/town/portraitFiles.ts (which pictures exist, with a content hash for caching).
  *
  * The pictures are drawn on a canvas in headless Microsoft Edge (or Chrome) over its debugging protocol: no image
@@ -42,8 +42,23 @@ export const RESIDENTS = {
   tom: 'board',
 };
 
-const HAPPY = new Set(['cuoi', 'happy', 'smile', 'smiling']);
-const SAD = new Set(['buon', 'sad']);
+/** A word in the file name → the mood (art.tsx PortraitMood); none = 'neutral'. */
+const MOODS = {
+  cuoi: 'happy',
+  happy: 'happy',
+  smile: 'happy',
+  buon: 'sad',
+  sad: 'sad',
+  ngai: 'love',
+  thich: 'love',
+  love: 'love',
+  ngac: 'surprised',
+  surprised: 'surprised',
+  camdong: 'moved',
+  moved: 'moved',
+  doi: 'pout',
+  pout: 'pout',
+};
 const EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 
 /** "Emma-Cười.PNG" → { id: 'cafe', mood: 'happy' }; null for a name that is not one of the residents. */
@@ -59,7 +74,7 @@ export function parseName(file) {
   const [name, ...rest] = base.split(/[-_ ]+/);
   const id = RESIDENTS[name];
   if (!id) return null;
-  const mood = rest.some((w) => HAPPY.has(w)) ? 'happy' : rest.some((w) => SAD.has(w)) ? 'sad' : 'neutral';
+  const mood = rest.map((w) => MOODS[w]).find(Boolean) ?? 'neutral';
   return { id, mood };
 }
 
@@ -167,7 +182,7 @@ function writeList() {
   const files = existsSync(OUT_DIR) ? readdirSync(OUT_DIR).filter((f) => f.endsWith('.webp')) : [];
   const list = {};
   for (const f of files.sort()) {
-    const m = /^([a-z]+)(?:-(happy|sad))?\.webp$/.exec(f);
+    const m = /^([a-z]+)(?:-(happy|sad|love|surprised|moved|pout))?\.webp$/.exec(f);
     if (!m || !Object.values(RESIDENTS).includes(m[1])) continue;
     const hash = createHash('sha1').update(readFileSync(join(OUT_DIR, f))).digest('hex').slice(0, 10);
     (list[m[1]] ??= {})[m[2] ?? 'neutral'] = hash;
@@ -181,7 +196,7 @@ function writeList() {
 // (docs/portrait-prompts.md), by place id, each with a hash of its file (a new picture is fetched again).
 // Not edited by hand.
 
-export const PORTRAIT_FILES: Readonly<Record<string, { neutral?: string; happy?: string; sad?: string }>> = {${body ? `\n${body}\n` : ''}};
+export const PORTRAIT_FILES: Readonly<Record<string, Partial<Record<string, string>>>> = {${body ? `\n${body}\n` : ''}};
 `,
   );
   return list;

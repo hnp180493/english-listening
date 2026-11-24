@@ -13,10 +13,12 @@ const woman = () => withProfile(emptyTownLife(), { gender: 'female', name: 'Lan'
 const facts = (hearts: number, bouquets = 0, rings = 0) => ({ hearts, bouquets, rings });
 
 describe('who courts whom (owner, 2026-11-22: by the character chosen)', () => {
-  it('a man courts the five women, a woman the five men; Zoe, Max and Grace are nobody\'s', () => {
-    expect(suitorsFor('male').map((s) => s.placeId).sort()).toEqual(['cafe', 'clinic', 'friend', 'office', 'park']);
+  it('a man courts the six women (Zoe too, owner 2026-11-24), a woman the five men; Max and Grace are nobody\'s', () => {
+    expect(suitorsFor('male').map((s) => s.placeId).sort()).toEqual(['cafe', 'cinema', 'clinic', 'friend', 'office', 'park']);
     expect(suitorsFor('female').map((s) => s.placeId).sort()).toEqual(['board', 'school', 'shop', 'square', 'station']);
-    expect(romanceSteps(man(), 'cinema', facts(10, 1), T)).toEqual([]);
+    expect(romanceSteps(man(), 'cinema', facts(10, 1), T)[0]).toMatchObject({ kind: 'confess' });
+    expect(romanceSteps(man(), 'phone', facts(10, 1), T)).toEqual([]);
+    expect(romanceSteps(man(), 'home', facts(10, 1), T)).toEqual([]);
     expect(romanceSteps(woman(), 'cafe', facts(10, 1), T)).toEqual([]);
     // no character yet: nothing
     expect(romanceSteps(emptyTownLife(), 'cafe', facts(10, 1), T)).toEqual([]);
@@ -100,7 +102,7 @@ describe('the scenes (data/romance)', () => {
 
   it('every courtable resident has the whole way and lives in this town', () => {
     const ids = new Set(TOWN_PLACES.map((p) => p.id));
-    expect(SUITORS).toHaveLength(10);
+    expect(SUITORS).toHaveLength(11);
     for (const s of SUITORS) {
       expect(ids.has(s.placeId), s.placeId).toBe(true);
       expect(s.dates).toHaveLength(3);

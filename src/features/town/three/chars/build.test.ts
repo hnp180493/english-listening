@@ -34,7 +34,8 @@ describe('people', () => {
       expect(top.y / s, id).toBeLessThan(0.8);
       c.dispose();
     }
-  });
+    // fourteen people built in detail: give it time when the whole suite runs at once
+  }, 20000);
 
   it('every hat fits, raises the head top, and comes off again', () => {
     const c = createPerson('player');

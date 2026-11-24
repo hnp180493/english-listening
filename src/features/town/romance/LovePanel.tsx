@@ -13,7 +13,7 @@ import { useTownOverview, useTownProgress } from '../../../core/town/store';
 import { suitorsFor } from '../../../data/romance';
 import { townPlace } from '../../../data/town';
 import type { PlaceId } from '../../../data/townWorld';
-import { Hearts, Portrait } from '../art';
+import { Hearts, Portrait, type PortraitMood } from '../art';
 import { playSfx } from '../sfx';
 import type { ActivityPanelProps } from '../activities/types';
 import StoryChat from './StoryChat';
@@ -21,6 +21,21 @@ import './romance.css';
 import { asIs, tl } from '../../../i18n';
 
 const AGE_LABEL = { baby: 'Em bé', toddler: 'Mới biết đi', child: 'Đi học' } as const;
+
+/** Their face as a scene begins: shy at a confession, taken by surprise at a proposal, moved at the wedding. */
+function openingMood(kind: RomanceStep['kind']): PortraitMood {
+  if (kind === 'confess') return 'love';
+  if (kind === 'proposal') return 'surprised';
+  if (kind === 'wedding') return 'moved';
+  return 'happy';
+}
+
+/** Their face after the learner's answer: a warm one wins a blush (a yes to a confession or a proposal: happy tears). */
+function pickedMood(kind: RomanceStep['kind'], points: number): PortraitMood {
+  if (points <= 0) return 'pout';
+  if (points < 10) return 'happy';
+  return kind === 'confess' || kind === 'proposal' || kind === 'wedding' ? 'moved' : 'love';
+}
 
 export default function LovePanel({ focus, onOpen, onReward, sound, onScene, onSceneEnd }: ActivityPanelProps) {
   const life = useTownLife();
@@ -33,6 +48,8 @@ export default function LovePanel({ focus, onOpen, onReward, sound, onScene, onS
   const [playing, setPlaying] = useState<RomanceStep | null>(null);
   const [baby, setBaby] = useState<{ name: string; gender: Kid['gender'] } | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // the face of the one in the scene playing (null = as the scene begins)
+  const [sceneMood, setSceneMood] = useState<PortraitMood | null>(null);
   // the children's ages as of opening the panel
   const [now] = useState(() => Date.now());
   // a scene staged in the town ends with the panel too (closed, Esc): the camera goes back to the player
@@ -45,6 +62,7 @@ export default function LovePanel({ focus, onOpen, onReward, sound, onScene, onS
   );
   const begin = (s: RomanceStep) => {
     setPlaying(s);
+    setSceneMood(null);
     // a baby is named first; the scene (and the stage) after
     if (s.kind === 'baby') return;
     staged.current = s.placeId;
@@ -87,8 +105,14 @@ export default function LovePanel({ focus, onOpen, onReward, sound, onScene, onS
     };
     return (
       <div className="town-love">
-        <h3 className="town-love-title">{playing.scene.title}</h3>
+        <div className="town-love-head is-scene">
+          <span className="town-love-face">
+            <Portrait placeId={playing.placeId as PlaceId} size={72} frame="face" shape="card" fluid mood={sceneMood ?? openingMood(playing.kind)} />
+          </span>
+          <h3 className="town-love-title">{playing.scene.title}</h3>
+        </div>
         <StoryChat
+          onPick={(o) => setSceneMood(pickedMood(playing.kind, o.points))}
           scene={playing.scene}
           them={townPlace(playing.placeId)?.resident ?? ''}
           you={you}

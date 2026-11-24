@@ -769,8 +769,17 @@ the cute original and was put back the same day (the owner: "nhân vật lúc đ
   to a square, 512 px WebP in `public/portraits/<placeId>.webp` / `-happy.webp` / `-sad.webp`, and writes
   `src/features/town/portraitFiles.ts` with a hash per file). `Portrait` (`art.tsx`, mood `sad` after a wrong answer
   in a conversation or an episode, drawn pictures only) shows the picture when there is
-  one (the smiling one falls back to the plain one; small sizes scale in on the face), else the 3D portrait as before;
-  a picture that does not load falls back too. The player's own character always uses the 3D portrait;
+  one (small sizes scale in on the face), else the 3D portrait as before;
+  a picture that does not load falls back too. The player's own character always uses the 3D portrait. Drawn by the
+  owner in Gemini on 2026-11-25: 11 of 13 residents (not yet Mia and Sarah), neutral / happy / sad each, and Emma also
+  the four extra moods below (37 pictures, 512 px WebP, 824 kB in all);
+- moods of a drawn portrait (`PortraitMood`, `art.tsx`): neutral while listening, happy after a right answer, sad after a
+  wrong one, and (every resident has the prompts, docs/portraits/<name>.md: 7 pictures each) 'love' (shy, blushing:
+  a talk or an episode that won friendship, a gift they love, a warm answer on a date, a confession), 'surprised' (a
+  proposal), 'moved' (happy tears: a yes, the wedding), 'pout' (a gift they dislike, a clumsy answer). A mood without
+  its picture falls back (`MOOD_FALLBACK`: moved → love → happy → neutral, pout → sad → neutral…); the 3D portraits
+  only smile or not. A courtship scene shows the one courted at its top, kept in view while the lines grow, their face
+  set by the scene and then by the answer picked (`LovePanel` openingMood / pickedMood);
 - "Hẹn hò & gia đình" lists the five one can court as picture cards (two a row), a resident's page there opens with a
   132 px picture, the creator's preview is up to 240 px, a conversation's picture 108 px on a wide screen (60 on a
   phone);
@@ -2066,8 +2075,15 @@ Not checked: the result card's invite on screen, or "Đi cùng" walking together
 
 The owner asked: "nên có tán gái, kết hôn và sinh con nữa, có thể chọn nhân vật". Their choices:
 
-- who you court follows from your character: a man courts Emma, Mia, Sarah, Kim, Lily; a woman courts Leo, Ben, Sam,
-  Tom, Daniel. Zoe and Max are together in their own story; Grace is the town's grandmother;
+- who you court follows from your character: a man courts Emma, Mia, Sarah, Kim, Lily, Zoe; a woman courts Leo, Ben, Sam,
+  Tom, Daniel. Zoe is with Max in her own story and leaves him for the learner, with some drama (owner, 2026-11-24:
+  "zoe có thể phản bội bạn trai để đến với nhân vật chính, stardew valley cũng có thể tán tỉnh nhiều người mà", "tán
+  zoe sẽ drama một tí nha"; `data/romance/cinema.ts`): Max walks in on the confession with two milk teas and leaves
+  without a word (telling her to let him go loses points), on the first date the town is whispering and Zoe feels like
+  the villain, on the second Max brings the tripod she left at his shop to the pier (snapping at him loses points), on
+  the third he brings popcorn, no hard feelings, and he films the wedding. Max has no lines (he is narrated: the scenes
+  speak only for the two and a child). Her 115 clips (4,727 characters) are not generated yet:
+  `npm run audio:generate`. Max is nobody's; Grace is the town's grandmother;
 - you make your own character;
 - children grow and talk;
 - the way in is hearts plus dates.

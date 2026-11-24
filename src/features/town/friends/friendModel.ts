@@ -57,11 +57,11 @@ export interface GiftReactionView {
 export function giftReaction(taste: GiftTaste, resident: string): GiftReactionView {
   switch (taste) {
     case 'loves':
-      return { emote: 'heart', mood: 'happy', title: tl`${resident} rất thích món này!` };
+      return { emote: 'heart', mood: 'love', title: tl`${resident} rất thích món này!` };
     case 'likes':
       return { emote: 'smile', mood: 'happy', title: tl`${resident} thích món này.` };
     case 'dislikes':
-      return { emote: 'frown', mood: 'neutral', title: tl`${resident} không thích món này lắm.` };
+      return { emote: 'frown', mood: 'pout', title: tl`${resident} không thích món này lắm.` };
     default:
       return { emote: 'meh', mood: 'neutral', title: tl`${resident} nhận quà, cảm ơn bạn.` };
   }

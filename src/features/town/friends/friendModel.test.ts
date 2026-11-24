@@ -30,8 +30,8 @@ describe('the words', () => {
     expect(pointsText(-20)).toBe('−20 điểm thân thiết');
     expect(lockText({ hearts: 4, facts: 0 }, 'Emma')).toBe('Cần 4 tim');
     expect(lockText({ hearts: 4, facts: 1 }, 'Emma')).toBe('Cần 4 tim và biết thêm 1 điều về Emma');
-    expect(giftReaction('loves', 'Emma')).toMatchObject({ emote: 'heart', mood: 'happy' });
-    expect(giftReaction('dislikes', 'Emma')).toMatchObject({ emote: 'frown' });
+    expect(giftReaction('loves', 'Emma')).toMatchObject({ emote: 'heart', mood: 'love' });
+    expect(giftReaction('dislikes', 'Emma')).toMatchObject({ emote: 'frown', mood: 'pout' });
   });
 });
 

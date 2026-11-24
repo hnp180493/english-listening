@@ -88,6 +88,14 @@ export default function Conversation({ place, turns, met, friend, onJournal, onG
   // the face smiles after a right answer, until the next line
   const [mood, setMood] = useState<PortraitMood>('neutral');
   const [faceSize] = useState(portraitSize);
+  // after the talk: shy and pleased when it won friendship, then how they took a gift
+  const [startPoints] = useState(friend.points);
+  const [giftMood, setGiftMood] = useState<PortraitMood | null>(null);
+  const shownMood: PortraitMood = giftMood ?? (done && friend.points > startPoints ? 'love' : mood);
+  const given: ConversationProps['onGiven'] = (r, view) => {
+    setGiftMood(view.mood);
+    onGiven?.(r, view);
+  };
   const turn = turns[index];
   const placeId = place.id as PlaceId;
 
@@ -139,7 +147,7 @@ export default function Conversation({ place, turns, met, friend, onJournal, onG
   return (
     <section ref={setBox} className={'town-talk' + (done ? ' is-result' : '')} role="group" aria-label={tl`Trò chuyện nhanh với ${place.resident}`} tabIndex={-1}>
       <header className="town-talk-head">
-        <Portrait placeId={placeId} size={faceSize} mood={mood} />
+        <Portrait placeId={placeId} size={faceSize} mood={shownMood} />
         <div className="town-talk-who">
           <span className="town-talk-name">
             {place.resident}
@@ -171,7 +179,7 @@ export default function Conversation({ place, turns, met, friend, onJournal, onG
 
       {!done && index === 0 && street?.scene && <p className="town-ep-scene">{street.scene}</p>}
       {done || !turn ? (
-        <TalkResult place={place} results={results} met={met} onLeave={onLeave} onAgain={onAgain} onGiven={onGiven} onShop={onShop} street={street} onInvite={onInvite} />
+        <TalkResult place={place} results={results} met={met} onLeave={onLeave} onAgain={onAgain} onGiven={given} onShop={onShop} street={street} onInvite={onInvite} />
       ) : (
         <Turn key={turn.line.id} turn={turn} speaker={place.resident} met={met[index] ?? false} last={index + 1 >= turns.length} onSpeaking={onSpeaking} onAnswered={answered} onNext={next} voice={turn.line.id.startsWith('st-') ? (CAST_VOICES[place.id] ?? null) : quickChatVoice(place.id, turn.line)} you={you} />
       )}

@@ -250,3 +250,16 @@
 .town-chat-choice .town-reply-list {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* the one in a scene, beside its title, kept in view while the lines grow: their face follows the scene (docs/town.md §15) */
+.town-love-head.is-scene {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-bottom: var(--space-2);
+  background: var(--surface);
+}
+.town-love-face {
+  flex: none;
+  width: 72px;
+}

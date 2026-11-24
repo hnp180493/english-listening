@@ -105,7 +105,7 @@ export function syncAudioFolder(srcDir, outAudioDir, files) {
 
 /** The residents' drawn portraits (public/portraits, docs/portrait-prompts.md) in "<out>/portraits", the same way. */
 export const PORTRAIT_LEDGER_FILE = '.nna-portraits.json'
-const PORTRAIT_KIND = { ledger: PORTRAIT_LEDGER_FILE, fileRe: /^[a-z]{1,32}(?:-happy|-sad)?\.webp$/, note: 'Danh sách chân dung do bản portable chép vào; đừng sửa tay.' }
+const PORTRAIT_KIND = { ledger: PORTRAIT_LEDGER_FILE, fileRe: /^[a-z]{1,32}(?:-(?:happy|sad|love|surprised|moved|pout))?\.webp$/, note: 'Danh sách chân dung do bản portable chép vào; đừng sửa tay.' }
 export function syncPortraitFolder(srcDir, outDir, files) {
   return syncFolder(srcDir, outDir, files, PORTRAIT_KIND)
 }

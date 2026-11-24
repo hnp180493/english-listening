@@ -11,7 +11,25 @@ import { canDraw3d } from './three/offscreen';
 import { tl } from '../../i18n';
 
 /** A face in a portrait: as it is, smiling (after a right answer) or sad (after a wrong one; drawn pictures only). */
-export type PortraitMood = 'neutral' | 'happy' | 'sad';
+export type PortraitMood = 'neutral' | 'happy' | 'sad' | 'love' | 'surprised' | 'moved' | 'pout';
+
+/**
+ * Which drawn picture stands in for a mood that has none, in order (the plain one last): 'love' = shy, blushing (more
+ * friendship, a warm answer on a date), 'surprised' (a confession, a proposal), 'moved' = happy tears (a yes, the
+ * wedding), 'pout' = a little sulk (a gift they do not like, a clumsy answer).
+ */
+const MOOD_FALLBACK: Readonly<Record<PortraitMood, readonly PortraitMood[]>> = {
+  neutral: ['neutral', 'happy'],
+  happy: ['happy', 'neutral'],
+  sad: ['sad', 'neutral'],
+  love: ['love', 'happy', 'neutral'],
+  surprised: ['surprised', 'neutral'],
+  moved: ['moved', 'love', 'happy', 'neutral'],
+  pout: ['pout', 'sad', 'neutral'],
+};
+
+/** The 3D faces only smile or not. */
+const FACE_3D: Readonly<Record<PortraitMood, 'neutral' | 'happy'>> = { neutral: 'neutral', happy: 'happy', sad: 'neutral', love: 'happy', surprised: 'neutral', moved: 'happy', pout: 'neutral' };
 
 /** A drawn portrait shows the face (small pictures) or head and shoulders (big ones). */
 export type PortraitFrame = 'face' | 'bust';
@@ -98,12 +116,12 @@ export function Portrait({
     if (c.width !== px) c.width = c.height = px;
     ctx.clearRect(0, 0, px, px);
     // the 3D faces have no sad expression: they stay as they are
-    ctx.drawImage(renderPortrait(placeId, px, mood === 'sad' ? 'neutral' : mood), 0, 0);
+    ctx.drawImage(renderPortrait(placeId, px, FACE_3D[mood]), 0, 0);
   }, [placeId, size, mood, look, useDrawn]);
   const name = placeId === 'player' ? 'Bạn' : (townPlace(placeId)?.resident ?? '');
   return (
     <span
-      className={'town-portrait' + (shape === 'card' ? ' is-card' : '') + (mood === 'happy' ? ' is-happy' : '')}
+      className={'town-portrait' + (shape === 'card' ? ' is-card' : '') + (FACE_3D[mood] === 'happy' ? ' is-happy' : '')}
       style={{
         width: fluid ? '100%' : size,
         height: fluid ? 'auto' : size,
@@ -133,16 +151,17 @@ export function Portrait({
 }
 
 /**
- * The drawn picture of a resident for this mood (portraitFiles.ts; a smiling or sad one falls back to the plain one), as
+ * The drawn picture of a resident for this mood (portraitFiles.ts; a mood without one falls back by MOOD_FALLBACK), as
  * a URL next to the page (public/portraits, the portable build's portraits/ folder), or null.
  */
 function drawnPortrait(placeId: CharacterId, mood: PortraitMood): string | null {
   const f = PORTRAIT_FILES[placeId];
   if (!f) return null;
-  if (mood === 'happy' && f.happy) return `${PORTRAIT_DIR}${placeId}-happy.webp?v=${f.happy}`;
-  if (mood === 'sad' && f.sad) return `${PORTRAIT_DIR}${placeId}-sad.webp?v=${f.sad}`;
-  if (f.neutral) return `${PORTRAIT_DIR}${placeId}.webp?v=${f.neutral}`;
-  return f.happy ? `${PORTRAIT_DIR}${placeId}-happy.webp?v=${f.happy}` : null;
+  for (const m of MOOD_FALLBACK[mood]) {
+    const hash = f[m];
+    if (hash) return `${PORTRAIT_DIR}${placeId}${m === 'neutral' ? '' : `-${m}`}.webp?v=${hash}`;
+  }
+  return null;
 }
 const PORTRAIT_DIR = 'portraits/';
 

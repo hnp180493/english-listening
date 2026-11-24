@@ -60,6 +60,51 @@ eyes glancing slightly down. Still gentle and cute, no tears.
 App dùng ảnh bình thường lúc nghe, ảnh cười khi trả lời đúng, ảnh buồn khi trả lời sai. Thiếu ảnh cười hay ảnh buồn
 thì app dùng ảnh bình thường.
 
+## Bốn vẻ mặt thêm (cho cả 13 người)
+
+Vẫn trong cùng cuộc chat, mỗi khung một ảnh (với nam, các file riêng đã đổi "her" thành "his"). App dùng chúng như sau:
+
+| Ảnh | Tên file | Khi nào hiện |
+|---|---|---|
+| Ngại ngùng | `<tên>-ngai.png` | tăng thiện cảm sau một cuộc trò chuyện / một tập, nhận món quà rất thích, câu trả lời ngọt khi hẹn hò, lúc tỏ tình |
+| Bất ngờ | `<tên>-ngac.png` | lúc được cầu hôn (người hẹn hò được) |
+| Cảm động | `<tên>-camdong.png` | nhận lời tỏ tình / cầu hôn, đám cưới (người hẹn hò được) |
+| Dỗi | `<tên>-doi.png` | nhận món quà không thích, câu trả lời vụng khi hẹn hò |
+
+Thiếu ảnh nào thì app dùng ảnh gần nhất: cảm động → ngại → cười; ngại → cười; dỗi → buồn; bất ngờ → bình thường.
+
+### Ngại ngùng
+
+```
+Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
+but shy and smitten: a deep blush across the cheeks and nose, a soft embarrassed smile, eyes glancing slightly away,
+one hand lightly touching her cheek. Sweet and charming.
+```
+
+### Bất ngờ
+
+```
+Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
+but surprised and delighted: eyes wide and sparkling, eyebrows raised, a small open "oh" mouth,
+both hands raised close to her mouth, a light blush.
+```
+
+### Cảm động
+
+```
+Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
+but deeply moved and happy: glistening happy tears at the corners of the eyes, a warm trembling smile,
+a soft blush, hands held together at her chest.
+```
+
+### Dỗi
+
+```
+Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
+but playfully sulking: cheeks puffed, a small pout, eyebrows slightly knitted, looking to the side,
+arms folded. Still cute, not angry.
+```
+
 ## Từng người
 
 | Tên file | Người | Nơi |

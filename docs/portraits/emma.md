@@ -1,7 +1,7 @@
 # Emma (Quán cà phê)
 
-Mở một cuộc chat MỚI với Gemini hoặc ChatGPT. Cần 3 ảnh: bình thường (lúc nghe), cười (trả lời đúng), buồn (trả lời
-sai). Lười thì chỉ làm Bước 1 cũng được: thiếu ảnh cười / buồn thì app dùng ảnh bình thường.
+Mở một cuộc chat MỚI với Gemini hoặc ChatGPT. Cần 7 ảnh, tất cả trong CÙNG cuộc chat này (để mặt giữ giống
+nhau). Lười thì chỉ làm Bước 1 cũng được: thiếu ảnh nào thì app dùng ảnh gần nhất.
 
 **Bước 1.** Dán nguyên khung dưới đây, gửi. Ưng thì tải ảnh về, đặt tên `emma.png`.
 Chưa ưng thì bảo "vẽ lại" hoặc sửa một ý.
@@ -20,14 +20,14 @@ Fair skin, chestnut-brown hair in a high ponytail tied with a pink ribbon, side-
 a bright friendly expression. Pink blouse under a mint-green café apron. Background: soft mint green.
 ```
 
-**Bước 2.** Trong CÙNG cuộc chat đó, dán khung này, gửi. Tải ảnh về, đặt tên `emma-cuoi.png`.
+**Bước 2.** Ảnh cười (trả lời đúng): dán khung này, gửi. Tải ảnh về, đặt tên `emma-cuoi.png`.
 
 ```
 Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
 but with a big happy smile, eyes closed in a cheerful curve (^ ^), a light blush.
 ```
 
-**Bước 3.** Vẫn trong CÙNG cuộc chat đó, dán khung này, gửi. Tải ảnh về, đặt tên `emma-buon.png`.
+**Bước 3.** Ảnh buồn (trả lời sai): dán khung này, gửi. Tải ảnh về, đặt tên `emma-buon.png`.
 
 ```
 Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
@@ -35,4 +35,36 @@ but looking a little sad and disappointed: eyebrows raised in the middle, a smal
 eyes glancing slightly down. Still gentle and cute, no tears.
 ```
 
-**Bước 4.** Bỏ 3 ảnh vào thư mục `portraits-src` ở gốc repo rồi chạy `npm run portraits`.
+**Bước 4.** Ảnh ngại ngùng (tăng thiện cảm, quà rất thích, câu ngọt khi hẹn hò, tỏ tình): dán khung này, gửi. Tải ảnh về, đặt tên `emma-ngai.png`.
+
+```
+Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
+but shy and smitten: a deep blush across the cheeks and nose, a soft embarrassed smile, eyes glancing slightly away,
+one hand lightly touching her cheek. Sweet and charming.
+```
+
+**Bước 5.** Ảnh bất ngờ (lúc được cầu hôn): dán khung này, gửi. Tải ảnh về, đặt tên `emma-ngac.png`.
+
+```
+Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
+but surprised and delighted: eyes wide and sparkling, eyebrows raised, a small open "oh" mouth,
+both hands raised close to her mouth, a light blush.
+```
+
+**Bước 6.** Ảnh cảm động (nhận lời, đám cưới): dán khung này, gửi. Tải ảnh về, đặt tên `emma-camdong.png`.
+
+```
+Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
+but deeply moved and happy: glistening happy tears at the corners of the eyes, a warm trembling smile,
+a soft blush, hands held together at her chest.
+```
+
+**Bước 7.** Ảnh dỗi (quà không thích, câu vụng khi hẹn hò): dán khung này, gửi. Tải ảnh về, đặt tên `emma-doi.png`.
+
+```
+Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
+but playfully sulking: cheeks puffed, a small pout, eyebrows slightly knitted, looking to the side,
+arms folded. Still cute, not angry.
+```
+
+**Bước 8.** Bỏ hết ảnh vào thư mục `portraits-src` ở gốc repo rồi chạy `npm run portraits`.

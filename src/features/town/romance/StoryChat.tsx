@@ -26,6 +26,8 @@ export interface StoryChatProps {
   autoplay?: boolean;
   /** Played through: the option picked, if the scene had a choice. */
   onDone: (choice: ChatOption | null) => void;
+  /** An option was picked (before their reply shows): the page can change their face. */
+  onPick?: (choice: ChatOption) => void;
 }
 
 interface Shown {
@@ -33,7 +35,7 @@ interface Shown {
   key: string;
 }
 
-export default function StoryChat({ scene, them, you, kid = '', cast, autoplay = true, onDone }: StoryChatProps) {
+export default function StoryChat({ scene, them, you, kid = '', cast, autoplay = true, onDone, onPick }: StoryChatProps) {
   const [count, setCount] = useState(1);
   const [picked, setPicked] = useState<ChatOption | null>(null);
   const footRef = useRef<HTMLButtonElement>(null);
@@ -120,6 +122,7 @@ export default function StoryChat({ scene, them, you, kid = '', cast, autoplay =
                 onClick={() => {
                   setPicked(o);
                   setCount((n) => n + 1 + o.reply.length);
+                  onPick?.(o);
                 }}
               >
                 <span className="town-reply-key" aria-hidden="true">
