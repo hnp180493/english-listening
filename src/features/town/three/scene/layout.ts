@@ -27,7 +27,7 @@ export function cropsKey(farm: StageState['farm']): string {
 export interface TreeSpot {
   x: number;
   z: number;
-  kind: 'round' | 'pine' | 'blossom' | 'bush';
+  kind: 'round' | 'pine' | 'blossom' | 'bush' | 'palm';
   /** 0.7..1.3 */
   scale: number;
   /** 0..1, a stable random of its own (colour, turn). */

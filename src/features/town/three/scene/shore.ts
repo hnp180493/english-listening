@@ -7,6 +7,27 @@
 // water reaches at most an eighth of a tile into a land tile
 // (LAND_SLACK), so a body of BODY_RADIUS standing against the water's box still stands on the drawn land.
 
+import type { TownWorld } from '../../../../data/townWorld';
+import { groundOf } from './coords';
+
+/** How far past the map's near edges the sea is part of the shore's tiles (seaShore). */
+export const SEA_MARGIN = 3;
+
+/**
+ * The water the rounded shore is made from, and over how many tiles: the map's water and, on a world with a coast
+ * (TownWorld.coast), the sea past its near edges (x or y from `size` to SEA_MARGIN beyond), so the coast's curve
+ * never pinches against the map's edge (a strip of sea a tile or two wide there drew its corners into the land).
+ */
+export function seaShore(world: TownWorld): { isWater: (x: number, y: number) => boolean; size: number } {
+  const S = world.size;
+  const coast = !!world.coast;
+  const isWater = (x: number, y: number): boolean => {
+    if (coast && x >= 0 && y >= 0 && (x >= S || y >= S)) return x < S + SEA_MARGIN && y < S + SEA_MARGIN;
+    return groundOf(world, x, y) === 'water';
+  };
+  return { isWater, size: coast ? S + SEA_MARGIN : S };
+}
+
 /** A point of the tile grid (x across, y down the rows: three's X and Z). */
 export interface ShorePt {
   x: number;

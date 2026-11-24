@@ -73,6 +73,7 @@ export function groundOf(world: TownWorld, x: number, y: number): Ground | null 
   if (ch === '=') return 'path';
   if (ch === 'o' || ch === 'F') return 'plaza';
   if (ch === '~') return 'water';
+  if (ch === ':' || ch === 'p') return 'sand';
   return 'grass';
 }
 

@@ -9,7 +9,7 @@ import { groundOf, hash2, valueNoise } from './coords';
 import type { Materials } from './materials';
 import { Merge, shadeColor, shapes } from './merge';
 import { C } from './palette3d';
-import { ShoreField, smoothShore } from './shore';
+import { seaShore, ShoreField, smoothShore } from './shore';
 
 /** Paving slabs per tile side on the plaza, pebbles per tile side on a path. */
 const PLAZA_N = 2;
@@ -60,7 +60,8 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
   const hilly = (x: number, y: number) => lift(x, y) > 0 || lift(x + 1, y) > 0 || lift(x, y + 1) > 0 || lift(x + 1, y + 1) > 0 || lift(x + 0.5, y + 0.5) > 0;
   const isWater = (x: number, y: number) => ground(x, y) === 'water';
   // the pond's shore, rounded (shore.ts): the tiles beside it are drawn along that curve, not along their edges
-  const shore = new ShoreField(smoothShore(isWater, S), S);
+  const sea = seaShore(world);
+  const shore = new ShoreField(smoothShore(sea.isWater, sea.size), sea.size);
   const zone = new Uint8Array(S * S);
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
@@ -79,13 +80,22 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
   // below the pond's bed, so the pond is a real hollow (one whole slab here once covered the water with grass).
   const RIM = 2.25;
   const floorTop = POND_BED - 0.04;
-  for (const [x, z, w, d] of [
-    [S / 2, RIM / 2 - 0.25, S + 0.5, RIM],
-    [S / 2, S + 0.25 - RIM / 2, S + 0.5, RIM],
-    [RIM / 2 - 0.25, S / 2, RIM, S + 0.5],
-    [S + 0.25 - RIM / 2, S / 2, RIM, S + 0.5],
-  ] as const)
-    base.add(shapes.box(w, 0.9, d, 0.32, 3), C.earth, { x, y: -0.47, z }, { top: C.grassDeep, ao: false });
+  // (in runs: none along the sea of the coast, where the edge's tiles are water)
+  const rimRuns = (edge: (i: number) => boolean): [number, number][] => {
+    const runs: [number, number][] = [];
+    for (let i = 0; i < S; i++) {
+      if (!edge(i)) continue;
+      const a = i;
+      while (i + 1 < S && edge(i + 1)) i++;
+      runs.push([a === 0 ? -0.25 : a, i === S - 1 ? S + 0.25 : i + 1]);
+    }
+    return runs;
+  };
+  const land = (x: number, y: number) => !isWater(x, y);
+  for (const [a, b] of rimRuns((i) => land(i, 0))) base.add(shapes.box(b - a, 0.9, RIM, 0.32, 3), C.earth, { x: (a + b) / 2, y: -0.47, z: RIM / 2 - 0.25 }, { top: C.grassDeep, ao: false });
+  for (const [a, b] of rimRuns((i) => land(i, S - 1))) base.add(shapes.box(b - a, 0.9, RIM, 0.32, 3), C.earth, { x: (a + b) / 2, y: -0.47, z: S + 0.25 - RIM / 2 }, { top: C.grassDeep, ao: false });
+  for (const [a, b] of rimRuns((i) => land(0, i))) base.add(shapes.box(RIM, 0.9, b - a, 0.32, 3), C.earth, { x: RIM / 2 - 0.25, y: -0.47, z: (a + b) / 2 }, { top: C.grassDeep, ao: false });
+  for (const [a, b] of rimRuns((i) => land(S - 1, i))) base.add(shapes.box(RIM, 0.9, b - a, 0.32, 3), C.earth, { x: S + 0.25 - RIM / 2, y: -0.47, z: (a + b) / 2 }, { top: C.grassDeep, ao: false });
   base.add(shapes.box(S - 1, 0.9 + floorTop + 0.02, S - 1, 0.05, 1), C.earth, { x: S / 2, y: (floorTop - 0.92) / 2, z: S / 2 }, { top: C.earthDeep, ao: false });
   base.add(shapes.box(S - 0.2, 0.8, S - 0.2, 0.3, 3), C.earthDeep, { x: S / 2, y: -1.15, z: S / 2 }, { ao: false });
   base.add(shapes.box(S - 1.6, 0.7, S - 1.6, 0.3, 2), C.rock, { x: S / 2, y: -1.7, z: S / 2 }, { ao: false, shade: -0.1 });
@@ -97,6 +107,7 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
     const out = S / 2 + 0.12;
     const x = side === 0 ? S / 2 + out : side === 1 ? S / 2 - out : along;
     const z = side === 2 ? S / 2 + out : side === 3 ? S / 2 - out : along;
+    if (isWater(Math.min(S - 1, Math.max(0, Math.floor(x))), Math.min(S - 1, Math.max(0, Math.floor(z))))) continue;
     base.add(shapes.blob(1, 0), hash2(i, 5, 91) < 0.5 ? C.rock : C.earthDeep, { x, y: -0.95 - hash2(i, 6, 91) * 0.6, z, s: [r * 1.3, r, r * 1.1], ry: hash2(i, 7, 91) * 6 }, { ao: false });
   }
   mesh(base.build(), { cast: false, receive: true });
@@ -106,6 +117,7 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
   const gLight = col(C.grassLight);
   const gMid = col(C.grass);
   const sand = col(C.sand);
+  const sandDeep = col(C.sandDeep);
   const pathC = col(C.path);
   const grassOf = (vx: number, vz: number): Color => {
     // gentle large patches + a little fine noise
@@ -119,6 +131,7 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
     const tz = Math.round(vz);
     let water = 0;
     let path = 0;
+    let beach = 0;
     for (const [dx, dz] of [
       [-1, -1],
       [0, -1],
@@ -128,7 +141,10 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
       const g = ground(tx + dx, tz + dz);
       if (g === 'water') water++;
       else if (g === 'path' || g === 'plaza') path++;
+      else if (g === 'sand') beach++;
     }
+    // the coast's sand: blended over the grass by how many of the vertex's tiles are sand, with soft patches of darker sand
+    if (beach > 0) c.lerp(sand.clone().lerp(sandDeep, valueNoise(vx * 0.45, vz * 0.45, 7) * 0.7), beach === 4 ? 1 : beach * 0.24);
     const exact = Math.abs(vx - tx) < 1e-6 && Math.abs(vz - tz) < 1e-6;
     if (water > 0 && exact) c.lerp(sand, 0.9);
     else if (path > 0 && exact) c.lerp(pathC, 0.18);
@@ -157,7 +173,7 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
           // beside the pond: drawn with the shore below
           if (nearShore(x, y) && g !== 'plaza') continue;
           const onHill = hilly(x, y);
-          if (g === 'grass') {
+          if (g === 'grass' || g === 'sand') {
             // two by two cells a tile (four by four on the hill): the colour varies inside a tile too
             const n = onHill ? 4 : 2;
             for (let sy = 0; sy < n; sy++) {
@@ -273,8 +289,11 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
       if (!isWater(x, y) || nearShore(x, y)) continue;
-      // (in the same cells as along the shore: no hairline where the two meet, seen through the water)
-      const n = 4;
+      // (in the same cells as along the shore: no hairline where the two meet, seen through the water; open water with
+      // no shore round it, the coast's sea, is one cell a tile: it is deep all over, and a thousand tiles of it cost)
+      let inner = true;
+      for (let dy = -1; dy <= 1 && inner; dy++) for (let dx = -1; dx <= 1; dx++) if (nearShore(x + dx, y + dy)) inner = false;
+      const n = inner ? 1 : 4;
       for (let sy = 0; sy < n; sy++) {
         for (let sx = 0; sx < n; sx++) {
           const x0 = x + sx / n;

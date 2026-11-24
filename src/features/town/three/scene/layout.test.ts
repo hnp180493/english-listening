@@ -24,11 +24,11 @@ describe('3D town layout', () => {
 
   it('plants a tree for every tree of the map, near its tile', () => {
     const trees = mapTrees(W);
-    const count = W.rows.reduce((n, r) => n + [...r].filter((c) => c === 'T' || c === 't').length, 0);
+    const count = W.rows.reduce((n, r) => n + [...r].filter((c) => c === 'T' || c === 't' || c === 'p').length, 0);
     expect(trees).toHaveLength(count);
     for (const t of trees) {
       const ch = W.rows[Math.floor(t.z)][Math.floor(t.x)];
-      expect(ch === 'T' || ch === 't').toBe(true);
+      expect(ch === 'T' || ch === 't' || ch === 'p').toBe(true);
       expect(t.scale).toBeGreaterThan(0.6);
     }
   });

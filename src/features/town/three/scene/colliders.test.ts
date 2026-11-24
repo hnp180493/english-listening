@@ -25,7 +25,7 @@ const FLAT = 0.04;
 const TOL = 0.26;
 
 /** Things the scene builds that nobody bumps into: on the water, over the water, too thin and light to matter. */
-const LOOSE = new Set(['decor:lilies', 'decor:balloons', 'decor:strings', 'prop:pier', 'proj:proj-lake-lights', 'proj:proj-pier', 'scenery:duck']);
+const LOOSE = new Set(['decor:lilies', 'decor:balloons', 'decor:strings', 'prop:pier', 'proj:proj-lake-lights', 'proj:proj-pier', 'scenery:duck', 'scenery:boat', 'scenery:jetty']);
 
 interface Solid {
   what: string;

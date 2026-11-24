@@ -43,7 +43,7 @@ export function hash2(a: number, b: number, seed = 0): number {
   return (h >>> 0) / 4294967296;
 }
 
-export type TreeKind3 = 'round' | 'pine' | 'blossom' | 'bush';
+export type TreeKind3 = 'round' | 'pine' | 'blossom' | 'bush' | 'palm';
 
 /** A tree where the scene draws it (x, y on the tile grid). */
 export interface TreeAt {
@@ -62,9 +62,9 @@ export function treesOf(world: Pick<TownWorld, 'rows'>): TreeAt[] {
   world.rows.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
       const ch = row[x];
-      if (ch !== 'T' && ch !== 't') continue;
+      if (ch !== 'T' && ch !== 't' && ch !== 'p') continue;
       const h = hash2(x, y, 3);
-      out.push({ x: x + 0.5 + (hash2(x, y, 4) - 0.5) * 0.24, y: y + 0.5 + (hash2(x, y, 5) - 0.5) * 0.24, kind: ch === 'T' ? 'round' : 'pine', scale: 0.85 + h * 0.35, seed: h });
+      out.push({ x: x + 0.5 + (hash2(x, y, 4) - 0.5) * 0.24, y: y + 0.5 + (hash2(x, y, 5) - 0.5) * 0.24, kind: ch === 'T' ? 'round' : ch === 'p' ? 'palm' : 'pine', scale: 0.85 + h * 0.35, seed: h });
     }
   });
   return out;
@@ -104,7 +104,7 @@ export function lotOf(id: string, state: Pick<WalkState, 'built' | 'sites'>): 'b
  * How far round a tree's foot a body is stopped (× its scale): past the trunk, under the lowest branches; a body may
  * pass under the edge of a crown, never through the trunk.
  */
-export const TREE_R: Readonly<Record<TreeKind3, number>> = { round: 0.27, blossom: 0.27, pine: 0.33, bush: 0.36 };
+export const TREE_R: Readonly<Record<TreeKind3, number>> = { round: 0.27, blossom: 0.27, pine: 0.33, bush: 0.36, palm: 0.16 };
 /** A house's walls stand this far in from its lot's edges (places3d.ts INSET 0.18, less the plinth's 0.04). */
 export const WALL_INSET = 0.14;
 /** A construction site's fence stands this far in from the lot's edges (places3d.ts buildSite). */
@@ -319,6 +319,14 @@ export function sceneryColliders(world: Pick<TownWorld, 'scenery'>): Collider[] 
       case 'bush':
         out.push(circle(cx, cy, SCENERY_SIZE.bush, what));
         break;
+      case 'hut':
+        out.push(box(b.x0 + 0.14, b.y0 + 0.14, b.x1 - 0.14, b.y1 - 0.14, what));
+        break;
+      case 'lighthouse':
+      case 'umbrella':
+      case 'boulder':
+        out.push(circle(cx, cy, SCENERY_SIZE[s.kind], what));
+        break;
       case 'fence':
       case 'hedge': {
         const t = s.kind === 'fence' ? SCENERY_SIZE.fence : SCENERY_SIZE.hedge;
@@ -335,7 +343,7 @@ export function sceneryColliders(world: Pick<TownWorld, 'scenery'>): Collider[] 
 }
 
 /** Sizes of the scenery's models (radius, or half the thickness of a run), shared with three/scene/props3d.ts buildScenery. */
-export const SCENERY_SIZE = { well: 0.36, haybale: 0.34, rock: 0.3, bush: 0.34, fence: 0.06, hedge: 0.22 } as const;
+export const SCENERY_SIZE = { well: 0.36, haybale: 0.34, rock: 0.3, bush: 0.34, fence: 0.06, hedge: 0.22, lighthouse: 0.85, umbrella: 0.3, boulder: 0.78 } as const;
 
 /** Every collider in town for a state; `extra` adds what the caller knows of (the town projects). */
 export function collidersOf(world: TownWorld, state: WalkState = NO_STATE, extra: readonly Collider[] = []): Collider[] {

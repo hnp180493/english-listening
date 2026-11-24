@@ -58,12 +58,12 @@ function walkLength(from: Tile, path: readonly Tile[]): number {
 }
 
 describe('the ground', () => {
-  it('is a square grid of known characters, 72 tiles a side', () => {
-    expect(size).toBe(72);
+  it('is a square grid of known characters, 84 tiles a side', () => {
+    expect(size).toBe(84);
     expect(WORLD_ROWS).toHaveLength(size);
     for (const row of WORLD_ROWS) {
       expect(row).toHaveLength(size);
-      expect(row).toMatch(/^[.=o~TtF]+$/);
+      expect(row).toMatch(/^[.=o~TtF:p]+$/);
     }
   });
 
@@ -90,7 +90,7 @@ describe('the ground', () => {
     expect(water).toBeGreaterThanOrEqual(40);
     expect(path).toBeGreaterThan(200);
     expect(worldTrees().length).toBeGreaterThan(200);
-    expect(new Set(worldTrees().map((t) => t.kind))).toEqual(new Set(['round', 'pine']));
+    expect(new Set(worldTrees().map((t) => t.kind))).toEqual(new Set(['round', 'pine', 'palm']));
     expect(groundAt({ x: -1, y: 0 })).toBeNull();
     expect(groundAt({ x: 0, y: size })).toBeNull();
     expect(groundAt({ x: 0.5, y: 1 })).toBeNull();
@@ -113,7 +113,7 @@ describe('the ground', () => {
     expect(new Set(road.map((t) => t.x - t.y)).size).toBeGreaterThan(4);
   });
 
-  it('three bodies of water (the park lake, the big lake, the pond), each round: its middle on the water, ducks on it', () => {
+  it('three lakes (the park lake, the big lake, the pond), each round: its middle on the water, ducks on it; the sea along the coast', () => {
     const water: Tile[] = [];
     WORLD_ROWS.forEach((row, y) => [...row].forEach((c, x) => c === '~' && water.push({ x, y })));
     const left = new Set(water.map(key));
@@ -133,13 +133,19 @@ describe('the ground', () => {
       }
       bodies.push(body);
     }
-    expect(bodies).toHaveLength(3);
-    for (const body of bodies) {
+    // the sea: what reaches the map's near edges (the coast, x or y 72 and on); the lakes: the rest
+    const sea = bodies.filter((b) => b.some((t) => t.x === size - 1 || t.y === size - 1));
+    for (const b of sea) for (const t of b) expect(t.x >= 72 || t.y >= 72, key(t)).toBe(true);
+    const lakes = bodies.filter((b) => !sea.includes(b));
+    expect(lakes).toHaveLength(3);
+    // the stream that brings the falls (outside the map, beyond its west edge) into the big lake
+    const stream = (t: Tile) => t.x <= 2 && (t.y === 40 || t.y === 41);
+    for (const body of lakes) {
       expect(body.length).toBeGreaterThanOrEqual(20);
       const mid = { x: Math.floor(body.reduce((s, t) => s + t.x + 0.5, 0) / body.length), y: Math.floor(body.reduce((s, t) => s + t.y + 0.5, 0) / body.length) };
       expect(groundAt(mid), key(mid)).toBe('water');
       // no water at the island's rim (its frame of grass): two tiles clear of the edge
-      for (const t of body) expect(Math.min(t.x, t.y, size - 1 - t.x, size - 1 - t.y), key(t)).toBeGreaterThanOrEqual(3);
+      for (const t of body) if (!stream(t)) expect(Math.min(t.x, t.y, size - 1 - t.x, size - 1 - t.y), key(t)).toBeGreaterThanOrEqual(3);
       const ducks = WORLD_SCENERY.filter((s) => s.kind === 'duck' && body.some((t) => t.x === Math.floor(s.at!.x) && t.y === Math.floor(s.at!.y)));
       expect(ducks.length, key(body[0])).toBeGreaterThanOrEqual(2);
     }
@@ -238,9 +244,9 @@ describe('places', () => {
 });
 
 describe('districts', () => {
-  it('fifteen parts of town, each named, inside the map, with a reachable street to arrive on', () => {
-    expect(WORLD_DISTRICTS).toHaveLength(15);
-    expect(new Set(WORLD_DISTRICTS.map((d) => d.id)).size).toBe(15);
+  it('eighteen parts of town, each named, inside the map, with a reachable street to arrive on', () => {
+    expect(WORLD_DISTRICTS).toHaveLength(18);
+    expect(new Set(WORLD_DISTRICTS.map((d) => d.id)).size).toBe(18);
     expect(TOWN_WORLD.districts).toBe(WORLD_DISTRICTS);
     for (const d of WORLD_DISTRICTS) {
       expect(d.name.length, d.id).toBeGreaterThan(0);
@@ -281,8 +287,9 @@ describe('everyday life has room all over town', () => {
     const seatsOut = L.seats.filter((s) => !inPlaza({ x: Math.floor(s.x), y: Math.floor(s.y) }));
     expect(seatsOut.length).toBeGreaterThan(L.seats.length / 2);
     expect(L.ends.length).toBeGreaterThanOrEqual(4);
-    // the ways out are at the map's edge
-    for (const t of L.ends) expect(t.x === 0 || t.y === 0 || t.x === size - 1 || t.y === size - 1, key(t)).toBe(true);
+    // the ways out are at the map's far edges (the mountains' passes) or at the harbour, where the jetty starts
+    const jetty = WORLD_SCENERY.find((s) => s.kind === 'jetty')!.at!;
+    for (const t of L.ends) expect(t.x === 0 || t.y === 0 || Math.hypot(t.x + 0.5 - jetty.x, t.y + 0.5 - jetty.y) < 1.5, key(t)).toBe(true);
     // the jog keeps to the plaza
     for (const t of L.jog) expect(groundAt(t), key(t)).toBe('plaza');
   });
@@ -329,18 +336,29 @@ describe('nothing overlaps', () => {
     for (const id of DECORATION_IDS) {
       for (const s of WORLD_DECORATIONS[id]) if (s.solid) expect(groundAt(s), id).not.toBe('water');
     }
-    for (const t of worldTrees()) expect(groundAt(t)).toBe('grass');
+    for (const t of worldTrees()) expect(groundAt(t), key(t)).toBe(t.kind === 'palm' ? 'sand' : 'grass');
   });
 
   it('scenery: things that block have tiles, ducks swim, the hill is walkable ground', () => {
     expect(TOWN_WORLD.scenery).toBe(WORLD_SCENERY);
     for (const s of WORLD_SCENERY) {
-      if (s.kind === 'duck') {
+      if (s.kind === 'duck' || s.kind === 'boat') {
         expect(s.tiles).toHaveLength(0);
-        expect(groundAt({ x: Math.floor(s.at!.x), y: Math.floor(s.at!.y) })).toBe('water');
+        // a boat may lie on the sea beyond the map's edge
+        const g = groundAt({ x: Math.floor(s.at!.x), y: Math.floor(s.at!.y) });
+        expect(g === 'water' || (s.kind === 'boat' && g === null), `${s.kind} ${s.at!.x},${s.at!.y}`).toBe(true);
+      } else if (s.kind === 'jetty') {
+        // from the shore out over the sea
+        expect(s.tiles).toHaveLength(0);
+        expect(s.len).toBeGreaterThan(2);
+        const d = s.dir === 'y' ? { x: 0, y: 1 } : { x: 1, y: 0 };
+        expect(walkable({ x: Math.floor(s.at!.x - d.x * 0.7), y: Math.floor(s.at!.y - d.y * 0.7) })).toBe(true);
+        expect(groundAt({ x: Math.floor(s.at!.x + d.x * 1.5), y: Math.floor(s.at!.y + d.y * 1.5) })).toBe('water');
       } else if (s.kind === 'hill') {
         expect(s.tiles).toHaveLength(0);
-        expect(walkable(s.at!)).toBe(true);
+        // walkable, or the lighthouse stands on its top
+        const lighthouse = WORLD_SCENERY.some((o) => o.kind === 'lighthouse' && o.tiles.some((t) => t.x === s.at!.x && t.y === s.at!.y));
+        expect(walkable(s.at!) || lighthouse, `hill ${key(s.at!)}`).toBe(true);
       } else {
         expect(s.tiles.length, s.kind).toBeGreaterThan(0);
         for (const t of s.tiles) expect(walkable(t), `${s.kind} ${key(t)}`).toBe(false);

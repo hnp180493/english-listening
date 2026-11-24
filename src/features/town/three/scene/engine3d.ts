@@ -1735,7 +1735,18 @@ export class TownEngine3D {
       const run = this.onReady;
       this.onReady = null;
       run?.();
-      this.idle(() => this.prebuildLots());
+      // the sea and the mountains round the island first, then the lots on offer, each in an idle moment
+      this.idle(() => {
+        const g = this.town.makeBackdrop();
+        if (!g) return this.prebuildLots();
+        // compiled in the background (the falls' own shader), then put in: the town never waits on the driver for it
+        const show = () => {
+          if (!this.running) return;
+          this.town.showBackdrop();
+          this.idle(() => this.prebuildLots());
+        };
+        this.renderer.compileAsync(g, this.camera, this.town.scene).then(show, show);
+      });
       this.warmLater();
     }
     this.measure(realDt);

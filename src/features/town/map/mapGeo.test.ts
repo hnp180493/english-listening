@@ -24,7 +24,7 @@ describe('districtAt', () => {
   });
   it('is null outside every district and the island', () => {
     expect(districtAt(-3, 4)).toBeNull();
-    expect(districtAt(80, 80)).toBeNull();
+    expect(districtAt(90, 90)).toBeNull();
   });
 });
 

@@ -58,6 +58,7 @@ describe('3D town coordinates', () => {
         if (ch === '=') expect(g).toBe('path');
         else if (ch === '~') expect(g).toBe('water');
         else if (ch === 'o' || ch === 'F') expect(g).toBe('plaza');
+        else if (ch === ':' || ch === 'p') expect(g).toBe('sand');
         else expect(g).toBe('grass');
       }
     }

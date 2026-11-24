@@ -9,9 +9,10 @@
 
 import { TOWN_WORLD, worldTrees, type TownWorld } from '../../../data/townWorld';
 import type { TownPalette } from '../engine/palette';
-import { C } from '../three/scene/palette3d';
+import { C, mixHex } from '../three/scene/palette3d';
 import { footprint, PLACE_ART, type PlaceArt } from './mapGeo';
 import { pierCorners } from './mapHit';
+import { mountainHeight, RANGE_DEPTH } from '../three/scene/range';
 import { liftPx, toBox, viewMatrix, type Box, type MapView, type Pt } from './mapView';
 
 /** What stands in town now (the stage's state). */
@@ -35,7 +36,7 @@ interface Block {
 interface Tree {
   x: number;
   y: number;
-  kind: 'round' | 'pine' | 'blossom';
+  kind: 'round' | 'pine' | 'blossom' | 'palm';
 }
 
 /** The picture's parts, worked out once per world and state; the ground's paths in grid units. */
@@ -43,6 +44,12 @@ export interface MapScene {
   world: TownWorld;
   water: Path2D | null;
   waterDeep: Path2D | null;
+  /** The coast's sand (2026-11-24). */
+  sand: Path2D | null;
+  /** The sea round the island and the mountains behind it (a world with a coast): the range as cells of colour. */
+  coast: { cells: { x: number; y: number; c: string }[]; step: number; peaks: { x: number; y: number; h: number }[] } | null;
+  /** The harbour's jetty and the like: plank walks out over the water. */
+  jetties: Pt[][];
   plaza: Path2D | null;
   paths: Path2D | null;
   fields: Pt[][];
@@ -63,6 +70,7 @@ const PROP_ART: Readonly<Record<string, PlaceArt>> = {
   market: { wall: C.cream, roof: C.coral, h: 0.45, roofKind: 'flat' },
   bus: { wall: C.mustard, roof: C.butter, h: 0.5, roofKind: 'flat' },
   terrace: { wall: C.white, roof: C.coral, h: 0.5, roofKind: 'round' },
+  hut: { wall: C.sky, roof: C.teal, h: 0.55, roofKind: 'gable' },
 };
 
 function boxOf(tiles: readonly { x: number; y: number }[]): { x: number; y: number; w: number; d: number } {
@@ -79,6 +87,7 @@ export function mapScene(state: MapState, world: TownWorld = TOWN_WORLD): MapSce
   const can2d = typeof Path2D !== 'undefined';
   const water = can2d ? new Path2D() : null;
   const waterDeep = can2d ? new Path2D() : null;
+  const sand = can2d ? new Path2D() : null;
   const plaza = can2d ? new Path2D() : null;
   const paths = can2d ? new Path2D() : null;
   const at = (x: number, y: number) => world.rows[y]?.[x];
@@ -97,6 +106,9 @@ export function mapScene(state: MapState, world: TownWorld = TOWN_WORLD): MapSce
           waterDeep?.moveTo(cx + 0.62, cy);
           waterDeep?.arc(cx, cy, 0.62, 0, Math.PI * 2);
         }
+      } else if (ch === ':' || ch === 'p') {
+        sand?.moveTo(cx + 0.74, cy);
+        sand?.arc(cx, cy, 0.74, 0, Math.PI * 2);
       } else if (isPlaza(ch)) {
         plaza?.moveTo(cx + 0.8, cy);
         plaza?.arc(cx, cy, 0.8, 0, Math.PI * 2);
@@ -162,6 +174,7 @@ export function mapScene(state: MapState, world: TownWorld = TOWN_WORLD): MapSce
     blocks.push({ id: `prop:${prop.kind}:${prop.tiles[0].x},${prop.tiles[0].y}`, corners: footprint(boxOf(prop.tiles), inset), h: art.h, art, status: 'prop' });
   }
   const hills: MapScene['hills'] = [];
+  const jetties: Pt[][] = [];
   for (const s of world.scenery ?? []) {
     if (s.kind === 'hill' && s.at && s.r) hills.push({ x: s.at.x + 0.5, y: s.at.y + 0.5, r: s.r });
     else if (s.kind === 'barn' && s.tiles.length > 0) blocks.push({ id: `barn:${s.tiles[0].x},${s.tiles[0].y}`, corners: footprint(boxOf(s.tiles), 0.1), h: PROP_ART.barn.h, art: PROP_ART.barn, status: 'prop' });
@@ -169,9 +182,55 @@ export function mapScene(state: MapState, world: TownWorld = TOWN_WORLD): MapSce
     else if (s.kind === 'haybale') for (const t of s.tiles) dots.push({ x: t.x + 0.5, y: t.y + 0.5, r: 0.3, color: C.mustard });
     else if (s.kind === 'bush') for (const t of s.tiles) dots.push({ x: t.x + 0.5, y: t.y + 0.5, r: 0.32, color: C.leafDeep });
     else if (s.kind === 'rock') for (const t of s.tiles) dots.push({ x: t.x + 0.5, y: t.y + 0.5, r: 0.28, color: C.rock });
+    // the coast (2026-11-24)
+    else if (s.kind === 'hut' && s.tiles.length > 0) blocks.push({ id: `hut:${s.tiles[0].x},${s.tiles[0].y}`, corners: footprint(boxOf(s.tiles), 0.18), h: PROP_ART.hut.h, art: PROP_ART.hut, status: 'prop' });
+    else if (s.kind === 'lighthouse' && s.tiles.length > 0) {
+      const b = boxOf(s.tiles);
+      dots.push({ x: b.x + b.w / 2, y: b.y + b.d / 2, r: 0.75, color: C.white, rim: C.coral });
+    } else if (s.kind === 'boulder' && s.tiles.length > 0) {
+      const b = boxOf(s.tiles);
+      dots.push({ x: b.x + b.w / 2, y: b.y + b.d / 2, r: 0.72, color: C.rock });
+    } else if (s.kind === 'umbrella') for (const t of s.tiles) dots.push({ x: t.x + 0.5, y: t.y + 0.5, r: 0.34, color: C.coral, rim: C.white });
+    else if (s.kind === 'boat' && s.at) dots.push({ x: s.at.x, y: s.at.y, r: 0.36, color: C.woodDark });
+    else if (s.kind === 'jetty' && s.at) {
+      const len = s.len ?? 6;
+      const a = s.at;
+      jetties.push(s.dir === 'y' ? [{ x: a.x - 0.45, y: a.y }, { x: a.x + 0.45, y: a.y }, { x: a.x + 0.45, y: a.y + len }, { x: a.x - 0.45, y: a.y + len }] : [{ x: a.x, y: a.y - 0.45 }, { x: a.x + len, y: a.y - 0.45 }, { x: a.x + len, y: a.y + 0.45 }, { x: a.x, y: a.y + 0.45 }]);
+    }
   }
   if (state.decorations.has('fountain')) for (const s of world.decorations.fountain ?? []) dots.push({ x: s.x + 0.5, y: s.y + 0.5, r: 0.55, color: C.waterShallow, rim: C.stone });
-  return { world, water, waterDeep, plaza, paths, fields, trees, blocks, dots, hills, pier };
+  return { world, water, waterDeep, sand, coast: world.coast ? rangeCells(world.size) : null, jetties, plaza, paths, fields, trees, blocks, dots, hills, pier };
+}
+
+/**
+ * The mountains behind the island's far sides: their ground as cells of colour by height (green foothills, dark forest,
+ * grey rock, the sea left out), and their peaks (the highest point of each patch), drawn standing as little snow-capped
+ * mountains on the full map.
+ */
+function rangeCells(size: number): NonNullable<MapScene['coast']> {
+  const step = 1;
+  const cells: { x: number; y: number; c: string }[] = [];
+  const heights = new Map<string, number>();
+  for (let y = -RANGE_DEPTH; y < size + 8; y += step) {
+    for (let x = -RANGE_DEPTH; x < size + 8; x += step) {
+      if (x >= 0 && y >= 0) continue;
+      const h = mountainHeight(x + step / 2, y + step / 2, size);
+      heights.set(`${x},${y}`, h);
+      if (h < 0) continue;
+      const c = h < 0.3 ? C.sand : h < 3.5 ? mixHex(C.grassDeep, C.pine, h / 3.5) : h < 8 ? mixHex(C.pine, C.pineDeep, (h - 3.5) / 4.5) : mixHex(C.pineDeep, C.stoneDark, Math.min(1, (h - 8) / 3));
+      cells.push({ x, y, c });
+    }
+  }
+  // a peak: the highest point within 4 tiles, high enough to be a mountain
+  const peaks: { x: number; y: number; h: number }[] = [];
+  for (const [k, h] of heights) {
+    if (h < 7.5) continue;
+    const [x, y] = k.split(',').map(Number);
+    let top = true;
+    for (let dy = -4; dy <= 4 && top; dy++) for (let dx = -4; dx <= 4; dx++) if ((dx || dy) && (heights.get(`${x + dx},${y + dy}`) ?? -1) > h) top = false;
+    if (top) peaks.push({ x: x + 0.5, y: y + 0.5, h });
+  }
+  return { cells, step, peaks };
 }
 
 export interface DrawOptions {
@@ -199,6 +258,56 @@ export function drawMap(ctx: CanvasRenderingContext2D, scene: MapScene, v: MapVi
     ctx.fillRect(0, 0, box.w, box.h);
   }
 
+  // a coast: the sea round the island, the mountains behind it (in grid units through the view's matrix)
+  if (scene.coast) {
+    const mm = viewMatrix(v, box);
+    ctx.setTransform(mm[0] * dpr, mm[1] * dpr, mm[2] * dpr, mm[3] * dpr, mm[4] * dpr, mm[5] * dpr);
+    const reach = RANGE_DEPTH + 14;
+    ctx.fillStyle = ink(C.waterDeep);
+    ctx.fillRect(-reach, -reach, size + reach * 2, size + reach * 2);
+    const k = scene.coast.step + 0.05;
+    for (const c of scene.coast.cells) {
+      ctx.fillStyle = ink(c.c);
+      ctx.fillRect(c.x - 0.03, c.y - 0.03, k, k);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // the peaks standing up, far ones first (the full map only: straight down they would be flat)
+    if (v.tilt < 1) {
+      const peaks = scene.coast.peaks.map((p) => ({ p, at: toBox(v, box, p.x, p.y) })).sort((x, y) => x.at.y - y.at.y);
+      for (const { p, at } of peaks) {
+        const tall = liftPx(v, p.h * 0.3);
+        const half = (1.7 + p.h * 0.16) * v.scale;
+        ctx.beginPath();
+        ctx.moveTo(at.x - half, at.y);
+        ctx.lineTo(at.x, at.y - tall);
+        ctx.lineTo(at.x + half, at.y);
+        ctx.closePath();
+        ctx.fillStyle = ink(C.rock);
+        ctx.fill();
+        // the shaded side
+        ctx.beginPath();
+        ctx.moveTo(at.x, at.y - tall);
+        ctx.lineTo(at.x + half, at.y);
+        ctx.lineTo(at.x + half * 0.15, at.y);
+        ctx.closePath();
+        ctx.fillStyle = ink(C.stoneDark);
+        ctx.fill();
+        if (p.h > 10) {
+          const k = 0.38;
+          ctx.beginPath();
+          ctx.moveTo(at.x, at.y - tall);
+          ctx.lineTo(at.x + half * k, at.y - tall * (1 - k));
+          ctx.lineTo(at.x + half * k * 0.3, at.y - tall * (1 - k * 0.8));
+          ctx.lineTo(at.x - half * k * 0.2, at.y - tall * (1 - k * 0.95));
+          ctx.lineTo(at.x - half * k, at.y - tall * (1 - k));
+          ctx.closePath();
+          ctx.fillStyle = ink(C.white);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
   // the island: a cliff of earth under its near edges, the grass on top
   const corners = [
     { x: 0, y: 0 },
@@ -206,7 +315,7 @@ export function drawMap(ctx: CanvasRenderingContext2D, scene: MapScene, v: MapVi
     { x: size, y: size },
     { x: 0, y: size },
   ];
-  const drop = v.tilt < 1 ? 0.9 : 0;
+  const drop = v.tilt < 1 && !scene.coast ? 0.9 : 0;
   if (drop > 0) {
     ctx.beginPath();
     const all = [...corners.map((c) => toBox(v, box, c.x, c.y)), ...corners.map((c) => toBox(v, box, c.x, c.y, -drop))];
@@ -236,6 +345,10 @@ export function drawMap(ctx: CanvasRenderingContext2D, scene: MapScene, v: MapVi
     ctx.beginPath();
     ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2);
     ctx.fill();
+  }
+  if (scene.sand) {
+    ctx.fillStyle = ink(C.sand);
+    ctx.fill(scene.sand);
   }
   if (scene.water) {
     ctx.fillStyle = ink(C.waterShallow);
@@ -284,6 +397,11 @@ export function drawMap(ctx: CanvasRenderingContext2D, scene: MapScene, v: MapVi
   }
   if (scene.pier) {
     polyPath(ctx, scene.pier);
+    ctx.fillStyle = ink(C.woodLight);
+    ctx.fill();
+  }
+  for (const j of scene.jetties) {
+    polyPath(ctx, j);
     ctx.fillStyle = ink(C.woodLight);
     ctx.fill();
   }
@@ -405,7 +523,7 @@ function drawTree(ctx: CanvasRenderingContext2D, v: MapView, t: Tree, foot: Pt, 
     ctx.fillStyle = ink(C.trunk);
     ctx.fillRect(foot.x - Math.max(1, s * 0.06), foot.y - lift, Math.max(2, s * 0.12), lift);
   }
-  const base = t.kind === 'pine' ? C.pine : t.kind === 'blossom' ? C.blossom : C.leaf;
+  const base = t.kind === 'pine' ? C.pine : t.kind === 'blossom' ? C.blossom : t.kind === 'palm' ? C.palmLeaf : C.leaf;
   const light = t.kind === 'pine' ? C.leafDeep : t.kind === 'blossom' ? C.pink : C.grassLight;
   ctx.beginPath();
   ctx.arc(foot.x, foot.y - lift, r, 0, Math.PI * 2);

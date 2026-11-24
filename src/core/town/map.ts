@@ -53,7 +53,7 @@ interface Grid {
 const GRIDS = new WeakMap<TownWorld, Grid>();
 
 /** Ground a body may stand on (whatever stands there): grass, path, plaza, a tree's or the fountain's ground. */
-const GROUND = new Set(['.', '=', 'o', 'T', 't', 'F']);
+const GROUND = new Set(['.', '=', 'o', 'T', 't', 'F', ':', 'p']);
 
 function gridOf(world: TownWorld): Grid {
   const cached = GRIDS.get(world);

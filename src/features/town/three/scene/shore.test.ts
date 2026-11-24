@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { BODY_RADIUS } from '../../../../core/town/colliders';
 import { TOWN_WORLD } from '../../../../data/townWorld';
 import { groundOf } from './coords';
-import { chaikin, LAND_SLACK, ShoreField, shoreLoops, smoothShore, WATER_SLACK } from './shore';
+import { chaikin, LAND_SLACK, seaShore, ShoreField, shoreLoops, smoothShore, WATER_SLACK } from './shore';
 
 const S = TOWN_WORLD.size;
 const isWater = (x: number, y: number) => groundOf(TOWN_WORLD, x, y) === 'water';
+const SEA = seaShore(TOWN_WORLD);
 
 describe('the rounded shore', () => {
   it('one tile of water is one loop of four edges, water on its left', () => {
@@ -42,7 +43,7 @@ describe('the rounded shore', () => {
   });
 
   it('a body standing against the water (BODY_RADIUS from its tiles) stands on the drawn land', () => {
-    const field = new ShoreField(smoothShore(isWater, S), S);
+    const field = new ShoreField(smoothShore(SEA.isWater, SEA.size), SEA.size);
     let checked = 0;
     for (let ty = 0; ty < S; ty++) {
       for (let tx = 0; tx < S; tx++) {

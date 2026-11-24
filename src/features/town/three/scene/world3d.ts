@@ -17,6 +17,7 @@ import type { Aabb } from './pick3d';
 import { buildInn, buildPlace, buildSite, type Thing } from './places3d';
 import { buildCrops, buildDecorations, buildProject, buildProps, buildScenery, type Piece } from './props3d';
 import { buildTerrain, type Terrain } from './terrain';
+import { buildBackdrop, type Backdrop } from './backdrop';
 
 /** Real point lights kept at the lamps nearest the camera's target (a fixed number: no shader rebuilds). */
 export const LAMP_LIGHTS = 6;
@@ -117,6 +118,8 @@ export class TownScene {
   private readonly staticGroup = new Group();
   private readonly dynamicGroup = new Group();
   private terrain: Terrain;
+  /** The sea round the island and the mountains behind it (a world with a coast only). */
+  private backdrop: Backdrop | null = null;
   private trees: Nature;
   private tuftLayer: Nature;
   private lotTrees: Nature | null = null;
@@ -220,6 +223,21 @@ export class TownScene {
     const p = new Points(g, mat);
     p.frustumCulled = false;
     return p;
+  }
+
+  /**
+   * The sea round the island and the mountains behind it (a world with a coast), made in an idle moment after the
+   * town's first frame (about 50 ms of work: not in the long task that brings the town up) and put in the town by
+   * showBackdrop once its shaders are compiled. Null when there is nothing to make.
+   */
+  makeBackdrop(): Group | null {
+    if (this.backdrop || !this.world.coast) return null;
+    this.backdrop = buildBackdrop(this.world, this.mats);
+    return this.backdrop.group;
+  }
+
+  showBackdrop(): void {
+    if (this.backdrop && !this.backdrop.group.parent) this.staticGroup.add(this.backdrop.group);
   }
 
   /** Rebuild the places, lots, decorations and projects when what is built or bought changed. */
@@ -539,6 +557,7 @@ export class TownScene {
     for (const e of this.kept.values()) for (const pc of e.pieces) for (const g of geosOf(pc)) g.dispose();
     this.kept.clear();
     this.terrain.dispose();
+    this.backdrop?.dispose();
     this.trees.dispose();
     this.tuftLayer.dispose();
     this.haloGeo.dispose();

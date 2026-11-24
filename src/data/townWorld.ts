@@ -2,7 +2,7 @@
 // resident waits, and the fixed spots of every decoration the learner can buy. The game rules (xu, lines, levels)
 // live elsewhere (src/data/town.ts, src/core/town); the drawing lives in src/features/town/engine.
 //
-// The grid is 72 × 72 tiles, x = column, y = row, both from 0. On screen the tile (0,0) is the far (top) corner, x
+// The grid is 84 × 84 tiles, x = column, y = row, both from 0. On screen the tile (0,0) is the far (top) corner, x
 // grows down-right and y grows down-left, so a building shows its +x and +y faces: every door is on one of those
 // two faces and every resident stands in front of it, never behind a taller thing.
 //
@@ -20,6 +20,11 @@
 // lake path goes on down its shore to the residential lane), the grassy hills with a lotus pond at the near side, and
 // the country road on the right with a fruit orchard and a stall, which meets the main road where it leaves the map.
 // Woods close the far edges, thinner trees the near ones.
+//
+// The coast (2026-11-24, docs/town.md §7 "The coast and the mountains"): the island grew to 84 × 84 on its two near
+// sides only (x and y 72..83; nothing else moved): dunes with palms, a sandy beach with a promenade, the harbour at the
+// end of the main road, the lighthouse on the cape in the near corner, the sea at the map's edge. The sea round the
+// island and the mountains behind its far sides are seen only (three/scene/backdrop.ts).
 
 export type PlaceId =
   | 'square'
@@ -56,8 +61,8 @@ export interface Tile {
   y: number;
 }
 
-export type Ground = 'grass' | 'path' | 'plaza' | 'water';
-export type TreeKind = 'round' | 'pine';
+export type Ground = 'grass' | 'path' | 'plaza' | 'water' | 'sand';
+export type TreeKind = 'round' | 'pine' | 'palm';
 
 export interface WorldPlace {
   id: PlaceId;
@@ -166,9 +171,13 @@ export interface DecorSpot extends Tile {
 /**
  * Scenery the 3D town draws (three/scene/props3d.ts buildScenery): things that stand up and block as much as they are big ('barn', 'well', 'haybale',
  * 'fence' and 'hedge' runs, 'rock', 'bush') and loose ones ('hill': a bump of the ground, still walkable; 'duck': where
- * a duck paddles on the lake).
+ * a duck paddles on the lake). The coast (2026-11-24, docs/town.md §7 "The coast and the mountains"): 'lighthouse'
+ * (on 2 × 2 tiles, about 4.5 tall, its lamp lit at night), 'hut' (a beach hut on 2 × 2 tiles, its door on the +y side),
+ * 'umbrella' (a beach umbrella with a lounger, one tile), 'boulder' (a big rock on 2 × 2 tiles), and loose ones: 'boat'
+ * (a rowing boat bobbing at `at` on the water, lying along `dir`), 'jetty' (a plank walk from `at` out over the
+ * water `len` tiles along `dir`, towards +x or +y; seen only, not walked on).
  */
-export type SceneryKind = 'hill' | 'barn' | 'well' | 'haybale' | 'fence' | 'hedge' | 'rock' | 'bush' | 'duck';
+export type SceneryKind = 'hill' | 'barn' | 'well' | 'haybale' | 'fence' | 'hedge' | 'rock' | 'bush' | 'duck' | 'lighthouse' | 'hut' | 'umbrella' | 'boulder' | 'boat' | 'jetty';
 
 export interface WorldScenery {
   kind: SceneryKind;
@@ -176,8 +185,10 @@ export interface WorldScenery {
   tiles: readonly Tile[];
   /** Where it stands (tile coordinates) when that is not the middle of its tiles: a hill's top, a duck. */
   at?: Tile;
-  /** Which way a fence or hedge runs: along x (a row) or along y (a column). */
+  /** Which way a fence or hedge runs: along x (a row) or along y (a column); a jetty goes out, a boat lies. */
   dir?: 'x' | 'y';
+  /** A jetty's length out over the water (tiles). */
+  len?: number;
   /** A hill: its radius (tiles), the height of its top (tile edges) and the radius of its flat top (tiles). */
   r?: number;
   h?: number;
@@ -186,7 +197,7 @@ export interface WorldScenery {
 
 /** A part of town: its name (the HUD's travel menu), the box it covers and a walkable tile to arrive at. */
 export interface WorldDistrict {
-  id: 'plaza' | 'market' | 'homes' | 'civic' | 'station' | 'park' | 'farm' | 'woods' | 'orchard' | 'meadow' | 'forest' | 'fields' | 'lake' | 'hills' | 'country';
+  id: 'plaza' | 'market' | 'homes' | 'civic' | 'station' | 'park' | 'farm' | 'woods' | 'orchard' | 'meadow' | 'forest' | 'fields' | 'lake' | 'hills' | 'country' | 'beach' | 'harbor' | 'cape';
   /** Vietnamese name. */
   name: string;
   /** Tiles x..x+w-1, y..y+d-1 (rough; districts may overlap at their edges). */
@@ -200,7 +211,7 @@ export interface WorldDistrict {
 
 export interface TownWorld {
   size: number;
-  /** One string per row, one character per tile: '.' grass, '=' path, 'o' plaza, '~' water, 'T' / 't' a tree on grass, 'F' the fountain on the plaza. */
+  /** One string per row, one character per tile: '.' grass, '=' path, 'o' plaza, '~' water, ':' sand, 'T' / 't' a tree on grass, 'p' a palm on sand, 'F' the fountain on the plaza. */
   rows: readonly string[];
   places: readonly WorldPlace[];
   props: readonly WorldProp[];
@@ -213,6 +224,8 @@ export interface TownWorld {
   scenery?: readonly WorldScenery[];
   /** The parts of town (left out in small test worlds). */
   districts?: readonly WorldDistrict[];
+  /** The sea lies past the map's near edges (x or y from `size` on): the coast's shore runs on out there (three/scene/shore.ts seaShore). Left out in small test worlds. */
+  coast?: boolean;
   /** The centre of the round plaza, on the tile grid. */
   plaza: { x: number; y: number; r: number };
   start: Tile;
@@ -243,81 +256,93 @@ export interface WorldWalk {
 // pine forest and the big hill (x 0..15 and y 0..11 on the left), the fields (y 0..11 on the right and down the
 // right edge), the big lake (x 0..15 below the forest), the grassy hills and the lotus pond (y 56..71), the country
 // road with the orchard (x 60..71).
-//                                       x: 0         1         2         3         4         5         6         7
-//                                          012345678901234567890123456789012345678901234567890123456789012345678901
+//                                       x: 0         1         2         3         4         5         6         7         8
+//                                          012345678901234567890123456789012345678901234567890123456789012345678901234567890123
 export const WORLD_ROWS: readonly string[] = [
-  /* y=0  */ 'ttttttTtttTtttttTttttttttTttt.tttt..T.T..ttTT..TT....=.TT...tttttttT.T.t',
-  /* y=1  */ 'tttttttttttttTTttttTttttttTtt......................t.=.......TTttTT..T..',
-  /* y=2  */ 'tttTtttTttttttttttTtttTTttttT......................T.=.........t....T..T',
-  /* y=3  */ 'ttttTtTtttttttttTttTtttTttttT........................=.......TT...T....T',
-  /* y=4  */ 'TttTtttt...tt..ttTTtT..t..Ttt........................=.......T........Tt',
-  /* y=5  */ 'tTttttt...t.t...tTTt.t...............................=................tt',
-  /* y=6  */ 'tttTt...T.....t........=============.......===================.........T',
-  /* y=7  */ 'tTtt.t......t....=======...........=========.........=.......=====....tT',
-  /* y=8  */ 'tTtt..T....tt.====.......TttTtttt............T.......=...........=....Tt',
-  /* y=9  */ 'Tttt..........=....ttt.tTtttttttt..TT................=...........=....tt',
-  /* y=10 */ 'tttt..t.......=.ttttttTtttTtTtttT....................=...........=.....T',
-  /* y=11 */ 'ttt........====..TttttttttTtTTTtt...t................=...........=....TT',
-  /* y=12 */ 'ttT...........=.TtTttttTtTtTtTTtTtTTttTTtTTTtT.TTTTT.=.TTT.......=......',
-  /* y=13 */ 'tttt.t......t.=.TTTtTTtt.T.TtTtttTtTtTtTtTtTTT.tT....=...........=....T.',
-  /* y=14 */ 'ttTT....T.....=.tTtttt......TTtTTtttTT.TT............=...........=....Tt',
-  /* y=15 */ 'tttTt.........=.tttTTtt......tTttTtTTT..TT.T..T......==..........=.....T',
-  /* y=16 */ 'ttttt.....t...=.tttttt......t.TtttTtTt.TTT..T.........=..........=.....t',
-  /* y=17 */ 'tttTT.tt.TtT..=.TttTT......T...tTttTtT..TT.t...t......=..........=....TT',
-  /* y=18 */ 'TtTtt.ttttttt.=.T..tt....====.TtTTtTTtT...............=..........=....T.',
-  /* y=19 */ 'ttttT..ttTtT..=...Ttt...==..===TTT....................=..........=......',
-  /* y=20 */ 'Ttttt.TTtTttt.=......TT..==...==.....................==.........==......',
-  /* y=21 */ 'ttTtttttttttT.=.T........T=.TtT==................======....T....=.......',
-  /* y=22 */ 'ttttttttTtTTt.===T........==....==.......=========....==........=.....TT',
-  /* y=23 */ 'tttttTTtttttT...============.....===T..===.............=........=.....tt',
-  /* y=24 */ 'ttttttTtttTtt.t.Tt...=~~~~.==..T...==.==...............=======..=.....Tt',
-  /* y=25 */ 'TtTTttttttttt.tt....~~~~~~~~==....T.===...........T....=.....====.T...tT',
-  /* y=26 */ 'TttTtTttt.tt.t.....~~~~~~~~~~=.......=................==.T......=...T.Tt',
-  /* y=27 */ 'tT....t...t........~~~~~~~~~~==....t.=................=.........=...TT.T',
-  /* y=28 */ 'T...T..T.Tt....===.~~~~~~~~~~.=......=...............==.T.......==.Tt...',
-  /* y=29 */ 't.T............=.=.~~~~~~~~~~.=....ooooo............==.TT........=....TT',
-  /* y=30 */ 'T.T...t........=T==.~~~~~~~~..=...ooooooo..........==....TTtT.T..=.....t',
-  /* y=31 */ '...............=..=T..~~~~....=..ooooooooo.......===.............=.....T',
-  /* y=32 */ '================tt==..........=..ooooooooo.....===......TT..T.T..=....Tt',
-  /* y=33 */ '...............=tt.====......====ooooFoooo======.T...............=.....T',
-  /* y=34 */ '.t.....~~......=T.....========t..ooooooooo...............T..T.T..=......',
-  /* y=35 */ 't....~~~~~~..t.=T................ooooooooo..............t........=......',
-  /* y=36 */ 't...~~~~~~~~...=T.T.tt.......t....ooooooo...................T....=..T...',
-  /* y=37 */ 'tt..~~~~~~~~...=T.....t..........==ooooo.===......T......t.T.....=..T.tT',
-  /* y=38 */ 'Tt.~~~~~~~~~~..=T...............==.....T..===......t...T....T....=..TtTt',
-  /* y=39 */ '...~~~~~~~~~~..=.T..T..........==..........===.....T...TT........=..T.tT',
-  /* y=40 */ '...~~~~~~~~~~..=.....TT........=......T.....===.........T...T.T.==.t....',
-  /* y=41 */ 'Tt.~~~~~~~~~~..=t...t.........==....T........===......T.........=..t..tT',
-  /* y=42 */ 'tt.~~~~~~~~~~..=T............==...............==.....T.TT...T.T.=.....T.',
-  /* y=43 */ 'tt.~~~~~~~~~~..=T...........===.....T.........===.......T.......=.......',
-  /* y=44 */ 'tt.~~~~~~~~~~..=...........==.===..............==...........T.T.=.....Tt',
-  /* y=45 */ 'T..~~~~~~~~~~..=T........===....==.............===........TT....=....TTT',
-  /* y=46 */ '.T..~~~~~~~~...=........==.......====.........=====........TT.T.=.......',
-  /* y=47 */ '....~~~~~~~~...=......===...........====...====..===............==....TT',
-  /* y=48 */ 't....~~~~~~....=T....==................=====......===......T.....=....Tt',
-  /* y=49 */ 't..............=T...==.......T....T.........t......===.......Tt..=....tt',
-  /* y=50 */ 'tt...t.........=T..==t......T...............TT......====....Tt...=.....t',
-  /* y=51 */ 'ttT............=.===tTT..T.....t........T....t........===........=......',
-  /* y=52 */ 'tt.............===.tTT.......Tt.....TTT......T.........=================',
-  /* y=53 */ 'Tt...........t.=....ttt..T....T....T...Tt.......TT.....====.............',
-  /* y=54 */ 'TtT....t...T...=....T..........t.......T.T...t.....T..t...=...........Tt',
-  /* y=55 */ 'Tt.......T.....=..T...ttT............t.t....T....T......T.=Tt..........t',
-  /* y=56 */ 'T.......tTT....=..TT..........T.T...............t........==.T.........tt',
-  /* y=57 */ 'T.t....ttttt...==.tT...........T.T.........T.............=............tt',
-  /* y=58 */ 'tTt.....Tt.t....=..t.tT.T..t..T..........................=.tT..TT......T',
-  /* y=59 */ 'TT.......T....t.=......t..TT.t.....==============....=====..T.Ttt.......',
-  /* y=60 */ 'TtT.....Ttttt...======.........=====............======......Tt.TT......t',
-  /* y=61 */ 'ttT......Tt..........===========.......~~~~................tT..TT.....Tt',
-  /* y=62 */ 'ttt.......Tt...............=..........~~~~~~...................T........',
-  /* y=63 */ 'tttTt.TT.TT................=.T.Tt.....~~~~~~...................Tt..T..t.',
-  /* y=64 */ 'ttTT..t.t.TT...............=..tTTT....~~~~~~...................T........',
-  /* y=65 */ 'T..t....t...t....T.........=..TtTT.....~~~~...........................t.',
-  /* y=66 */ 'T...T....T....T.T..........=..........................................T.',
-  /* y=67 */ '........ttttT.T............=........................................T...',
-  /* y=68 */ 't.t..t...T.tT..............=....t...TT.............t.TTt.t..............',
-  /* y=69 */ 'Tt..tTT.tt.t.......T.t.....=.t......T................TtTTT.......T......',
-  /* y=70 */ 'Ttt.tttttt.tTt.t.T..T.T....=.....TTT..TTT...........Ttt.......T.T.TTT..t',
-  /* y=71 */ 'ttT..tTttT........T.t......=..tT.TtT...TT....ttT.....T..T..T......TTTT.T',
+  /* y=0  */ 'ttttttTtttTtttttTttttttttTttt.tttt..T.T..ttTT..TT....=.TT...tttttttT.T.t.......:~~~~',
+  /* y=1  */ 'tttttttttttttTTttttTttttttTtt......................t.=.......TTttTT..T.........:~~~~',
+  /* y=2  */ 'tttTtttTttttttttttTtttTTttttT......................T.=.........t....T..T.......:~~~~',
+  /* y=3  */ 'ttttTtTtttttttttTttTtttTttttT........................=.......TT...T....T......:~~~~~',
+  /* y=4  */ 'TttTtttt...tt..ttTTtT..t..Ttt........................=.......T........Tt.....:~~~~~~',
+  /* y=5  */ 'tTttttt...t.t...tTTt.t...............................=................tt.....:~~~~~~',
+  /* y=6  */ 'tttTt...T.....t........=============.......===================.........T.....:~~~~~~',
+  /* y=7  */ 'tTtt.t......t....=======...........=========.........=.......=====....tT......:~~~~~',
+  /* y=8  */ 'tTtt..T....tt.====.......TttTtttt............T.......=...........=....Tt...t..:~~~~~',
+  /* y=9  */ 'Tttt..........=....ttt.tTtttttttt..TT................=...........=....tt...t..:~~~~~',
+  /* y=10 */ 'tttt..t.......=.ttttttTtttTtTtttT....................=...........=.....T.......:~~~~',
+  /* y=11 */ 'ttt........====..TttttttttTtTTTtt...t................=...........=....TT........:~~~',
+  /* y=12 */ 'ttT...........=.TtTttttTtTtTtTTtTtTTttTTtTTTtT.TTTTT.=.TTT.......=..........p::::~~~',
+  /* y=13 */ 'tttt.t......t.=.TTTtTTtt.T.TtTtttTtTtTtTtTtTTT.tT....=...........=....T.....:::::~~~',
+  /* y=14 */ 'ttTT....T.....=.tTtttt......TTtTTtttTT.TT............=...........=....Tt....:p:::~~~',
+  /* y=15 */ 'tttTt.........=.tttTTtt......tTttTtTTT..TT.T..T......==..........=.....TT...p::::~~~',
+  /* y=16 */ 'ttttt.....t...=.tttttt......t.TtttTtTt.TTT..T.........=..........=.....t..TTpp:::~~~',
+  /* y=17 */ 'tttTT.tt.TtT..=.TttTT......T...tTttTtT..TT.t...t......=..........=....TT....:::::~~~',
+  /* y=18 */ 'TtTtt.ttttttt.=.T..tt....====.TtTTtTTtT...............=..........=....T....Tp::::~~~',
+  /* y=19 */ 'ttttT..ttTtT..=...Ttt...==..===TTT....................=..........=......T...:::::~~~',
+  /* y=20 */ 'Ttttt.TTtTttt.=......TT..==...==.....................==.........==.........T:::::~~~',
+  /* y=21 */ 'ttTtttttttttT.=.T........T=.TtT==................======....T....=.......T..T:::::~~~',
+  /* y=22 */ 'ttttttttTtTTt.===T........==....==.......=========....==........=.....TT....:p:::~~~',
+  /* y=23 */ 'tttttTTtttttT...============.....===T..===.............=........=.....tt.T.p:::::~~~',
+  /* y=24 */ 'ttttttTtttTtt.t.Tt...=~~~~.==..T...==.==...............=======..=.....Tt....:p:::~~~',
+  /* y=25 */ 'TtTTttttttttt.tt....~~~~~~~~==....T.===...........T....=.....====.T...tT.T..:p:::~~~',
+  /* y=26 */ 'TttTtTttt.tt.t.....~~~~~~~~~~=.......=................==.T......=...T.TtT..T.p::::~~',
+  /* y=27 */ 'tT....t...t........~~~~~~~~~~==....t.=................=.........=...TT.TT....:::::~~',
+  /* y=28 */ 'T...T..T.Tt....===.~~~~~~~~~~.=......=...............==.T.......==.Tt........p::::~~',
+  /* y=29 */ 't.T............=.=.~~~~~~~~~~.=....ooooo............==.TT........=....TT...T.:::::~~',
+  /* y=30 */ 'T.T...t........=T==.~~~~~~~~..=...ooooooo..........==....TTtT.T..============:::::~~',
+  /* y=31 */ '...............=..=T..~~~~....=..ooooooooo.......===.............=.....T..TT.:::::~~',
+  /* y=32 */ '================tt==..........=..ooooooooo.....===......TT..T.T..=....Tt.....:::::~~',
+  /* y=33 */ '...............=tt.====......====ooooFoooo======.T...............=.....T.TT..:p:::~~',
+  /* y=34 */ '.t.....~~......=T.....========t..ooooooooo...............T..T.T..=........TT.:p:::~~',
+  /* y=35 */ 't....~~~~~~..t.=T................ooooooooo..............t........=...........:::::~~',
+  /* y=36 */ 't...~~~~~~~~...=T.T.tt.......t....ooooooo...................T....=..T........:::::~~',
+  /* y=37 */ 't...~~~~~~~~...=T.....t..........==ooooo.===......T......t.T.....=..T.tT.....:::::~~',
+  /* y=38 */ '...~~~~~~~~~~..=T...............==.....T..===......t...T....T....=..TtTt.....:::::~~',
+  /* y=39 */ '...~~~~~~~~~~..=.T..T..........==..........===.....T...TT........=..T.tTT...:::::~~~',
+  /* y=40 */ '~~~~~~~~~~~~~..=.....TT........=......T.....===.........T...T.T.==.t........pp:::~~~',
+  /* y=41 */ '~~~~~~~~~~~~~..=t...t.........==....T........===......T.........=..t..tT...p::::~~~~',
+  /* y=42 */ 'tt.~~~~~~~~~~..=T............==...............==.....T.TT...T.T.=.....T..T.:p:::~~~~',
+  /* y=43 */ 'tt.~~~~~~~~~~..=T...........===.....T.........===.......T.......=..........:::::~~~~',
+  /* y=44 */ 'tt.~~~~~~~~~~..=...........==.===..............==...........T.T.=.....Tt....:::::~~~',
+  /* y=45 */ 'T..~~~~~~~~~~..=T........===....==.............===........TT....=....TTT.T.T.:::::~~',
+  /* y=46 */ '.T..~~~~~~~~...=........==.......====.........=====........TT.T.=.......TT...p::::~~',
+  /* y=47 */ '....~~~~~~~~...=......===...........====...====..===............==....TT.T...:::::~~',
+  /* y=48 */ 't....~~~~~~....=T....==................=====......===......T.....=....Tt...T.:::::~~',
+  /* y=49 */ 't..............=T...==.......T....T.........t......===.......Tt..=....tt...T.:::::~~',
+  /* y=50 */ 'tt...t.........=T..==t......T...............TT......====....Tt...=.....t....p:===:~~',
+  /* y=51 */ 'ttT............=.===tTT..T.....t........T....t........===........=...........:===:~~',
+  /* y=52 */ 'tt.............===.tTT.......Tt.....TTT......T.........==========================:~~',
+  /* y=53 */ 'Tt...........t.=....ttt..T....T....T...Tt.......TT.....====...............=.T:===:~~',
+  /* y=54 */ 'TtT....t...T...=....T..........t.......T.T...t.....T..t...=...........Tt..=..:===:~~',
+  /* y=55 */ 'Tt.......T.....=..T...ttT............t.t....T....T......T.=Tt..........t..=.p::::~~~',
+  /* y=56 */ 'T.......tTT....=..TT..........T.T...............t........==.T.........tt..=T:::::~~~',
+  /* y=57 */ 'T.t....ttttt...==.tT...........T.T.........T.............=............ttTT=.:::::~~~',
+  /* y=58 */ 'tTt.....Tt.t....=..t.tT.T..t..T..........................=.tT..TT......T..=.:::::~~~',
+  /* y=59 */ 'TT.......T....t.=......t..TT.t.....==============....=====..T.Ttt.........=.:::::~~~',
+  /* y=60 */ 'TtT.....Ttttt...======.........=====............======......Tt.TT......t..=.:p:::~~~',
+  /* y=61 */ 'ttT......Tt..........===========.......~~~~................tT..TT.....Tt..=.:::::~~~',
+  /* y=62 */ 'ttt.......Tt...............=..........~~~~~~...................T........T.=.:::::~~~',
+  /* y=63 */ 'tttTt.TT.TT................=.T.Tt.....~~~~~~...................Tt..T..t.T.=:::::~~~~',
+  /* y=64 */ 'ttTT..t.t.TT...............=..tTTT....~~~~~~...................T..........=:::::~~~~',
+  /* y=65 */ 'T..t....t...t....T.........=..TtTT.....~~~~...........................t...=:::::~~~~',
+  /* y=66 */ 'T...T....T....T.T..........=..........................................T...=p::::~~~~',
+  /* y=67 */ '........ttttT.T............=........................................T.....=:::::~~~~',
+  /* y=68 */ 't.t..t...T.tT..............=....t...TT.............t.TTt.t................=:::::~~~~',
+  /* y=69 */ 'Tt..tTT.tt.t.......T.t.....=.t......T................TtTTT.......T........=:::::~~~~',
+  /* y=70 */ 'Ttt.tttttt.tTt.t.T..T.T....=.....TTT..TTT...........Ttt.......T.T.TTT..t..=:::::~~~~',
+  /* y=71 */ 'ttT..tTttT........T.t......=..tT.TtT...TT....ttT.....T..T..T......TTTT.T..=::::~~~~~',
+  /* y=72 */ '....t......t............T..=.........T.......T............T.T.............=p::::~~~~',
+  /* y=73 */ '......t.......T....T.......=..............................T..........T...T=.::::~~~~',
+  /* y=74 */ '============================================================================..:~~~~~',
+  /* y=75 */ '..tt...........T......::p:::::::Tp......p......T......p..T.pp..............==..:~~~~',
+  /* y=76 */ '..t.t....t..........p:::::p::::p::......p::::.....T.:::p:::::::::p..T:::::..==..:~~~',
+  /* y=77 */ '.......t....::::::p::::::::::::::pp::::::::::::p:::p::::::::pp::::ppp:::::...==..:~~',
+  /* y=78 */ '............:::::pp::::::::::::::::p:::p:::::::::::::::::::::::::::::::::::..t....:~',
+  /* y=79 */ '::..........::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::~:......:~',
+  /* y=80 */ '~~:::::::...::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::~~:.....~~',
+  /* y=81 */ '~~~~~~~~~:::::::::::::::::::::::::::::::~~~~~:::::::~~~~~~~~~~~~~~:::~~~~~~~~:..~~~~',
+  /* y=82 */ '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  /* y=83 */ '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
 ];
 
 const place = (
@@ -440,6 +465,25 @@ export const WORLD_PROPS: readonly WorldProp[] = [
   { kind: 'signpost', tiles: [T(54, 7)] },
   { kind: 'signpost', tiles: [T(13, 21)] },
   { kind: 'signpost', tiles: [T(14, 53)] },
+  // ── the coast (2026-11-24) ──
+  // benches along the beach promenade and the coast lane, looking out to sea; one under the lighthouse
+  { kind: 'bench', tiles: [T(18, 75)], dir: 's' },
+  { kind: 'bench', tiles: [T(37, 75)], dir: 's' },
+  { kind: 'bench', tiles: [T(49, 75)], dir: 's' },
+  { kind: 'bench', tiles: [T(58, 75)], dir: 's' },
+  { kind: 'bench', tiles: [T(75, 43)], dir: 'e' },
+  { kind: 'bench', tiles: [T(75, 58)], dir: 'e' },
+  { kind: 'bench', tiles: [T(76, 77)], dir: 's' },
+  // lanterns where the footpath comes down to the beach, on the promenade and on the quay; signposts at the forks
+  { kind: 'lantern', tiles: [T(26, 73)] },
+  { kind: 'lantern', tiles: [T(45, 75)] },
+  { kind: 'lantern', tiles: [T(77, 51)] },
+  { kind: 'lantern', tiles: [T(77, 53)] },
+  { kind: 'signpost', tiles: [T(28, 73)] },
+  { kind: 'signpost', tiles: [T(75, 73)] },
+  { kind: 'signpost', tiles: [T(66, 29)] },
+  // the fish stall on the harbour's quay
+  { kind: 'market', tiles: [T(77, 50)], v: 0 },
 ];
 
 /** Scenery for the 3D town (what stands up blocks as much as it is big: core/town/colliders.ts). */
@@ -491,6 +535,37 @@ export const WORLD_SCENERY: readonly WorldScenery[] = [
   { kind: 'duck', tiles: [], at: { x: 6.2, y: 45.2 } },
   { kind: 'duck', tiles: [], at: { x: 40.5, y: 63.4 } },
   { kind: 'duck', tiles: [], at: { x: 42.6, y: 64.2 } },
+  // ── the coast (2026-11-24) ──
+  // the lighthouse on its knoll at the cape's tip
+  { kind: 'hill', tiles: [], at: { x: 79, y: 79 }, r: 4.4, h: 1, top: 1.5 },
+  { kind: 'lighthouse', tiles: area(79, 79, 2, 2) },
+  // beach huts in the dunes, umbrellas on the sand
+  { kind: 'hut', tiles: area(41, 77, 2, 2) },
+  { kind: 'hut', tiles: area(44, 77, 2, 2) },
+  { kind: 'hut', tiles: area(56, 77, 2, 2) },
+  { kind: 'umbrella', tiles: [T(14, 79)] },
+  { kind: 'umbrella', tiles: [T(19, 80)] },
+  { kind: 'umbrella', tiles: [T(35, 80)] },
+  { kind: 'umbrella', tiles: [T(38, 79)] },
+  { kind: 'umbrella', tiles: [T(48, 80)] },
+  { kind: 'umbrella', tiles: [T(60, 79)] },
+  { kind: 'umbrella', tiles: [T(64, 80)] },
+  { kind: 'umbrella', tiles: [T(79, 21)] },
+  { kind: 'umbrella', tiles: [T(79, 36)] },
+  { kind: 'umbrella', tiles: [T(78, 62)] },
+  // the rocky shores: boulders and stones
+  { kind: 'boulder', tiles: area(73, 2, 2, 2) },
+  { kind: 'boulder', tiles: area(4, 78, 2, 2) },
+  { kind: 'rock', tiles: [T(75, 78)] },
+  { kind: 'rock', tiles: [T(77, 81)] },
+  { kind: 'rock', tiles: [T(76, 6)] },
+  { kind: 'rock', tiles: [T(9, 80)] },
+  // the harbour's jetty and boats on the sea
+  { kind: 'jetty', tiles: [], at: { x: 81.6, y: 52.5 }, dir: 'x', len: 7 },
+  { kind: 'boat', tiles: [], at: { x: 84.2, y: 50.4 }, dir: 'x' },
+  { kind: 'boat', tiles: [], at: { x: 83.4, y: 54.8 }, dir: 'y' },
+  { kind: 'boat', tiles: [], at: { x: 30.5, y: 82.6 }, dir: 'x' },
+  { kind: 'boat', tiles: [], at: { x: 57.5, y: 83.2 }, dir: 'y' },
 ];
 
 /** The parts of town (the 3D HUD's travel menu). */
@@ -511,6 +586,10 @@ export const WORLD_DISTRICTS: readonly WorldDistrict[] = [
   { id: 'lake', name: 'Hồ lớn', x: 0, y: 27, w: 16, d: 29, arrive: T(15, 40) },
   { id: 'hills', name: 'Đồi cỏ', x: 0, y: 56, w: 60, d: 16, arrive: T(40, 59) },
   { id: 'country', name: 'Đường quê', x: 60, y: 12, w: 12, d: 60, arrive: T(65, 30) },
+  // the coast round the island's near sides (2026-11-24)
+  { id: 'beach', name: 'Bãi biển', x: 0, y: 72, w: 72, d: 12, arrive: T(40, 74) },
+  { id: 'harbor', name: 'Bến cảng', x: 72, y: 0, w: 12, d: 64, arrive: T(78, 52) },
+  { id: 'cape', name: 'Mũi hải đăng', x: 72, y: 64, w: 12, d: 20, arrive: T(77, 77) },
 ];
 
 /** Where each activity is done (src/features/town/activities). */
@@ -564,6 +643,21 @@ export const WORLD_LIFE: WorldLife = {
     { x: 46.67, y: 60.5, oct: SW, from: T(46, 61) },
     { x: 66.5, y: 50.33, oct: NW, from: T(65, 50) },
     { x: 66.5, y: 50.67, oct: NW, from: T(65, 50) },
+    // the coast's benches (2026-11-24)
+    { x: 18.33, y: 75.5, oct: SW, from: T(18, 76) },
+    { x: 18.67, y: 75.5, oct: SW, from: T(18, 76) },
+    { x: 37.33, y: 75.5, oct: SW, from: T(37, 76) },
+    { x: 37.67, y: 75.5, oct: SW, from: T(37, 76) },
+    { x: 49.33, y: 75.5, oct: SW, from: T(49, 76) },
+    { x: 49.67, y: 75.5, oct: SW, from: T(49, 76) },
+    { x: 58.33, y: 75.5, oct: SW, from: T(58, 76) },
+    { x: 58.67, y: 75.5, oct: SW, from: T(58, 76) },
+    { x: 75.5, y: 43.33, oct: SE, from: T(76, 43) },
+    { x: 75.5, y: 43.67, oct: SE, from: T(76, 43) },
+    { x: 75.5, y: 58.33, oct: SE, from: T(76, 58) },
+    { x: 75.5, y: 58.67, oct: SE, from: T(76, 58) },
+    { x: 76.33, y: 77.5, oct: SW, from: T(76, 78) },
+    { x: 76.67, y: 77.5, oct: SW, from: T(76, 78) },
     // the café's stool facing its table
     { x: 41.22, y: 28.5, oct: SE, from: T(41, 29) },
     // the benches the learner buys
@@ -594,6 +688,10 @@ export const WORLD_LIFE: WorldLife = {
     [T(14, 36), T(15, 35)],
     [T(30, 62), T(31, 61)],
     [T(64, 33), T(65, 32)],
+    // the coast: the beach, the quay, the dunes
+    [T(24, 76), T(25, 75)],
+    [T(78, 51), T(79, 50)],
+    [T(62, 77), T(63, 76)],
   ],
   tend: [
     { at: T(55, 14), oct: SW },
@@ -622,6 +720,8 @@ export const WORLD_LIFE: WorldLife = {
     // the big lake's east shore, looking west over it
     { at: T(13, 39), oct: NW },
     { at: T(13, 44), oct: NW },
+    // where the jetty leaves the harbour's quay, looking out to sea
+    { at: T(81, 52), oct: SE },
   ],
   read: [{ at: T(48, 21), oct: NE }],
   shop: [
@@ -629,11 +729,13 @@ export const WORLD_LIFE: WorldLife = {
     { at: T(44, 21), oct: NE },
     { at: T(45, 25), oct: NE },
     { at: T(63, 38), oct: NE },
+    { at: T(78, 50), oct: NW },
   ],
   jog: [T(37, 30), T(40, 31), T(41, 33), T(40, 36), T(37, 37), T(34, 36), T(33, 33), T(35, 30)],
-  // the ways out of the countryside: the main road east, the farm lane north, the lake's shore walk west, the hills' lane south
-  ends: [T(71, 52), T(53, 0), T(0, 32), T(27, 71)],
-  via: [T(43, 22), T(29, 43), T(40, 48), T(50, 31), T(24, 34), T(30, 29), T(47, 45), T(28, 23), T(55, 24), T(25, 19), T(52, 50), T(50, 6), T(14, 15), T(11, 11), T(15, 40), T(6, 32), T(40, 59), T(27, 66), T(65, 30), T(62, 25), T(65, 52)],
+  // the ways in and out: the harbour (by boat), the farm lane north and the lake's shore walk west into the mountains'
+  // passes, the coast road west along the beach
+  ends: [T(80, 52), T(53, 0), T(0, 32), T(0, 74)],
+  via: [T(43, 22), T(29, 43), T(40, 48), T(50, 31), T(24, 34), T(30, 29), T(47, 45), T(28, 23), T(55, 24), T(25, 19), T(52, 50), T(50, 6), T(14, 15), T(11, 11), T(15, 40), T(6, 32), T(40, 59), T(27, 66), T(65, 30), T(62, 25), T(65, 52), T(27, 74), T(50, 74), T(74, 62), T(79, 52), T(77, 77), T(72, 30)],
   inn: { door: T(20, 45), yard: [T(19, 45), T(21, 45), T(22, 46), T(18, 44), T(22, 43), T(18, 43), T(19, 46), T(21, 46)] },
 };
 
@@ -671,7 +773,7 @@ export const WORLD_DECORATIONS: Readonly<Record<DecorationId, readonly DecorSpot
 };
 
 export const TOWN_WORLD: TownWorld = {
-  size: 72,
+  size: 84,
   rows: WORLD_ROWS,
   places: WORLD_PLACES,
   props: WORLD_PROPS,
@@ -680,6 +782,7 @@ export const TOWN_WORLD: TownWorld = {
   life: WORLD_LIFE,
   scenery: WORLD_SCENERY,
   districts: WORLD_DISTRICTS,
+  coast: true,
   plaza: { x: 37.5, y: 33.5, r: 4.6 },
   start: { x: 38, y: 35 },
 };
@@ -699,6 +802,7 @@ export function groundAt(t: Tile, world: TownWorld = TOWN_WORLD): Ground | null 
   if (ch === '=') return 'path';
   if (ch === 'o' || ch === 'F') return 'plaza';
   if (ch === '~') return 'water';
+  if (ch === ':' || ch === 'p') return 'sand';
   return 'grass';
 }
 
@@ -708,6 +812,7 @@ export function worldTrees(world: TownWorld = TOWN_WORLD): WorldTree[] {
     for (let x = 0; x < row.length; x++) {
       if (row[x] === 'T') out.push({ x, y, kind: 'round' });
       else if (row[x] === 't') out.push({ x, y, kind: 'pine' });
+      else if (row[x] === 'p') out.push({ x, y, kind: 'palm' });
     }
   });
   return out;

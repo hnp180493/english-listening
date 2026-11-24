@@ -20,6 +20,8 @@ export function treeGeometry(kind: TreeSpot['kind']): BufferGeometry {
       [0.26, 0.4, 1.07],
     ];
     tiers.forEach(([r, h, y], i) => m.add(shapes.cone(r, h, 10), i === 1 ? C.pine : C.pineDeep, { y, ry: i * 0.4 }, { top: C.pine, shade: i * 0.05 }));
+  } else if (kind === 'palm') {
+    palmParts(m);
   } else if (kind === 'bush') {
     m.add(shapes.sphere(0.27, 10, 7), C.leafDeep, { y: 0.2, s: [1, 0.85, 1] }, { top: C.leaf });
     m.add(shapes.sphere(0.2, 10, 7), C.leafDeep, { x: 0.2, y: 0.15, z: 0.08, s: [1, 0.85, 1] }, { top: C.leaf });
@@ -42,6 +44,54 @@ export function treeGeometry(kind: TreeSpot['kind']): BufferGeometry {
     }
   }
   return m.build()!;
+}
+
+/** A palm: a ringed trunk leaning towards +x, a crown of drooping fronds (two greens) and coconuts. About 1.8 tall. */
+function palmParts(m: Merge): void {
+  const H = 1.7;
+  const lean = 0.34;
+  const N = 7;
+  const pt = (t: number): [number, number] => [lean * t * t, H * t];
+  for (let k = 0; k < N; k++) {
+    const [x0, y0] = pt(k / N);
+    const [x1, y1] = pt((k + 1) / N);
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const r0 = 0.15 - 0.07 * (k / N);
+    const r1 = 0.15 - 0.07 * ((k + 1) / N);
+    m.add(shapes.cyl(r1, r0, Math.hypot(dx, dy) * 1.04, 8), k % 2 ? C.palmRing : C.palmTrunk, { x: (x0 + x1) / 2, y: (y0 + y1) / 2, rz: -Math.atan2(dx, dy) }, { ao: k === 0 });
+  }
+  const [tx, ty] = pt(1);
+  const FR = 8;
+  for (let f = 0; f < FR; f++) {
+    const a = (f / FR) * Math.PI * 2 + 0.3;
+    const ca = Math.cos(a);
+    const sa = Math.sin(a);
+    const col = f % 2 ? C.palmLeaf : C.palmLeafDeep;
+    // a frond: leaf-shaped flat blobs along an arc that rises, then bends down
+    let px = 0;
+    let py = 0;
+    let ang = 0.5 - (f % 3) * 0.12;
+    const segs = 4;
+    for (let s = 0; s < segs; s++) {
+      const L = 0.2;
+      const nx = px + Math.cos(ang) * L;
+      const ny = py + Math.sin(ang) * L;
+      const size = 0.13 - s * 0.012;
+      const mx = (px + nx) / 2;
+      const my = (py + ny) / 2;
+      // placed in the frond's own plane (local x outwards, y up), then turned about Y to its direction
+      m.add(shapes.sphere(size, 6, 4), col, { x: tx + ca * mx, y: ty + my + 0.02, z: -sa * mx, ry: a, rz: ang, s: [1.5, 0.16, 0.8] }, { ao: false });
+      px = nx;
+      py = ny;
+      ang -= 0.42;
+    }
+  }
+  m.add(shapes.sphere(0.07, 6, 4), C.palmLeaf, { x: tx, y: ty + 0.04 }, { ao: false });
+  for (let k = 0; k < 3; k++) {
+    const a = k * 2.1 + 0.4;
+    m.add(shapes.sphere(0.06, 6, 5), C.coconut, { x: tx + Math.cos(a) * 0.09, y: ty - 0.07, z: Math.sin(a) * 0.09 }, { ao: false });
+  }
 }
 
 function tuftGeometry(): BufferGeometry {
@@ -92,7 +142,7 @@ export function buildTrees(spots: readonly TreeSpot[], mats: Materials, castShad
   const group = new Group();
   group.name = 'trees';
   const geos: BufferGeometry[] = [];
-  const kinds: TreeSpot['kind'][] = ['round', 'pine', 'bush', 'blossom'];
+  const kinds: TreeSpot['kind'][] = ['round', 'pine', 'bush', 'blossom', 'palm'];
   for (const kind of kinds) {
     const all = spots.filter((s) => s.kind === kind);
     if (all.length === 0) continue;

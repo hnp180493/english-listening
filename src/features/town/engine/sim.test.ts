@@ -1207,7 +1207,7 @@ describe('paths and turns', () => {
         const talk = rng() < 0.4;
         const id = ids[Math.floor(rng() * ids.length)];
         let done = false;
-        const ok = talk ? sim.walkToResident(id, () => (done = true)) : sim.walkToTile({ x: Math.floor(rng() * TOWN_WORLD.size), y: Math.floor(rng() * TOWN_WORLD.size) }, () => (done = true));
+        const ok = talk ? sim.walkToResident(id, () => (done = true)) : sim.walkToTile({ x: TOWN.x + Math.floor(rng() * TOWN.w), y: TOWN.y + Math.floor(rng() * TOWN.d) }, () => (done = true));
         if (!ok) continue;
         // (a walk across the island takes about 21 s at the calm paces: 25 s was the budget at 1.5 / 2.6 tiles/s)
         for (let t = 0; t < 32 && !done; t += 1 / hz) sim.update(1 / hz);

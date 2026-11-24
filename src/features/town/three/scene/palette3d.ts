@@ -10,6 +10,7 @@ export const C = {
   earthDeep: '#9c7354',
   rock: '#a9a3b5',
   sand: '#f3deac',
+  sandDeep: '#e2c690',
   path: '#ead9b8',
   cobble: ['#dcc6a2', '#e9d8b8', '#d2b996', '#e4cfae'] as const,
   plazaA: '#f6e8cf',
@@ -55,6 +56,11 @@ export const C = {
   soil: '#a8764f',
   soilDark: '#8a5d3d',
   crop: '#86cf5c',
+  palmTrunk: '#c4986b',
+  palmRing: '#a87b52',
+  palmLeaf: '#6cc063',
+  palmLeafDeep: '#4aa35a',
+  coconut: '#7a5238',
 } as const;
 
 /** Flower colours scattered on the grass. */

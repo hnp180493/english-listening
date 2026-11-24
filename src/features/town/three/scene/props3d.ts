@@ -3,7 +3,7 @@
 // buys (lamps, flowers, benches, blossom trees, string lights, lilies, a stall, the fountain, balloons, flags) and
 // the town projects (engine/extraDecor.ts positions), all built in code in the town's one style.
 
-import { Matrix4, type BufferGeometry, type ColorRepresentation } from 'three';
+import { ConeGeometry, Matrix4, type BufferGeometry, type ColorRepresentation } from 'three';
 import type { CropStage } from '../../../../core/town/farm';
 import type { DecorationId, DecorSpot, Tile, TownWorld, WorldProp } from '../../../../data/townWorld';
 import { hash2, middleOf } from './coords';
@@ -628,6 +628,192 @@ export function buildProject(id: string, spots: readonly Tile[]): Piece[] {
 
 // ───────────────────────── scenery ─────────────────────────
 
+// ───────────────────────── the coast ─────────────────────────
+
+const turnParts = (p: Parts, ry: number): void => {
+  if (!ry) return;
+  const b = new Matrix4().makeRotationY(ry);
+  for (const m of [p.body, p.bulbs, p.glass, p.water, p.sway]) m.base = b;
+};
+
+/** A lighthouse on a stone plinth (radius ~0.85), about 4.4 tall; the lamp room glows at night. The door looks to +z (the +y side). */
+function lighthouse(p: Parts): void {
+  const m = p.body;
+  const y0 = 0.25;
+  const rBase = 0.62;
+  const rTop = 0.45;
+  const bandH = 0.62;
+  const bands = 5;
+  const rAt = (y: number) => rBase + ((rTop - rBase) * (y - y0)) / (bandH * bands);
+  // the rock the tower stands on
+  m.add(shapes.cyl(0.8, 0.85, y0, 14), C.stoneDark, { y: y0 / 2 });
+  for (let k = 0; k < 7; k++) {
+    const a = (k / 7) * Math.PI * 2 + 0.4;
+    m.add(shapes.blob(0.17 + (k % 3) * 0.04, 1), k % 2 ? C.rock : C.stoneDark, { x: Math.cos(a) * 0.78, y: 0.1, z: Math.sin(a) * 0.78, s: [1.2, 0.7, 1] }, { ao: false });
+  }
+  m.add(shapes.cyl(0.7, 0.74, 0.04, 14), C.stone, { y: y0 + 0.01 }, { ao: false });
+  // the tower: white and red bands
+  for (let k = 0; k < bands; k++) {
+    const ya = y0 + k * bandH;
+    m.add(shapes.cyl(rAt(ya + bandH), rAt(ya), bandH, 14), k % 2 ? C.red : C.white, { y: ya + bandH / 2 }, { ao: k === 0 });
+  }
+  const yTop = y0 + bands * bandH;
+  // door on the +z side, a step and two slit windows
+  const z0 = rAt(y0 + 0.2) - 0.02;
+  m.add(shapes.box(0.34, 0.5, 0.07, 0.03, 1), C.trim, { y: y0 + 0.25, z: z0 });
+  m.add(shapes.box(0.26, 0.42, 0.06, 0.03, 1), C.door, { y: y0 + 0.23, z: z0 + 0.03 });
+  m.add(shapes.sphere(0.022, 6, 4), C.mustard, { x: 0.07, y: y0 + 0.23, z: z0 + 0.065 }, { ao: false });
+  m.add(shapes.box(0.5, 0.06, 0.2, 0.025, 1), C.stone, { y: y0 + 0.03, z: z0 + 0.14 });
+  for (const y of [y0 + 1.2, y0 + 2.2]) {
+    const z = rAt(y) - 0.005;
+    m.add(shapes.box(0.12, 0.26, 0.05, 0.02, 1), C.trim, { y, z });
+    p.glass.add(shapes.box(0.07, 0.2, 0.04, 0.01, 1), C.glass, { y, z: z + 0.01 });
+  }
+  // the gallery: a deck, rail posts and a rail
+  m.add(shapes.cyl(0.6, 0.5, 0.07, 16), C.navy, { y: yTop + 0.035 });
+  m.add(shapes.cyl(0.58, 0.58, 0.02, 16), C.metal, { y: yTop + 0.08 }, { ao: false });
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * Math.PI * 2;
+    m.add(shapes.cyl(0.018, 0.018, 0.2, 5), C.navy, { x: Math.cos(a) * 0.55, y: yTop + 0.19, z: Math.sin(a) * 0.55 }, { ao: false });
+  }
+  m.add(shapes.torus(0.55, 0.018, 16), C.navy, { y: yTop + 0.29, rx: Math.PI / 2 }, { ao: false });
+  // the lamp room: glass drum, four frame posts, the lamp inside (glows at night)
+  const yl = yTop + 0.09;
+  const lh = 0.4;
+  p.glass.add(shapes.cyl(0.27, 0.29, lh, 12), C.glass, { y: yl + lh / 2 });
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
+    m.add(shapes.box(0.035, lh, 0.035, 0.01, 1), C.white, { x: Math.cos(a) * 0.285, y: yl + lh / 2, z: Math.sin(a) * 0.285 }, { ao: false });
+  }
+  p.bulbs.add(shapes.sphere(0.15, 10, 8), C.glow, { y: yl + lh / 2 });
+  // the cap
+  m.add(shapes.cyl(0.36, 0.34, 0.05, 14), C.red, { y: yl + lh + 0.025 }, { ao: false });
+  m.add(shapes.dome(0.33, 14, 6), C.red, { y: yl + lh + 0.05, s: [1, 0.85, 1] }, { ao: false });
+  m.add(shapes.sphere(0.04, 8, 6), C.mustard, { y: yl + lh + 0.05 + 0.33 * 0.85 + 0.03 }, { ao: false });
+}
+
+const HUT_WALLS = [C.sky, C.mint, C.butter, C.pink] as const;
+const HUT_ROOFS = [C.coral, C.teal, C.blue, C.plum] as const;
+
+/** A beach hut on low stilts: pastel planks, a pitched roof, a door and a window on the +z face, a step. */
+function hut(p: Parts, i: number): void {
+  const v = Math.floor(hash2(i, 11, 5) * HUT_WALLS.length) % HUT_WALLS.length;
+  const wall = HUT_WALLS[v];
+  const roof = HUT_ROOFS[(v + 1 + Math.floor(hash2(i, 12, 5) * 3)) % HUT_ROOFS.length];
+  const m = p.body;
+  const k: Kit = { body: m, glass: p.glass, bulbs: p.bulbs, W: 1.44, D: 1.4 };
+  const fl = 0.22;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.add(shapes.cyl(0.045, 0.05, fl, 6), C.woodDark, { x: sx * 0.6, y: fl / 2, z: sz * 0.57 }, { ao: false });
+  m.add(shapes.box(1.58, 0.06, 1.5, 0.02, 1), C.woodLight, { y: fl });
+  const y0 = fl + 0.03;
+  const h = 0.8;
+  walls(k, h, wall, { y0 });
+  // plank lines and corner boards
+  for (let r = 1; r < 5; r++) m.add(shapes.box(k.W + 0.01, 0.012, k.D + 0.01, 0.004, 1), C.trim, { y: y0 + (h * r) / 5 }, { ao: false, shade: -0.02 });
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.add(shapes.box(0.06, h, 0.06, 0.015, 1), C.trim, { x: (sx * k.W) / 2, y: y0 + h / 2, z: (sz * k.D) / 2 }, { ao: false });
+  const f = onFace(k, 'front', 0, y0, 0.01);
+  m.add(shapes.box(0.38, 0.62, 0.05, 0.02, 1), C.trim, rel(f, 0.32, 0.31, 0.01), { ao: false });
+  m.add(shapes.box(0.32, 0.56, 0.05, 0.02, 1), roof, rel(f, 0.32, 0.29, 0.03), { ao: false, shade: -0.05 });
+  m.add(shapes.sphere(0.022, 6, 4), C.mustard, rel(f, 0.2, 0.29, 0.065), { ao: false });
+  windowOn(k, 'front', -0.38, y0 + 0.46, { w: 0.3, h: 0.3 });
+  // a step down to the sand
+  m.add(shapes.box(0.5, 0.1, 0.14, 0.02, 1), C.woodLight, { x: 0.32, y: 0.05, z: k.D / 2 + 0.07 });
+  gableRoof(k, y0 + h, 0.42, roof, { ridge: 'z', wall, over: 0.09 });
+  // a surfboard leaning on the side
+  const sb = hash2(i, 13, 5) > 0.5 ? 1 : -1;
+  m.add(shapes.sphere(0.09, 8, 6), C.white, { x: sb * (k.W / 2 + 0.05), y: y0 + 0.4, z: 0.1, rz: -sb * 0.12, s: [0.3, 4.2, 1] }, { ao: false });
+  m.add(shapes.sphere(0.09, 8, 6), C.coral, { x: sb * (k.W / 2 + 0.065), y: y0 + 0.4, z: 0.1, rz: -sb * 0.12, s: [0.3, 1.2, 0.5] }, { ao: false });
+}
+
+const UMBRELLA_COLS = [C.coral, C.teal, C.mustard] as const;
+
+/** A striped beach umbrella (8 wedges) with a deck chair beside it. */
+function umbrella(p: Parts, i: number): void {
+  const col = UMBRELLA_COLS[Math.floor(hash2(i, 21, 5) * 3) % 3];
+  const m = p.body;
+  // a little mound of sand round the pole
+  m.add(shapes.cyl(0.2, 0.3, 0.12, 12), C.sand, { y: 0.06 }, { ao: false, shade: -0.03 });
+  m.add(shapes.cyl(0.022, 0.026, 1.12, 6), C.woodLight, { y: 0.56 }, { ao: false });
+  for (let k = 0; k < 8; k++) {
+    const wedge = shapes.custom(`umbrellaWedge${k}`, () => new ConeGeometry(0.5, 0.2, 1, 1, false, (k * Math.PI) / 4, Math.PI / 4), true);
+    m.add(wedge, k % 2 ? C.white : col, { y: 1.0 }, { ao: false });
+  }
+  m.add(shapes.sphere(0.03, 6, 4), C.woodDark, { y: 1.12 }, { ao: false });
+  // the deck chair: low frame, striped seat, a tilted back
+  const sd = hash2(i, 22, 5) > 0.5 ? 1 : -1;
+  const x = sd * 0.27;
+  for (const dx of [-1, 1]) {
+    m.add(shapes.box(0.03, 0.03, 0.5, 0.01, 1), C.wood, { x: x + dx * 0.11, y: 0.12, z: 0.02 }, { ao: false });
+    for (const dz of [-0.2, 0.22]) m.add(shapes.cyl(0.015, 0.015, 0.12, 5), C.woodDark, { x: x + dx * 0.11, y: 0.06, z: dz }, { ao: false });
+  }
+  m.add(shapes.box(0.22, 0.025, 0.3, 0.01, 1), C.white, { x, y: 0.14, z: 0.1 }, { ao: false });
+  m.add(shapes.box(0.22, 0.026, 0.1, 0.01, 1), col, { x, y: 0.142, z: 0.1 }, { ao: false });
+  m.add(shapes.box(0.22, 0.025, 0.28, 0.01, 1), C.white, { x, y: 0.26, z: -0.23, rx: 0.9 }, { ao: false });
+  m.add(shapes.box(0.22, 0.027, 0.09, 0.01, 1), col, { x, y: 0.262, z: -0.23, rx: 0.9 }, { ao: false });
+}
+
+/** A rock outcrop: a few overlapping blobs, a little moss on top (the whole thing turned by hash). */
+function boulder(p: Parts, i: number): void {
+  const m = p.body;
+  turnParts(p, hash2(i, 31, 5) * Math.PI * 2);
+  m.add(shapes.blob(0.64, 1), C.rock, { y: 0.44, s: [1.1, 1.3, 1] }, { shade: 0.02 });
+  m.add(shapes.blob(0.4, 1), C.stoneDark, { x: 0.42, y: 0.22, z: 0.14, s: [1.1, 0.85, 1], ry: 0.8 }, { top: C.rock });
+  m.add(shapes.blob(0.36, 1), C.rock, { x: -0.42, y: 0.18, z: -0.25, s: [1.1, 0.75, 1], ry: 2 }, { shade: -0.05 });
+  m.add(shapes.blob(0.3, 1), C.leafDeep, { x: -0.1, y: 1.08, z: 0.06, s: [1.25, 0.45, 1.1] }, { top: C.leaf, ao: false });
+  m.add(shapes.blob(0.2, 1), C.leaf, { x: 0.46, y: 0.45, z: 0.14, s: [1.2, 0.45, 1] }, { ao: false });
+}
+
+/** A small rowing boat lying along local x (turned for 'y'), its rim just above the water; two oars and a stripe. */
+function boat(p: Parts, dir: 'x' | 'y'): void {
+  turnParts(p, dir === 'y' ? -Math.PI / 2 : 0);
+  const m = p.body;
+  const rim = WATER_LEVEL + 0.2;
+  m.add(shapes.dome(0.5, 14, 6), C.woodLight, { y: rim, rx: Math.PI, s: [1.3, 0.6, 0.5] }, { ao: false });
+  m.add(shapes.cyl(0.5, 0.5, 0.02, 14), C.wood, { y: rim - 0.03, s: [1.24, 1, 0.45] }, { ao: false });
+  m.add(shapes.torus(0.5, 0.022, 18), C.woodDark, { y: rim, rx: Math.PI / 2, s: [1.3, 0.5, 1] }, { ao: false });
+  m.add(shapes.torus(0.5, 0.026, 18), C.red, { y: rim - 0.07, rx: Math.PI / 2, s: [1.28, 0.49, 1] }, { ao: false });
+  for (const x of [-0.2, 0.25]) m.add(shapes.box(0.1, 0.03, 0.46, 0.01, 1), C.wood, { x, y: rim - 0.04 }, { ao: false });
+  // the bow and stern points
+  for (const sx of [-1, 1]) m.add(shapes.cone(0.05, 0.12, 6), C.woodDark, { x: sx * 0.66, y: rim + 0.03, rz: (-sx * Math.PI) / 2 }, { ao: false });
+  for (const sz of [-1, 1]) {
+    m.add(shapes.cyl(0.011, 0.011, 0.5, 5), C.woodDark, { x: -0.02, y: rim, z: sz * 0.42, rx: sz * (Math.PI / 2 + 0.3) }, { ao: false });
+    m.add(shapes.box(0.1, 0.012, 0.17, 0.005, 1), C.woodLight, { x: -0.02, y: rim - 0.085, z: sz * 0.66, rx: sz * 0.3 }, { ao: false });
+  }
+}
+
+/** A plank walk on posts from local x = -len/2 (the shore end) to +len/2, seen only; mooring posts and a lamp at the far end. */
+function jetty(p: Parts, len: number, dir: 'x' | 'y'): void {
+  turnParts(p, dir === 'y' ? -Math.PI / 2 : 0);
+  const m = p.body;
+  const w = 0.9;
+  const top = 0.03;
+  const n = Math.max(2, Math.round(len / 0.36));
+  const step = len / n;
+  for (let k = 0; k < n; k++) m.add(shapes.box(step - 0.025, 0.05, w, 0.012, 1), k % 2 ? C.wood : C.woodLight, { x: -len / 2 + step * (k + 0.5), y: top - 0.025 }, { ao: false });
+  for (const s of [-1, 1]) m.add(shapes.box(len, 0.05, 0.05, 0.015, 1), C.woodDark, { y: top - 0.075, z: s * 0.36 }, { ao: false });
+  const posts = Math.max(2, Math.round(len / 1.1) + 1);
+  for (let k = 0; k < posts; k++) {
+    const x = -len / 2 + 0.1 + ((len - 0.2) * k) / (posts - 1);
+    for (const s of [-1, 1]) {
+      // a post from well under the water up to the deck
+      m.add(shapes.cyl(0.045, 0.05, 0.58, 8), C.woodDark, { x, y: top - 0.29 - 0.01, z: s * 0.4 }, { ao: false });
+      // a mooring post here and there, standing above the deck
+      if ((k + (s > 0 ? 1 : 0)) % 3 === 1) {
+        m.add(shapes.cyl(0.05, 0.055, 0.22, 8), C.woodDark, { x, y: top + 0.09, z: s * 0.4 }, { ao: false });
+        m.add(shapes.sphere(0.058, 8, 6), C.woodDark, { x, y: top + 0.21, z: s * 0.4, s: [1, 0.7, 1] }, { ao: false });
+        m.add(shapes.torus(0.05, 0.012, 10), C.trim, { x, y: top + 0.14, z: s * 0.4, rx: Math.PI / 2 }, { ao: false });
+      }
+    }
+  }
+  // a lamp at the far end
+  const lx = len / 2 - 0.15;
+  m.add(shapes.cyl(0.028, 0.036, 0.95, 8), C.navy, { x: lx, y: top + 0.475, z: 0.36 }, { ao: false });
+  m.add(shapes.cone(0.1, 0.09, 10), C.navy, { x: lx, y: top + 1.0, z: 0.36 }, { ao: false });
+  p.bulbs.add(shapes.sphere(0.06, 8, 6), C.glow, { x: lx, y: top + 0.92, z: 0.36 });
+  // a coil of rope on the planks
+  m.add(shapes.torus(0.07, 0.016, 10), C.stoneDark, { x: len / 2 - 0.55, y: top + 0.015, z: -0.2, rx: Math.PI / 2 }, { ao: false });
+}
+
 /**
  * The world's scenery (WORLD_SCENERY): the farm's barn, its well and hay bales, the front gardens' fences and hedges,
  * stones and bushes, the ducks on the lake. The hill is the ground's (terrain). What stands up is as big as its
@@ -728,6 +914,37 @@ export function buildScenery(world: TownWorld): Piece[] {
         m.add(shapes.sphere(0.055, 10, 8), C.white, { x: Math.cos(ry) * 0.1, y: y + 0.13, z: -Math.sin(ry) * 0.1 }, { ao: false });
         m.add(shapes.cone(0.025, 0.07, 6), C.orange, { x: Math.cos(ry) * 0.17, y: y + 0.12, z: -Math.sin(ry) * 0.17, ry, rz: -Math.PI / 2 }, { ao: false });
         out.push({ ...piece('', i, at, p, 0.2, 0.12), bob: true });
+        return;
+      }
+      case 'lighthouse':
+        lighthouse(p);
+        out.push({ ...piece('', i, at, p, 4.45, 0.85), hx: 0.85, hz: 0.85 });
+        return;
+      case 'hut':
+        hut(p, i);
+        out.push({ ...piece('', i, at, p, 1.6), hx: 0.86, hz: 0.86 });
+        return;
+      case 'umbrella':
+        umbrella(p, i);
+        out.push(piece('', i, at, p, 1.15, SCENERY_SIZE.umbrella));
+        return;
+      case 'boulder':
+        boulder(p, i);
+        out.push({ ...piece('', i, at, p, 1.3, SCENERY_SIZE.boulder), hx: 0.85, hz: 0.85 });
+        return;
+      case 'boat': {
+        const along = s.dir === 'y' ? 'y' : 'x';
+        boat(p, along);
+        out.push({ ...piece('', i, at, p, 0.35), bob: true, hx: along === 'x' ? 0.68 : 0.3, hz: along === 'x' ? 0.3 : 0.68 });
+        return;
+      }
+      case 'jetty': {
+        const along = s.dir === 'y' ? 'y' : 'x';
+        const len = Math.max(1, s.len ?? 6);
+        jetty(p, len, along);
+        // `at` is the shore end: the piece stands in the middle
+        const mid2 = { x: at.x + (along === 'x' ? len / 2 : 0), z: at.z + (along === 'y' ? len / 2 : 0) };
+        out.push({ ...piece('', i, mid2, p, 1.1), hx: along === 'x' ? len / 2 : 0.5, hz: along === 'y' ? len / 2 : 0.5 });
         return;
       }
       default:
