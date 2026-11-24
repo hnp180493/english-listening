@@ -4,6 +4,7 @@
 import { RARITIES, RARITY, rarityRank, type LootItem, type LootKind, type Rarity } from '../../../../data/townGame';
 import { EGG_GRANT_LABEL, type EggGrantKind, type Hatch } from '../../../../core/town/eggs';
 import type { TownEggsView } from '../../../../core/town/gameStore';
+import { getLang, tl, tr } from '../../../../i18n';
 
 /** What the panel's one primary button does now: open an egg, buy one, or nothing (short of xu, no egg). */
 export type EggAction = 'hatch' | 'buy' | 'none';
@@ -17,14 +18,15 @@ export function eggAction(eggs: Pick<TownEggsView, 'inHand' | 'canBuy'>): EggAct
 /** "Còn 4 quả nữa…": eggs of this browser until a quý-or-better is certain (the pity rule, EGG_PITY). */
 export function pityText(toPity: number): string {
   if (toPity <= 1) return 'Quả tiếp theo chắc chắn ra món Quý hoặc Huyền thoại.';
-  return `Còn ${toPity} quả nữa là chắc chắn có một món Quý trở lên.`;
+  return tl`Còn ${toPity} quả nữa là chắc chắn có một món Quý trở lên.`;
 }
 
 /** A share as the shop writes it: "60%", "2,5%" (Vietnamese decimal comma), never "0%" for a real chance. */
 export function percent(share: number): string {
   const r = Math.round(share * 1000) / 10;
-  if (r === 0) return share > 0 ? '< 0,1%' : '0%';
-  return `${String(r).replace('.', ',')}%`;
+  const en = getLang() === 'en';
+  if (r === 0) return share > 0 ? (en ? '< 0.1%' : '< 0,1%') : '0%';
+  return en ? `${r}%` : `${String(r).replace('.', ',')}%`;
 }
 
 export interface OddsRow {
@@ -71,9 +73,9 @@ export interface RevealText {
 }
 
 export function revealText(h: Pick<Hatch, 'item' | 'tier' | 'duplicate' | 'xu' | 'pity'>): RevealText {
-  const kindLine = `${KIND_NAME[h.item.kind]} · ${RARITY[h.tier].name}`;
+  const kindLine = `${tr(KIND_NAME[h.item.kind])} · ${tr(RARITY[h.tier].name)}`;
   const note = h.duplicate
-    ? `Bạn có món này rồi, nên nó đổi thành ${h.xu} xu.`
+    ? tl`Bạn có món này rồi, nên nó đổi thành ${h.xu} xu.`
     : h.pity
       ? 'Đủ 10 quả nên chắc chắn ra món quý. Mặc thử trong Tủ đồ.'
       : 'Đã cất vào Tủ đồ.';
@@ -82,7 +84,7 @@ export function revealText(h: Pick<Hatch, 'item' | 'tier' | 'duplicate' | 'xu' |
 
 /** How the label of a "Ấp trứng" / "Mua trứng" button reads. */
 export function hatchLabel(inHand: number): string {
-  return inHand > 1 ? `Ấp trứng (còn ${inHand} quả)` : 'Ấp trứng';
+  return inHand > 1 ? tl`Ấp trứng (còn ${inHand} quả)` : 'Ấp trứng';
 }
 
 /** The show of a hatching, ms from the click: the egg wobbles, cracks, bursts into light, the item appears. */

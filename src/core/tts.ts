@@ -59,6 +59,7 @@ import {
 } from './audioManifest';
 import { CAREFUL_STYLE, CONNECTED_STYLE, slowRate, type SpeechMode } from './playback';
 import { getSettings, useSettings } from './settings';
+import { tl, tr } from '../i18n';
 
 // ───────────────────────────────────────────── browser voices
 
@@ -289,10 +290,12 @@ export function aiVoiceLabel(p: Pick<ProviderSummary, 'kind' | 'label' | 'ttsVoi
 
 /** Voice name of the shipped clips (public/audio, generated once with Gemini Kore). */
 export const SHIPPED_VOICE_LABEL = 'Gemini · Kore (có sẵn)';
+/** Kept in Vietnamese in every mode: the label is saved (checkup `voiceName`) and compared; translate it where shown. */
+const SHIPPED_SUFFIX = ' (có sẵn)';
 
 /** Label of a shipped clip spoken by `voice` ("Gemini · Puck (có sẵn)"); the default voice → SHIPPED_VOICE_LABEL. */
 export function shippedVoiceLabel(voice?: ClipVoice | null): string {
-  return isDefaultClipVoice(voice) ? SHIPPED_VOICE_LABEL : `Gemini · ${voice?.voice.trim()} (có sẵn)`;
+  return isDefaultClipVoice(voice) ? SHIPPED_VOICE_LABEL : `Gemini · ${voice?.voice.trim()}` + SHIPPED_SUFFIX;
 }
 
 /**
@@ -479,7 +482,8 @@ function reportAiFailure(e: unknown, job?: TextJob): void {
     return;
   }
   noticed.add(kind);
-  setVoiceState({ error: msg, notice: VOICE_NOTICE_PREFIX + msg, noticeId: vstate.noticeId + 1 });
+  // the notice is only shown, never saved: built in the current language (an Error of ours is still Vietnamese)
+  setVoiceState({ error: msg, notice: tr(VOICE_NOTICE_PREFIX) + tr(msg), noticeId: vstate.noticeId + 1 });
 }
 
 /**
@@ -490,12 +494,12 @@ export function aiVoicePausedReason(): string | null {
   if (getSettings().voiceEngine !== 'ai') return null;
   const { tts, sig } = ttsSnapshot();
   if (!tts || !breaker || breaker.sig !== sig || Date.now() >= breaker.until) return null;
-  return vstate.error ?? 'Giọng AI đang tạm tắt.';
+  return tr(vstate.error ?? 'Giọng AI đang tạm tắt.');
 }
 
 function reportAiSuccess(): void {
   textFailStreak = 0;
-  const aiNotice = vstate.notice?.startsWith(VOICE_NOTICE_PREFIX) ?? false;
+  const aiNotice = (vstate.notice?.startsWith(VOICE_NOTICE_PREFIX) || vstate.notice?.startsWith(tr(VOICE_NOTICE_PREFIX))) ?? false;
   if (vstate.error || aiNotice) setVoiceState({ error: null, notice: aiNotice ? null : vstate.notice });
 }
 
@@ -939,7 +943,7 @@ function speakAi(ai: ProviderSummary, text: string, opts: SpeakOptions, resolve:
     if (sounding) return;
     // Same provider name as the AI layer's own messages ("Google Gemini …"), at the start of a sentence.
     const name = ai.label?.trim() || SHORT_PROVIDER[ai.kind] || 'AI';
-    fallBack(new AiError('timeout', `${name} phản hồi quá lâu (hơn ${Math.round(AI_PLAY_TIMEOUT_MS / 1000)} giây).`, { provider: ai.kind, retryable: false }));
+    fallBack(new AiError('timeout', tl`${name} phản hồi quá lâu (hơn ${Math.round(AI_PLAY_TIMEOUT_MS / 1000)} giây).`, { provider: ai.kind, retryable: false }));
   }, AI_PLAY_TIMEOUT_MS);
 
   // No signal on purpose: a clip whose playback was stopped or replaced while generating still

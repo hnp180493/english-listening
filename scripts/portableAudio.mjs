@@ -103,6 +103,13 @@ export function syncAudioFolder(srcDir, outAudioDir, files) {
   return syncFolder(srcDir, outAudioDir, files, AUDIO_KIND)
 }
 
+/** The residents' drawn portraits (public/portraits, docs/portrait-prompts.md) in "<out>/portraits", the same way. */
+export const PORTRAIT_LEDGER_FILE = '.nna-portraits.json'
+const PORTRAIT_KIND = { ledger: PORTRAIT_LEDGER_FILE, fileRe: /^[a-z]{1,32}(?:-happy|-sad)?\.webp$/, note: 'Danh sách chân dung do bản portable chép vào; đừng sửa tay.' }
+export function syncPortraitFolder(srcDir, outDir, files) {
+  return syncFolder(srcDir, outDir, files, PORTRAIT_KIND)
+}
+
 /**
  * Removes the town pictures an earlier portable build copied into "<outArtDir>" (the files its ledger lists, then the
  * ledger, then the folder when nothing else is left in it). Anything else in the folder is left alone; without a

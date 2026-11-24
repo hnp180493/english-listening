@@ -3,6 +3,7 @@ import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_RATE, CAREFUL_TITLE, CONNECTED_TIT
 import { Icon } from './Icon';
 import PlayButton from './PlayButton';
 import './ListenPair.css';
+import { tl, tr } from '../i18n';
 
 export interface ListenPairProps {
   /** The standard written text (what the careful button reads). */
@@ -33,7 +34,7 @@ export default function ListenPair({ text, decoded, say, size = 'sm', variant = 
   const fast = asWritten ? { text: writtenText(text, say), mode: undefined, rate } : connectedPlan(text, decoded, say, rate);
   const slow = carefulPlan(text, CAREFUL_RATE);
   return (
-    <div className={['listen-pair', className].filter(Boolean).join(' ')} role="group" aria-label={`Nghe: ${text}`}>
+    <div className={['listen-pair', className].filter(Boolean).join(' ')} role="group" aria-label={tl`Nghe: ${text}`}>
       <PlayButton
         text={fast.text}
         rate={fast.rate}
@@ -42,7 +43,7 @@ export default function ListenPair({ text, decoded, say, size = 'sm', variant = 
         size={size}
         variant={variant}
         title={asWritten ? 'Nghe câu' : CONNECTED_TITLE}
-        ariaLabel={asWritten ? undefined : `Nghe, ${CONNECTED_TITLE.toLowerCase()}`}
+        ariaLabel={asWritten ? undefined : tl`Nghe, ${tr(CONNECTED_TITLE).toLowerCase()}`}
       />
       <PlayButton
         text={slow.text}
@@ -71,7 +72,7 @@ export function RealVoiceLink({ phrase, className }: { phrase: string; className
       href={youglishUrl(phrase)}
       target="_blank"
       rel="noopener noreferrer"
-      title={`Video thật trên YouGlish: “${phrase}” (mở tab mới)`}
+      title={tl`Video thật trên YouGlish: “${phrase}” (mở tab mới)`}
     >
       <Icon icon={ExternalLink} size={14} />
       Nghe người thật nói

@@ -23,6 +23,7 @@ import { PHENOMENON_INFO } from './phenomena';
 import { localDayDiff } from './review/time';
 import { KEYS, loadJSON, onAppWrite, removeKey, saveJSON, STORAGE_PREFIX } from './storage';
 import { PHENOMENA, type DecodeResult, type Phenomenon } from './types';
+import { tr } from '../i18n';
 
 export const CHECKUP_RATE = 1;
 /**
@@ -487,7 +488,8 @@ export function compareAll(results: readonly CheckupResult[]): CheckupComparison
 /** "+12 điểm", "−3 điểm", "không đổi". */
 export function formatDeltaVi(n: number, unit = 'điểm'): string {
   if (!finite(n) || n === 0) return 'không đổi';
-  return `${n > 0 ? '+' : '−'}${Math.abs(Math.round(n))} ${unit}`;
+  const abs = Math.abs(Math.round(n));
+  return `${n > 0 ? '+' : '−'}${abs} ${tr(unit, abs)}`;
 }
 
 // ───────────────────────── results store ─────────────────────────
@@ -742,5 +744,5 @@ export function shortVoiceName(name: string | null | undefined): string | null {
     .trim();
   if (!base) base = name.trim().split(/\s+/)[0];
   if (base.length > 24) base = base.slice(0, 24).trim();
-  return region ? `${base} (${region})` : base;
+  return region ? `${base} (${tr(region)})` : base;
 }

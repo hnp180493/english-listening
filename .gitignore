@@ -29,3 +29,6 @@ portable
 # Audio generator work files (WAVs, logs, batch state)
 .audio-gen/
 art-src/
+
+# drawn portraits before npm run portraits (docs/portrait-prompts.md)
+portraits-src/

@@ -7,6 +7,7 @@ import { speak, stopSpeakingIfOwner, useSpeechPending } from '../core/tts';
 import { LoaderCircle, Play } from 'lucide-react';
 import { Icon } from './Icon';
 import './SpokenSentence.css';
+import { tl, tr } from '../i18n';
 
 export interface SpokenSentenceProps {
   result: DecodeResult;
@@ -70,13 +71,13 @@ export default function SpokenSentence({
         const style: ColorStyle | undefined = color ? { '--ss-color': color } : undefined;
 
         const changed = anns.length > 0;
-        const labels = anns.map((a) => PHENOMENON_INFO[a.type]?.label ?? a.type);
+        const labels = anns.map((a) => tr(PHENOMENON_INFO[a.type]?.label ?? a.type));
         // compare without punctuation: "TV." and "TV" sound the same
         const plain = (s: string) => s.replace(/[^\p{L}\p{N}'\s-]/gu, '').trim().toLowerCase();
         const sameSound = plain(seg.spoken) === plain(seg.written);
         const ariaLabel = [
           seg.written,
-          sameSound ? null : `đọc là ${seg.spoken}`,
+          sameSound ? null : tl`đọc là ${seg.spoken}`,
           labels.length ? labels.join(', ') : null,
         ]
           .filter(Boolean)
@@ -150,9 +151,9 @@ export default function SpokenSentence({
                   setLastPlayed(i);
                   void speak(segmentPlayback(seg) ?? seg.written, { rate: SEGMENT_RATE, owner, mode: 'connected' });
                 }}
-                aria-label={`Nghe "${seg.written}"`}
+                aria-label={tl`Nghe "${seg.written}"`}
                 aria-busy={(pending && lastPlayed === i) || undefined}
-                title={`Nghe "${seg.written}"`}
+                title={tl`Nghe "${seg.written}"`}
               >
                 {pending && lastPlayed === i ? (
                   <Icon icon={LoaderCircle} size={13} className="icon-spin" />

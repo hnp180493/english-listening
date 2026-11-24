@@ -14,6 +14,7 @@ import ListenControls, { CarefulListen } from './ListenControls';
 import { Meaning, ResultActions, Verdict, type Tone } from './ResultParts';
 import { isCoarsePointer, usePlayer } from './usePlayer';
 import { AnnotationCard, PhenomenonChips } from './WhyWrong';
+import { tl } from '../../i18n';
 
 const MAX_BLANK_CHARS = 80;
 
@@ -142,8 +143,8 @@ export default function ClozeExercise({
       <div className="dict-answer">
         <p className="field-label" id="dict-cz-label">
           {allFallback
-            ? `Điền ${blanks.length} chỗ trống: những từ nhỏ bị đọc lướt`
-            : `Điền ${blanks.length} chỗ trống: chỗ âm bị nối, nuốt hoặc biến đổi`}
+            ? tl`Điền ${blanks.length} chỗ trống: những từ nhỏ bị đọc lướt`
+            : tl`Điền ${blanks.length} chỗ trống: chỗ âm bị nối, nuốt hoặc biến đổi`}
         </p>
         <div className="panel dict-cz-panel">
           <p className="dict-cz" lang="en" role="group" aria-labelledby="dict-cz-label">
@@ -183,7 +184,7 @@ export default function ClozeExercise({
                         readOnly={!!outcome}
                         maxLength={MAX_BLANK_CHARS}
                         placeholder={hintShown ? makeHint(splitWords(u.target)) : ''}
-                        aria-label={`Chỗ trống ${k + 1}/${blanks.length}`}
+                        aria-label={tl`Chỗ trống ${k + 1}/${blanks.length}`}
                         aria-invalid={outcome ? !ok : undefined}
                         autoComplete="off"
                         autoCorrect="off"
@@ -246,7 +247,7 @@ export default function ClozeExercise({
             title={verdict}
             sub={
               <>
-                Đúng {outcome.correct}/{outcome.total} chỗ trống
+                {tl`Đúng ${outcome.correct}/${outcome.total} chỗ trống`}
                 {hintShown ? ' · có dùng gợi ý' : ''}
               </>
             }

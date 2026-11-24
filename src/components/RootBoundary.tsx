@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { backupFileName, clearAll, exportBackup, serializeBackup } from '../core/backup';
 import { IconTile } from './Icon';
+import { tr } from '../i18n';
 
 /**
  * Last line of defence around the whole app (the shell included; pages have their own PageBoundary). If even the
@@ -36,9 +37,11 @@ export default class RootBoundary extends Component<{ children: ReactNode }, { e
 
   private reset = () => {
     const ok = window.confirm(
-      this.state.saved
-        ? 'Xóa dữ liệu học trên trình duyệt này rồi mở lại ứng dụng?'
-        : 'Bạn chưa lưu bản sao. Vẫn xóa dữ liệu học trên trình duyệt này rồi mở lại ứng dụng?',
+      tr(
+        this.state.saved
+          ? 'Xóa dữ liệu học trên trình duyệt này rồi mở lại ứng dụng?'
+          : 'Bạn chưa lưu bản sao. Vẫn xóa dữ liệu học trên trình duyệt này rồi mở lại ứng dụng?',
+      ),
     );
     if (!ok) return;
     try {

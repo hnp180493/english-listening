@@ -16,6 +16,7 @@ import { eggAction, GRANT_WAYS, grantCounts, hatchLabel, hatchPhase, HATCH_SHOW,
 import { LootPicture } from './eggs/LootPicture';
 import { TierGem } from './eggs/TierGem';
 import './eggs/eggs.css';
+import { tl, tr } from '../../../i18n';
 
 function reducedMotion(): boolean {
   try {
@@ -97,7 +98,7 @@ export default function EggPanel({ onReward, sound }: ActivityPanelProps) {
     const reveal = () => {
       setPhase('reveal');
       playSfx(text.big ? 'level' : 'first', sound);
-      if (r.hatch.duplicate && r.hatch.xu > 0) onReward({ label: `${r.hatch.item.name}: đã có, đổi thành ${r.hatch.xu} xu`, xu: r.hatch.xu });
+      if (r.hatch.duplicate && r.hatch.xu > 0) onReward({ label: tl`${r.hatch.item.name}: đã có, đổi thành ${r.hatch.xu} xu`, xu: r.hatch.xu });
       later(60, () => primaryRef.current?.focus({ preventScroll: true }));
     };
     if (still) {
@@ -116,13 +117,13 @@ export default function EggPanel({ onReward, sound }: ActivityPanelProps) {
     if (busy) return;
     const r = buyTownEgg();
     if (!r.ok) {
-      setNote(r.reason === 'poor' ? `Còn thiếu ${r.missing} xu. Xu chỉ đến từ việc nghe hiểu ở thị trấn.` : 'Chưa mua được trên trình duyệt này, thử tải lại trang nhé.');
+      setNote(r.reason === 'poor' ? tl`Còn thiếu ${r.missing} xu. Xu chỉ đến từ việc nghe hiểu ở thị trấn.` : 'Chưa mua được trên trình duyệt này, thử tải lại trang nhé.');
       return;
     }
     playSfx('coin', sound);
     setHatch(null);
     setPhase('rest');
-    setNote(r.saved ? `Đã mua một quả trứng (−${eggs.cost} xu).` : 'Không lưu được vào máy này: quả trứng chỉ còn trong lần mở này.');
+    setNote(r.saved ? tl`Đã mua một quả trứng (−${eggs.cost} xu).` : 'Không lưu được vào máy này: quả trứng chỉ còn trong lần mở này.');
   };
 
   const wear = () => {
@@ -145,7 +146,7 @@ export default function EggPanel({ onReward, sound }: ActivityPanelProps) {
     action === 'hatch' ? (
       <button ref={primaryRef} type="button" className="btn btn-primary town-egg-main" onClick={open} disabled={busy}>
         <Icon icon={Sparkles} size={18} />
-        {reveal ? (eggs.inHand > 1 ? `Ấp quả tiếp (còn ${eggs.inHand})` : 'Ấp quả tiếp') : hatchLabel(eggs.inHand)}
+        {reveal ? (eggs.inHand > 1 ? tl`Ấp quả tiếp (còn ${eggs.inHand})` : 'Ấp quả tiếp') : hatchLabel(eggs.inHand)}
       </button>
     ) : (
       <button ref={primaryRef} type="button" className="btn btn-primary town-egg-main" onClick={buy} disabled={busy || action === 'none'}>
@@ -186,7 +187,7 @@ export default function EggPanel({ onReward, sound }: ActivityPanelProps) {
           'Trứng đang nở…'
         ) : eggs.inHand > 0 ? (
           <>
-            Bạn có <strong>{eggs.inHand}</strong> quả trứng chưa mở.
+            Bạn có <strong>{eggs.inHand}</strong> {tr('quả trứng chưa mở.', eggs.inHand)}
           </>
         ) : (
           'Bạn chưa có quả trứng nào.'

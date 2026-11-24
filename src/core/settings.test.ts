@@ -206,6 +206,29 @@ describe('settings across tabs', () => {
     expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ voiceChosen: 'yes' })) ?? '{}')).toEqual({});
   });
 
+  it('the interface language is Vietnamese by default, is saved with a change time and survives a backup', async () => {
+    const { map } = stubWindow();
+    const s = await freshSettings();
+    expect(s.getSettings().lang).toBe('vi');
+    s.updateSettings({ lang: 'en' }, 7000);
+    expect(s.getSettings().lang).toBe('en');
+    expect(JSON.parse(map.get(KEY)!)).toMatchObject({ lang: 'en', changedAt: 7000 });
+    // the same value again is not a change
+    s.updateSettings({ lang: 'en' }, 9000);
+    expect(JSON.parse(map.get(KEY)!).changedAt).toBe(7000);
+
+    const { sanitizeSettingsJSON } = await import('./backup');
+    expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ lang: 'en' })) ?? '{}')).toEqual({ lang: 'en' });
+    expect(JSON.parse(sanitizeSettingsJSON(JSON.stringify({ lang: 'fr' })) ?? '{}')).toEqual({});
+  });
+
+  it('an unknown stored language falls back to Vietnamese', async () => {
+    const { map } = stubWindow();
+    map.set(KEY, JSON.stringify({ lang: 'fr', rate: 0.9 }));
+    const s = await freshSettings();
+    expect(s.getSettings()).toMatchObject({ lang: 'vi', rate: 0.9 });
+  });
+
   it('keeps in-memory changes when storage is blocked', async () => {
     stubWindow({ blocked: true });
     const { updateSettings, getSettings } = await freshSettings();

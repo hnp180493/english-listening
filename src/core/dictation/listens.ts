@@ -1,3 +1,4 @@
+import { tl, tr } from '../../i18n';
 // "Nghe 1 lần là đúng": how many times a dictation sentence was played before the answer was checked. Pure.
 //
 // Real speech is said once, at full speed. Practice lets the learner replay and slow down, which is right for
@@ -88,8 +89,9 @@ export function listensLabelVi(t: ListenTally | null | undefined): string {
   const total = totalListens(t);
   if (!t || total === 0) return '';
   const aided = n(t.slow) + n(t.chunks) > 0;
-  if (total === 1) return aided ? 'nghe 1 lần (chậm)' : 'nghe 1 lần';
-  return `nghe ${total} lần${aided ? ', có nghe chậm' : ''}`;
+  // tr: the label is glued into the result line (" · nghe 1 lần"), so it is translated here
+  if (total === 1) return tr(aided ? 'nghe 1 lần (chậm)' : 'nghe 1 lần');
+  return tl`nghe ${total} lần${aided ? ', có nghe chậm' : ''}`;
 }
 
 // ───────────────────────── what one practice session remembers per sentence ─────────────────────────

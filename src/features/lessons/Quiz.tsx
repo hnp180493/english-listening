@@ -25,11 +25,20 @@ import {
   optionUnit,
   parseGap,
   silentParts,
+  type OptionUnit,
   type QuizOutcome,
   type QuizResponse,
 } from './logic';
 import { useKeyboard } from './useKeyboard';
 import { splitWords } from '../../core/dictation/normalize';
+import { tl, tr } from '../../i18n';
+
+/** The listen-choose prompt as one whole sentence per kind of option, so each has its own English (docs/i18n.md). */
+function listenChooseTitle(unit: OptionUnit): string {
+  if (unit === 'từ') return 'Nghe và chọn từ bạn nghe được';
+  if (unit === 'cụm từ') return 'Nghe và chọn cụm từ bạn nghe được';
+  return 'Nghe và chọn câu bạn nghe được';
+}
 
 /** The listen buttons of a quiz item before answering: "Nghe" + turtle, both in the item's playback mode. */
 function QuizListen({ play }: { play: QuizPlayback }) {
@@ -175,7 +184,7 @@ export default function Quiz({ lesson, onFinish, onExit, embedded = false }: Qui
       <div className="card lessons-quiz-card">
         {!embedded && (
           <p className="meta lessons-quiz-count">
-            Câu {index + 1}/{total}
+            {tl`Câu ${index + 1}/${total}`}
           </p>
         )}
         <ItemView key={index} item={item} order={order} outcome={current} onAnswer={answer} play={play} />
@@ -221,9 +230,7 @@ function ItemView({ item, order, outcome, onAnswer, play }: ItemViewProps) {
     case 'listen-choose': {
       return (
         <>
-          <h2 className="lessons-q-title">
-            Nghe và chọn {optionUnit(item.options)} bạn nghe được
-          </h2>
+          <h2 className="lessons-q-title">{listenChooseTitle(optionUnit(item.options))}</h2>
           {play && <QuizListen play={play} />}
           <Options item={item} order={order} outcome={outcome} onAnswer={onAnswer} english />
         </>
@@ -302,7 +309,7 @@ function Options({ item, order, outcome, onAnswer, english = false, chips = fals
             className={cls}
             disabled={answered}
             onClick={() => onAnswer({ kind: 'choice', index: authored })}
-            aria-label={`${pos + 1}. ${labels[authored]}${state}`}
+            aria-label={`${pos + 1}. ${tr(labels[authored])}${tr(state)}`}
             aria-keyshortcuts={pos < 9 ? String(pos + 1) : undefined}
           >
             <span className="lessons-opt-label" lang={english || chips ? 'en' : undefined}>
@@ -382,7 +389,7 @@ function SilentLetterView({
     <>
       <h2 className="lessons-q-title">{item.prompt ?? 'Chạm vào các chữ câm (viết nhưng không đọc).'}</h2>
       {play && <QuizListen play={play} />}
-      <div className="lessons-letters" role="group" aria-label={`Các chữ cái của từ ${item.word}`} lang="en">
+      <div className="lessons-letters" role="group" aria-label={tl`Các chữ cái của từ ${item.word}`} lang="en">
         {[...item.word].map((ch, i) => {
           if (!tappable.has(i)) {
             return (
@@ -408,7 +415,7 @@ function SilentLetterView({
               type="button"
               className={'lessons-letter' + state}
               aria-pressed={on}
-              aria-label={`${ch}, chữ thứ ${i + 1}${sr}`}
+              aria-label={tl`${ch}, chữ thứ ${i + 1}${sr}`}
               disabled={!!outcome}
               onClick={() => toggle(i)}
             >
@@ -494,7 +501,7 @@ function TypeItemView({
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
-          placeholder={slots > 1 ? `${slots} từ…` : '1 từ…'}
+          placeholder={slots > 1 ? tl`${slots} từ…` : '1 từ…'}
         />
         {!outcome && (
           <>

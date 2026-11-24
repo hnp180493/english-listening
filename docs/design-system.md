@@ -628,7 +628,8 @@ a photo or an illustration does. What that means, and where the exception stops:
   hand-picked twice).
 - **The 3D pictures outside the stage** (portraits, build-panel thumbnails, the egg shop's reveal, the wardrobe)
   are the same models drawn by one shared offscreen renderer onto small canvases, transparent around the subject,
-  set on a token background. Without WebGL they fall back to plain stand-ins (a portrait shows the name's first
+  set on a token background; a resident with a drawn portrait (docs/portrait-prompts.md) shows that picture instead.
+  Without WebGL they fall back to plain stand-ins (a portrait shows the name's first
   letter), and the town page itself keeps working without the world (a calm note and the residents as a list).
 - **Everything around and over the canvas is ordinary chrome**: `town.css` uses tokens only, every class starts
   with `town-`, 13px is still the floor (name tags painted on the canvas are 13px too), one `.btn-primary` per

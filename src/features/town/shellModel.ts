@@ -11,8 +11,9 @@ import type { EmoteKind } from './engine/draw/overlay';
 import type { TownTheme } from './engine/palette';
 import type { Marker, StageState } from './engine/sim';
 import type { SfxName } from './sfx';
+import { tl, tr } from '../../i18n';
 
-export const xu = (n: number): string => `${n} xu`;
+export const xu = (n: number): string => tl`${n} xu`;
 
 /** How many empty lots the town shows as construction sites at once. */
 export const LOTS_ON_OFFER = 3;
@@ -111,9 +112,9 @@ export function suggestedPlace(places: readonly PlaceView[]): PlaceView | null {
  */
 export function talkPrompt(p: Pick<PlaceView, 'place' | 'episode'>, near: boolean): string {
   const who = p.place.resident;
-  if (p.episode?.mode === 'relisten') return `Nghe lại chuyện với ${who}`;
-  if (p.episode) return `${near ? 'Bắt chuyện với' : 'Tới gặp'} ${who} · Tập ${p.episode.order}`;
-  return `${near ? 'Bắt chuyện với' : 'Tới gặp'} ${who}`;
+  if (p.episode?.mode === 'relisten') return tl`Nghe lại chuyện với ${who}`;
+  if (p.episode) return tl`${near ? 'Bắt chuyện với' : 'Tới gặp'} ${who} · Tập ${p.episode.order}`;
+  return `${tr(near ? 'Bắt chuyện với' : 'Tới gặp')} ${who}`;
 }
 
 // ───────────────────────── after an answer ─────────────────────────
@@ -144,7 +145,7 @@ export function typedVerdictOf(outcome: LineOutcome, met: boolean): Verdict {
 
 /** What a wrong pick that was a sound-alike of the line says (core/town/soundAlike): how the two differ by ear. */
 export function soundAlikeNote(label: string): string {
-  return `Nghĩa bạn chọn là của một câu nghe gần giống. Chỗ khác: ${label}.`;
+  return tl`Nghĩa bạn chọn là của một câu nghe gần giống. Chỗ khác: ${label}.`;
 }
 
 /**
@@ -154,7 +155,7 @@ export function soundAlikeNote(label: string): string {
 export function typedMeasureText(t: { n: number; ok: number }): string | null {
   if (!(t.n > 0)) return null;
   const hedge = t.n < 20 ? ' Còn ít lần nên con số này chưa nói lên nhiều.' : '';
-  return `Phần gõ lại cụm vừa nghe là con số gần với khả năng nghe nhất ở đây: bạn gõ đúng ngay ${t.ok} trên ${t.n} lần.${hedge} Xu, danh hiệu và tim là điểm trò chơi, không phải thước đo khả năng nghe.`;
+  return tl`Phần gõ lại cụm vừa nghe là con số gần với khả năng nghe nhất ở đây: bạn gõ đúng ngay ${t.ok} trên ${t.n} lần.${hedge} Xu, danh hiệu và tim là điểm trò chơi, không phải thước đo khả năng nghe.`;
 }
 
 export interface TalkSummary {
@@ -201,10 +202,10 @@ export function talkSummary(results: readonly TownAnswerResult[], met: readonly 
   const total = lineXu + bonus + tasks.reduce((sum, t) => sum + t.reward, 0);
   const title =
     lines > 0 && understood === lines
-      ? `Bạn hiểu hết ${lines} câu ${resident} nói!`
+      ? tl`Bạn hiểu hết ${lines} câu ${resident} nói!`
       : understood === 0
-        ? `Chưa hiểu câu nào ${resident} nói`
-        : `Bạn hiểu ${understood}/${lines} câu ${resident} nói`;
+        ? tl`Chưa hiểu câu nào ${resident} nói`
+        : tl`Bạn hiểu ${understood}/${lines} câu ${resident} nói`;
   return {
     lines,
     understood,
@@ -245,14 +246,14 @@ export function primaryBuy(lots: readonly PlaceView[], decorations: readonly Dec
 
 /** The hidden list's talk button. A lodger (`built` false) is found at the boarding house, not at their empty lot. */
 export function talkLabel(p: Pick<PlaceView, 'place'> & Partial<Pick<PlaceView, 'episode' | 'built'>>): string {
-  const at = `Tới chỗ ${p.place.resident} ở ${p.built === false ? 'nhà trọ' : p.place.name}`;
-  if (p.episode?.mode === 'relisten') return `${at} và nghe lại Tập ${p.episode.order}: ${p.episode.title}`;
-  if (p.episode) return `${at} và nghe Tập ${p.episode.order}: ${p.episode.title}`;
-  return `${at} và bắt chuyện`;
+  const at = tl`Tới chỗ ${p.place.resident} ở ${p.built === false ? 'nhà trọ' : p.place.name}`;
+  if (p.episode?.mode === 'relisten') return tl`${at} và nghe lại Tập ${p.episode.order}: ${p.episode.title}`;
+  if (p.episode) return tl`${at} và nghe Tập ${p.episode.order}: ${p.episode.title}`;
+  return tl`${at} và bắt chuyện`;
 }
 
 export function lotLabel(p: Pick<PlaceView, 'place' | 'cost'>): string {
-  return `Xây ${p.place.name}, ${xu(p.cost)}`;
+  return tl`Xây ${p.place.name}, ${xu(p.cost)}`;
 }
 
 /**
@@ -263,8 +264,8 @@ export function lotLabel(p: Pick<PlaceView, 'place' | 'cost'>): string {
 export function homePerk(p: Pick<PlaceView, 'place' | 'built' | 'homeEpisode'>): string | null {
   if (p.built) return null;
   const who = p.place.resident;
-  if (p.homeEpisode) return `${who} dọn về ở, mở ngay Tập ${p.homeEpisode.order}: ${p.homeEpisode.title}`;
-  return storiesOfPlace(p.place.id).length >= HOME_EPISODE_FROM ? `${who} dọn về ở, có thêm Tập ${HOME_EPISODE_FROM} ở nhà mới` : `${who} dọn từ nhà trọ về ở`;
+  if (p.homeEpisode) return tl`${who} dọn về ở, mở ngay Tập ${p.homeEpisode.order}: ${p.homeEpisode.title}`;
+  return storiesOfPlace(p.place.id).length >= HOME_EPISODE_FROM ? tl`${who} dọn về ở, có thêm Tập ${HOME_EPISODE_FROM} ở nhà mới` : tl`${who} dọn từ nhà trọ về ở`;
 }
 
 /** "1/2" while a task is open; nothing once it is done (the tick says it). */
@@ -274,6 +275,6 @@ export function taskCount(t: Pick<TownTaskView, 'done' | 'goal' | 'reached'>): s
 
 /** The level chip for a screen reader. */
 export function levelLabel(level: TownOverview['level']): string {
-  if (level.nextAt === null || !level.nextTitle) return `Danh hiệu: ${level.title}`;
-  return `Danh hiệu: ${level.title}. Còn ${Math.max(0, level.nextAt - level.xp)} điểm nữa thành ${level.nextTitle}`;
+  if (level.nextAt === null || !level.nextTitle) return tl`Danh hiệu: ${level.title}`;
+  return tl`Danh hiệu: ${level.title}. Còn ${Math.max(0, level.nextAt - level.xp)} điểm nữa thành ${level.nextTitle}`;
 }

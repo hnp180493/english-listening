@@ -13,6 +13,7 @@ import {
   type ListeningSource,
 } from '../../core/listening';
 import { chipSelected, dayLabel, PICKABLE_SOURCES, type EntryForm, type FormErrors } from './listeningModel';
+import { tl } from '../../i18n';
 
 export interface EntryFieldsProps {
   form: EntryForm;
@@ -109,7 +110,7 @@ export default function EntryFields({ form, onChange, errors, chips = false, day
                 type="button"
                 className="chip lis-chip lis-min-chip"
                 aria-pressed={chipSelected(form.minutes, m)}
-                aria-label={`${m} phút`}
+                aria-label={tl`${m} phút`}
                 onClick={() => onChange({ minutes: String(m) })}
               >
                 {m}

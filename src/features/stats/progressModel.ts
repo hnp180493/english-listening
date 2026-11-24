@@ -5,7 +5,8 @@ import type { Phenomenon } from '../../core/types';
 import { localDay, MODULE_LABEL, type Attempt, type ModuleId } from '../../core/stats';
 import { sortLessons, type LessonMeta, type LessonProgress } from '../../core/lessons';
 import type { RouteId } from '../../core/nav';
-import { startOfLocalDay, type MissRate, type WeaknessReport } from './statsModel';
+import { dayMonthLabel, fullDateLabel, monthShortEn, startOfLocalDay, type MissRate, type WeaknessReport } from './statsModel';
+import { getLang, tl, tr } from '../../i18n';
 
 // ---------------------------------------------------------------------------
 // Modules
@@ -96,8 +97,9 @@ export function moduleBreakdown(attempts: readonly Attempt[], now: number): Modu
 // Weeks + trend
 // ---------------------------------------------------------------------------
 
+/** "dd/mm" ("Nov 24" in English). */
 function ddmm(d: Date): string {
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  return dayMonthLabel(d);
 }
 
 /** Local Monday 00:00 of the week containing `ts` (weeks start on Monday; DST-safe). */
@@ -347,7 +349,7 @@ export function activityHeatmap(
       if (count > 0 || archived) activeDays += 1;
       cells.push({
         day,
-        label: `${ddmm(d)}/${d.getFullYear()}`,
+        label: fullDateLabel(d),
         weekday: wd,
         count,
         correct: c?.correct ?? 0,
@@ -359,9 +361,10 @@ export function activityHeatmap(
       cursor.setDate(cursor.getDate() + 1);
     }
     let monthLabel: string | null = null;
-    if (monthStart) monthLabel = `Th${monthStart.getMonth() + 1}`;
+    const monthName = (d: Date) => (getLang() === 'en' ? monthShortEn(d) : `Th${d.getMonth() + 1}`);
+    if (monthStart) monthLabel = monthName(monthStart);
     // First column names its month unless a new month begins right after (labels would collide).
-    else if (w === 0 && monday.getDate() <= 14) monthLabel = `Th${monday.getMonth() + 1}`;
+    else if (w === 0 && monday.getDate() <= 14) monthLabel = monthName(monday);
     columns.push({ key: cells[0].day, monthLabel, cells });
   }
   for (const col of columns) for (const c of col.cells) c.level = c.archived ? 1 : heatLevel(c.count, max);
@@ -377,12 +380,12 @@ export function activityHeatmap(
 
 /** Tooltip / screen-reader text for one heatmap day. */
 export function heatCellText(c: HeatCell): string {
-  const head = `${WEEKDAY_LONG[c.weekday] ?? ''}, ${c.label}`;
-  if (c.future) return `${head}: chưa tới`;
-  if (c.archived) return `${head}: có luyện (không còn số liệu chi tiết)`;
-  if (c.count === 0) return `${head}: không luyện`;
+  const head = `${tr(WEEKDAY_LONG[c.weekday] ?? '')}, ${c.label}`;
+  if (c.future) return tl`${head}: chưa tới`;
+  if (c.archived) return tl`${head}: có luyện (không còn số liệu chi tiết)`;
+  if (c.count === 0) return tl`${head}: không luyện`;
   const pct = Math.round((c.correct / c.count) * 100);
-  return `${head}: ${c.count} lượt, ${pct}% đúng`;
+  return tl`${head}: ${c.count} lượt, ${pct}% đúng`;
 }
 
 /**

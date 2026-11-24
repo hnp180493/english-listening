@@ -83,6 +83,7 @@ import {
 import { recordSessionCheck, session, startSessionRound, type DictFilters } from './session';
 import SessionSummaryCard from './SessionSummary';
 import './dictation.css';
+import { tl, tr } from '../../i18n';
 
 const MODE_INFO: Record<DictMode, { label: string; hint: string }> = {
   normal: { label: 'Cả câu', hint: 'Nghe câu nói tự nhiên, gõ lại từng chữ rồi xem vì sao mình nghe sai.' },
@@ -602,7 +603,7 @@ export default function DictationPage() {
         return emptyCard(
           SearchX,
           'Không có câu đến hạn nào khớp bộ lọc',
-          `Bạn còn ${dueTotal} câu đến hạn ở các mức độ / hiện tượng khác.`,
+          tl`Bạn còn ${dueTotal} câu đến hạn ở các mức độ / hiện tượng khác.`,
           <button type="button" className="btn btn-primary" onClick={resetFilters}>
             Bỏ lọc
           </button>,
@@ -612,7 +613,7 @@ export default function DictationPage() {
       return emptyCard(
         CalendarCheck,
         'Chưa đến lúc ôn câu nào',
-        nextAt === null ? 'Bạn đã ôn hết các câu đến hạn.' : `Câu tiếp theo đến hạn ${formatDueVi(nextAt, review.now)}.`,
+        nextAt === null ? 'Bạn đã ôn hết các câu đến hạn.' : tl`Câu tiếp theo đến hạn ${formatDueVi(nextAt, review.now)}.`,
         <>
           <button type="button" className="btn btn-primary" onClick={() => applyFilters({ ...filters, mode: 'normal' })}>
             Chép câu mới
@@ -646,7 +647,7 @@ export default function DictationPage() {
     return emptyCard(
       SearchX,
       'Không có câu nào khớp bộ lọc này',
-      (mode === 'cloze' ? 'Chế độ Điền từ chỉ dùng câu có chỗ nối âm. ' : '') + 'Thử bỏ bớt điều kiện lọc.',
+      (mode === 'cloze' ? tr('Chế độ Điền từ chỉ dùng câu có chỗ nối âm. ') : '') + tr('Thử bỏ bớt điều kiện lọc.'),
       <button type="button" className="btn btn-primary" onClick={resetFilters}>
         Xem tất cả câu
       </button>,
@@ -667,14 +668,14 @@ export default function DictationPage() {
         aria-valuemin={0}
         aria-valuemax={goal.goal}
         aria-valuenow={goal.done}
-        aria-label={`Mục tiêu phiên: ${goal.done}/${goal.goal} câu`}
+        aria-label={tl`Mục tiêu phiên: ${goal.done}/${goal.goal} câu`}
       >
         <span style={{ width: `${goal.pct}%` }} />
       </div>
       {/* No "0/10" before the first answer: the target alone. Named "Phiên này" so it is not read as Home's
           daily "Đã chép x/10" (a different count). */}
       <span className="dict-goal-v" aria-hidden="true">
-        Phiên này: {goal.done > 0 ? `${goal.done}/${goal.goal}` : `${goal.goal} câu`}
+        Phiên này: {goal.done > 0 ? `${goal.done}/${goal.goal}` : tl`${goal.goal} câu`}
       </span>
     </div>
   );
@@ -763,7 +764,7 @@ export default function DictationPage() {
             type="button"
             className="btn btn-ghost btn-sm btn-icon dict-focus-x"
             onClick={() => applyFilters({ ...filters, focus: null })}
-            aria-label={`Bỏ lọc ${focusInfo.label}`}
+            aria-label={tl`Bỏ lọc ${focusInfo.label}`}
             title="Bỏ lọc"
           >
             <Icon icon={X} size={16} />

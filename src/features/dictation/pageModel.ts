@@ -11,6 +11,7 @@ import { availableAt, type Grade } from '../../core/srs';
 import { KEYS, STORAGE_PREFIX } from '../../core/storage';
 import { MINE_TOPIC } from './constants';
 import type { DictFilters } from './session';
+import { tl } from '../../i18n';
 
 /** What the page shows: the filters plus the topic select (topic only applies to normal / cloze). */
 export interface DictView {
@@ -114,7 +115,7 @@ export function reviewNoteVi(r: Pick<ApplyResult, 'current' | 'reason'> | null |
   if (r.reason === 'over-budget') return 'Bạn đã nhớ câu này. Hôm nay Ôn tập đã đủ mục mới.';
   const shown = ['enrolled', 'graded', 'lapsed', 'pulled-in', 'skipped-not-due'];
   if (!r.current || !shown.includes(r.reason)) return null;
-  return `Câu này sẽ quay lại trong Ôn tập ${formatDueVi(availableAt(r.current), now)}.`;
+  return tl`Câu này sẽ quay lại trong Ôn tập ${formatDueVi(availableAt(r.current), now)}.`;
 }
 
 /** Stored dictation progress (empty when missing or unreadable). */

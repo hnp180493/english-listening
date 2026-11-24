@@ -3,6 +3,7 @@
 // (decoder annotation count) so the level can be estimated without a hard dependency here.
 
 import type { Level, Phenomenon, Sentence } from '../types';
+import { tl } from '../../i18n';
 
 export const CUSTOM_TOPIC = 'Câu của tôi';
 export const MAX_CUSTOM = 500;
@@ -112,13 +113,21 @@ export function validateCustomText(
   return null;
 }
 
-export const CUSTOM_ERROR_TEXT: Record<CustomError, string> = {
+/**
+ * The message for each error. The plain strings are translated where they are shown; the two with a number are
+ * getters, so their tl runs when the message is read (in the interface language of that moment), not at load.
+ */
+export const CUSTOM_ERROR_TEXT: Readonly<Record<CustomError, string>> = {
   empty: 'Hãy nhập câu tiếng Anh.',
   'no-letters': 'Câu cần có chữ cái tiếng Anh.',
   'not-english': 'Câu này không giống tiếng Anh (có dấu tiếng Việt hoặc chữ khác) — ô trên dành cho câu tiếng Anh, nghĩa tiếng Việt ghi ở ô dưới.',
-  'too-long': `Câu quá dài (tối đa ${MAX_TEXT_CHARS} ký tự). Hãy tách thành câu ngắn hơn.`,
+  get 'too-long'() {
+    return tl`Câu quá dài (tối đa ${MAX_TEXT_CHARS} ký tự). Hãy tách thành câu ngắn hơn.`;
+  },
   duplicate: 'Câu này đã có trong danh sách.',
-  full: `Danh sách đã đủ ${MAX_CUSTOM} câu. Hãy xóa bớt câu cũ.`,
+  get full() {
+    return tl`Danh sách đã đủ ${MAX_CUSTOM} câu. Hãy xóa bớt câu cũ.`;
+  },
 };
 
 /** "u-<timestamp36>", bumped until unique. */

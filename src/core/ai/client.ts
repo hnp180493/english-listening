@@ -13,6 +13,7 @@ import { createMemoryTtsCache, createTtsCache, ttsCacheKey, type CachedAudio, ty
 import type { AiConfig, Capabilities, ChatMessage, JsonSchema, ModelInfo, ProviderConfig, TestResult, TextRequest, TextResult, TtsResult } from './types';
 import { isOverDailyCap, recordAiUsage, subscribeAiUsage } from './usage';
 import { wavDurationSec } from './wav';
+import { tl, tr } from '../../i18n';
 
 export const DEFAULT_TEXT_TIMEOUT_MS = 30_000;
 export const DEFAULT_TTS_TIMEOUT_MS = 60_000;
@@ -156,10 +157,10 @@ function resolveProvider(purpose: 'text' | 'tts', id?: string): ProviderConfig {
         : purpose === 'tts'
           ? 'không hỗ trợ đọc thành giọng nói'
           : 'chưa chọn model';
-    throw new AiError('no-provider', `Nhà cung cấp AI "${named.label}" ${why}. Kiểm tra trong Cài đặt → AI.`, { provider: named.kind, retryable: false });
+    throw new AiError('no-provider', tl`Nhà cung cấp AI "${named.label}" ${why}. Kiểm tra trong Cài đặt → AI.`, { provider: named.kind, retryable: false });
   }
   if (purpose === 'tts' && config.providers.some((x) => isUsable(x, 'text'))) {
-    throw new AiError('no-provider', 'Chưa có nhà cung cấp AI nào hỗ trợ đọc thành giọng nói (ví dụ Gemini hoặc OpenAI). Thêm trong Cài đặt → AI.', { retryable: false });
+    throw new AiError('no-provider', tr('Chưa có nhà cung cấp AI nào hỗ trợ đọc thành giọng nói (ví dụ Gemini hoặc OpenAI). Thêm trong Cài đặt → AI.'), { retryable: false });
   }
   throw new AiError('no-provider', messageFor('no-provider', { label: 'AI' }), { retryable: false });
 }
@@ -167,7 +168,7 @@ function resolveProvider(purpose: 'text' | 'tts', id?: string): ProviderConfig {
 function checkDailyCap(): void {
   const cap = loadAiConfig().dailyRequestCap;
   if (isOverDailyCap(cap)) {
-    throw new AiError('quota', `Đã đạt giới hạn ${cap} yêu cầu AI mỗi ngày mà bạn tự đặt trong Cài đặt → AI. Tăng giới hạn hoặc thử lại vào ngày mai.`, { retryable: false });
+    throw new AiError('quota', tl`Đã đạt giới hạn ${cap} yêu cầu AI mỗi ngày mà bạn tự đặt trong Cài đặt → AI. Tăng giới hạn hoặc thử lại vào ngày mai.`, { retryable: false });
   }
 }
 
@@ -298,7 +299,7 @@ export async function aiJson<T>(req: AiJsonRequest, opts: AiJsonOptions = {}): P
   const errs2 = problemsOf(v2, original, opts.validate);
   if (!errs2.length) return v2 as T;
   const p = resolveProvider('text', opts.provider);
-  throw makeError('bad-response', { label: p.label, provider: p.kind, detail: `JSON không hợp lệ: ${errs2.slice(0, 3).join('; ')}` }, { retryable: false });
+  throw makeError('bad-response', { label: p.label, provider: p.kind, detail: tl`JSON không hợp lệ: ${errs2.slice(0, 3).join('; ')}` }, { retryable: false });
 }
 
 const CACHE_TIMEOUT = Symbol('cache-timeout');
@@ -404,7 +405,7 @@ function joinFlight(flight: Flight, signal: AbortSignal | undefined, p: Provider
 /** Text → speech through the TTS provider, served from the cache when the same clip was made before. */
 export async function aiSpeak(text: string, opts: AiSpeakOptions = {}): Promise<AiSpeakResult> {
   const clean = text.trim();
-  if (!clean) throw new AiError('bad-request', 'Không có nội dung để đọc.', { retryable: false });
+  if (!clean) throw new AiError('bad-request', tr('Không có nội dung để đọc.'), { retryable: false });
   const p = resolveProvider('tts', opts.provider);
   if (opts.signal?.aborted) throw makeError('aborted', { label: p.label, provider: p.kind }, { retryable: false });
   const d = defaultsFor(p.kind);
@@ -427,7 +428,7 @@ export async function aiSpeak(text: string, opts: AiSpeakOptions = {}): Promise<
   if (!flight) {
     checkDailyCap();
     const tts = getAdapter(p.kind).tts;
-    if (!tts) throw new AiError('no-provider', `${p.label} không hỗ trợ đọc thành giọng nói.`, { provider: p.kind, retryable: false });
+    if (!tts) throw new AiError('no-provider', tl`${p.label} không hỗ trợ đọc thành giọng nói.`, { provider: p.kind, retryable: false });
     const timeoutMs = opts.timeoutMs ?? DEFAULT_TTS_TIMEOUT_MS;
     const ctrl = new AbortController();
     const run = async (): Promise<TtsResult> => {
@@ -499,7 +500,7 @@ function targetConfig(target: string | ProviderConfig): ProviderConfig | null {
 /** "Kiểm tra kết nối" button. Never throws. Accepts an unsaved config (from the settings form). */
 export async function testProvider(target: string | ProviderConfig, signal?: AbortSignal): Promise<TestResult> {
   const p = targetConfig(target);
-  if (!p) return { ok: false, code: 'no-provider', message: 'Không tìm thấy nhà cung cấp AI này.' };
+  if (!p) return { ok: false, code: 'no-provider', message: tr('Không tìm thấy nhà cung cấp AI này.') };
   try {
     return await withTimeout((s) => getAdapter(p.kind).testConnection(p, s), DEFAULT_TEST_TIMEOUT_MS, signal, p, p.model);
   } catch (e) {
@@ -511,7 +512,7 @@ export async function testProvider(target: string | ProviderConfig, signal?: Abo
 /** Models the provider offers (for a picker). Throws AiError. */
 export async function listProviderModels(target: string | ProviderConfig, signal?: AbortSignal): Promise<ModelInfo[]> {
   const p = targetConfig(target);
-  if (!p) throw new AiError('no-provider', 'Không tìm thấy nhà cung cấp AI này.', { retryable: false });
+  if (!p) throw new AiError('no-provider', tr('Không tìm thấy nhà cung cấp AI này.'), { retryable: false });
   const list = getAdapter(p.kind).listModels;
   if (!list) return [];
   return withRetry(() => withTimeout((s) => list(p, s), DEFAULT_TEXT_TIMEOUT_MS, signal, p), 1, signal);

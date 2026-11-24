@@ -17,6 +17,7 @@ import { parseMark, parseMd, type MdSpan } from '../../lessons/logic';
 import type { Resolved } from '../resolve';
 import { markWordIn, wordAudio, wordPlan, type WordPlan } from '../wordModel';
 import type { ItemBaseProps } from './types';
+import { getLang, tl, tr } from '../../../i18n';
 
 export interface WordItemProps extends ItemBaseProps {
   item: Extract<Resolved, { kind: 'word' }>;
@@ -158,9 +159,15 @@ function ListenView({ source, plan, onAnswer, onNext }: ListenViewProps) {
         <div className="rev-word-front">
           <h2 className="rev-word-prompt">
             {reading ? (
-              <>
-                Từ <strong lang="en">{source.item.word}</strong> trong câu bạn nghe đọc thế nào?
-              </>
+              getLang() === 'en' ? (
+                <>
+                  How is <strong lang="en">{source.item.word}</strong> said in the sentence you heard?
+                </>
+              ) : (
+                <>
+                  Từ <strong lang="en">{source.item.word}</strong> trong câu bạn nghe đọc thế nào?
+                </>
+              )
             ) : context ? (
               'Nghe câu. Từ nào dưới đây có trong câu?'
             ) : (
@@ -260,7 +267,7 @@ function previews(state: CardState | undefined, id: string, now: number): Record
   const out = {} as Record<Grade, string>;
   for (const g of GRADES) {
     const next = gradeAuto(base, g, now);
-    out[g] = next.interval >= 1 ? formatDaysVi(next.interval) : `${Math.max(1, Math.round((next.due - now) / 60_000))} phút`;
+    out[g] = next.interval >= 1 ? formatDaysVi(next.interval) : tl`${Math.max(1, Math.round((next.due - now) / 60_000))} phút`;
   }
   return out;
 }
@@ -357,7 +364,7 @@ function ReadView({ source, state, context, onGrade, onNext }: ReadViewProps) {
                     type="button"
                     className={`drill-grade is-${g}`}
                     onClick={() => choose(g)}
-                    aria-label={`${GRADE_LABEL[g]}${when ? `, gặp lại sau ${when[g]}` : ''}`}
+                    aria-label={`${tr(GRADE_LABEL[g])}${when ? tl`, gặp lại sau ${when[g]}` : ''}`}
                     aria-keyshortcuts={String(i + 1)}
                   >
                     <span className="drill-grade-label">{GRADE_LABEL[g]}</span>
@@ -388,7 +395,8 @@ function Spans({ spans }: { spans: MdSpan[] }) {
 }
 
 function Story({ md }: { md: string }) {
-  const blocks = useMemo(() => parseMd(md), [md]);
+  // translated before parsing: the dictionary's key is the whole story, never a parsed piece of it
+  const blocks = useMemo(() => parseMd(tr(md)), [md]);
   return (
     <div className="rev-word-story-body">
       {blocks.map((b, i) =>
@@ -457,7 +465,7 @@ function WordReveal({ source, storyOpen }: { source: WordSource; storyOpen: bool
       {item.note && <p className="rev-word-note">{item.note}</p>}
       {item.why &&
         (storyOpen ? (
-          <section className="panel rev-word-story" aria-label={`Chuyện của từ ${item.word}`}>
+          <section className="panel rev-word-story" aria-label={tl`Chuyện của từ ${item.word}`}>
             <Story md={item.why} />
           </section>
         ) : (

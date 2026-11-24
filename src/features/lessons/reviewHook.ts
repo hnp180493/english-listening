@@ -7,6 +7,7 @@ import { gradeLessonScore } from '../../core/review/grading';
 import { makeCardId } from '../../core/review/ids';
 import { formatDueVi } from '../../core/review/time';
 import type { ApplyReason, CardId, ReviewCard } from '../../core/review/types';
+import { tl } from '../../i18n';
 
 export interface LessonReviewCall {
   id: CardId; // lesson:<lessonId>
@@ -57,5 +58,5 @@ export function lessonReviewNote(
 ): string | undefined {
   if (!r || !SCHEDULED.has(r.reason) || !r.current || r.current.suspended) return undefined;
   if (r.current.interval >= MATURE_DAYS) return 'Bạn đã nhớ chắc bài này, Ôn tập sẽ không hỏi lại nữa.';
-  return `Bài này sẽ quay lại trong Ôn tập ${formatDueVi(availableAt(r.current), now)}.`;
+  return tl`Bài này sẽ quay lại trong Ôn tập ${formatDueVi(availableAt(r.current), now)}.`;
 }

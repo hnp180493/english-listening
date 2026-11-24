@@ -12,6 +12,7 @@
     "test": "vitest run",
     "audio:inventory": "node scripts/audio-inventory.mjs",
     "audio:generate": "node scripts/generate-audio.mjs",
+    "portraits": "node scripts/portraits.mjs",
     "audio:test": "node --test scripts/generate-audio.test.mjs"
   },
   "dependencies": {

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import { Icon } from './Icon';
 import Popover from './Popover';
+import { tl } from '../i18n';
 
 export interface FilterButtonProps {
   /** Number of filters that differ from their default; shown as an accent count when > 0. */
@@ -29,7 +30,7 @@ export default function FilterButton({
     <Popover
       className={'filter-button' + (className ? ' ' + className : '')}
       triggerClassName="btn btn-ghost btn-sm"
-      triggerLabel={active > 0 ? `${label}, đang bật ${active}` : undefined}
+      triggerLabel={active > 0 ? tl`${label}, đang bật ${active}` : undefined}
       trigger={
         <>
           <Icon icon={SlidersHorizontal} size={15} />

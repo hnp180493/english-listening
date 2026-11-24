@@ -154,12 +154,16 @@ export function paint(st: Studio, target: HTMLCanvasElement): boolean {
   r.toneMappingExposure = 1;
   const tint = nightTint();
   if (tint) setNightTint(0);
+  // a model put in the studio only to compile its shaders (portrait.ts warmPortraitShaders) is never in a picture
+  const hidden = st.scene.children.filter((o) => o.userData.warmOnly && o.visible);
+  for (const o of hidden) o.visible = false;
   try {
     r.render(st.scene, st.camera);
   } catch {
     return false;
   } finally {
     if (tint) setNightTint(tint);
+    for (const o of hidden) o.visible = true;
   }
   ctx.drawImage(cv, 0, cv.height - h, w, h, 0, 0, w, h);
   return true;

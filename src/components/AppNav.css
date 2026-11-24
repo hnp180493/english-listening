@@ -234,7 +234,11 @@
     border-right: 1px solid var(--hairline);
     scrollbar-width: thin;
   }
-  .nav-sidebar > .nav-brand {
+  .nav-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 0 6px;
   }
   .nav-topbar,
@@ -281,6 +285,37 @@
 .nav-menu-btn:focus-visible,
 .nav-close-btn:focus-visible {
   outline-offset: -2px;
+}
+
+/* Language switch (sidebar head, mobile top bar): the code of the language it switches to. */
+.nav-lang {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: none;
+  min-width: 44px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+.nav-lang:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+}
+.nav-topbar .nav-lang {
+  height: 44px;
+  margin-left: auto;
+  border-color: transparent;
 }
 
 /* ───────── Drawer ───────── */

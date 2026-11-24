@@ -39,6 +39,7 @@ import { useClock } from '../listening/useClock';
 import { formatDateVi, greeting, listenRowText, parseOnboarding, pickOfTheDay, splitPlan, streakLabel } from './homeModel';
 import Onboarding from './Onboarding';
 import './home.css';
+import { tl, tr } from '../../i18n';
 
 const PLAN_ICON: Record<PlanItem['id'], LucideIcon> = {
   review: History,
@@ -116,7 +117,7 @@ function TodayCard({
     <section className="card home-today" aria-labelledby="home-today-h">
       <div className="home-today-head">
         <h2 id="home-today-h">Hôm nay</h2>
-        <span className="meta">{attempts > 0 ? `${attempts}/${goal} lượt` : `Mục tiêu ${goal} lượt`}</span>
+        <span className="meta">{attempts > 0 ? tl`${attempts}/${goal} lượt` : tl`Mục tiêu ${goal} lượt`}</span>
       </div>
       {attempts > 0 && (
         <div
@@ -166,12 +167,12 @@ function TodayCard({
           {done.length > 0 && (
             <span className="meta home-plan-done">
               <Icon icon={Check} size={16} />
-              {open.length === 0 ? 'Đã xong mọi việc hôm nay' : `${done.length} việc đã xong`}
+              {open.length === 0 ? 'Đã xong mọi việc hôm nay' : tl`${done.length} việc đã xong`}
             </span>
           )}
           {hidden > 0 && (
             <button type="button" className="btn btn-ghost btn-sm home-plan-more" onClick={() => setShowAll(true)}>
-              Xem thêm {hidden} việc
+              {tl`Xem thêm ${hidden} việc`}
             </button>
           )}
         </div>
@@ -215,7 +216,7 @@ function ListenRow({ now }: { now: number }) {
   if (!line.show) return null;
   const text = listenRowText(line);
   return (
-    <a className="home-plan-item home-listen" href={hrefFor(line.route)} aria-label={`${text.title}. ${text.detail ?? ''} ${text.action}`.replace(/\s+/g, ' ').trim()}>
+    <a className="home-plan-item home-listen" href={hrefFor(line.route)} aria-label={`${tr(text.title)}. ${tr(text.detail ?? '')} ${tr(text.action)}`.replace(/\s+/g, ' ').trim()}>
       <span className="home-plan-lead" aria-hidden="true">
         <Icon icon={line.done ? Check : Headphones} size={18} />
       </span>
@@ -239,7 +240,7 @@ function WeakestCard({ stats }: { stats: ReturnType<typeof useLiveStats> }) {
         Điểm yếu nhất: {info.label}
       </h2>
       <p className="meta home-weak-line">
-        Nghe sót {weak.missed}/{weak.seen} lần gặp
+        {tl`Nghe sót ${weak.missed}/${weak.seen} lần gặp`}
       </p>
       <p className="home-weak-example">
         <span lang="en">{info.example.written}</span>
@@ -358,7 +359,7 @@ export default function HomePage() {
   return (
     <div className="stack-lg page-browse home">
       <PageHeader
-        title={`${greeting(hour)}!`}
+        title={`${tr(greeting(hour))}!`}
         subtitle={formatDateVi(now)}
         actions={
           streak > 0 ? (

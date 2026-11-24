@@ -5,6 +5,7 @@ import { PHENOMENON_INFO } from '../../core/phenomena';
 import { PhDot } from '../../components/PhTag';
 import SpeakIconButton from '../lessons/SpeakIconButton';
 import { naturalRate } from '../../core/playback';
+import { getLang, tl } from '../../i18n';
 
 type ColorStyle = CSSProperties & { '--dec-color'?: string };
 
@@ -32,7 +33,8 @@ export function AnnotationCard({ annotation: a, selected, showIpa, onSelect, as 
       <button type="button" className="dec-ann-main" onClick={() => onSelect(a.id)} aria-pressed={selected}>
         <span className="dec-ann-head">
           {info && <PhDot p={a.type} />}
-          <span className="dec-ann-tag" title={info?.en}>
+          {/* the English term as a tooltip; in English mode the label already is that term */}
+          <span className="dec-ann-tag" title={getLang() === 'en' ? undefined : info?.en}>
             {info?.label ?? a.type}
           </span>
         </span>
@@ -53,7 +55,7 @@ export function AnnotationCard({ annotation: a, selected, showIpa, onSelect, as 
       </button>
       {speech !== null && (
         <div className="dec-ann-play">
-          <SpeakIconButton text={speech ?? a.original} rate={naturalRate()} mode="connected" icon={Volume2} label={`Nghe "${a.original}"`} />
+          <SpeakIconButton text={speech ?? a.original} rate={naturalRate()} mode="connected" icon={Volume2} label={tl`Nghe "${a.original}"`} />
         </div>
       )}
     </Tag>

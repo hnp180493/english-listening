@@ -4,6 +4,7 @@
 import { ACHIEVEMENTS, TOWN_PROJECTS, type TownMetric } from '../../../../data/townGame';
 import type { AchievementView, ProjectView } from '../../../../core/town/unlocks';
 import type { TownCelebration } from '../../../../core/town/store';
+import { getLang, tl, tr } from '../../../../i18n';
 
 /** What each project's decoration is, in Vietnamese (engine/extraDecor.ts draws it). */
 export const DECORATION_NAME: Readonly<Record<string, string>> = {
@@ -47,7 +48,7 @@ const UNIT: Readonly<Record<TownMetric, string>> = {
 /** "37 / 100 câu" (the value never shown above the target). */
 export function progressText(v: Pick<AchievementView | ProjectView, 'value' | 'target'>, metric: TownMetric): string {
   const value = Math.min(v.value, v.target);
-  return `${value} / ${v.target} ${UNIT[metric]}`;
+  return `${value} / ${v.target} ${tr(UNIT[metric], v.target)}`;
 }
 
 export function metricOf(id: string): TownMetric | undefined {
@@ -116,6 +117,7 @@ export function albumChains<T extends ChainItem>(list: readonly T[]): AlbumChain
 /** A date as the album shows it ("14/11/2026"), local time. */
 export function shortDate(at: number): string {
   const d = new Date(at);
+  if (getLang() === 'en') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
 }
 
@@ -131,7 +133,7 @@ export function celebrationView(c: TownCelebration): CelebrationView {
   if (c.kind === 'project') {
     const deco = decorationOfProject(c.id);
     const name = deco ? DECORATION_NAME[deco] : undefined;
-    if (name) lines.push(`Thị trấn có thêm ${name}, ${DECORATION_WHERE[deco!]}.`);
+    if (name) lines.push(tl`Thị trấn có thêm ${name}, ${DECORATION_WHERE[deco!]}.`);
   }
   if (c.kind === 'achievement' || c.kind === 'project') lines.push('Đội danh hiệu trong Tủ đồ.');
   if (c.kind === 'egg') lines.push('Mở ở Tiệm trứng.');

@@ -27,6 +27,7 @@ import {
   type Understood,
 } from '../../core/listening';
 import { localDay } from '../../core/stats';
+import { getLang, tl, tr } from '../../i18n';
 
 /** Days of history the "Gần đây" list shows. */
 export const RECENT_DAYS = 30;
@@ -41,6 +42,8 @@ export function dayLabel(day: string, today: string): string {
   if (day === addDays(today, -1)) return 'Hôm qua';
   if (!isDay(day)) return day;
   const [y, m, d] = day.split('-').map(Number);
+  // English mode: "Tue, Nov 3".
+  if (getLang() === 'en') return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const wd = WEEKDAY[new Date(y, m - 1, d).getDay()];
   return `${wd}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
 }
@@ -91,7 +94,7 @@ export function minutesError(raw: string): string | null {
   const n = Number(t.replace(',', '.'));
   if (!Number.isFinite(n)) return 'Số phút phải là một con số.';
   if (Math.round(n) < 1) return 'Ít nhất 1 phút.';
-  if (Math.round(n) > MAX_MINUTES) return `Tối đa ${MAX_MINUTES} phút (${MAX_MINUTES / 60} giờ) cho một lần ghi.`;
+  if (Math.round(n) > MAX_MINUTES) return tl`Tối đa ${MAX_MINUTES} phút (${MAX_MINUTES / 60} giờ) cho một lần ghi.`;
   return null;
 }
 
@@ -133,14 +136,16 @@ const SOURCE_SHORT: Partial<Record<ListeningEntry['source'], string>> = { app: '
  */
 export function entryMetaParts(e: ListeningEntry, today: string): string[] {
   const parts = [dayLabel(e.day, today), SOURCE_SHORT[e.source] ?? SOURCE_LABEL[e.source]];
-  if (e.understood) parts.push(`Hiểu ${UNDERSTOOD_LABEL[e.understood]}`);
+  if (e.understood) parts.push(tl`Hiểu ${UNDERSTOOD_LABEL[e.understood]}`);
   if (e.subtitles) parts.push(SUBTITLE_LABEL[e.subtitles]);
   return parts;
 }
 
 /** Row meta as one string: "Hôm nay · Phim/series · Hiểu 70–90% · Phụ đề Anh". */
 export function entryMeta(e: ListeningEntry, today: string): string {
-  return entryMetaParts(e, today).join(' · ');
+  return entryMetaParts(e, today)
+    .map((part) => tr(part))
+    .join(' · ');
 }
 
 /** Entries of the last `days` days (today included), newest first. */
@@ -182,14 +187,14 @@ export function listenSummary(entries: readonly ListeningEntry[], now: number, g
 
 /** Card head text: "20/30 phút" · "Mục tiêu 30 phút" (nothing yet) · "20 phút" (goal off) · null. */
 export function todayHead(s: Pick<ListenSummary, 'today' | 'goal'>): string | null {
-  if (s.goal > 0) return s.today > 0 ? `${s.today}/${s.goal} phút` : `Mục tiêu ${s.goal} phút`;
+  if (s.goal > 0) return s.today > 0 ? tl`${s.today}/${s.goal} phút` : tl`Mục tiêu ${s.goal} phút`;
   return s.today > 0 ? formatMinutesVi(s.today) : null;
 }
 
 /** "Tuần này: 2 giờ 10 phút trong 4 ngày" (null before any listening this week). */
 export function weekLine(s: Pick<ListenSummary, 'week' | 'weekDays'>): string | null {
   if (s.week <= 0) return null;
-  return `Tuần này: ${formatMinutesVi(s.week)} trong ${s.weekDays} ngày`;
+  return tl`Tuần này: ${formatMinutesVi(s.week)} trong ${s.weekDays} ngày`;
 }
 
 // ───────────────────────── timer ─────────────────────────
@@ -200,5 +205,5 @@ export function timerStatusLabel(status: TimerStatus): string {
 
 /** Short label of the shell pill, a state (never a command): "Đang nghe 12:34", "Đang tạm dừng 12:34", "Chưa lưu 12:34". */
 export function pillLabel(status: TimerStatus, clock: string): string {
-  return `${status === 'running' ? 'Đang nghe' : status === 'paused' ? 'Đang tạm dừng' : 'Chưa lưu'} ${clock}`;
+  return `${tr(status === 'running' ? 'Đang nghe' : status === 'paused' ? 'Đang tạm dừng' : 'Chưa lưu')} ${clock}`;
 }

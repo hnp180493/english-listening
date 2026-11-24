@@ -10,6 +10,7 @@ import { Portrait } from '../art';
 import { playerLookKey, profileLook, setPlayerLook } from '../three/chars/looks';
 import type { ActivityPanelProps } from '../activities/types';
 import './romance.css';
+import { tl } from '../../../i18n';
 
 const HAIR_LABEL: Record<PlayerHair, string> = {
   short: 'Ngắn',
@@ -44,7 +45,7 @@ export default function CharacterPanel({ onOpen, onReward }: ActivityPanelProps)
   const save = () => {
     if (!clean) return;
     saveProfile({ gender, name: clean, skin, hair, hairColor });
-    onReward({ label: saved ? 'Đã đổi nhân vật' : `Chào ${clean}!` });
+    onReward({ label: saved ? 'Đã đổi nhân vật' : tl`Chào ${clean}!` });
     if (!saved) onOpen?.('love');
   };
   return (
@@ -56,7 +57,7 @@ export default function CharacterPanel({ onOpen, onReward }: ActivityPanelProps)
       }}
     >
       <div className="town-me-preview">
-        <Portrait placeId="player" size={112} look={key} />
+        <Portrait placeId="player" size={240} look={key} frame="bust" shape="card" fluid />
       </div>
       <div className="town-me-row" role="radiogroup" aria-label="Nam hay nữ">
         {(['male', 'female'] as const).map((g) => (
@@ -74,7 +75,7 @@ export default function CharacterPanel({ onOpen, onReward }: ActivityPanelProps)
         <legend>Màu da</legend>
         <div className="town-me-swatches">
           {PLAYER_SKINS.map((c) => (
-            <button key={c} type="button" className={'town-me-swatch' + (skin === c ? ' is-on' : '')} style={{ backgroundColor: c }} onClick={() => setSkin(c)} aria-label={`Màu da ${PLAYER_SKINS.indexOf(c) + 1}`} aria-pressed={skin === c} />
+            <button key={c} type="button" className={'town-me-swatch' + (skin === c ? ' is-on' : '')} style={{ backgroundColor: c }} onClick={() => setSkin(c)} aria-label={tl`Màu da ${PLAYER_SKINS.indexOf(c) + 1}`} aria-pressed={skin === c} />
           ))}
         </div>
       </fieldset>
@@ -92,7 +93,7 @@ export default function CharacterPanel({ onOpen, onReward }: ActivityPanelProps)
         <legend>Màu tóc</legend>
         <div className="town-me-swatches">
           {PLAYER_HAIR_COLORS.map((c) => (
-            <button key={c} type="button" className={'town-me-swatch' + (hairColor === c ? ' is-on' : '')} style={{ backgroundColor: c }} onClick={() => setHairColor(c)} aria-label={`Màu tóc ${PLAYER_HAIR_COLORS.indexOf(c) + 1}`} aria-pressed={hairColor === c} />
+            <button key={c} type="button" className={'town-me-swatch' + (hairColor === c ? ' is-on' : '')} style={{ backgroundColor: c }} onClick={() => setHairColor(c)} aria-label={tl`Màu tóc ${PLAYER_HAIR_COLORS.indexOf(c) + 1}`} aria-pressed={hairColor === c} />
           ))}
         </div>
       </fieldset>

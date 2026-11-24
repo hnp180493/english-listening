@@ -34,15 +34,16 @@ import { episodeHeading, episodeSummary, firstLineOf, gistFollowUp, gistVerdict,
 import type { Verdict } from './shellModel';
 import { stopSfx } from './sfx';
 import { useStoryPass } from './useStoryPass';
+import { tl, tr } from '../../i18n';
 
 type Started = Extract<TownEpisodeStart, { ok: true }>;
 type Step = 'listen' | 'lines' | 'again' | 'result';
 
 function portraitSize(): number {
   try {
-    return window.matchMedia('(max-width: 720px)').matches ? 56 : 88;
+    return window.matchMedia('(max-width: 720px)').matches ? 60 : 108;
   } catch {
-    return 88;
+    return 108;
   }
 }
 
@@ -152,8 +153,8 @@ export default function Episode({ place, start, friend, onJournal, onGiven, onSh
       const v = gistVerdict(mode, r.right, r.firstWin);
       setPicked(i);
       setGistResult(r);
-      setMood(r.right ? 'happy' : 'neutral');
-      setAnnounce(`${v.title}${r.reward > 0 ? ` Được ${r.reward} xu.` : ''}`);
+      setMood(r.right ? 'happy' : 'sad');
+      setAnnounce(`${tr(v.title)}${r.reward > 0 ? tl` Được ${r.reward} xu.` : ''}`);
       onGist(r, v);
     },
     [heard, gist, mode, stop, onGist],
@@ -179,8 +180,8 @@ export default function Episode({ place, start, friend, onJournal, onGiven, onSh
   const lineAnswered = useCallback(
     (r: TownAnswerResult, v: Verdict) => {
       setMarks((m) => ({ ...m, [lineIndex]: r.outcome === 'wrong' ? 'bad' : 'ok' }));
-      setMood(r.outcome === 'wrong' ? 'neutral' : 'happy');
-      setAnnounce(`${v.title}${r.reward > 0 ? ` Được ${r.reward} xu.` : ''}`);
+      setMood(r.outcome === 'wrong' ? 'sad' : 'happy');
+      setAnnounce(`${tr(v.title)}${r.reward > 0 ? tl` Được ${r.reward} xu.` : ''}`);
       onAnswered(r, v);
     },
     [onAnswered, lineIndex],
@@ -211,7 +212,7 @@ export default function Episode({ place, start, friend, onJournal, onGiven, onSh
     if (!r) return;
     setResult(r);
     setStep('result');
-    setAnnounce(`Xong Tập ${episode.order}. ${r.earned > 0 ? `Được ${r.earned} xu.` : ''}`);
+    setAnnounce(tl`Xong Tập ${episode.order}. ${r.earned > 0 ? tl`Được ${r.earned} xu.` : ''}`);
     onFinished(r);
   }, [episode.order, onFinished]);
   // refs: a new callback from the page must not start the last listen again
@@ -288,7 +289,7 @@ export default function Episode({ place, start, friend, onJournal, onGiven, onSh
   const done = step === 'result';
 
   return (
-    <section ref={setBox} className={'town-talk town-ep' + (done ? ' is-result' : '') + (step === 'listen' && !heard && !gistResult ? ' is-hearing' : '')} role="group" aria-label={`${episodeHeading(episode, relisten)}, với ${place.resident}`} tabIndex={-1}>
+    <section ref={setBox} className={'town-talk town-ep' + (done ? ' is-result' : '') + (step === 'listen' && !heard && !gistResult ? ' is-hearing' : '')} role="group" aria-label={tl`${episodeHeading(episode, relisten)}, với ${place.resident}`} tabIndex={-1}>
       <header className="town-talk-head">
         <Portrait placeId={placeId} size={faceSize} mood={mood} />
         <div className="town-talk-who">
@@ -299,7 +300,7 @@ export default function Episode({ place, start, friend, onJournal, onGiven, onSh
           <FriendHearts friend={friend} name={place.resident} onJournal={onJournal} fresh={!!result && heartsOf(result.friendAfter) > heartsOf(result.friendBefore)} />
           <div className="town-talk-meta">
             {!relisten && !done && (
-              <ol className="town-steps" aria-label={`Bước ${stepIndex + 1} trên 3`}>
+              <ol className="town-steps" aria-label={tl`Bước ${stepIndex + 1} trên 3`}>
                 {[0, 1, 2].map((i) => (
                   <li key={i} className={'town-step' + (i < stepIndex ? ' is-ok' : i === stepIndex ? ' is-now' : '')} aria-hidden="true" />
                 ))}
@@ -439,7 +440,7 @@ function PassBubble({ pass, items, heard, label, again, quiet = false, locked = 
     ? pending
       ? 'Đang tạo giọng…'
       : who
-        ? `${who} đang nói… · ${index + 1}/${items.length}`
+        ? tl`${who} đang nói… · ${index + 1}/${items.length}`
         : 'Sắp nói…'
     : locked
       ? 'Đã nghe cả đoạn.'
@@ -594,7 +595,7 @@ function EpisodeResult({ result, start, turns, place, pass, items, footRef, onLe
                     className="btn btn-ghost btn-sm btn-icon"
                     onClick={() => (pass.single?.index === i ? pass.stop() : void pass.playOne(i, 'normal'))}
                     disabled={!pass.canSpeak}
-                    aria-label={`Nghe câu ${i + 1}`}
+                    aria-label={tl`Nghe câu ${i + 1}`}
                     title={CONNECTED_TITLE}
                   >
                     <Icon icon={pass.single?.index === i ? Square : Play} size={14} fill="currentColor" strokeWidth={1.5} />

@@ -14,6 +14,7 @@ import { heartsText, residentJournal, toNextText } from '../friends/friendModel'
 import { setTownUi, useTownUi } from '../townUi';
 import type { ActivityPanelProps } from './types';
 import '../friends/friends.css';
+import { tl, tr } from '../../../i18n';
 
 const TASTE_LABEL = { loves: 'Rất thích', likes: 'Thích', dislikes: 'Không thích' } as const;
 
@@ -37,8 +38,8 @@ function ResidentList({ onOpen }: { onOpen: (id: string) => void }) {
               <span className="town-journal-who">
                 <span className="town-journal-name">{p.place.resident}</span>
                 <span className="town-journal-sub">
-                  {p.friend.points > 0 ? `${heartsText(p.friend.hearts)} · ${p.friend.title}` : 'Chưa quen'}
-                  {p.friendEpisode ? ` · Tập ${p.friendEpisode.order} cần ${p.friendEpisode.hearts ?? p.friend.hearts} tim` : ''}
+                  {p.friend.points > 0 ? `${heartsText(p.friend.hearts)} · ${tr(p.friend.title)}` : 'Chưa quen'}
+                  {p.friendEpisode ? tl` · Tập ${p.friendEpisode.order} cần ${p.friendEpisode.hearts ?? p.friend.hearts} tim` : ''}
                 </span>
               </span>
               {p.friend.hearts > 0 && (
@@ -85,7 +86,7 @@ function ResidentPage({ placeId, onBack, onTalk }: { placeId: string; onBack: ()
           <h3 className="town-journal-title">{j.resident}</h3>
           <Hearts value={j.friend.hearts} name={j.resident} size={14} />
           <span className="town-journal-sub">
-            {j.friend.points > 0 ? `${j.resident} coi bạn là ${j.friend.title}. ${toNextText(j.friend)}` : `Chưa quen. Nghe ${j.resident} kể chuyện để thân hơn.`}
+            {j.friend.points > 0 ? tl`${j.resident} coi bạn là ${j.friend.title}. ${toNextText(j.friend)}` : tl`Chưa quen. Nghe ${j.resident} kể chuyện để thân hơn.`}
           </span>
         </div>
       </header>

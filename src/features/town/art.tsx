@@ -6,10 +6,15 @@ import { townPlace } from '../../data/town';
 import type { CharacterId } from './engine/sim';
 import { HUD_ART } from './engine/palette';
 import { renderPortrait } from './three/chars/portrait';
+import { PORTRAIT_FILES } from './portraitFiles';
 import { canDraw3d } from './three/offscreen';
+import { tl } from '../../i18n';
 
-/** A face in a portrait: as it is, or smiling (after a right answer). */
-export type PortraitMood = 'neutral' | 'happy';
+/** A face in a portrait: as it is, smiling (after a right answer) or sad (after a wrong one; drawn pictures only). */
+export type PortraitMood = 'neutral' | 'happy' | 'sad';
+
+/** A drawn portrait shows the face (small pictures) or head and shoulders (big ones). */
+export type PortraitFrame = 'face' | 'bust';
 
 /** The xu coin. Decorative: the number beside it carries the meaning. */
 export function Coin({ size = 18, className }: { size?: number; className?: string }) {
@@ -32,7 +37,7 @@ const HEART = 'M10 17.2S2.6 12.7 2.6 7.6A3.9 3.9 0 0 1 10 5.9a3.9 3.9 0 0 1 7.4 
 export function Hearts({ value, max = 10, fresh = 0, name, size = 16 }: { value: number; max?: number; fresh?: number; name: string; size?: number }) {
   const full = Math.max(0, Math.min(max, Math.round(value)));
   return (
-    <span className="town-hearts" role="img" aria-label={`Thân với ${name}: ${full} trên ${max} tim`}>
+    <span className="town-hearts" role="img" aria-label={tl`Thân với ${name}: ${full} trên ${max} tim`}>
       {Array.from({ length: max }, (_, i) => {
         const on = i < full;
         const isNew = on && i >= full - fresh;
@@ -52,26 +57,71 @@ export function HeartIcon({ on, size = 16, className }: { on: boolean; size?: nu
 }
 
 /**
- * A person's face in a round frame: the 3D character rendered head and shoulders (three/chars/portrait.ts, cached),
- * `happy` after a right answer. `id` is a place id (its resident) or 'player'. Where this browser cannot draw in
- * 3D, the frame shows the first letter of their name instead.
+ * A person's portrait, `happy` after a right answer, `sad` after a wrong one: the resident's drawn picture when there is one
+ * (docs/portrait-prompts.md, portraitFiles.ts; small ones show the face, from 100 px or `frame="bust"` head and
+ * shoulders), else the 3D character rendered head and shoulders (three/chars/portrait.ts, cached). `shape="card"` =
+ * a rounded square, and `fluid` fills its box's width (`size` is then only the picture's resolution). `id` is a place
+ * id (its resident) or 'player'. With no picture where this browser cannot draw in 3D, the frame shows the first
+ * letter of their name instead.
  */
-export function Portrait({ placeId, size = 52, mood = 'neutral', look = '' }: { placeId: CharacterId; size?: number; mood?: PortraitMood; /** The player's look key (three/chars/looks playerLookKey): a new one draws again. */ look?: string }) {
+export function Portrait({
+  placeId,
+  size = 52,
+  mood = 'neutral',
+  look = '',
+  frame,
+  shape = 'round',
+  fluid = false,
+}: {
+  placeId: CharacterId;
+  size?: number;
+  mood?: PortraitMood;
+  /** The player's look key (three/chars/looks playerLookKey): a new one draws again. */ look?: string;
+  frame?: PortraitFrame;
+  shape?: 'round' | 'card';
+  fluid?: boolean;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const [plain] = useState(() => !canDraw3d());
+  const framing: PortraitFrame = frame ?? (size >= 100 ? 'bust' : 'face');
+  // a drawn picture (docs/portrait-prompts.md) wins; one that does not load falls back to the 3D portrait
+  const drawn = drawnPortrait(placeId, mood);
+  const [broken, setBroken] = useState<string | null>(null);
+  const useDrawn = !!drawn && broken !== drawn;
+  // (asked only when the 3D portrait is needed: it makes the shared offscreen renderer)
+  const plain = !useDrawn && !canDraw3d();
   useLayoutEffect(() => {
+    if (useDrawn) return;
     const c = ref.current;
     const ctx = c?.getContext('2d');
     if (!c || !ctx) return;
     const px = Math.round(size * Math.min(3, window.devicePixelRatio || 1));
     if (c.width !== px) c.width = c.height = px;
     ctx.clearRect(0, 0, px, px);
-    ctx.drawImage(renderPortrait(placeId, px, mood), 0, 0);
-  }, [placeId, size, mood, look]);
+    // the 3D faces have no sad expression: they stay as they are
+    ctx.drawImage(renderPortrait(placeId, px, mood === 'sad' ? 'neutral' : mood), 0, 0);
+  }, [placeId, size, mood, look, useDrawn]);
   const name = placeId === 'player' ? 'Bạn' : (townPlace(placeId)?.resident ?? '');
   return (
-    <span className={'town-portrait' + (mood === 'happy' ? ' is-happy' : '')} style={{ width: size, height: size, backgroundColor: HUD_ART.portraitSky }} aria-hidden="true">
-      {plain ? (
+    <span
+      className={'town-portrait' + (shape === 'card' ? ' is-card' : '') + (mood === 'happy' ? ' is-happy' : '')}
+      style={{
+        width: fluid ? '100%' : size,
+        height: fluid ? 'auto' : size,
+        aspectRatio: '1',
+        backgroundColor: HUD_ART.portraitSky,
+      }}
+      aria-hidden="true"
+    >
+      {useDrawn ? (
+        <img
+          className={'town-portrait-img' + (framing === 'face' ? ' is-face' : '')}
+          src={drawn ?? undefined}
+          alt=""
+          draggable={false}
+          decoding="async"
+          onError={() => setBroken(drawn)}
+        />
+      ) : plain ? (
         <span className="town-portrait-initial" style={{ fontSize: Math.max(13, Math.round(size * 0.42)), color: HUD_ART.portraitInk }}>
           {name.slice(0, 1)}
         </span>
@@ -81,6 +131,20 @@ export function Portrait({ placeId, size = 52, mood = 'neutral', look = '' }: { 
     </span>
   );
 }
+
+/**
+ * The drawn picture of a resident for this mood (portraitFiles.ts; a smiling or sad one falls back to the plain one), as
+ * a URL next to the page (public/portraits, the portable build's portraits/ folder), or null.
+ */
+function drawnPortrait(placeId: CharacterId, mood: PortraitMood): string | null {
+  const f = PORTRAIT_FILES[placeId];
+  if (!f) return null;
+  if (mood === 'happy' && f.happy) return `${PORTRAIT_DIR}${placeId}-happy.webp?v=${f.happy}`;
+  if (mood === 'sad' && f.sad) return `${PORTRAIT_DIR}${placeId}-sad.webp?v=${f.sad}`;
+  if (f.neutral) return `${PORTRAIT_DIR}${placeId}.webp?v=${f.neutral}`;
+  return f.happy ? `${PORTRAIT_DIR}${placeId}-happy.webp?v=${f.happy}` : null;
+}
+const PORTRAIT_DIR = 'portraits/';
 
 /** Bars moving like a voice: shown while a line sounds (no words before the answer). */
 export function SoundBars({ on }: { on: boolean }) {

@@ -2,6 +2,7 @@
 // Only transcripts + metadata are stored — never media bytes.
 
 import { isYouTubeId } from '../../core/media/youtube';
+import { getLang, tl } from '../../i18n';
 
 export type MediaKind = 'youtube' | 'file';
 export type MediaFileType = 'audio' | 'video';
@@ -330,7 +331,8 @@ export function relativeDay(ts: number | undefined, now: number = Date.now()): s
   const diff = Math.round((dayB - dayA) / 86_400_000);
   if (diff <= 0) return 'Hôm nay';
   if (diff === 1) return 'Hôm qua';
-  if (diff < 7) return `${diff} ngày trước`;
+  if (diff < 7) return tl`${diff} ngày trước`;
+  if (getLang() === 'en') return a.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   return `${a.getDate()}/${a.getMonth() + 1}/${a.getFullYear()}`;
 }
 

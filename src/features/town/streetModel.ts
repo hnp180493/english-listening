@@ -6,7 +6,8 @@ import type { PlaceView } from '../../core/town/overview';
 import type { StorySetting } from '../../core/town/story';
 import { episodeSetting, quickChatSetting, storyEpisode } from '../../data/townStories';
 import { streetInvite, streetScene } from '../../data/townStreet';
-import { lockText } from './friends/friendModel';
+import { lockNeeds } from './friends/friendModel';
+import { getLang, tl, tr } from '../../i18n';
 
 type Places = readonly Pick<PlaceView, 'place' | 'built'>[];
 
@@ -22,8 +23,13 @@ export function homeSetting(view: Pick<PlaceView, 'place' | 'episode'>, places: 
 /** A setting's place as a word inside a sentence: "nhà trọ", "quán cà phê", "quảng trường". */
 export function settingWord(setting: StorySetting, places: Places): string {
   const id = setting.kind === 'inside' ? setting.room : setting.at;
-  if (id === 'inn') return 'nhà trọ';
+  if (id === 'inn') return tr('nhà trọ');
   const name = places.find((p) => p.place.id === id)?.place.name ?? 'nhà';
+  // English: the name translated before it is cut ("the café", "the friend's house")
+  if (getLang() === 'en') {
+    const en = tr(name).toLowerCase();
+    return en === 'home' ? 'their home' : 'the ' + en;
+  }
   return name.charAt(0).toLocaleLowerCase('vi') + name.slice(1);
 }
 
@@ -56,10 +62,10 @@ export function streetTalkView(
   const scene = streetScene(view.place.id, view.friend.hearts, knows, dayNumber(now) + hash(view.place.id) + turn);
   if (view.episode) {
     const where = settingWord(homeSetting(view, places), places);
-    return { scene, invite: { text: streetInvite(who, where, view.episode.mode === 'relisten'), go: `Đi cùng ${who} tới ${where}` }, hint: null };
+    return { scene, invite: { text: streetInvite(who, where, view.episode.mode === 'relisten'), go: tl`Đi cùng ${who} tới ${where}` }, hint: null };
   }
   const f = view.friendEpisode;
-  const need = f ? lockText(f, who) : '';
-  return { scene, invite: null, hint: need ? `${need.replace(/^Cần/, 'Thân hơn nữa (cần')}) thì ${who} sẽ kể thêm chuyện riêng.` : null };
+  const need = f ? lockNeeds(f, who) : '';
+  return { scene, invite: null, hint: need ? tl`Thân hơn nữa (cần ${need}) thì ${who} sẽ kể thêm chuyện riêng.` : null };
 }
 

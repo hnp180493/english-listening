@@ -9,6 +9,7 @@ import { sceneSpot, type SceneSpot } from '../../data/romance/places';
 import { townDay } from './progress';
 import { courtStage, datesDone, daysOld, kidAge, kidsOf, lastStep, MAX_KIDS, partnerOf, talkedOn, type CourtStep, type TownLife } from './life';
 import type { RomanceScene } from './romanceTypes';
+import { asIs, getLang, tl, tr } from '../../i18n';
 
 /** Hearts to confess, hearts to propose. */
 export const CONFESS_HEARTS = 8;
@@ -50,7 +51,7 @@ function placed(step: RomanceStep, facts: RomanceFacts): RomanceStep {
   const spot = step.scene ? sceneSpot(step.scene.id) : null;
   const out = { ...step, spot };
   if (spot?.kind === 'place' && facts.built && !facts.built(spot.id) && step.ready) {
-    return { ...out, ready: false, need: `Cần xây ${townPlace(spot.id)?.name ?? 'nơi hẹn'} trước` };
+    return { ...out, ready: false, need: tl`Cần xây ${townPlace(spot.id)?.name ?? 'nơi hẹn'} trước` };
   }
   return out;
 }
@@ -86,7 +87,7 @@ function stepsOf(life: TownLife, placeId: string, facts: RomanceFacts, now: numb
   const steppedToday = !!c && townDay(lastStep(c)) === today;
   if (!partner) {
     const ready = facts.hearts >= CONFESS_HEARTS && facts.bouquets > 0;
-    const need = facts.hearts < CONFESS_HEARTS ? `Cần ${CONFESS_HEARTS} tim (đang ${facts.hearts})` : facts.bouquets === 0 ? 'Cần một bó hoa (Tiệm quà)' : null;
+    const need = facts.hearts < CONFESS_HEARTS ? tl`Cần ${CONFESS_HEARTS} tim (đang ${facts.hearts})` : facts.bouquets === 0 ? 'Cần một bó hoa (Tiệm quà)' : null;
     return [{ kind: 'confess', placeId, scene: suitor.confess, label: 'Tỏ tình', ready, need, records: 'dating' }];
   }
   if (partner !== placeId) return [];
@@ -96,10 +97,10 @@ function stepsOf(life: TownLife, placeId: string, facts: RomanceFacts, now: numb
     const n = datesDone(c);
     if (n < 3) {
       const step = (['date1', 'date2', 'date3'] as const)[n];
-      return [{ kind: 'date', placeId, scene: suitor.dates[n], label: `Hẹn hò lần ${n + 1}`, ready: !steppedToday, need: steppedToday ? tomorrow : null, records: step }];
+      return [{ kind: 'date', placeId, scene: suitor.dates[n], label: tl`Hẹn hò lần ${n + 1}`, ready: !steppedToday, need: steppedToday ? tomorrow : null, records: step }];
     }
     const ready = !steppedToday && facts.hearts >= PROPOSE_HEARTS && facts.rings > 0;
-    const need = steppedToday ? tomorrow : facts.hearts < PROPOSE_HEARTS ? `Cần ${PROPOSE_HEARTS} tim (đang ${facts.hearts})` : facts.rings === 0 ? 'Cần một chiếc nhẫn (Tiệm quà)' : null;
+    const need = steppedToday ? tomorrow : facts.hearts < PROPOSE_HEARTS ? tl`Cần ${PROPOSE_HEARTS} tim (đang ${facts.hearts})` : facts.rings === 0 ? 'Cần một chiếc nhẫn (Tiệm quà)' : null;
     return [{ kind: 'proposal', placeId, scene: suitor.proposal, label: 'Cầu hôn', ready, need, records: 'engaged' }];
   }
   if (stage === 'engaged') {
@@ -109,13 +110,13 @@ function stepsOf(life: TownLife, placeId: string, facts: RomanceFacts, now: numb
   const day = dayIndex(now);
   const steps: RomanceStep[] = [];
   const talked = talkedOn(life, today, 'spouse');
-  steps.push({ kind: 'daily', placeId, scene: rotate(suitor.daily, day), label: `Trò chuyện với ${name}`, ready: !talked, need: talked ? 'Hôm nay đã trò chuyện rồi' : null });
+  steps.push({ kind: 'daily', placeId, scene: rotate(suitor.daily, day), label: tl`Trò chuyện với ${name}`, ready: !talked, need: talked ? 'Hôm nay đã trò chuyện rồi' : null });
   const kids = kidsOf(life);
   kids.forEach(({ id, kid }, i) => {
     const age = kidAge(kid.born, now);
     const list = KID_LINES[age];
     const done = talkedOn(life, today, id);
-    steps.push({ kind: 'kid', placeId, kidId: id, scene: rotate(list, day + i * 3), label: `Chơi với ${kid.name}`, ready: !done, need: done ? `Hôm nay đã chơi với ${kid.name} rồi` : null });
+    steps.push({ kind: 'kid', placeId, kidId: id, scene: rotate(list, day + i * 3), label: tl`Chơi với ${asIs(kid.name)}`, ready: !done, need: done ? tl`Hôm nay đã chơi với ${asIs(kid.name)} rồi` : null });
   });
   const married = c?.married ?? now;
   const youngest = kids.length ? kids[kids.length - 1].kid.born : 0;
@@ -124,9 +125,13 @@ function stepsOf(life: TownLife, placeId: string, facts: RomanceFacts, now: numb
   return steps;
 }
 
-/** Replace {name} / {kid} in a line. */
+/**
+ * Replace {name} / {kid} in a line. The line is looked up in the dictionary first (English interface: the filled
+ * line is no dictionary key any more; an English line has no entry and stays as it is).
+ */
 export function fillLine(text: string, name: string, kid = ''): string {
-  return text.replace(/\{name\}/g, name).replace(/\{kid\}/g, kid || 'con');
+  const fallback = getLang() === 'en' ? 'the baby' : 'con';
+  return tr(text).replace(/\{name\}/g, name).replace(/\{kid\}/g, kid || fallback);
 }
 
 /** The relationship in a few words for the Sổ tay and the panel ("Đang hẹn hò · 2/3 buổi hẹn"). */
@@ -139,5 +144,5 @@ export function romanceStatus(life: TownLife, placeId: string): string | null {
     return g;
   }
   if (stage === 'engaged') return 'Đã đính hôn';
-  return `Đang hẹn hò · ${datesDone(c)}/3 buổi hẹn`;
+  return tl`Đang hẹn hò · ${datesDone(c)}/3 buổi hẹn`;
 }

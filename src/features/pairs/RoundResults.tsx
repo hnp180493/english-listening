@@ -10,6 +10,7 @@ import type { PairSet } from '../../data/pairs';
 import CueText from './CueText';
 import { lessonIdFor, percent, scoreTier, summarizeRound, type RoundState } from './game';
 import type { ItemRef } from './PairsPage';
+import { tl } from '../../i18n';
 
 const FLAT_ACCENT = { '--progress-color': 'var(--accent)' } as CSSProperties;
 
@@ -60,8 +61,8 @@ export default function RoundResults({
 
   const missedIds = sum.missed.map((m) => m.itemId);
   const facts = [
-    sum.requeued > 0 ? `Nghe lại đúng ${sum.recovered}/${sum.requeued} câu từng sai` : '',
-    bestScore !== null ? `Cao nhất của bộ: ${percent(bestScore)}%` : '',
+    sum.requeued > 0 ? tl`Nghe lại đúng ${sum.recovered}/${sum.requeued} câu từng sai` : '',
+    bestScore !== null ? tl`Cao nhất của bộ: ${percent(bestScore)}%` : '',
   ].filter(Boolean);
 
   return (
@@ -71,7 +72,7 @@ export default function RoundResults({
           className="pairs-ring"
           style={{ '--pairs-pct': `${pct}%` } as CSSProperties}
           role="img"
-          aria-label={`Đúng ${sum.correct} trên ${sum.total} câu, ${pct}%`}
+          aria-label={tl`Đúng ${sum.correct} trên ${sum.total} câu, ${pct}%`}
         >
           <span className="pairs-ring-inner">
             <strong>
@@ -101,7 +102,7 @@ export default function RoundResults({
             {missedIds.length > 0 && (
               <button type="button" className="btn btn-soft" onClick={() => onReviewMissed(missedIds)}>
                 <Icon icon={Target} size={16} />
-                Luyện lại {missedIds.length} câu sai
+                {tl`Luyện lại ${missedIds.length} câu sai`}
               </button>
             )}
             <button type="button" className="btn btn-ghost" onClick={onExit}>
@@ -139,7 +140,7 @@ export default function RoundResults({
       )}
 
       <div className="card">
-        <h2 className="pairs-h2">{sum.missed.length ? `Câu bạn nghe nhầm (${sum.missed.length})` : 'Không sai câu nào'}</h2>
+        <h2 className="pairs-h2">{sum.missed.length ? tl`Câu bạn nghe nhầm (${sum.missed.length})` : 'Không sai câu nào'}</h2>
         {sum.missed.length === 0 ? (
           <p className="muted pairs-res-none">Bạn đã phân biệt đúng tất cả. Thử một bộ khác hoặc trộn tất cả các bộ.</p>
         ) : (
@@ -172,7 +173,7 @@ export default function RoundResults({
                           {i === m.answer && <span className="sr-only">, câu được đọc</span>}
                           {i === m.choice && <span className="pairs-compare-you">bạn chọn</span>}
                         </span>
-                        <PlayButton text={opt} size="sm" label="Nghe" variant="ghost" title={`Nghe: ${opt}`} />
+                        <PlayButton text={opt} size="sm" label="Nghe" variant="ghost" title={tl`Nghe: ${opt}`} />
                       </li>
                     ))}
                   </ul>

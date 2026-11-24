@@ -28,6 +28,7 @@ import { attemptSource, attemptText } from './attemptText';
 import {
   accuracyLast7Days,
   forecastBars,
+  fullDateLabel,
   moduleLabel,
   recentAttempts,
   relativeTimeVi,
@@ -62,6 +63,7 @@ import {
 } from './progressModel';
 import ReportView from './ReportView';
 import './stats.css';
+import { tl, tr } from '../../i18n';
 
 type Params = Record<string, string | number | undefined>;
 type Go = (id: RouteId, params?: Params) => void;
@@ -251,24 +253,24 @@ function Overview({ stats, now, review, go }: { stats: StatsState; now: number; 
         <Kpi
           label="Chuỗi ngày"
           value={String(streak)}
-          unit="ngày"
+          unit={tr('ngày', streak)}
           hint={
             bothStreak > streak
-              ? `Tính cả Daily English: ${bothStreak} ngày`
+              ? tl`Tính cả Daily English: ${bothStreak} ngày`
               : streak === 0
                 ? 'Luyện hôm nay để bắt đầu'
                 : best > streak
-                  ? `Kỷ lục ${best} ngày`
+                  ? tl`Kỷ lục ${best} ngày`
                   : 'Kỷ lục của bạn'
           }
         />
-        <Kpi label="Hôm nay" value={String(today)} unit={`/${goal} lượt`}>
-          <ProgressBar value={today} max={goal} label={`Mục tiêu hôm nay: ${today}/${goal} lượt`} done={today >= goal} />
+        <Kpi label="Hôm nay" value={String(today)} unit={tl`/${goal} lượt`}>
+          <ProgressBar value={today} max={goal} label={tl`Mục tiêu hôm nay: ${today}/${goal} lượt`} done={today >= goal} />
         </Kpi>
         <Kpi
           label="Chính xác 7 ngày"
           value={acc.pct == null ? '—' : `${acc.pct}%`}
-          hint={acc.total > 0 ? `trên ${acc.total} lượt` : 'Chưa luyện 7 ngày qua'}
+          hint={acc.total > 0 ? tl`trên ${acc.total} lượt` : 'Chưa luyện 7 ngày qua'}
         />
       </section>
 
@@ -301,8 +303,7 @@ function Overview({ stats, now, review, go }: { stats: StatsState; now: number; 
 // ---------------------------------------------------------------------------
 
 function formatDate(ts: number): string {
-  const d = new Date(ts);
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  return fullDateLabel(new Date(ts));
 }
 
 /** Shown when storage only keeps the most recent attempts. */
@@ -394,9 +395,9 @@ function ReviewRow({ snapshot, go }: { snapshot: ReviewSnapshot; go: Go }) {
   const { dueToday, minutesToday, reviewedToday } = snapshot.summary;
   const line =
     dueToday > 0
-      ? `${dueToday} mục đến hạn · ~${minutesToday} phút`
+      ? tl`${dueToday} mục đến hạn · ~${minutesToday} phút`
       : reviewedToday > 0
-        ? `Đã ôn ${reviewedToday} mục hôm nay, hết mục đến hạn`
+        ? tl`Đã ôn ${reviewedToday} mục hôm nay, hết mục đến hạn`
         : 'Hôm nay không có mục đến hạn';
   return (
     <section className="card stats-review" aria-labelledby="stats-review-h">
@@ -453,7 +454,7 @@ function WeaknessCard({ ranked, weakest, go }: { ranked: MissRate[]; weakest: Mi
               params={{ focus: weakest.phenomenon }}
               go={go}
               className="btn btn-soft btn-sm"
-              ariaLabel={`Luyện ngay: ${info.label}`}
+              ariaLabel={tl`Luyện ngay: ${info.label}`}
             >
               Luyện ngay
             </NavLink>
@@ -487,7 +488,7 @@ function WeaknessCard({ ranked, weakest, go }: { ranked: MissRate[]; weakest: Mi
                     aria-valuemax={100}
                     aria-valuenow={pct}
                     aria-valuetext={`${pct}%`}
-                    aria-label={`${pi.label}: nghe sót ${r.missed} trên ${r.seen} lần, ${pct}%`}
+                    aria-label={tl`${pi.label}: nghe sót ${r.missed} trên ${r.seen} lần, ${pct}%`}
                   >
                     <div className="stats-bar-fill" style={{ width: `${Math.max(pct, pct > 0 ? 2 : 0)}%` }} />
                   </div>
@@ -503,7 +504,7 @@ function WeaknessCard({ ranked, weakest, go }: { ranked: MissRate[]; weakest: Mi
               aria-controls={listId}
               onClick={() => setShowAll((v) => !v)}
             >
-              {showAll ? 'Thu gọn' : `Xem cả ${ranked.length}`}
+              {showAll ? 'Thu gọn' : tl`Xem cả ${ranked.length}`}
             </button>
           )}
           {!weakest && (
@@ -542,7 +543,7 @@ function ModulesBlock({ rows, now, go, history }: { rows: ModuleRow[]; now: numb
             <tr key={r.module}>
               <th scope="row">
                 <span className="stats-mod-text">
-                  <NavLink to={r.route} go={go} className="stats-mod-link" ariaLabel={`Mở ${r.label}`}>
+                  <NavLink to={r.route} go={go} className="stats-mod-link" ariaLabel={tl`Mở ${r.label}`}>
                     {r.label}
                   </NavLink>
                   {r.lastAt != null && <span className="stats-mod-last">{relativeTimeVi(r.lastAt, now)}</span>}
@@ -568,7 +569,8 @@ function TallyCell({ t, bar }: { t: Tally; bar?: boolean }) {
     <div className="stats-tally">
       <span className="stats-tally-line">
         <span>
-          <strong>{t.total}</strong> lượt
+          <strong>{t.total}</strong>
+          {' ' + tr('lượt', t.total)}
         </span>
         <span className="stats-tally-pct">{t.pct}% đúng</span>
       </span>
@@ -611,7 +613,7 @@ function TrendBlock({ weeks }: { weeks: WeekBucket[] }) {
       ) : (
         <svg className="stats-trend" viewBox={`0 0 ${box.width} ${box.height}`} role="img" aria-labelledby={`${gradId}-t`}>
           <title id={`${gradId}-t`}>
-            {`Độ chính xác 8 tuần gần nhất: ${points.map((p) => `tuần ${weeks[p.index].label} ${p.pct}%`).join(', ')}`}
+            {tl`Độ chính xác 8 tuần gần nhất: ${points.map((p) => tl`tuần ${weeks[p.index].label} ${p.pct}%`).join(', ')}`}
           </title>
           <defs>
             <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
@@ -709,7 +711,7 @@ function ForecastBlock({ snapshot }: { snapshot: ReviewSnapshot }) {
               {b.label}
             </span>
             <span className="sr-only">
-              {b.longLabel}: {b.count} mục{b.minutes > 0 ? `, khoảng ${b.minutes} phút` : ''}
+              {b.longLabel}: {b.count} mục{b.minutes > 0 ? tl`, khoảng ${b.minutes} phút` : ''}
             </span>
           </li>
         ))}
@@ -717,15 +719,15 @@ function ForecastBlock({ snapshot }: { snapshot: ReviewSnapshot }) {
       {words.total > 0 && (
         <p className="stats-note">
           {words.waiting > 0
-            ? `Từ đã học: ${words.total - words.waiting} từ đang ôn · ${words.waiting} từ mới chờ vào lịch, tối đa ${WORD_NEW_PER_DAY} từ mỗi ngày.`
-            : `Từ đã học: ${words.total} từ đang ôn.`}
+            ? tl`Từ đã học: ${words.total - words.waiting} từ đang ôn · ${words.waiting} từ mới chờ vào lịch, tối đa ${WORD_NEW_PER_DAY} từ mỗi ngày.`
+            : tl`Từ đã học: ${words.total} từ đang ôn.`}
         </p>
       )}
       {heldBack > 0 && (
         <p className="stats-note">
           {summary.backlogClears
-            ? `Còn ${heldBack} mục đến hạn sẽ được chia sang các ngày tới cho nhẹ.`
-            : `Bạn đang có ${heldBack} mục tồn. Ôn thêm một chút mỗi ngày sẽ đỡ hơn.`}
+            ? tl`Còn ${heldBack} mục đến hạn sẽ được chia sang các ngày tới cho nhẹ.`
+            : tl`Bạn đang có ${heldBack} mục tồn. Ôn thêm một chút mỗi ngày sẽ đỡ hơn.`}
         </p>
       )}
       <span className="stats-review-suspended" role="status">
@@ -781,7 +783,7 @@ function RecentBlock({ recent, now }: { recent: ReturnType<typeof recentAttempts
                   <span className="stats-recent-text">{attemptSource(a, moduleLabel(a.module))}</span>
                 )}
                 <span className="meta stats-recent-meta">
-                  {t ? `${attemptSource(a, moduleLabel(a.module))} · ` : ''}
+                  {t ? `${tr(attemptSource(a, moduleLabel(a.module)))} · ` : ''}
                   {relativeTimeVi(a.at, now)}
                 </span>
               </span>

@@ -17,6 +17,7 @@ import { itemPhenomena, lessonStatus, nextLessonAfter, scoreOf, type QuizOutcome
 import { lessonReviewCall, lessonReviewNote } from './reviewHook';
 import { useKeyboard } from './useKeyboard';
 import { NoBreakRespell } from './LessonBits';
+import { tl } from '../../i18n';
 
 const TITLE_ID = 'lessons-view-title';
 
@@ -158,7 +159,7 @@ export default function LessonView({ lesson }: { lesson: Lesson }) {
         back={{ href: hrefFor('lessons', { course: lesson.course }), label: courseTitle(lesson.course) }}
         title={<NoBreakRespell text={lesson.title} />}
         titleId={TITLE_ID}
-        subtitle={`Bài ${lesson.order} · ${lesson.minutes} phút`}
+        subtitle={tl`Bài ${lesson.order} · ${lesson.minutes} phút`}
         help={<ShortcutsHelp items={SHORTCUTS} note="Phím chữ và số không dùng được khi đang gõ." />}
       />
 
@@ -170,7 +171,7 @@ export default function LessonView({ lesson }: { lesson: Lesson }) {
                 type="button"
                 className={'lessons-dot-btn' + (i === activeDot ? ' is-active' : i < activeDot ? ' is-past' : '')}
                 onClick={() => goStep(i)}
-                aria-label={`Phần ${i + 1}: ${s.title}`}
+                aria-label={tl`Phần ${i + 1}: ${s.title}`}
                 aria-current={i === activeDot ? 'step' : undefined}
                 title={s.title}
               >
@@ -194,7 +195,7 @@ export default function LessonView({ lesson }: { lesson: Lesson }) {
         <span className="meta lessons-dots-label">
           {/* The quiz is the bar's last segment, so it counts in the total too. During the quiz the card counts
               the questions ("Câu 1/8"), so the bar only names the step: no second, different "x/y". */}
-          {phase.kind === 'learn' ? `Phần ${phase.step + 1}/${sections.length + 1}` : phase.kind === 'quiz' ? 'Quiz' : 'Kết quả'}
+          {phase.kind === 'learn' ? tl`Phần ${phase.step + 1}/${sections.length + 1}` : phase.kind === 'quiz' ? 'Quiz' : 'Kết quả'}
         </span>
       </div>
 
@@ -234,7 +235,7 @@ export default function LessonView({ lesson }: { lesson: Lesson }) {
                 onClick={startQuiz}
                 aria-keyshortcuts="ArrowRight"
               >
-                Làm quiz ({lesson.quiz.length} câu)
+                {tl`Làm quiz (${lesson.quiz.length} câu)`}
                 <Icon icon={ArrowRight} size={16} />
               </button>
             )}

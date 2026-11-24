@@ -7,9 +7,11 @@ import type { AlbumFish, FishAlbum } from '../../../../core/town/fishing';
 import { secondsVi } from './castMachine';
 import FishSprite from './FishSprite';
 import { TierGem } from './TierGem';
+import { getLang, tl, tr } from '../../../../i18n';
 
 function dateVi(ts: number): string {
   try {
+    if (getLang() === 'en') return new Date(ts).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
     return new Date(ts).toLocaleDateString('vi-VN', { day: 'numeric', month: 'numeric', year: 'numeric' });
   } catch {
     return '';
@@ -24,7 +26,7 @@ function Detail({ f }: { f: AlbumFish }) {
       <div className="town-fish-detail" aria-live="polite">
         <p className="town-fish-detail-name">
           <TierGem tier={species.tier} />
-          Chưa gặp · cá {tier.toLowerCase()}
+          {tl`Chưa gặp · cá ${tr(tier).toLowerCase()}`}
         </p>
         <p className="town-fish-detail-fact">Cứ thả câu: loài này sẽ tới. Chuỗi câu được càng dài, cá hiếm càng hay cắn.</p>
       </div>
@@ -85,7 +87,7 @@ export default function FishAlbumView({ album }: { album: FishAlbum }) {
         {album.fish.map((f) => {
           const known = f.caught || f.seen;
           const on = picked === f.species.id;
-          const label = f.caught ? `${f.species.name}, đã câu ${f.record?.caught ?? 0} con` : f.seen ? `${f.species.name}, chưa câu được` : `Loài chưa gặp, cá ${RARITY[f.species.tier].name.toLowerCase()}`;
+          const label = f.caught ? tl`${f.species.name}, đã câu ${f.record?.caught ?? 0} con` : f.seen ? tl`${f.species.name}, chưa câu được` : tl`Loài chưa gặp, cá ${tr(RARITY[f.species.tier].name).toLowerCase()}`;
           return (
             <li key={f.species.id}>
               <button
@@ -109,7 +111,7 @@ export default function FishAlbumView({ album }: { album: FishAlbum }) {
                   {f.caught && f.record ? (
                     <span className="tabular">
                       ×{f.record.caught}
-                      {f.record.bestMs > 0 && ` · ${secondsVi(f.record.bestMs).replace(' giây', 's')}`}
+                      {f.record.bestMs > 0 && ` · ${secondsVi(f.record.bestMs).replace(' giây', 's').replace(/ s$/, 's')}`}
                     </span>
                   ) : (
                     <span>{RARITY[f.species.tier].name}</span>

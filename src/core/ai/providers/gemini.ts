@@ -19,6 +19,7 @@ import { parseJsonLoose } from '../schema';
 import type { AiAdapter, Capabilities, ModelInfo, ProviderConfig, TestResult, TextRequest, TextResult, TtsRequest, TtsResult } from '../types';
 import { audioBlobFromBase64 } from '../wav';
 import { testFailure } from './common';
+import { tl, tr } from '../../../i18n';
 
 const SAFETY_FINISH = new Set(['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'RECITATION', 'IMAGE_SAFETY', 'IMAGE_PROHIBITED_CONTENT']);
 
@@ -95,7 +96,7 @@ export function mapGeminiError(status: number, body: unknown, hdrs: Headers, ctx
   if (status === 400 && (rpcStatus === 'FAILED_PRECONDITION' || /location is not supported/.test(msg))) {
     return makeError('bad-request', {
       ...c,
-      detail: 'Gemini API chưa hỗ trợ khu vực của bạn hoặc dự án chưa bật thanh toán. ' + (detail ?? ''),
+      detail: tr('Gemini API chưa hỗ trợ khu vực của bạn hoặc dự án chưa bật thanh toán. ') + (detail ?? ''),
     });
   }
   if (status === 429 || rpcStatus === 'RESOURCE_EXHAUSTED') {
@@ -250,7 +251,7 @@ async function tts(config: ProviderConfig, req: TtsRequest): Promise<TtsResult> 
   const cand = firstCandidate((body ?? {}) as GeminiResponse, ctx);
   const part = cand.content?.parts?.find((p) => p.inlineData?.data);
   if (!part?.inlineData?.data) {
-    throw makeError('bad-response', { ...ctx, provider: 'gemini', detail: `không có dữ liệu âm thanh (finishReason=${cand.finishReason ?? '?'})` });
+    throw makeError('bad-response', { ...ctx, provider: 'gemini', detail: tl`không có dữ liệu âm thanh (finishReason=${cand.finishReason ?? '?'})` });
   }
   try {
     return audioBlobFromBase64(part.inlineData.data, part.inlineData.mimeType);
@@ -282,10 +283,10 @@ async function listModels(config: ProviderConfig, signal?: AbortSignal): Promise
 async function testConnection(config: ProviderConfig, signal?: AbortSignal): Promise<TestResult> {
   const model = geminiModelId(config.model);
   const ctx = ctxOf(config, model);
-  if (!config.apiKey) return { ok: false, code: 'bad-key', message: 'Chưa nhập API key Gemini.' };
+  if (!config.apiKey) return { ok: false, code: 'bad-key', message: tr('Chưa nhập API key Gemini.') };
   try {
     await sendJson({ url: url(config, `models/${encodeURIComponent(model)}`), headers: headers(config), signal, ctx, mapError: mapGeminiError });
-    return { ok: true, message: `Kết nối ${labelInSentence(ctx.label)} thành công (model ${model}).` };
+    return { ok: true, message: tl`Kết nối ${labelInSentence(ctx.label)} thành công (model ${model}).` };
   } catch (e) {
     return testFailure(e, ctx);
   }

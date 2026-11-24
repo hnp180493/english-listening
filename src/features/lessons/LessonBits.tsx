@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import type { Lesson } from '../../data/lessons';
+import { tr } from '../../i18n';
 
 /**
  * Lesson number in a NEUTRAL row tile (.list-row-lead): muted by default, accent for the recommended next lesson,
@@ -23,7 +24,9 @@ const RESPELL_TOKEN = /[A-Za-zəɜ]+(?:-[A-Za-zəɜ]+)+/g;
  * Title text with every hyphenated respelling kept on one line, so a narrow screen never breaks "EV-ri" into
  * "EV-" / "ri" (a hard hyphen is a line-break opportunity). Plain text otherwise.
  */
-export function NoBreakRespell({ text }: { text: string }): ReactNode {
+export function NoBreakRespell({ text: source }: { text: string }): ReactNode {
+  // translated whole before it is cut into pieces (docs/i18n.md)
+  const text = tr(source);
   const out: ReactNode[] = [];
   let last = 0;
   for (const m of text.matchAll(RESPELL_TOKEN)) {

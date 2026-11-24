@@ -8,6 +8,7 @@ import { lessonLabel } from '../../data/courses';
 import { LESSONS } from '../../data/lessons';
 import { PAIR_SETS } from '../../data/pairs';
 import { SENTENCES } from '../../data/sentences';
+import { getLang, type Lang } from '../../i18n';
 
 export interface AttemptText {
   /** Sentence, phrase or title, in its own language. */
@@ -24,9 +25,12 @@ let index: {
   pairs: Map<string, string>;
   lessons: Map<string, string>;
 } | null = null;
+/** The interface language the index was built in: lessonLabel() gives labels in the current language. */
+let indexLang: Lang | null = null;
 
 function build() {
-  if (index) return index;
+  if (index && indexLang === getLang()) return index;
+  indexLang = getLang();
   const sentences = new Map<string, string>();
   for (const s of Array.isArray(SENTENCES) ? SENTENCES : []) if (s && typeof s.text === 'string') sentences.set(s.id, s.text);
   const chunks = new Map<string, { written: string; spoken: string }>();

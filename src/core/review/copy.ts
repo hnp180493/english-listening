@@ -4,6 +4,7 @@ import { availableAt, type CardState } from '../srs';
 import { seenTime } from './schedule';
 import { formatDaysVi, formatDueVi, localDayDiff } from './time';
 import type { ReviewEntry } from './types';
+import { tl } from '../../i18n';
 
 /** Why this item is in today's session. */
 export function contextLineVi(entry: ReviewEntry, now: number): string {
@@ -16,19 +17,19 @@ export function contextLineVi(entry: ReviewEntry, now: number): string {
   if (t !== undefined) {
     const d = localDayDiff(Math.min(t, now), now);
     const base =
-      d <= 0 ? 'Bạn vừa gặp mục này hôm nay' : d === 1 ? 'Bạn gặp mục này hôm qua' : `Bạn học mục này ${d} ngày trước`;
-    return s.reps >= 1 ? `${base} · ôn lần ${s.reps + 1}` : base;
+      d <= 0 ? 'Bạn vừa gặp mục này hôm nay' : d === 1 ? 'Bạn gặp mục này hôm qua' : tl`Bạn học mục này ${d} ngày trước`;
+    return s.reps >= 1 ? tl`${base} · ôn lần ${s.reps + 1}` : base;
   }
-  if (s.reps >= 1) return `Ôn lần ${s.reps + 1}`;
+  if (s.reps >= 1) return tl`Ôn lần ${s.reps + 1}`;
   return entry.kind === 'chunk' ? 'Cụm từ bạn đang học' : 'Mục bạn đang học';
 }
 
 /** When the item comes back after this answer. */
 export function growthLineVi(prev: CardState | undefined, next: CardState, now: number): string {
-  if (next.interval === 0) return `Gặp lại ${formatDueVi(availableAt(next), now)}`;
-  const line = `Gặp lại sau ${formatDaysVi(next.interval)}`;
+  if (next.interval === 0) return tl`Gặp lại ${formatDueVi(availableAt(next), now)}`;
+  const line = tl`Gặp lại sau ${formatDaysVi(next.interval)}`;
   if (prev && prev.interval >= 1 && prev.interval !== next.interval) {
-    return `${line} (lần trước: ${formatDaysVi(prev.interval)})`;
+    return tl`${line} (lần trước: ${formatDaysVi(prev.interval)})`;
   }
   return line;
 }

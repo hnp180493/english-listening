@@ -16,6 +16,7 @@ import {
   showLabel,
   type ChartBox,
 } from './chartGeometry';
+import { tr } from '../../i18n';
 
 /** Width of the element, updated on resize (falls back to `fallback` before the first measure). */
 function useWidth<T extends HTMLElement>(fallback = 560): [RefObject<T | null>, number] {
@@ -235,7 +236,7 @@ export function DotLineChart({
                   cy={p.y}
                   r={weak?.[p.index] ? 3.5 : 4.5}
                 >
-                  <title>{titles?.[p.index] ?? `${xLabels[p.index]}: ${format(p.value)}${weak?.[p.index] ? ' (ít dữ liệu)' : ''}`}</title>
+                  <title>{titles?.[p.index] ?? `${tr(xLabels[p.index])}: ${format(p.value)}${weak?.[p.index] ? tr(' (ít dữ liệu)') : ''}`}</title>
                 </circle>
                 {showValues && !weak?.[p.index] && (
                   <text className="rep-value" x={p.x} y={p.y - 11} textAnchor="middle">

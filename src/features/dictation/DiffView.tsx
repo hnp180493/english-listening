@@ -1,5 +1,6 @@
 import type { DiffUnit } from '../../core/dictation/diff';
 import { Meaning } from './ResultParts';
+import { tl } from '../../i18n';
 
 /** The learner's answer against the original sentence (+ the meaning, when there is one), in an inset panel. */
 export default function DiffView({ units, vi }: { units: DiffUnit[]; vi?: string }) {
@@ -17,14 +18,14 @@ export default function DiffView({ units, vi }: { units: DiffUnit[]; vi?: string
               );
             case 'typo':
               return (
-                <span key={k} className="dict-w dict-w-typo" title={`Bạn gõ “${u.answer}” — lỗi chính tả nhỏ, vẫn tính đúng`}>
+                <span key={k} className="dict-w dict-w-typo" title={tl`Bạn gõ “${u.answer}” — lỗi chính tả nhỏ, vẫn tính đúng`}>
                   {u.target}
                 </span>
               );
             case 'wrong':
               return (
                 <span key={k} className="dict-w dict-w-bad">
-                  <s className="dict-w-typed" aria-label={`bạn gõ ${u.answer}`}>
+                  <s className="dict-w-typed" aria-label={tl`bạn gõ ${u.answer}`}>
                     {u.answer}
                   </s>
                   <span className="dict-w-correct">{u.target}</span>

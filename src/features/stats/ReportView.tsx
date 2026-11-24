@@ -28,6 +28,8 @@ import AiCoach from '../ai/AiCoach';
 import { parseOnboarding } from '../home/homeModel';
 import { DotLineChart, MinutesBarChart, Sparkline } from './ReportCharts';
 import './report.css';
+import { fullDateLabel, dayMonthLabel } from './statsModel';
+import { getLang, tl, tr } from '../../i18n';
 
 export interface ReportViewProps {
   period: ReportPeriod;
@@ -174,17 +176,17 @@ function OverviewTiles({ report }: { report: ProgressReport }) {
   const neverListened = o.totalMinutes === 0;
   // "800 ngày có nghe" under "800 ngày" says nothing new: only shown when it differs.
   const daysHint = [
-    o.listeningDays > 0 && o.listeningDays !== o.activeDays ? `${o.listeningDays} ngày có nghe` : '',
-    o.checkupsTaken > 0 ? `${o.checkupsTaken} bài kiểm tra` : '',
+    o.listeningDays > 0 && o.listeningDays !== o.activeDays ? tl`${o.listeningDays} ngày có nghe` : '',
+    o.checkupsTaken > 0 ? tl`${o.checkupsTaken} bài kiểm tra` : '',
   ]
     .filter(Boolean)
     .join(' · ');
   // "Tất cả": the period total equals the lifetime total, so the first tile shows the weekly average instead.
   const all = report.period === 'all';
   return (
-    <section className="rep-tiles" aria-label={`Tổng quan, ${o.periodLabel.toLowerCase()}`}>
+    <section className="rep-tiles" aria-label={tl`Tổng quan, ${inSentence(o.periodLabel)}`}>
       <div className="card rep-tile">
-        <span className="rep-tile-label">{all ? 'Trung bình mỗi tuần' : `Giờ nghe · ${o.periodLabel.toLowerCase()}`}</span>
+        <span className="rep-tile-label">{all ? 'Trung bình mỗi tuần' : tl`Giờ nghe · ${inSentence(o.periodLabel)}`}</span>
         {neverListened ? (
           <>
             <span className="rep-tile-value is-text">Chưa ghi</span>
@@ -197,7 +199,7 @@ function OverviewTiles({ report }: { report: ProgressReport }) {
           <>
             <span className="rep-tile-value">{all ? (o.avgPerWeekLabel ?? o.listenLabel) : o.listenLabel}</span>
             {!all && listenHint(o) && <span className="rep-tile-hint">{listenHint(o)}</span>}
-            {all && <span className="rep-tile-hint">{`${o.listeningDays} ngày có nghe`}</span>}
+            {all && <span className="rep-tile-hint">{tl`${o.listeningDays} ngày có nghe`}</span>}
           </>
         )}
       </div>
@@ -231,7 +233,7 @@ function OverviewTiles({ report }: { report: ProgressReport }) {
         <span className="rep-tile-label">Ngày hoạt động</span>
         <span className="rep-tile-value">
           {o.activeDays}
-          <span className="rep-tile-unit"> ngày</span>
+          <span className="rep-tile-unit">{' ' + tr('ngày', o.activeDays)}</span>
         </span>
         {daysHint && <span className="rep-tile-hint">{daysHint}</span>}
       </div>
@@ -240,7 +242,7 @@ function OverviewTiles({ report }: { report: ProgressReport }) {
 }
 
 function listenHint(o: ProgressReport['overview']): string {
-  if (o.changeLabel) return capitalize(o.changeLabel);
+  if (o.changeLabel) return capitalize(tr(o.changeLabel));
   if (o.listenMinutes === 0) return 'Chưa ghi giờ nghe trong kỳ này';
   if (o.prevListenMinutes === null) return '';
   return o.prevListenMinutes === 0 ? 'Kỳ trước chưa ghi giờ nghe' : 'Kỳ trước nghe ít, chưa so sánh được';
@@ -248,6 +250,25 @@ function listenHint(o: ProgressReport['overview']): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toLocaleUpperCase('vi') + s.slice(1);
+}
+
+/**
+ * The period label inside a sentence: "Từ 19/10" → "từ 19/10". English lowers only the first letter, so a month
+ * name keeps its capital ("since Oct 19"); the label is translated first (it may reach here in Vietnamese).
+ */
+function inSentence(periodLabel: string): string {
+  const s = tr(periodLabel);
+  return getLang() === 'en' ? s.charAt(0).toLowerCase() + s.slice(1) : s.toLowerCase();
+}
+
+/** A checkup's date: its stored-style label in Vietnamese ("24/11/2026"), "Nov 24, 2026" in English. */
+function checkupDate(p: { at: number; dateLabel: string }): string {
+  return getLang() === 'en' ? fullDateLabel(new Date(p.at)) : p.dateLabel;
+}
+
+/** A checkup's date on the chart axis: "24/11" / "Nov 24". */
+function checkupDayMonth(p: { at: number; dateLabel: string }): string {
+  return getLang() === 'en' ? dayMonthLabel(new Date(p.at)) : p.dateLabel.slice(0, 5);
 }
 
 // ───────────────────────── 6. Nhận xét ─────────────────────────
@@ -281,25 +302,37 @@ function ListeningCard({ report }: { report: ProgressReport }) {
   const l = report.listening;
   const month = l.unit === 'month';
   const day = l.unit === 'day';
-  const unitWord = month ? 'tháng' : day ? 'ngày' : 'tuần';
+  // One whole string per unit (not "theo ${unit}"): English needs "by week" where the bare unit word is a plural.
   const data = l.weeks.map((w) => ({
     key: w.key,
     label: weekAxisLabel(w),
     value: w.minutes,
     current: w.isCurrent,
     title:
-      `${month || day ? capitalize(w.rangeLabel) : `Tuần ${w.rangeLabel}`}${w.isCurrent ? ' (chưa hết)' : ''}: ${w.minutesLabel}` +
-      (w.minutes > 0 ? `, trung bình ${w.avgPerDay} phút/ngày` : ''),
+      `${month || day ? capitalize(tr(w.rangeLabel)) : tl`Tuần ${w.rangeLabel}`}${w.isCurrent ? tr(' (chưa hết)') : ''}: ${w.minutesLabel}` +
+      (w.minutes > 0 ? tl`, trung bình ${w.avgPerDay} phút/ngày` : ''),
   }));
+  const goalPerBar = formatDurationVi(l.goalPerBar);
   return (
     <section className="card rep-card" aria-labelledby={id}>
-      <CardHead id={id} title={`Giờ nghe theo ${unitWord}`} meta={report.overview.listenLabel + ' · ' + report.overview.periodLabel.toLowerCase()} />
+      <CardHead
+        id={id}
+        title={month ? 'Giờ nghe theo tháng' : day ? 'Giờ nghe theo ngày' : 'Giờ nghe theo tuần'}
+        meta={report.overview.listenLabel + ' · ' + inSentence(report.overview.periodLabel)}
+      />
       <MinutesBarChart data={data} max={l.maxMinutes} goal={l.goalPerBar} goalCurrent={l.goalCurrent} label={l.summary} />
       {l.goalPerDay > 0 && (
         <p className="rep-legend">
           <span className="rep-legend-goal" aria-hidden="true" />
-          Mục tiêu {l.goalPerDay} phút mỗi ngày{day ? '' : `, tức ${formatDurationVi(l.goalPerBar)} mỗi ${unitWord}`}
-          {l.goalCurrent > 0 ? `; vạch đậm trên cột ${unitWord} này: mục tiêu tính đến hôm nay` : ''}
+          {tl`Mục tiêu ${l.goalPerDay} phút mỗi ngày`}
+          {day ? '' : month ? tl`, tức ${goalPerBar} mỗi tháng` : tl`, tức ${goalPerBar} mỗi tuần`}
+          {l.goalCurrent > 0
+            ? month
+              ? '; vạch đậm trên cột tháng này: mục tiêu tính đến hôm nay'
+              : day
+                ? '; vạch đậm trên cột ngày này: mục tiêu tính đến hôm nay'
+                : '; vạch đậm trên cột tuần này: mục tiêu tính đến hôm nay'
+            : ''}
         </p>
       )}
       {l.sources.length > 0 && (
@@ -364,7 +397,7 @@ function CheckupCard({ report }: { report: ProgressReport }) {
       {c.points.length >= 2 && (
         <DotLineChart
           values={c.points.map((p) => p.score)}
-          xLabels={c.points.map((p) => p.dateLabel.slice(0, 5))}
+          xLabels={c.points.map(checkupDayMonth)}
           currentIndex={c.points.length - 1}
           min={0}
           max={100}
@@ -373,13 +406,13 @@ function CheckupCard({ report }: { report: ProgressReport }) {
           label={c.summary}
           left={40}
           weak={c.points.map((p) => !p.inTrend)}
-          titles={c.points.map((p) => `${p.dateLabel}, đề ${p.form}: ${p.score} điểm${p.inTrend ? '' : ' (làm lại sớm, không tính vào xu hướng)'}`)}
+          titles={c.points.map((p) => tl`${checkupDate(p)}, đề ${p.form}: ${p.score} điểm${p.inTrend ? '' : ' (làm lại sớm, không tính vào xu hướng)'}`)}
           labelEnds
         />
       )}
       {c.earlier > 0 && (
         <p className="rep-note">
-          {c.points.length === 0 ? `${c.earlier} bài kiểm tra trước kỳ này.` : `Cộng thêm ${c.earlier} bài trước kỳ này (xem ở "Tất cả").`}
+          {c.points.length === 0 ? tl`${c.earlier} bài kiểm tra trước kỳ này.` : tl`Cộng thêm ${c.earlier} bài trước kỳ này (xem ở "Tất cả").`}
         </p>
       )}
 
@@ -399,7 +432,7 @@ function CheckupCard({ report }: { report: ProgressReport }) {
             <tbody>
               {shownRows.map((p) => (
                 <tr key={p.id}>
-                  <th scope="row">{p.dateLabel}</th>
+                  <th scope="row">{checkupDate(p)}</th>
                   <td>
                     {p.form}
                     {(p.repeatForm || !p.inTrend) && (
@@ -419,7 +452,7 @@ function CheckupCard({ report }: { report: ProgressReport }) {
           </table>
           {rows.length > CHECKUP_ROWS && (
             <button type="button" className="btn btn-ghost btn-sm rep-more" aria-expanded={allRows} aria-controls={tableId} onClick={() => setAllRows((v) => !v)}>
-              {allRows ? 'Thu gọn' : `Xem cả ${rows.length} lần`}
+              {allRows ? 'Thu gọn' : tl`Xem cả ${rows.length} lần`}
             </button>
           )}
         </>
@@ -458,7 +491,7 @@ function CheckupCard({ report }: { report: ProgressReport }) {
           {shownPh.some((p) => p.lowSample) && <p className="rep-note">Dòng mờ: ít câu, chưa đủ để kết luận.</p>}
           {ph.length > PHENOMENON_ROWS && (
             <button type="button" className="btn btn-ghost btn-sm rep-more" aria-expanded={allPh} aria-controls={phId} onClick={() => setAllPh((v) => !v)}>
-              {allPh ? 'Thu gọn' : `Xem cả ${ph.length}`}
+              {allPh ? 'Thu gọn' : tl`Xem cả ${ph.length}`}
             </button>
           )}
         </div>
@@ -499,7 +532,7 @@ function UnderstoodCard({ report }: { report: ProgressReport }) {
           height={170}
           pointLabels={false}
           weak={u.weeks.map((w) => w.count < MIN_WEEK_RATINGS)}
-          titles={u.weeks.map((w) => (w.avg === null ? '' : `${w.rangeLabel}: ${understoodProse(w.avg)} (${w.count} lần ghi)`))}
+          titles={u.weeks.map((w) => (w.avg === null ? '' : tl`${w.rangeLabel}: ${understoodProse(w.avg)} (${w.count} lần ghi)`))}
         />
       )}
     </section>
@@ -515,23 +548,24 @@ function PracticeCard({ report }: { report: ProgressReport }) {
   const current = weeks.length - 1;
   const hasWeekly = weeks.some((w) => w.total.pct !== null);
   const facts: string[] = [];
+  // Each part is translated before it is glued: the joined line is no dictionary key.
   if (p.firstListen.label)
-    facts.push(p.firstListen.label + (p.firstListen.n < MIN_FIRST_LISTEN_SAMPLE ? ', còn ít câu nên chưa chắc' : ''));
+    facts.push(tr(p.firstListen.label) + (p.firstListen.n < MIN_FIRST_LISTEN_SAMPLE ? tr(', còn ít câu nên chưa chắc') : ''));
   if (p.firstListenReal.label)
-    facts.push(p.firstListenReal.label + (p.firstListenReal.n < MIN_FIRST_LISTEN_SAMPLE ? ', còn ít câu nên chưa chắc' : ''));
-  if (p.retention.label) facts.push(p.retention.label + (p.retention.n < MIN_RETENTION_SAMPLE ? ', còn ít lượt nên chưa chắc' : ''));
+    facts.push(tr(p.firstListenReal.label) + (p.firstListenReal.n < MIN_FIRST_LISTEN_SAMPLE ? tr(', còn ít câu nên chưa chắc') : ''));
+  if (p.retention.label) facts.push(tr(p.retention.label) + (p.retention.n < MIN_RETENTION_SAMPLE ? tr(', còn ít lượt nên chưa chắc') : ''));
   if (p.lessonsPassed > 0)
     facts.push(
       p.lessonsPassed === p.lessonsPassedTotal
-        ? `Qua ${p.lessonsPassed} bài học`
-        : `Qua ${p.lessonsPassed} bài học trong kỳ, tổng cộng ${p.lessonsPassedTotal} bài`,
+        ? tl`Qua ${p.lessonsPassed} bài học`
+        : tl`Qua ${p.lessonsPassed} bài học trong kỳ, tổng cộng ${p.lessonsPassedTotal} bài`,
     );
-  else if (p.lessonsPassedTotal > 0) facts.push(`Đã qua ${p.lessonsPassedTotal} bài học, chưa có bài mới trong kỳ`);
-  if (p.words.total > 0) facts.push(`Từ đã thuộc: ${p.words.total} từ${p.words.added > 0 ? `, thêm ${p.words.added} từ trong kỳ` : ''}`);
-  const archiveNote = p.archiveSince && p.archiveSince > report.overview.fromDay ? `Số liệu ôn tập được ghi từ ${ddmmyyyy(p.archiveSince)}.` : null;
+  else if (p.lessonsPassedTotal > 0) facts.push(tl`Đã qua ${p.lessonsPassedTotal} bài học, chưa có bài mới trong kỳ`);
+  if (p.words.total > 0) facts.push(tl`Từ đã thuộc: ${p.words.total} từ${p.words.added > 0 ? tl`, thêm ${p.words.added} từ trong kỳ` : ''}`);
+  const archiveNote = p.archiveSince && p.archiveSince > report.overview.fromDay ? tl`Số liệu ôn tập được ghi từ ${ddmmyyyy(p.archiveSince)}.` : null;
   return (
     <section className="card rep-card" aria-labelledby={id}>
-      <CardHead id={id} title="Luyện trong app" meta={p.total.n > 0 ? `${p.total.n} lượt · ${p.total.pct}% đúng` : null} />
+      <CardHead id={id} title="Luyện trong app" meta={p.total.n > 0 ? tl`${p.total.n} lượt · ${p.total.pct}% đúng` : null} />
       {hasWeekly && (
         <DotLineChart
           values={weeks.map((w) => w.total.pct)}
@@ -543,7 +577,7 @@ function PracticeCard({ report }: { report: ProgressReport }) {
           format={(v) => String(v)}
           label={p.summary}
           weak={weeks.map((w) => w.total.n < MIN_WEEK_ATTEMPTS)}
-          titles={weeks.map((w, i) => `${w.label}${i === current ? ' (chưa hết)' : ''}: ${w.total.pct ?? 0}% (${w.total.n} lượt)`)}
+          titles={weeks.map((w, i) => tl`${w.label}${i === current ? ' (chưa hết)' : ''}: ${w.total.pct ?? 0}% (${w.total.n} lượt)`)}
         />
       )}
       {hasWeekly && weeks.some((w) => w.total.n > 0 && w.total.n < MIN_WEEK_ATTEMPTS) && (
@@ -591,6 +625,7 @@ function PracticeCard({ report }: { report: ProgressReport }) {
 
 function ddmmyyyy(day: string): string {
   const [y, m, d] = day.split('-');
+  if (getLang() === 'en') return fullDateLabel(new Date(Number(y), Number(m) - 1, Number(d)));
   return `${d}/${m}/${y}`;
 }
 

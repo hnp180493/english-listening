@@ -17,6 +17,9 @@ export function warmPortraitShaders(): Promise<void> {
   const person = createPerson('player', undefined, { mood: 'happy', detail: 1 });
   person.update(0.016, 0);
   st.scene.add(person.root);
+  // only there to compile the shaders: offscreen paint() leaves it out of every picture (on a phone it stood in front
+  // of the first portraits drawn)
+  person.root.userData.warmOnly = true;
   warmed = compileStudio(st).finally(() => {
     st.scene.remove(person.root);
     person.dispose();

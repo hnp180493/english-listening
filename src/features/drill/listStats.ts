@@ -2,6 +2,7 @@
 
 import { DAY, formatInterval, type CardState } from '../../core/srs';
 import type { Chunk } from '../../core/types';
+import { tl } from '../../i18n';
 
 export type SortMode = 'rank' | 'due' | 'lapses';
 
@@ -51,9 +52,9 @@ export function dueInfo(state: CardState, now: number): DueInfo {
   const diff = state.due - now;
   if (diff <= 0) {
     const days = Math.floor(-diff / DAY);
-    return days >= 1 ? { label: `Quá hạn ${days} ngày`, tone: 'overdue' } : { label: 'Đến hạn', tone: 'due' };
+    return days >= 1 ? { label: tl`Quá hạn ${days} ngày`, tone: 'overdue' } : { label: 'Đến hạn', tone: 'due' };
   }
-  return { label: `còn ${formatInterval(diff)}`, tone: diff < DAY ? 'soon' : 'later' };
+  return { label: tl`còn ${formatInterval(diff)}`, tone: diff < DAY ? 'soon' : 'later' };
 }
 
 /** Ease with a Vietnamese decimal comma: 2.5 → "2,5", 2.35 → "2,35". */

@@ -9,6 +9,7 @@ import type { TownStageHandle } from '../engine/stage';
 import { SoundBars } from '../art';
 import type { GreetingState } from './useGreeting';
 import './friends.css';
+import { tl } from '../../../i18n';
 
 export default function GreetBubble({ stage, greet }: { stage: RefObject<TownStageHandle | null>; greet: GreetingState }) {
   const g = greet.greeting;
@@ -54,7 +55,7 @@ export default function GreetBubble({ stage, greet }: { stage: RefObject<TownSta
     <div ref={boxRef} className="town-greet" style={{ visibility: 'hidden' }}>
       <div className="town-greet-in">
         {open ? (
-          <div className="town-greet-pop" role="dialog" aria-label={`${name} chào bạn`}>
+          <div className="town-greet-pop" role="dialog" aria-label={tl`${name} chào bạn`}>
             <p className="town-said-plain" lang="en">
               {g.line.text}
             </p>
@@ -70,7 +71,7 @@ export default function GreetBubble({ stage, greet }: { stage: RefObject<TownSta
             </div>
           </div>
         ) : (
-          <button type="button" className={'town-greet-bubble' + (greet.sounding ? ' is-live' : '')} onClick={() => setOpen(true)} aria-label={`${name} vừa chào bạn. Bấm để xem câu chào`}>
+          <button type="button" className={'town-greet-bubble' + (greet.sounding ? ' is-live' : '')} onClick={() => setOpen(true)} aria-label={tl`${name} vừa chào bạn. Bấm để xem câu chào`}>
             <SoundBars on={greet.sounding} />
           </button>
         )}

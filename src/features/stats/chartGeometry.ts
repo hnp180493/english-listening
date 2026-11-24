@@ -1,3 +1,4 @@
+import { getLang, tl } from '../../i18n';
 // Geometry for the "Báo cáo" charts (pure: no DOM, no React). The charts draw their SVG at the real pixel
 // width of their box (viewBox width = measured width), so 1 unit = 1px and 13px labels stay 13px on a phone.
 
@@ -64,9 +65,9 @@ export function minuteTicks(max: number, maxTicks = 3): number[] {
 /** Short Vietnamese axis label for minutes: "30 phút", "1 giờ", "1,5 giờ". */
 export function minuteTickLabel(min: number): string {
   if (min === 0) return '0';
-  if (min < 60) return `${min} phút`;
+  if (min < 60) return tl`${min} phút`;
   const h = Math.round((min / 60) * 10) / 10;
-  return `${String(h).replace('.', ',')} giờ`;
+  return tl`${getLang() === 'en' ? String(h) : String(h).replace('.', ',')} giờ`;
 }
 
 export interface LinePoint {

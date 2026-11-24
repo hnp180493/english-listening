@@ -43,6 +43,7 @@ import { pickVoice, ttsSupported, useEnglishVoices } from '../../core/tts';
 import { connectedText } from '../../core/playback';
 import { DEFAULT_TEXT, EXAMPLE_SAY } from '../decoder/examples';
 import { sanitizeTheme } from '../../core/theme';
+import type { Lang } from '../../i18n';
 import { useLiveStats } from '../home/hooks';
 import {
   accentLabel,
@@ -65,7 +66,9 @@ import AiSection, { AI_SECTION_ID, VoiceEngineRow } from './AiSection';
 import SectionHead from './SectionHead';
 import CloudSection from './CloudSection';
 import './settings.css';
+import { tl, tr } from '../../i18n';
 
+const APP_NAME = 'Nghe Nối Âm';
 const APP_VERSION = '1.0';
 /** "Thử giọng": the decoder's first sample, so with the Gemini clips it plays a clip the app already ships. */
 const SAMPLE = DEFAULT_TEXT;
@@ -117,6 +120,8 @@ function VoiceSection() {
   const current = selectedExists ? voices.find((v) => v.voiceURI === settings.voiceURI) : autoVoice;
   // The tip only matters while the voice in use is not a natural-sounding one.
   const showTip = !aiOn && current != null && !/natural/i.test(current.name);
+  // One sentence around the bold voice name ({} in Vietnamese, {0} in English): English puts it elsewhere.
+  const [tipBefore, tipAfter = ''] = tr('Giọng {} của Microsoft Edge nghe giống người bản xứ nhất. Trên Chrome, chọn “Google US English”.').split(/\{0?\}/);
 
   return (
     <section className="card set-section" aria-labelledby={`${uid}-h`}>
@@ -153,7 +158,7 @@ function VoiceSection() {
               {voices.length === 0 && !waited
                 ? 'Đang tải danh sách giọng đọc…'
                 : current
-                  ? `Đang dùng: ${voiceDisplayName(current.name)} (${accentLabel(current.lang)})`
+                  ? tl`Đang dùng: ${voiceDisplayName(current.name)} (${accentLabel(current.lang)})`
                   : null}
             </p>
             {settings.voiceURI != null && !selectedExists && voices.length > 0 && (
@@ -203,7 +208,7 @@ function VoiceSection() {
               step={RATE_STEP}
               value={rate}
               style={rangeFill(rate, RATE_MIN, RATE_MAX)}
-              aria-valuetext={`${formatRate(rate).replace('×', '')} lần, ${rateHint(rate)}`}
+              aria-valuetext={tl`${formatRate(rate).replace('×', '')} lần, ${rateHint(rate)}`}
               onChange={(e) => updateSettings({ rate: clampRate(Number(e.target.value)) })}
             />
             <div className="set-scale" aria-hidden="true">
@@ -233,7 +238,9 @@ function VoiceSection() {
             <div className="callout">
               <Icon icon={Lightbulb} size={16} />
               <div>
-                Giọng <strong>“Natural”</strong> của Microsoft Edge nghe giống người bản xứ nhất. Trên Chrome, chọn “Google US English”.
+                {tipBefore}
+                <strong>“Natural”</strong>
+                {tipAfter}
                 {!hasRecommended && <> Thiết bị này chưa có giọng như vậy, hãy thử mở ứng dụng bằng Edge.</>}
               </div>
             </div>
@@ -252,13 +259,27 @@ const THEMES: { id: Settings['theme']; label: string; icon: LucideIcon }[] = [
   { id: 'dark', label: 'Tối', icon: Moon },
 ];
 
+/** Each language under its own name, whatever the interface language is. */
+const LANG_OPTIONS: { value: Lang; label: string }[] = [
+  { value: 'vi', label: 'Tiếng Việt' },
+  { value: 'en', label: 'English' },
+];
+
 function DisplaySection() {
   const settings = useSettings();
   const uid = useId();
   const theme = sanitizeTheme(settings.theme);
   return (
     <section className="card set-section" aria-labelledby={`${uid}-h`}>
-      <SectionHead id={`${uid}-h`} title="Hiển thị" sub="Giao diện sáng/tối và phiên âm." />
+      <SectionHead id={`${uid}-h`} title="Hiển thị" sub="Ngôn ngữ, giao diện sáng/tối và phiên âm." />
+
+      <div className="set-row">
+        <span className="set-row-text">
+          <span className="set-label">Ngôn ngữ</span>
+          <span className="set-hint">Mọi chữ trên màn hình, kể cả phần giải thích.</span>
+        </span>
+        <Segmented ariaLabel="Ngôn ngữ" value={settings.lang} onChange={(lang) => updateSettings({ lang })} options={LANG_OPTIONS} />
+      </div>
 
       <div className="set-row">
         <span className="set-label">Giao diện</span>
@@ -336,7 +357,7 @@ function GoalSection() {
             className="set-presets"
             value={goal}
             onChange={(g) => updateSettings({ dailyGoal: clampGoal(g) })}
-            options={goalOptions(GOAL_PRESETS, goal).map((g) => ({ value: g, label: `${g} lượt` }))}
+            options={goalOptions(GOAL_PRESETS, goal).map((g) => ({ value: g, label: tl`${g} lượt` }))}
           />
           <button
             type="button"
@@ -361,7 +382,7 @@ function GoalSection() {
               value={goal}
               style={rangeFill(goal, GOAL_MIN, GOAL_MAX)}
               aria-labelledby={`${uid}-goal-l`}
-              aria-valuetext={`${goal} lượt mỗi ngày, khoảng ${goalMinutes(goal)} phút`}
+              aria-valuetext={tl`${goal} lượt mỗi ngày, khoảng ${goalMinutes(goal)} phút`}
               onChange={(e) => updateSettings({ dailyGoal: clampGoal(Number(e.target.value)) })}
             />
             <div className="set-scale" aria-hidden="true">
@@ -381,7 +402,7 @@ function GoalSection() {
           ariaLabel="Thời lượng ôn mỗi ngày"
           value={reviewMinutes}
           onChange={(m) => updateSettings({ reviewMinutes: m })}
-          options={REVIEW_MINUTES_OPTIONS.map((m) => ({ value: m, label: `${m} phút` }))}
+          options={REVIEW_MINUTES_OPTIONS.map((m) => ({ value: m, label: tl`${m} phút` }))}
         />
       </div>
       <div className="set-row">
@@ -447,7 +468,7 @@ function DataSection() {
       a.click();
       a.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setStatus({ kind: 'ok', text: `Đã tạo tệp ${a.download}. Hãy cất tệp này ở nơi an toàn.` });
+      setStatus({ kind: 'ok', text: tl`Đã tạo tệp ${a.download}. Hãy cất tệp này ở nơi an toàn.` });
     } catch {
       setStatus({ kind: 'error', text: 'Không tạo được tệp sao lưu. Hãy thử lại.' });
     }
@@ -490,7 +511,7 @@ function DataSection() {
     setBusy(true);
     try {
       const n = restoreBackup(storage, pending.backup);
-      setStatus({ kind: 'ok', text: `Đã khôi phục ${n} mục dữ liệu. Đang tải lại…` });
+      setStatus({ kind: 'ok', text: tl`Đã khôi phục ${n} mục dữ liệu. Đang tải lại…` });
       setPending(null);
       void syncThenReload(700);
     } catch {
@@ -579,9 +600,12 @@ function DataSection() {
               Khôi phục từ “{pending.fileName}”?
             </div>
             <p id={`${uid}-imp-d`} className="set-hint">
-              {summary.exportedAt ? `Sao lưu ngày ${formatDateTimeVi(summary.exportedAt)}` : 'Không rõ ngày sao lưu'} · {summary.attempts}{' '}
-              lượt luyện · {summary.activeDays} ngày học · {summary.keys} mục dữ liệu. Toàn bộ dữ liệu hiện tại trên trình duyệt này sẽ
-              bị thay thế{cloudOn ? ', và các máy khác đăng nhập cùng tài khoản cũng sẽ theo bản này' : ''}.
+              {summary.exportedAt ? tl`Sao lưu ngày ${formatDateTimeVi(summary.exportedAt)}` : 'Không rõ ngày sao lưu'}
+              {' · '}
+              {tl`${summary.attempts} lượt luyện · ${summary.activeDays} ngày học · ${summary.keys} mục dữ liệu.`}{' '}
+              {cloudOn
+                ? 'Toàn bộ dữ liệu hiện tại trên trình duyệt này sẽ bị thay thế, và các máy khác đăng nhập cùng tài khoản cũng sẽ theo bản này.'
+                : 'Toàn bộ dữ liệu hiện tại trên trình duyệt này sẽ bị thay thế.'}
             </p>
             <div className="row">
               <button type="button" className="btn btn-primary" onClick={onRestore} disabled={busy} autoFocus>
@@ -698,7 +722,7 @@ function AboutSection() {
   const uid = useId();
   return (
     <section className="card set-section" aria-labelledby={`${uid}-h`}>
-      <SectionHead id={`${uid}-h`} title="Giới thiệu" sub={`Nghe Nối Âm · phiên bản ${APP_VERSION}`} />
+      <SectionHead id={`${uid}-h`} title="Giới thiệu" sub={tl`${APP_NAME} · phiên bản ${APP_VERSION}`} />
       <p className="set-about-text">
         Người bản xứ không nói từng từ tách rời: <em>“turn it off”</em> thành <strong>tur-ni-doff</strong>, <em>“want to”</em> thành{' '}
         <strong>wanna</strong>. Nghe Nối Âm giúp người Việt nhận ra 8 hiện tượng nối âm của giọng Mỹ.

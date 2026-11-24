@@ -14,6 +14,7 @@ import { PHENOMENON_INFO } from '../../core/phenomena';
 import { MIN_TREND_CHECKUPS, SCORE_NOISE } from '../../core/progressReport';
 import { PHENOMENA, type Phenomenon } from '../../core/types';
 import type { BenchmarkForm, BenchmarkFormId, BenchmarkQuestion, BenchmarkSentence } from '../../data/benchmarkTypes';
+import { getLang, tl, tr } from '../../i18n';
 
 /** A test in progress: exactly what is stored as the device-local draft (minus savedAt). */
 export type TestState = Omit<CheckupDraft, 'savedAt'>;
@@ -161,7 +162,7 @@ export function advance(s: TestState, form: BenchmarkForm): { state: TestState; 
 export function stepLabel(s: TestState, form: BenchmarkForm): string {
   const item = currentItem(s, form);
   if (!item) return '';
-  return `${item.kind === 'sentence' ? 'Câu' : 'Đoạn'} ${item.index + 1}/${item.count}`;
+  return `${tr(item.kind === 'sentence' ? 'Câu' : 'Đoạn')} ${item.index + 1}/${item.count}`;
 }
 
 /** Label of the "next" button for the current item. */
@@ -188,7 +189,7 @@ export function playLabel(used: number, playing: boolean): string {
   if (playing) return 'Đang phát…';
   const left = MAX_PLAYS - Math.min(MAX_PLAYS, Math.max(0, used));
   if (used <= 0) return 'Nghe';
-  return left > 0 ? `Nghe (còn ${left} lần)` : 'Hết lượt nghe';
+  return left > 0 ? tl`Nghe (còn ${left} lần)` : 'Hết lượt nghe';
 }
 
 /**
@@ -297,17 +298,17 @@ export function comparisonSummary(info: { cmp: CheckupComparison; first: Checkup
   const to = cmp.latest.score;
   let s: string;
   if (Math.abs(d) <= SCORE_NOISE)
-    s = `Điểm chưa thay đổi rõ so với lần đầu (${from} → ${to}): mỗi câu nghe hiểu là 10 điểm, nên chênh từ ${SCORE_NOISE} điểm trở xuống có thể chỉ do đề hoặc may rủi.`;
-  else if (d > 0) s = `Điểm tăng từ ${from} lên ${to} so với lần đầu.`;
-  else s = `Điểm thấp hơn lần đầu (${from} → ${to}). Một lần thấp chưa nói lên nhiều: đề khác, lúc mệt cũng làm điểm dao động.`;
+    s = tl`Điểm chưa thay đổi rõ so với lần đầu (${from} → ${to}): mỗi câu nghe hiểu là 10 điểm, nên chênh từ ${SCORE_NOISE} điểm trở xuống có thể chỉ do đề hoặc may rủi.`;
+  else if (d > 0) s = tl`Điểm tăng từ ${from} lên ${to} so với lần đầu.`;
+  else s = tl`Điểm thấp hơn lần đầu (${from} → ${to}). Một lần thấp chưa nói lên nhiều: đề khác, lúc mệt cũng làm điểm dao động.`;
   // The previous test, when it points the other way (the table below has the numbers).
   const p = cmp.vsPrev;
   if (p && info.prev && info.prev.id !== first.id && Math.abs(p.score) > SCORE_NOISE && Math.sign(p.score) !== Math.sign(d)) {
-    s += p.score > 0 ? ` So với lần trước thì cao hơn ${p.score} điểm.` : ` So với lần trước thì thấp hơn ${-p.score} điểm.`;
+    s += p.score > 0 ? tl` So với lần trước thì cao hơn ${p.score} điểm.` : tl` So với lần trước thì thấp hơn ${-p.score} điểm.`;
   }
-  if (count < MIN_TREND_CHECKUPS && Math.abs(d) > SCORE_NOISE) s += ` Mới có ${count} lần, cần khoảng ${MIN_TREND_CHECKUPS} lần mới chắc được xu hướng.`;
+  if (count < MIN_TREND_CHECKUPS && Math.abs(d) > SCORE_NOISE) s += tl` Mới có ${count} lần, cần khoảng ${MIN_TREND_CHECKUPS} lần mới chắc được xu hướng.`;
   // once only: the first test used the older standard reading, the previous one already the connected one
-  if (cmp.firstAudioModeDiffers) s += ' Lần đầu dùng giọng đọc chuẩn (rõ từng từ, dễ hơn), nên so với lần đầu chỉ để tham khảo.';
+  if (cmp.firstAudioModeDiffers) s += tr(' Lần đầu dùng giọng đọc chuẩn (rõ từng từ, dễ hơn), nên so với lần đầu chỉ để tham khảo.');
   return s;
 }
 
@@ -351,14 +352,26 @@ export function durationVi(sec: number): string {
   const s = Math.max(0, Math.round(Number.isFinite(sec) ? sec : 0));
   const m = Math.floor(s / 60);
   const r = s % 60;
-  if (m === 0) return `${r} giây`;
-  if (m >= 60) return `${Math.floor(m / 60)} giờ ${m % 60} phút`;
-  return r ? `${m} phút ${r} giây` : `${m} phút`;
+  if (m === 0) return tl`${r} giây`;
+  if (m >= 60) return tl`${Math.floor(m / 60)} giờ ${m % 60} phút`;
+  return r ? tl`${m} phút ${r} giây` : tl`${m} phút`;
 }
 
-/** "06/11/2026". */
+const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "06/11/2026" ("Nov 6, 2026" in English). */
 export function dateVi(ms: number): string {
   const d = new Date(ms);
+  if (getLang() === 'en') return `${MONTH_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   const p = (n: number) => String(n).padStart(2, '0');
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+/** "06/11" ("Nov 6" in English): the column heads of the comparison table. */
+export function dayMonthVi(ms: number): string {
+  if (getLang() === 'en') {
+    const d = new Date(ms);
+    return `${MONTH_EN[d.getMonth()]} ${d.getDate()}`;
+  }
+  return dateVi(ms).slice(0, 5);
 }

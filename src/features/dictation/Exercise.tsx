@@ -18,6 +18,7 @@ import ListenControls, { CarefulListen } from './ListenControls';
 import { ResultActions, Verdict, type Tone } from './ResultParts';
 import { isCoarsePointer, usePlayer } from './usePlayer';
 import WhyWrong, { AnnotationCard, PhenomenonChips } from './WhyWrong';
+import { tl } from '../../i18n';
 
 const MAX_ANSWER_CHARS = 400;
 
@@ -268,8 +269,8 @@ export default function Exercise({
             title={verdict}
             sub={
               <>
-                Đúng {outcome.al.matched}/{outcome.al.total} từ
-                {outcome.al.extra > 0 ? ` · thừa ${outcome.al.extra} từ` : ''}
+                {tl`Đúng ${outcome.al.matched}/${outcome.al.total} từ`}
+                {outcome.al.extra > 0 ? tl` · thừa ${outcome.al.extra} từ` : ''}
                 {hintShown ? ' · có dùng gợi ý' : ''}
                 {heardLabel && !firstListen ? ` · ${heardLabel}` : ''}
               </>

@@ -9,6 +9,7 @@ import { PHENOMENON_INFO } from '../../core/phenomena';
 import type { CourseMeta } from '../../data/courses';
 import type { Lesson, QuizItem } from '../../data/lessonTypes';
 import { isPass, itemSummary, letterGroups, optionLabels, percent, summaryIsEnglish, type QuizOutcome } from './logic';
+import { getLang, tl } from '../../i18n';
 
 export interface QuizResultProps {
   lesson: Lesson;
@@ -36,13 +37,14 @@ interface NextStep {
 function nextSteps(lesson: Lesson): NextStep[] {
   const p = lesson.phenomenon;
   if (p) {
-    const label = PHENOMENON_INFO[p].label.toLowerCase();
+    // English keeps the label as written (the dictionary knows "Nối âm", not "nối âm"); tl translates it.
+    const label = getLang() === 'en' ? PHENOMENON_INFO[p].label : PHENOMENON_INFO[p].label.toLowerCase();
     return [
       {
         route: 'dictation',
         params: { focus: p },
         title: 'Chép chính tả',
-        hint: `Nghe và gõ lại các câu có ${label}.`,
+        hint: tl`Nghe và gõ lại các câu có ${label}.`,
       },
       {
         route: 'pairs',
@@ -54,7 +56,7 @@ function nextSteps(lesson: Lesson): NextStep[] {
         route: 'drill',
         params: { focus: p },
         title: 'Ôn cụm từ',
-        hint: `Thẻ ôn các cụm có ${label}.`,
+        hint: tl`Thẻ ôn các cụm có ${label}.`,
       },
     ];
   }
@@ -154,8 +156,8 @@ export default function QuizResult({
     reviewNote,
     words > 0 &&
       (reviewNote
-        ? `${words} từ trong bài được ôn riêng, vài từ mỗi ngày.`
-        : `${words} từ trong bài sẽ vào lịch Ôn tập, vài từ mỗi ngày.`),
+        ? tl`${words} từ trong bài được ôn riêng, vài từ mỗi ngày.`
+        : tl`${words} từ trong bài sẽ vào lịch Ôn tập, vài từ mỗi ngày.`),
   ]
     .filter(Boolean)
     .join(' ');
@@ -180,10 +182,10 @@ export default function QuizResult({
             {passed ? (firstPass ? 'Hoàn thành bài học!' : 'Đạt yêu cầu!') : 'Chưa đạt, thử lại nhé'}
           </h2>
           <p className="lessons-result-sub">
-            Đúng {correct}/{outcomes.length} câu ({percent(score)}).{' '}
+            {tl`Đúng ${correct}/${outcomes.length} câu (${percent(score)}).`}{' '}
             {passed
               ? 'Bài học đã được đánh dấu là đã học.'
-              : `Cần đạt ${percent(PASS_SCORE)}. Xem lại các câu sai rồi làm lại.`}
+              : tl`Cần đạt ${percent(PASS_SCORE)}. Xem lại các câu sai rồi làm lại.`}
           </p>
           {review && (
             <p className="lessons-result-review" role="status">

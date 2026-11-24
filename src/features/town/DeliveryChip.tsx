@@ -20,6 +20,7 @@ import { sayDelivery } from './activities/deliveryAudio';
 import type { ActivityId } from './activities/types';
 import { Coin, Portrait } from './art';
 import './activities/delivery.css';
+import { tl } from '../../i18n';
 
 const nameOf = (id: string | null | undefined): string => (id ? (townPlace(id)?.resident ?? '') : '');
 
@@ -44,7 +45,7 @@ export default function DeliveryChip({ onOpen }: { onOpen: (id: ActivityId) => v
     return (
       <div className="town-dl-chip" role="status">
         <Icon icon={Package} size={16} />
-        <span className="town-dl-chip-text">{c.wrong ? `${nameOf(c.wrong)} bảo không phải của mình. Còn 1 lần thử.` : 'Đang giao một món cho Emma'}</span>
+        <span className="town-dl-chip-text">{c.wrong ? tl`${nameOf(c.wrong)} bảo không phải của mình. Còn 1 lần thử.` : 'Đang giao một món cho Emma'}</span>
         <button
           type="button"
           className="btn btn-ghost btn-sm"
@@ -71,7 +72,7 @@ export default function DeliveryChip({ onOpen }: { onOpen: (id: ActivityId) => v
       <div className="town-dl-emma">
         <Portrait placeId={c.order.to as PlaceId} size={56} mood={done ? 'happy' : 'neutral'} />
         <div>
-          <p className="town-dl-name">{done ? `Đã giao cho ${nameOf(c.order.to)}` : `Món này là của ${nameOf(c.order.to)}`}</p>
+          <p className="town-dl-name">{done ? tl`Đã giao cho ${nameOf(c.order.to)}` : tl`Món này là của ${nameOf(c.order.to)}`}</p>
           <p className="town-dl-sub">
             {done ? (
               <>
@@ -80,7 +81,7 @@ export default function DeliveryChip({ onOpen }: { onOpen: (id: ActivityId) => v
                     <Coin size={14} /> +{c.result.xu} xu
                   </>
                 )}
-                {c.result && c.result.bond > 0 ? ` · thân thiết +${c.result.bond}` : ''}
+                {c.result && c.result.bond > 0 ? tl` · thân thiết +${c.result.bond}` : ''}
               </>
             ) : (
               'Đưa nhầm hai người nên món nguội mất rồi.'
@@ -130,7 +131,7 @@ export default function DeliveryChip({ onOpen }: { onOpen: (id: ActivityId) => v
             if (left > 0) onOpen('delivery');
           }}
         >
-          {left > 0 ? `Đơn tiếp theo (còn ${left})` : 'Xong'}
+          {left > 0 ? tl`Đơn tiếp theo (còn ${left})` : 'Xong'}
         </button>
       </div>
     </div>

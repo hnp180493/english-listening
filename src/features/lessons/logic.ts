@@ -6,6 +6,7 @@ import { PHENOMENON_INFO } from '../../core/phenomena';
 import type { Phenomenon } from '../../core/types';
 import { canonicalize, isTypo, splitWords, wordsEqual } from '../../core/dictation/normalize';
 import type { Lesson, QuizItem, SilentLetterItem, SpotItem } from '../../data/lessonTypes';
+import { tl } from '../../i18n';
 
 // ---------------------------------------------------------------------------
 // Text helpers
@@ -429,7 +430,7 @@ export function letterDiffSummary(parts: readonly LetterPart[]): string {
     if (p.kind === 'same' || !t) continue;
     const q = parts[k + 1];
     if (p.kind === 'extra' && q?.kind === 'missing' && q.text.trim() && [...q.text].length === [...p.text].length) {
-      swaps.push(`gõ ${t} thay vì ${q.text.trim()}`);
+      swaps.push(tl`gõ ${t} thay vì ${q.text.trim()}`);
       k++;
       continue;
     }
@@ -437,8 +438,8 @@ export function letterDiffSummary(parts: readonly LetterPart[]): string {
   }
   return [
     ...swaps,
-    missing.length > 0 && `thiếu ${missing.join(', ')}`,
-    extra.length > 0 && `thừa ${extra.join(', ')}`,
+    missing.length > 0 && tl`thiếu ${missing.join(', ')}`,
+    extra.length > 0 && tl`thừa ${extra.join(', ')}`,
   ]
     .filter(Boolean)
     .join(' · ');

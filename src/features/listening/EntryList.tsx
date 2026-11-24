@@ -12,6 +12,7 @@ import {
 } from '../../core/listening';
 import EntryFields from './EntryFields';
 import { entryMeta, entryMetaParts, entryTitle, formFromEntry, readForm, RECENT_PAGE, type EntryForm, type FormErrors } from './listeningModel';
+import { tl, tr } from '../../i18n';
 
 const SOURCE_ICON: Record<ListeningSource, LucideIcon> = {
   phim: Film,
@@ -90,7 +91,7 @@ export default function EntryList({ entries, today }: Props) {
                       {entryMetaParts(e, today).map((part, k) => (
                         <Fragment key={k}>
                           {k > 0 && ' '}
-                          <span className="nowrap-seg">{k > 0 ? `· ${part}` : part}</span>
+                          <span className="nowrap-seg">{k > 0 ? `· ${tr(part)}` : part}</span>
                         </Fragment>
                       ))}
                     </span>
@@ -99,7 +100,7 @@ export default function EntryList({ entries, today }: Props) {
                     <button
                       type="button"
                       className="btn btn-ghost btn-icon btn-sm"
-                      aria-label={`Sửa: ${entryTitle(e)}, ${entryMeta(e, today)}`}
+                      aria-label={tl`Sửa: ${entryTitle(e)}, ${entryMeta(e, today)}`}
                       title="Sửa"
                       onClick={() => setEditing(e.id)}
                     >
@@ -149,7 +150,7 @@ function EditRow({ entry, today, onDone, onDelete }: { entry: ListeningEntry; to
       className="lis-edit stack"
       onSubmit={submit}
       noValidate
-      aria-label={`Sửa lần nghe: ${entryTitle(entry)}`}
+      aria-label={tl`Sửa lần nghe: ${entryTitle(entry)}`}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           e.preventDefault();

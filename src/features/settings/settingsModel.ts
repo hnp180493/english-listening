@@ -4,6 +4,7 @@ import type { VoiceEngine } from '../../core/settings';
 import { baseUrlAllowed } from '../../core/ai/defaults';
 import { NORMAL_RATE_MIN } from '../../core/dictation/listens';
 import type { ProviderKind } from '../../core/ai/types';
+import { getLang, tl } from '../../i18n';
 
 export const RATE_MIN = 0.5;
 export const RATE_MAX = 1.5;
@@ -64,7 +65,8 @@ export function clampRate(r: unknown): number {
 
 /** Vietnamese number style: comma as decimal separator, e.g. 0,75× / 1× / 1,1×. */
 export function formatRate(r: number): string {
-  return `${String(Number(r.toFixed(2))).replace('.', ',')}×`;
+  const n = String(Number(r.toFixed(2)));
+  return `${getLang() === 'en' ? n : n.replace('.', ',')}×`;
 }
 
 /** "tốc độ thường" starts at NORMAL_RATE_MIN: below it dictation counts "Nghe" as a slowed play (core/dictation/listens). */
@@ -88,12 +90,13 @@ export function goalHint(goal: number): string {
   return 'Tăng tốc';
 }
 
-/** "6/11/2026 lúc 09:05" */
+/** "6/11/2026 lúc 09:05" (English mode: "Nov 6, 2026, 09:05"). */
 export function formatDateTimeVi(ts: number): string {
   const d = new Date(ts);
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()} lúc ${hh}:${mm}`;
+  if (getLang() === 'en') return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}, ${hh}:${mm}`;
+  return tl`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()} lúc ${hh}:${mm}`;
 }
 
 
@@ -109,8 +112,8 @@ export function listenGoalLabel(minutes: number): string {
   if (!Number.isFinite(minutes) || minutes <= 0) return 'Tắt';
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
-  if (h === 0) return `${m} phút`;
-  return m === 0 ? `${h} giờ` : `${h} giờ ${m} phút`;
+  if (h === 0) return tl`${m} phút`;
+  return m === 0 ? tl`${h} giờ` : tl`${h} giờ ${m} phút`;
 }
 
 // ───────────────────────── AI section ─────────────────────────
@@ -118,7 +121,7 @@ export function listenGoalLabel(minutes: number): string {
 /** 1234567 → "1.234.567" (Vietnamese thousands separator). */
 export function formatCountVi(n: number): string {
   const v = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
-  return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, getLang() === 'en' ? ',' : '.');
 }
 
 /**
@@ -128,9 +131,9 @@ export function formatCountVi(n: number): string {
 export function aiUsageLine(total: { requests: number; ttsChars: number; cacheHits: number }, cap?: number): string {
   const parts: string[] = [];
   const req = Math.max(0, Math.floor(total.requests || 0));
-  if (req > 0 || cap) parts.push(cap ? `${formatCountVi(req)}/${formatCountVi(cap)} yêu cầu` : `${formatCountVi(req)} yêu cầu`);
-  if (total.cacheHits > 0) parts.push(`${formatCountVi(total.cacheHits)} lần nghe lại miễn phí`);
-  return parts.length ? `Hôm nay: ${parts.join(' · ')}` : 'Hôm nay chưa dùng.';
+  if (req > 0 || cap) parts.push(cap ? tl`${formatCountVi(req)}/${formatCountVi(cap)} yêu cầu` : tl`${formatCountVi(req)} yêu cầu`);
+  if (total.cacheHits > 0) parts.push(tl`${formatCountVi(total.cacheHits)} lần nghe lại miễn phí`);
+  return parts.length ? tl`Hôm nay: ${parts.join(' · ')}` : 'Hôm nay chưa dùng.';
 }
 
 /**
@@ -214,8 +217,8 @@ export const VOICE_CHOICE_LABEL: Readonly<Record<VoiceEngine, string>> = {
 export function voiceChoiceHint(engine: VoiceEngine, aiCanSpeak: boolean): string {
   if (engine === 'browser') return 'Mọi câu đọc bằng giọng có sẵn của trình duyệt.';
   const builtIn = 'Câu có sẵn trong app đã có giọng Gemini, không cần key, không tốn phí.';
-  if (engine === 'clips') return `${builtIn} Câu khác (bạn tự gõ, AI tạo) đọc bằng giọng trình duyệt bên dưới.`;
+  if (engine === 'clips') return tl`${builtIn} Câu khác (bạn tự gõ, AI tạo) đọc bằng giọng trình duyệt bên dưới.`;
   return aiCanSpeak
-    ? `${builtIn} Câu khác (bạn tự gõ, AI tạo) đọc bằng Gemini qua key của bạn: mỗi câu mới tốn một yêu cầu.`
-    : `${builtIn} Chưa có key Gemini đọc được, nên câu khác đọc bằng giọng trình duyệt bên dưới.`;
+    ? tl`${builtIn} Câu khác (bạn tự gõ, AI tạo) đọc bằng Gemini qua key của bạn: mỗi câu mới tốn một yêu cầu.`
+    : tl`${builtIn} Chưa có key Gemini đọc được, nên câu khác đọc bằng giọng trình duyệt bên dưới.`;
 }

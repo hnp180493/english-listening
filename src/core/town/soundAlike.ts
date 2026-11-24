@@ -13,6 +13,7 @@
 
 import { NO_DERIVED, TOWN_SOUND_ALIKES } from '../../data/townSoundAlikes';
 import type { SoundAlikeKind, TownLine } from './types';
+import { getLang, tr } from '../../i18n';
 
 export interface SoundAlike {
   kind: SoundAlikeKind;
@@ -93,6 +94,21 @@ export function closeVariant(text: string, heard: string): boolean {
   return d >= 1 && d <= MAX_HEARD_CHANGE;
 }
 
+/**
+ * English interface (docs/i18n.md): a derived wrong meaning is a new Vietnamese sentence with no dictionary entry, so
+ * it would show in Vietnamese. In English mode it is made the same way from the line's English meaning: `from[i]` →
+ * `to[i]` once (case kept). None when that meaning has no English, names none or more than one of `from`, or already
+ * names a `to`. Vietnamese mode: `s` as it is.
+ */
+function inEnglish(s: SoundAlike, lineVi: string, from: readonly string[], to: readonly string[]): SoundAlike | null {
+  if (getLang() !== 'en') return s;
+  const en = tr(lineVi);
+  if (en === lineVi) return null;
+  const hits = from.map((f, i) => ({ f, i, n: countOf(en, f) })).filter((h) => h.n > 0);
+  if (hits.length !== 1 || hits[0].n !== 1 || to.some((t) => countOf(en, t) > 0)) return null;
+  return { ...s, vi: swapOnce(en, hits[0].f, to[hits[0].i]) };
+}
+
 // ───────────────────────── derived: him ↔ them ─────────────────────────
 
 /** Vietnamese for "him" in the town's lines. */
@@ -121,10 +137,10 @@ function pronounSwap(line: Pick<TownLine, 'text' | 'vi'>): SoundAlike | null {
   const heCount = heVi.reduce((s, [, n]) => s + n, 0);
   const themCount = countOf(line.vi, THEM_VI);
   if (him === 1 && them === 0 && !he && !they && heCount === 1 && themCount === 0) {
-    return { kind: 'pronoun', heard: swapOnce(line.text, 'him', 'them'), vi: swapOnce(line.vi, heVi[0][0], THEM_VI), derived: true };
+    return inEnglish({ kind: 'pronoun', heard: swapOnce(line.text, 'him', 'them'), vi: swapOnce(line.vi, heVi[0][0], THEM_VI), derived: true }, line.vi, ['him'], ['them']);
   }
   if (them === 1 && him === 0 && !he && !they && themCount === 1 && heCount === 0) {
-    return { kind: 'pronoun', heard: swapOnce(line.text, 'them', 'him'), vi: swapOnce(line.vi, THEM_VI, 'anh ấy'), derived: true };
+    return inEnglish({ kind: 'pronoun', heard: swapOnce(line.text, 'them', 'him'), vi: swapOnce(line.vi, THEM_VI, 'anh ấy'), derived: true }, line.vi, ['them'], ['him']);
   }
   return null;
 }
@@ -162,7 +178,8 @@ function numberSwaps(line: Pick<TownLine, 'text' | 'vi'>): SoundAlike[] {
       const asDigits = countOf(line.vi, fromDigits);
       if (asWords + asDigits !== 1) continue;
       const vi = asWords === 1 ? swapOnce(line.vi, fromVi, toVi) : swapOnce(line.vi, fromDigits, toDigits);
-      out.push({ kind: 'number', heard: swapOnce(line.text, from, to), vi, derived: true });
+      const d = inEnglish({ kind: 'number', heard: swapOnce(line.text, from, to), vi, derived: true }, line.vi, [from, fromDigits], [to, toDigits]);
+      if (d) out.push(d);
     }
   });
   return out;
@@ -179,11 +196,11 @@ const MAX_CACHE = 4000;
  * line's own. Cached by (id, text, vi). Whether a meaning is fair next to the right one is ./visit's call (nearSame).
  */
 export function soundAlikesOf(line: Pick<TownLine, 'id' | 'text' | 'vi'>): readonly SoundAlike[] {
-  const key = `${line.id}\u0000${line.text}\u0000${line.vi}`;
+  const key = `${getLang()}\u0000${line.id}\u0000${line.text}\u0000${line.vi}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const out: SoundAlike[] = [];
-  const seen = new Set<string>([line.vi.trim().toLowerCase()]);
+  const seen = new Set<string>([line.vi.trim().toLowerCase(), tr(line.vi).trim().toLowerCase()]);
   const add = (s: SoundAlike): void => {
     const k = s.vi.trim().toLowerCase();
     if (!k || seen.has(k)) return;

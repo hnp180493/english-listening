@@ -2,6 +2,7 @@
 // provider text is passed through redactSecrets() before it may appear in `detail`.
 
 import type { AiErrorCode, ProviderKind } from './types';
+import { getLang, tl, tr } from '../../i18n';
 
 export interface AiErrorInit {
   status?: number;
@@ -63,11 +64,12 @@ const SECRET_PATTERNS: RegExp[] = [
 /** Hides API keys and auth headers in any text. Use on everything that may reach the UI, logs or thrown objects. */
 export function redactSecrets(text: string): string {
   let out = String(text);
+  const hidden = tr('[đã ẩn]');
   for (const s of KNOWN_SECRETS) {
-    if (out.includes(s)) out = out.split(s).join('[đã ẩn]');
+    if (out.includes(s)) out = out.split(s).join(hidden);
   }
   for (const re of SECRET_PATTERNS) {
-    out = out.replace(re, (m, prefix?: unknown) => (typeof prefix === 'string' && m.startsWith(prefix) ? prefix + '[đã ẩn]' : '[đã ẩn]'));
+    out = out.replace(re, (m, prefix?: unknown) => (typeof prefix === 'string' && m.startsWith(prefix) ? prefix + hidden : hidden));
   }
   return out;
 }
@@ -91,46 +93,49 @@ export function labelInSentence(label: string): string {
 
 const VIETNAMESE = /[À-ỹ]/;
 
+const upperFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 /** Vietnamese user-facing message for each code. */
 export function messageFor(code: AiErrorCode, ctx: MessageContext): string {
   const label = labelInSentence(ctx.label);
-  const Label = ctx.label; // at the start of a sentence
-  const detail = ctx.detail ? ` Chi tiết: ${ctx.detail}` : '';
+  // at the start of a sentence; in English the generic label reads "The OpenAI-compatible server" there
+  const Label = getLang() === 'en' && label !== ctx.label ? upperFirst(tr(label)) : ctx.label;
+  const detail = ctx.detail ? tl` Chi tiết: ${ctx.detail}` : '';
   // the provider's own (English) explanation adds nothing to a complete Vietnamese message
   const viDetail = ctx.detail && VIETNAMESE.test(ctx.detail) ? detail : '';
   switch (code) {
     case 'no-provider':
-      return 'Chưa cấu hình nhà cung cấp AI. Vào Cài đặt → AI, thêm nhà cung cấp (ví dụ Gemini) và nhập API key.';
+      return tr('Chưa cấu hình nhà cung cấp AI. Vào Cài đặt → AI, thêm nhà cung cấp (ví dụ Gemini) và nhập API key.');
     case 'bad-key':
       return ctx.status === 403
-        ? `${Label} từ chối API key (403). Key có thể bị giới hạn (theo website/API) hoặc chưa bật quyền dùng API này — kiểm tra lại trong trang quản lý key.${detail}`
-        : `API key của ${label} không hợp lệ, đã hết hạn hoặc bị thu hồi.`;
+        ? tl`${Label} từ chối API key (403). Key có thể bị giới hạn (theo website/API) hoặc chưa bật quyền dùng API này — kiểm tra lại trong trang quản lý key.${detail}`
+        : tl`API key của ${label} không hợp lệ, đã hết hạn hoặc bị thu hồi.`;
     case 'quota':
-      return `Đã hết hạn mức (quota) hoặc tín dụng của ${label}. Kiểm tra gói cước/billing, hoặc thử lại vào ngày mai.${viDetail}`;
+      return tl`Đã hết hạn mức (quota) hoặc tín dụng của ${label}. Kiểm tra gói cước/billing, hoặc thử lại vào ngày mai.${viDetail}`;
     case 'rate-limit': {
       const s = ctx.retryAfterMs ? Math.max(1, Math.ceil(ctx.retryAfterMs / 1000)) : 0;
       return s
-        ? `${Label} đang giới hạn tốc độ (gửi quá nhiều yêu cầu). Đợi khoảng ${s} giây rồi thử lại.`
-        : `${Label} đang giới hạn tốc độ (gửi quá nhiều yêu cầu). Đợi một lát rồi thử lại.`;
+        ? tl`${Label} đang giới hạn tốc độ (gửi quá nhiều yêu cầu). Đợi khoảng ${s} giây rồi thử lại.`
+        : tl`${Label} đang giới hạn tốc độ (gửi quá nhiều yêu cầu). Đợi một lát rồi thử lại.`;
     }
     case 'network':
-      return `Không kết nối được tới ${label}. Kiểm tra kết nối Internet rồi thử lại.`;
+      return tl`Không kết nối được tới ${label}. Kiểm tra kết nối Internet rồi thử lại.`;
     case 'cors':
-      return `Trình duyệt không gửi được yêu cầu tới ${label}: máy chủ chưa chạy hoặc chưa cho phép truy cập từ trình duyệt (CORS). Với máy chủ cục bộ (Ollama/LM Studio) hãy bật CORS; xem docs/ai-providers.md.${detail}`;
+      return tl`Trình duyệt không gửi được yêu cầu tới ${label}: máy chủ chưa chạy hoặc chưa cho phép truy cập từ trình duyệt (CORS). Với máy chủ cục bộ (Ollama/LM Studio) hãy bật CORS; xem docs/ai-providers.md.${detail}`;
     case 'model':
-      return `Không dùng được model "${ctx.model ?? '?'}" của ${label} (không tồn tại, đã ngừng hoặc key không có quyền). Chọn model khác trong Cài đặt → AI.${detail}`;
+      return tl`Không dùng được model "${ctx.model ?? '?'}" của ${label} (không tồn tại, đã ngừng hoặc key không có quyền). Chọn model khác trong Cài đặt → AI.${detail}`;
     case 'safety':
-      return `${Label} từ chối trả lời vì bộ lọc an toàn. Thử diễn đạt lại nội dung.${detail}`;
+      return tl`${Label} từ chối trả lời vì bộ lọc an toàn. Thử diễn đạt lại nội dung.${detail}`;
     case 'bad-response':
-      return `${Label} trả về dữ liệu không đúng định dạng mong đợi. Thử lại.${detail}`;
+      return tl`${Label} trả về dữ liệu không đúng định dạng mong đợi. Thử lại.${detail}`;
     case 'bad-request':
-      return `${Label} không chấp nhận yêu cầu${ctx.status ? ` (${ctx.status})` : ''}.${detail}`;
+      return tl`${Label} không chấp nhận yêu cầu${ctx.status ? ` (${ctx.status})` : ''}.${detail}`;
     case 'server':
-      return `${label === Label ? `Máy chủ ${label}` : Label} đang gặp sự cố hoặc quá tải${ctx.status ? ` (${ctx.status})` : ''}. Thử lại sau ít phút.`;
+      return tl`${label === Label ? tl`Máy chủ ${label}` : Label} đang gặp sự cố hoặc quá tải${ctx.status ? ` (${ctx.status})` : ''}. Thử lại sau ít phút.`;
     case 'timeout':
-      return `${Label} phản hồi quá lâu${ctx.timeoutMs ? ` (hơn ${Math.round(ctx.timeoutMs / 1000)} giây)` : ''}. Thử lại sau.`;
+      return tl`${Label} phản hồi quá lâu${ctx.timeoutMs ? tl` (hơn ${Math.round(ctx.timeoutMs / 1000)} giây)` : ''}. Thử lại sau.`;
     case 'aborted':
-      return 'Đã hủy yêu cầu AI.';
+      return tr('Đã hủy yêu cầu AI.');
   }
 }
 

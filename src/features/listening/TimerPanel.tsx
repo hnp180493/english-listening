@@ -25,6 +25,7 @@ import { localDay } from '../../core/stats';
 import EntryFields from './EntryFields';
 import { PICKABLE_SOURCES, readForm, timerStatusLabel, type EntryForm, type FormErrors } from './listeningModel';
 import { useClock } from './useClock';
+import { tr } from '../../i18n';
 
 interface Props {
   timer: ListeningTimer | null;
@@ -100,7 +101,7 @@ function TimerRunning({ timer, defaultSource }: { timer: ListeningTimer; default
           <span className="lis-status-dot" aria-hidden="true" />
           {timerStatusLabel(status)}
         </span>
-        <p className="lis-clock tabular" role="timer" aria-label={`${timerStatusLabel(status)} ${formatClock(elapsed)}`}>
+        <p className="lis-clock tabular" role="timer" aria-label={`${tr(timerStatusLabel(status))} ${formatClock(elapsed)}`}>
           {formatClock(elapsed)}
         </p>
       </div>

@@ -8,6 +8,7 @@ import type { FriendView } from '../../../core/town/friendship';
 import { HeartIcon, Hearts } from '../art';
 import { heartsText, toNextText } from './friendModel';
 import './friends.css';
+import { tl } from '../../../i18n';
 
 export interface FriendHeartsProps {
   friend: FriendView;
@@ -24,7 +25,7 @@ export default function FriendHearts({ friend, name, onJournal, fresh = false }:
     <Popover
       className="town-friend"
       triggerClassName={'town-friend-pill' + (fresh ? ' is-new' : '')}
-      triggerLabel={`Thân với ${name}: ${heartsText(friend.hearts)}. Xem thêm`}
+      triggerLabel={tl`Thân với ${name}: ${heartsText(friend.hearts)}. Xem thêm`}
       trigger={
         <>
           <HeartIcon on={friend.hearts > 0} size={15} />
@@ -34,15 +35,15 @@ export default function FriendHearts({ friend, name, onJournal, fresh = false }:
           </span>
         </>
       }
-      title={`Thân với ${name}`}
+      title={tl`Thân với ${name}`}
     >
       {(close) => (
         <div className="town-friend-pop">
           <Hearts value={friend.hearts} name={name} size={15} />
           <p className="town-friend-line">
-            {heartsText(friend.hearts)} · {name} coi bạn là {friend.title}. {toNextText(friend)}
+            {heartsText(friend.hearts)} · {tl`${name} coi bạn là ${friend.title}.`} {toNextText(friend)}
           </p>
-          <p className="town-friend-note">Điểm đến từ việc nghe {name} nói: nghe xong một tập chuyện, trò chuyện hiểu được, tặng món họ từng nói là thích. Đây là điểm trò chơi, không đo khả năng nghe.</p>
+          <p className="town-friend-note">{tl`Điểm đến từ việc nghe ${name} nói: nghe xong một tập chuyện, trò chuyện hiểu được, tặng món họ từng nói là thích. Đây là điểm trò chơi, không đo khả năng nghe.`}</p>
           {onJournal && (
             <button
               type="button"

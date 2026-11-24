@@ -12,32 +12,39 @@ import { townGift, type TownGift } from '../../../data/townGifts';
 import { storiesOfPlace } from '../../../data/townStories';
 import type { EmoteKind } from '../engine/draw/overlay';
 import type { PortraitMood } from '../art';
+import { tl, tr } from '../../../i18n';
 
 /** The gift shop's one line of rules (core/town/friendship GIFT_POINTS). */
 export const GIFT_RULES = 'Mỗi ngày tặng mỗi người một món. Món họ mê: +80 điểm thân thiết, món họ thích: +40, món khác: +10, món họ không thích: −20. Ai thích gì thì họ từng nói trong chuyện của họ; Sổ tay ghi lại điều bạn đã nghe.';
 
 /** "3/10 tim" */
 export function heartsText(hearts: number): string {
-  return `${hearts}/${MAX_HEARTS} tim`;
+  return tl`${hearts}/${MAX_HEARTS} tim`;
 }
 
 /** What is left to the next heart: "Còn 35 điểm nữa tới tim thứ 4". */
 export function toNextText(f: Pick<FriendView, 'hearts' | 'toNext'>): string {
-  if (f.toNext === null) return `Đã đủ ${MAX_HEARTS} tim.`;
-  return `Còn ${f.toNext} điểm nữa tới tim thứ ${f.hearts + 1}.`;
+  if (f.toNext === null) return tl`Đã đủ ${MAX_HEARTS} tim.`;
+  return tl`Còn ${f.toNext} điểm nữa tới tim thứ ${f.hearts + 1}.`;
 }
 
 /** Friendship points won or lost: "+80 điểm thân thiết". */
 export function pointsText(n: number): string {
-  return `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n)} điểm thân thiết`;
+  return tl`${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n)} điểm thân thiết`;
 }
 
 /** Why the next episode waits: "Cần 4 tim", "Cần biết thêm 1 điều về Emma", or both. */
 export function lockText(need: { hearts: number | null; facts: number }, resident: string): string {
+  const parts = lockNeeds(need, resident);
+  return parts ? tl`Cần ${parts}` : '';
+}
+
+/** What the next episode needs, without "Cần": "4 tim và biết thêm 1 điều về Emma" ('' for nothing). */
+export function lockNeeds(need: { hearts: number | null; facts: number }, resident: string): string {
   const parts: string[] = [];
-  if (need.hearts !== null) parts.push(`${need.hearts} tim`);
-  if (need.facts > 0) parts.push(`biết thêm ${need.facts} điều về ${resident}`);
-  return parts.length > 0 ? `Cần ${parts.join(' và ')}` : '';
+  if (need.hearts !== null) parts.push(tl`${need.hearts} tim`);
+  if (need.facts > 0) parts.push(tl`biết thêm ${need.facts} điều về ${resident}`);
+  return parts.join(tr(' và '));
 }
 
 export interface GiftReactionView {
@@ -50,13 +57,13 @@ export interface GiftReactionView {
 export function giftReaction(taste: GiftTaste, resident: string): GiftReactionView {
   switch (taste) {
     case 'loves':
-      return { emote: 'heart', mood: 'happy', title: `${resident} rất thích món này!` };
+      return { emote: 'heart', mood: 'happy', title: tl`${resident} rất thích món này!` };
     case 'likes':
-      return { emote: 'smile', mood: 'happy', title: `${resident} thích món này.` };
+      return { emote: 'smile', mood: 'happy', title: tl`${resident} thích món này.` };
     case 'dislikes':
-      return { emote: 'frown', mood: 'neutral', title: `${resident} không thích món này lắm.` };
+      return { emote: 'frown', mood: 'neutral', title: tl`${resident} không thích món này lắm.` };
     default:
-      return { emote: 'meh', mood: 'neutral', title: `${resident} nhận quà, cảm ơn bạn.` };
+      return { emote: 'meh', mood: 'neutral', title: tl`${resident} nhận quà, cảm ơn bạn.` };
   }
 }
 
@@ -94,23 +101,23 @@ export interface ResidentJournal {
 
 function journalNext(progress: TownProgress, placeId: string, now: number, resident: string, hearts: number): JournalNext {
   const list = storiesOfPlace(placeId);
-  if (list.length === 0) return { status: 'none', order: null, title: null, text: `${resident} chưa có chuyện để kể.` };
+  if (list.length === 0) return { status: 'none', order: null, title: null, text: tl`${resident} chưa có chuyện để kể.` };
   const due = nextEpisode(progress, placeId, now);
   if (due) {
     const e = due.episode;
     return due.mode === 'relisten'
-      ? { status: 'relisten', order: e.order, title: e.title, text: `Đến hạn nghe lại Tập ${e.order}: ${e.title}` }
-      : { status: 'ready', order: e.order, title: e.title, text: `Sẵn sàng nghe Tập ${e.order}: ${e.title}` };
+      ? { status: 'relisten', order: e.order, title: e.title, text: tl`Đến hạn nghe lại Tập ${e.order}: ${e.title}` }
+      : { status: 'ready', order: e.order, title: e.title, text: tl`Sẵn sàng nghe Tập ${e.order}: ${e.title}` };
   }
   const open = list.find((e) => !isEpisodeFinished(episodeProgress(progress, e.id)));
-  if (!open) return { status: 'done', order: null, title: null, text: `Đã nghe hết ${list.length} tập chuyện của ${resident}.` };
+  if (!open) return { status: 'done', order: null, title: null, text: tl`Đã nghe hết ${list.length} tập chuyện của ${resident}.` };
   const wait = episodeWaitingForFriend(progress, placeId);
   if (wait) {
     const lock = lockText({ hearts: wait.needs.hearts, facts: wait.needs.facts.length }, resident);
-    return { status: 'hearts', order: open.order, title: open.title, text: `Tập ${open.order}: ${lock.charAt(0).toLowerCase() + lock.slice(1)} (đang có ${hearts} tim)` };
+    return { status: 'hearts', order: open.order, title: open.title, text: tl`Tập ${open.order}: ${lock.charAt(0).toLowerCase() + lock.slice(1)} (đang có ${hearts} tim)` };
   }
-  if (needsHome(open) && !isBuilt(progress, placeId)) return { status: 'home', order: open.order, title: open.title, text: `Tập ${open.order} kể ở nhà mới: xây ${townPlace(placeId)?.name ?? 'nhà'} trước` };
-  return { status: 'none', order: open.order, title: open.title, text: `Tập ${open.order}: nghe xong tập trước đã` };
+  if (needsHome(open) && !isBuilt(progress, placeId)) return { status: 'home', order: open.order, title: open.title, text: tl`Tập ${open.order} kể ở nhà mới: xây ${townPlace(placeId)?.name ?? 'nhà'} trước` };
+  return { status: 'none', order: open.order, title: open.title, text: tl`Tập ${open.order}: nghe xong tập trước đã` };
 }
 
 /** One resident's page of the Sổ tay. */
@@ -129,7 +136,7 @@ export function residentJournal(progress: TownProgress, placeId: string, now: nu
   for (const episode of storiesOfPlace(placeId)) {
     for (const line of episode.lines) {
       const opt = line.choices ? chosenOption(progress, line) : null;
-      if (opt) choices.push({ episode: `Tập ${episode.order}: ${episode.title}`, intent: opt.intent, vi: opt.vi });
+      if (opt) choices.push({ episode: tl`Tập ${episode.order}: ${episode.title}`, intent: opt.intent, vi: opt.vi });
     }
   }
   return {

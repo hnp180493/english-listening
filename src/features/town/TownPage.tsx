@@ -67,6 +67,7 @@ import { useGreeting } from './friends/useGreeting';
 import { inertOutside } from './inertOutside';
 import { getTownUi, setTownUi, useTownUi } from './townUi';
 import './town.css';
+import { tl, tr } from '../../i18n';
 
 /** The card of an order in hand (docs/town.md §18): its own chunk, loaded when an order is first taken. */
 const DeliveryChip = lazy(() => import('./DeliveryChip'));
@@ -391,9 +392,9 @@ function FlatTown({ places, suggested, onTalk }: { places: readonly TownPlaceVie
                 <span className="town-flat-name">{p.place.resident}</span>
                 <span className="town-flat-meta">
                   {p.built ? p.place.name : 'Ở nhà trọ'}
-                  {p.episode ? ` · ${p.episode.mode === 'relisten' ? 'Nghe lại tập' : 'Tập'} ${p.episode.order}: ${p.episode.title}` : ''}
-                  {!p.episode && p.friendEpisode ? ` · Tập ${p.friendEpisode.order}: ${lockText(p.friendEpisode, p.place.resident).toLowerCase()}` : ''}
-                  {p.friend.hearts > 0 ? ` · ${p.friend.hearts} tim` : ''}
+                  {p.episode ? ` · ${tr(p.episode.mode === 'relisten' ? 'Nghe lại tập' : 'Tập')} ${p.episode.order}: ${tr(p.episode.title)}` : ''}
+                  {!p.episode && p.friendEpisode ? tl` · Tập ${p.friendEpisode.order}: ${lockText(p.friendEpisode, p.place.resident).toLowerCase()}` : ''}
+                  {p.friend.hearts > 0 ? tl` · ${p.friend.hearts} tim` : ''}
                 </span>
               </span>
             </button>
@@ -974,7 +975,7 @@ export default function TownPage() {
       later(wait * 1000, () => sfx('pop'));
       const place = overview.places.find((p) => p.place.id === id)?.place;
       // said when it is there to see, not while the dust is still rising
-      const said = place ? `Đã xây ${place.name}. ${place.resident} vừa dọn tới!` : `Đã thêm ${r.item.name} cho thị trấn.`;
+      const said = place ? tl`Đã xây ${place.name}. ${place.resident} vừa dọn tới!` : tl`Đã thêm ${r.item.name} cho thị trấn.`;
       later(wait * 1000, () => setToast(said));
       if (narrowStage()) setBuild(null);
       else setBuild((b) => (b ? { wanted: null } : b));
@@ -999,7 +1000,7 @@ export default function TownPage() {
     : near?.kind === 'resident' && nearPlace
       ? { icon: MessageCircle, text: talkPrompt(nearShown ?? nearPlace, true), build: false, id: nearPlace.place.id, person: true }
       : near?.kind === 'lot' && nearPlace && !nearPlace.built
-        ? { icon: Hammer, text: `Xây ${nearPlace.place.name} · ${xu(nearPlace.cost)}`, build: true, id: nearPlace.place.id }
+        ? { icon: Hammer, text: tl`Xây ${nearPlace.place.name} · ${xu(nearPlace.cost)}`, build: true, id: nearPlace.place.id }
         : suggested
           ? { icon: Footprints, text: talkPrompt(suggested, false), build: false, id: suggested.place.id }
           : null;
@@ -1199,14 +1200,14 @@ export default function TownPage() {
                   setJournalFor(nearResident);
                   openActivity('love', 'hud');
                 }}
-                aria-label={`Hẹn hò với ${overview.places.find((p) => p.place.id === nearResident)?.place.resident ?? ''}`}
+                aria-label={tl`Hẹn hò với ${overview.places.find((p) => p.place.id === nearResident)?.place.resident ?? ''}`}
               >
                 <Icon icon={Heart} size={18} />
                 <span className="town-prompt-gift-label">{life.court[nearResident]?.married ? 'Gia đình' : 'Hẹn hò'}</span>
               </button>
             )}
             {nearResident && canGiftNear && near?.kind === 'resident' && prompt.id === nearResident && (
-              <button type="button" className="btn btn-lg town-prompt-gift" onClick={() => setGifting(nearResident)} aria-label={`Tặng quà cho ${overview.places.find((p) => p.place.id === nearResident)?.place.resident ?? ''}`}>
+              <button type="button" className="btn btn-lg town-prompt-gift" onClick={() => setGifting(nearResident)} aria-label={tl`Tặng quà cho ${overview.places.find((p) => p.place.id === nearResident)?.place.resident ?? ''}`}>
                 <Icon icon={Gift} size={18} />
                 <span className="town-prompt-gift-label">Tặng quà</span>
               </button>

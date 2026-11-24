@@ -34,6 +34,7 @@ import { CONNECTED_TITLE } from '../../core/playback';
 import { AiBusy, AiErrorLine, AiSetupLink } from './AiAction';
 import { useAiTask } from './useAiTask';
 import './ai.css';
+import { tl, tr } from '../../i18n';
 
 const LEVELS = [
   { value: 1 as Level, label: 'Dễ' },
@@ -211,8 +212,10 @@ export default function AiGenerator({
     cancel();
     onClose();
   };
+  // glued labels are not a dictionary key: each part is translated on its own (tr is a no-op in Vietnamese)
+  const levelLabel = LEVELS.find((l) => l.value === shown?.req.level)?.label;
   const summary = shown
-    ? [PHENOMENON_VI[shown.req.phenomenon], LEVELS.find((l) => l.value === shown.req.level)?.label, shown.req.topic].filter(Boolean).join(' · ')
+    ? [tr(PHENOMENON_VI[shown.req.phenomenon]), levelLabel && tr(levelLabel), shown.req.topic && tr(shown.req.topic)].filter(Boolean).join(' · ')
     : '';
 
   return (
@@ -259,11 +262,15 @@ export default function AiGenerator({
               autoComplete="off"
             />
             <div className="ai-gen-chips" role="group" aria-label="Chủ đề gợi ý">
-              {TOPIC_CHIPS.map((t) => (
-                <button key={t} type="button" className="chip" aria-pressed={topic === t} onClick={() => setTopic((cur) => (cur === t ? '' : t))}>
-                  {t}
-                </button>
-              ))}
+              {TOPIC_CHIPS.map((chip) => {
+                // English mode: the chip fills the field with its English label (the model reads either language)
+                const t = tr(chip);
+                return (
+                  <button key={chip} type="button" className="chip" aria-pressed={topic === t} onClick={() => setTopic((cur) => (cur === t ? '' : t))}>
+                    {t}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -311,7 +318,7 @@ export default function AiGenerator({
                     </span>
                     {it.vi && <span className="ai-gen-vi">{it.vi}</span>}
                   </label>
-                  <PlayButton text={listPlayback(it).text} mode="connected" size="sm" variant="ghost" title={`Nghe "${it.text}" (${CONNECTED_TITLE.toLowerCase()})`} />
+                  <PlayButton text={listPlayback(it).text} mode="connected" size="sm" variant="ghost" title={tl`Nghe "${it.text}" (${CONNECTED_TITLE.toLowerCase()})`} />
                 </li>
               ))}
             </ul>

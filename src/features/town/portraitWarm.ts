@@ -26,7 +26,7 @@ type IdleWindow = Window & { requestIdleCallback?: (run: () => void, o?: { timeo
 export function prewarmPortraits(ids: readonly CharacterId[]): () => void {
   if (!canDraw3d()) return () => undefined;
   const px = Math.round(talkFaceSize() * Math.min(3, window.devicePixelRatio || 1));
-  const jobs: [CharacterId, PortraitMood][] = [];
+  const jobs: [CharacterId, Exclude<PortraitMood, 'sad'>][] = [];
   for (const id of ids) jobs.push([id, 'neutral'], [id, 'happy']);
   const w = window as IdleWindow;
   let handle = 0;

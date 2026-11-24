@@ -14,9 +14,70 @@
   align-items: center;
   gap: var(--space-3);
 }
+.town-love-hero {
+  flex: none;
+  width: 132px;
+}
 .town-love-name {
   margin: 0;
   font-weight: 600;
+}
+
+/* who this character can court: a card each, the picture first */
+.town-love-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-love-card {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease),
+    transform 160ms var(--ease);
+}
+.town-love-card:hover {
+  border-color: var(--accent);
+}
+.town-love-card:active {
+  transform: scale(0.98);
+}
+.town-love-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.town-love-card.is-ready {
+  border-color: var(--accent);
+}
+.town-love-card-text {
+  display: grid;
+  gap: 2px;
+  padding: 0 var(--space-1) var(--space-1);
+}
+.town-love-card .town-love-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .town-love-card {
+    transition: none;
+  }
+  .town-love-card:active {
+    transform: none;
+  }
 }
 .town-love-sub {
   margin: 0;
@@ -135,6 +196,9 @@
 .town-me-preview {
   display: flex;
   justify-content: center;
+}
+.town-me-preview > .town-portrait {
+  max-width: 240px;
 }
 .town-me-row {
   display: flex;

@@ -18,6 +18,7 @@ import { playSfx } from '../sfx';
 import type { ActivityPanelProps } from '../activities/types';
 import StoryChat from './StoryChat';
 import './romance.css';
+import { asIs, tl } from '../../../i18n';
 
 const AGE_LABEL = { baby: 'Em bé', toddler: 'Mới biết đi', child: 'Đi học' } as const;
 
@@ -80,8 +81,8 @@ export default function LovePanel({ focus, onOpen, onReward, sound, onScene, onS
       }
       playSfx('task', sound);
       const who = townPlace(playing.placeId)?.resident ?? '';
-      const label = { confess: `${who} đã nhận lời!`, date: 'Một buổi hẹn thật vui', proposal: `${who} đã đồng ý!`, wedding: 'Chúc mừng đám cưới!', daily: `Thêm một ngày bên ${who}`, kid: 'Một lúc vui với con', baby: `Chào mừng bé ${baby?.name ?? ''}!` }[playing.kind];
-      setNote(r.points > 0 ? `${label} Thân với ${who} +${r.points}.` : label);
+      const label = { confess: tl`${who} đã nhận lời!`, date: 'Một buổi hẹn thật vui', proposal: tl`${who} đã đồng ý!`, wedding: 'Chúc mừng đám cưới!', daily: tl`Thêm một ngày bên ${who}`, kid: 'Một lúc vui với con', baby: tl`Chào mừng bé ${asIs(baby?.name ?? '')}!` }[playing.kind];
+      setNote(r.points > 0 ? tl`${label} Thân với ${who} +${r.points}.` : label);
       onReward({ label });
     };
     return (
@@ -127,7 +128,9 @@ export default function LovePanel({ focus, onOpen, onReward, sound, onScene, onS
           </button>
         )}
         <div className="town-love-head">
-          <Portrait placeId={open as PlaceId} size={64} />
+          <span className="town-love-hero">
+            <Portrait placeId={open as PlaceId} size={132} frame="bust" shape="card" fluid />
+          </span>
           <div>
             <p className="town-love-name">{view.place.resident}</p>
             <p className="town-love-sub">{status ?? 'Chưa hẹn hò'}</p>
@@ -175,19 +178,22 @@ export default function LovePanel({ focus, onOpen, onReward, sound, onScene, onS
   return (
     <div className="town-love">
       <p className="town-build-hint">Thân đủ 8 tim và có một bó hoa thì tỏ tình được. Hẹn hò 3 buổi, đủ 10 tim và có nhẫn thì cầu hôn.</p>
-      <ul className="town-journal-list" aria-label="Người bạn có thể hẹn hò">
+      <ul className="town-love-cards" aria-label="Người bạn có thể hẹn hò">
         {suitors.map((s) => {
           const p = overview.places.find((v) => v.place.id === s.placeId);
           if (!p) return null;
+          const ready = p.friend.hearts >= 8;
           return (
             <li key={s.placeId}>
-              <button type="button" className="town-journal-row" onClick={() => setOpen(s.placeId)}>
-                <Portrait placeId={s.placeId as PlaceId} size={40} />
-                <span className="town-journal-who">
-                  <span className="town-journal-name">{p.place.resident}</span>
-                  <span className="town-journal-sub">{p.friend.hearts >= 8 ? 'Đủ tim để tỏ tình' : `${p.friend.hearts}/8 tim`}</span>
+              <button type="button" className={'town-love-card' + (ready ? ' is-ready' : '')} onClick={() => setOpen(s.placeId)}>
+                <Portrait placeId={s.placeId as PlaceId} size={180} frame="bust" shape="card" fluid />
+                <span className="town-love-card-text">
+                  <span className="town-love-name">{p.place.resident}</span>
+                  <span className="town-love-sub">
+                    <Icon icon={Heart} size={14} />
+                    {ready ? 'Đủ tim để tỏ tình' : tl`${p.friend.hearts}/8 tim`}
+                  </span>
                 </span>
-                <Icon icon={Heart} size={16} />
               </button>
             </li>
           );

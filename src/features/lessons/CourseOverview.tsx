@@ -9,6 +9,7 @@ import { lessonsOf } from '../../data/lessons';
 import { MissingNotice, type Missing } from './CourseList';
 import { LessonNum, NoBreakRespell } from './LessonBits';
 import { courseProgress, lessonStatus, percent, recommendNext } from './logic';
+import { tl } from '../../i18n';
 
 /** One course: its lessons in order; the recommended next one carries the page's one primary action. */
 export default function CourseOverview({ course, missing }: { course: CourseMeta; missing?: Missing }) {
@@ -44,7 +45,7 @@ export default function CourseOverview({ course, missing }: { course: CourseMeta
             aria-valuemin={0}
             aria-valuemax={total}
             aria-valuenow={completed}
-            aria-valuetext={`${completed}/${total} bài`}
+            aria-valuetext={tl`${completed}/${total} bài`}
           >
             <span style={{ width: `${Math.round(ratio * 100)}%` }} />
           </div>
@@ -57,10 +58,10 @@ export default function CourseOverview({ course, missing }: { course: CourseMeta
             const done = st.state === 'done';
             const meta =
               st.state === 'done'
-                ? `${l.minutes} phút · ${percent(st.best ?? 0)}`
+                ? tl`${l.minutes} phút · ${percent(st.best ?? 0)}`
                 : st.state === 'tried'
-                  ? `${l.minutes} phút · Chưa đạt quiz`
-                  : `${l.minutes} phút`;
+                  ? tl`${l.minutes} phút · Chưa đạt quiz`
+                  : tl`${l.minutes} phút`;
             return (
               <li key={l.id}>
                 <a

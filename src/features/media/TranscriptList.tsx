@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon';
 import { formatClock } from '../../core/media/transcript';
 import { scrollBehavior } from '../../core/motion';
 import { wordCount, type MediaUnit } from './library';
+import { tl } from '../../i18n';
 
 interface Props {
   units: MediaUnit[];
@@ -46,7 +47,7 @@ function TranscriptList({ units, current, done, scores, mask, revealed = -1, onJ
               type="button"
               className={'media-list-item' + (i === current ? ' is-current' : '') + (isDone ? ' is-done' : '')}
               aria-current={i === current ? 'true' : undefined}
-              aria-label={hidden ? `Câu ${i + 1}, ${formatClock(u.start)} (đang ẩn)` : undefined}
+              aria-label={hidden ? tl`Câu ${i + 1}, ${formatClock(u.start)} (đang ẩn)` : undefined}
               onClick={() => onJump(i)}
             >
               <span className="media-list-time">{formatClock(u.start)}</span>

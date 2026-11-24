@@ -5,6 +5,7 @@ import { connectedText } from '../../core/playback';
 import { speak, stopSpeaking, ttsSupported } from '../../core/tts';
 import type { DecodeResult } from '../../core/types';
 import { buildSteps, repeatPauseMs } from './steps';
+import { tl } from '../../i18n';
 
 const STEP_RATE = 0.85;
 
@@ -146,7 +147,7 @@ export default function StepGuide({ result, interruptKey, disabled, onFinished }
             Luyện từng cụm
           </h2>
           <span className="meta shadow-steps-count">
-            {progress > 0 ? `${progress}/${steps.length} cụm` : `${steps.length} cụm`}
+            {progress > 0 ? tl`${progress}/${steps.length} cụm` : tl`${steps.length} cụm`}
           </span>
         </div>
         <p className="muted shadow-sub">Máy đọc từng cụm ({STEP_RATE}×) rồi dừng để bạn nhắc lại. Cuối cùng là cả câu.</p>

@@ -1,3 +1,4 @@
+import { tl } from '../../i18n';
 // Minimal typed loader for the YouTube IFrame Player API (loaded once, on demand).
 
 export interface YTPlayer {
@@ -123,6 +124,6 @@ export function youTubeErrorMessage(code: number): string {
     case 150:
       return 'Chủ video không cho phép phát nhúng ở trang khác. Hãy chọn video khác, hoặc tải bản ghi âm về máy và dùng mục “Tệp trên máy”.';
     default:
-      return `YouTube báo lỗi (mã ${code}). Thử tải lại trang.`;
+      return tl`YouTube báo lỗi (mã ${code}). Thử tải lại trang.`;
   }
 }

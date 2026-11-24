@@ -10,6 +10,7 @@ import type { MapResident, Marker, TravelTarget } from '../engine/stage';
 import { xu } from '../shellModel';
 import { districtAt, targetPoint } from './mapGeo';
 import type { Pt } from './mapView';
+import { tl, tr } from '../../../i18n';
 
 /** Further than this (tile edges) from the player, "Đến ngay" is the card's main button; nearer, "Đi tới". */
 export const WARP_FAR = 12;
@@ -54,24 +55,24 @@ export function badgeLegend(badges: Readonly<Record<string, Marker>>, suggested:
  * friendship ("Tập 3 · Cần 4 tim"), new lines; null for nothing to say.
  */
 export function waitingAt(p: Pick<PlaceView, 'episode' | 'marker' | 'stats' | 'built' | 'homeEpisode'> & Partial<Pick<PlaceView, 'friendEpisode' | 'place'>>): string | null {
-  if (p.episode) return `${p.episode.mode === 'relisten' ? 'Nghe lại tập' : 'Tập'} ${p.episode.order} · ${p.episode.title}`;
-  if (p.friendEpisode) return `Tập ${p.friendEpisode.order} · ${lockText(p.friendEpisode, p.place?.resident ?? '')}`;
+  if (p.episode) return `${tr(p.episode.mode === 'relisten' ? 'Nghe lại tập' : 'Tập')} ${p.episode.order} · ${tr(p.episode.title)}`;
+  if (p.friendEpisode) return tl`Tập ${p.friendEpisode.order} · ${lockText(p.friendEpisode, p.place?.resident ?? '')}`;
   if (p.stats.total === 0) return null;
-  if (p.marker === 'new') return 'Có câu chưa nghe hiểu';
-  if (p.marker === 'repeat') return 'Đáng nghe lại vài câu';
-  return 'Đã hiểu hết các câu';
+  if (p.marker === 'new') return tr('Có câu chưa nghe hiểu');
+  if (p.marker === 'repeat') return tr('Đáng nghe lại vài câu');
+  return tr('Đã hiểu hết các câu');
 }
 
 /** Where a resident is now, in words: in their own house, at the boarding house, or in a part of town. */
 export function whereIs(r: MapResident | undefined, p: Pick<PlaceView, 'built' | 'place'>, world: TownWorld = TOWN_WORLD): string | null {
   if (!r) return null;
   const wp = world.places.find((q) => q.id === p.place.id);
-  if (r.inside) return p.built ? 'đang ở trong nhà' : 'đang ở nhà trọ';
-  if (wp && Math.hypot(r.x - wp.spot.x - 0.5, r.y - wp.spot.y - 0.5) < 3) return p.built ? 'đang ở trước nhà' : 'đang ở chỗ đất trống';
+  if (r.inside) return tr(p.built ? 'đang ở trong nhà' : 'đang ở nhà trọ');
+  if (wp && Math.hypot(r.x - wp.spot.x - 0.5, r.y - wp.spot.y - 0.5) < 3) return tr(p.built ? 'đang ở trước nhà' : 'đang ở chỗ đất trống');
   const inn = world.life?.inn.door;
-  if (!p.built && inn && Math.hypot(r.x - inn.x - 0.5, r.y - inn.y - 0.5) < 3) return 'đang ở nhà trọ';
+  if (!p.built && inn && Math.hypot(r.x - inn.x - 0.5, r.y - inn.y - 0.5) < 3) return tr('đang ở nhà trọ');
   const d = districtAt(r.x, r.y, world);
-  return d ? `đang ở ${d.name}` : null;
+  return d ? tl`đang ở ${d.name}` : null;
 }
 
 /** The card of something picked on the map. Null when it is not in the town (an unknown id). */
@@ -89,11 +90,11 @@ export function cardFor(target: TravelTarget, places: readonly PlaceView[], resi
   const r = residents.find((x) => x.id === target.id);
   const where = whereIs(r, p, world);
   if (target.kind === 'resident') {
-    return { title: p.place.resident, sub: [p.built ? p.place.name : `${p.place.name} (chưa xây)`, where].filter(Boolean).join(' · '), wait: waitingAt(p), portrait: p.place.id as PlaceId, activity: null, friend: p.friend ?? null };
+    return { title: p.place.resident, sub: [p.built ? tr(p.place.name) : tl`${p.place.name} (chưa xây)`, where].filter(Boolean).join(' · '), wait: waitingAt(p), portrait: p.place.id as PlaceId, activity: null, friend: p.friend ?? null };
   }
   if (!p.built) {
-    const price = p.affordable ? `Xây được ngay · ${xu(p.cost)}` : `Xây · ${xu(p.cost)} · còn thiếu ${xu(p.missing)}`;
-    return { title: p.place.name, sub: `Đất trống · ${p.place.resident} ${where ?? 'đang ở nhà trọ'}`, wait: price, portrait: p.place.id as PlaceId, activity: null };
+    const price = p.affordable ? tl`Xây được ngay · ${xu(p.cost)}` : tl`Xây · ${xu(p.cost)} · còn thiếu ${xu(p.missing)}`;
+    return { title: p.place.name, sub: tl`Đất trống · ${p.place.resident} ${where ?? 'đang ở nhà trọ'}`, wait: price, portrait: p.place.id as PlaceId, activity: null };
   }
   return { title: p.place.name, sub: [p.place.resident, where].filter(Boolean).join(' '), wait: waitingAt(p), portrait: p.place.id as PlaceId, activity: null, friend: p.friend ?? null };
 }

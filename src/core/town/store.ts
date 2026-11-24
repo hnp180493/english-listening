@@ -50,6 +50,7 @@ import { typedIndex, typingTask, type TypingTask } from './typing';
 import { VISIT_SIZE, type LineOutcome, type TownLine, type TownPlace, type TypedMark } from './types';
 import { settleTown, type TownReviewFacts } from './unlocks';
 import { choiceSeed, choicesFor, conversationLines, visitSummary, type LineChoices, type VisitSummary } from './visit';
+import { tl } from '../../i18n';
 
 /** Set only while the last save failed (blocked or full storage): this session's progress lives here. */
 let session: TownProgress | null = null;
@@ -119,11 +120,11 @@ const MAX_CELEBRATIONS = 40;
 function celebrationOf(kind: TownCelebration['kind'], id: string): TownCelebration | null {
   if (kind === 'achievement') {
     const a = achievement(id);
-    return a ? { key: `achievement:${id}`, kind, id, label: `Thành tích mới: ${a.name}`, detail: `Danh hiệu “${a.title}”` } : null;
+    return a ? { key: `achievement:${id}`, kind, id, label: tl`Thành tích mới: ${a.name}`, detail: tl`Danh hiệu “${a.title}”` } : null;
   }
   if (kind === 'project') {
     const p = townProject(id);
-    return p ? { key: `project:${id}`, kind, id, label: `Dự án xong: ${p.name}`, detail: `Danh hiệu “${p.title}”` } : null;
+    return p ? { key: `project:${id}`, kind, id, label: tl`Dự án xong: ${p.name}`, detail: tl`Danh hiệu “${p.title}”` } : null;
   }
   const g = grantKind(id);
   return g ? { key: `egg:${id}`, kind, id, label: 'Được tặng một quả trứng', detail: EGG_GRANT_LABEL[g] } : null;

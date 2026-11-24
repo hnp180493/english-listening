@@ -29,6 +29,7 @@ import {
   type MediaKind,
 } from './library';
 import { addItem, rememberFile, useMediaLibrary } from './store';
+import { tl } from '../../i18n';
 
 const PLACEHOLDER = `0:00 hey everyone, welcome back to the channel.
 0:03 today I'm gonna show you how to…`;
@@ -96,7 +97,7 @@ export default function AddForm({
     setFileError(null);
     if (!f) return;
     if (f.size > MAX_TRANSCRIPT_BYTES) {
-      setFileError(`Tệp phụ đề quá lớn (${formatKB(f.size)}). Giới hạn ${formatKB(MAX_TRANSCRIPT_BYTES)}.`);
+      setFileError(tl`Tệp phụ đề quá lớn (${formatKB(f.size)}). Giới hạn ${formatKB(MAX_TRANSCRIPT_BYTES)}.`);
       return;
     }
     try {

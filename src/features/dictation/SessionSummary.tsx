@@ -6,6 +6,7 @@ import type { SessionSummary } from '../../core/dictation/goal';
 import { hrefFor, navigate, type RouteId } from '../../core/nav';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import type { Phenomenon } from '../../core/types';
+import { tl } from '../../i18n';
 
 function link(e: MouseEvent<HTMLAnchorElement>, id: RouteId, params: Record<string, string>) {
   if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
@@ -48,7 +49,7 @@ export default function SessionSummaryCard({
     <section className="card dict-sum" aria-labelledby="dict-sum-title">
       <div className="dict-sum-head">
         <h2 id="dict-sum-title" className="dict-sum-title" ref={headRef} tabIndex={-1}>
-          Xong {goal} câu!
+          {tl`Xong ${goal} câu!`}
         </h2>
         <p className="dict-sum-sub">
           Điểm trung bình <b>{avgPct}%</b> · {summary.perfect}/{summary.count} câu đúng hoàn toàn. {praise}
@@ -115,7 +116,7 @@ export default function SessionSummaryCard({
           </button>
         )}
         <button type="button" className="btn btn-primary btn-lg" onClick={onContinue}>
-          Luyện tiếp {goal} câu
+          {tl`Luyện tiếp ${goal} câu`}
           <Icon icon={ArrowRight} size={17} />
         </button>
       </div>

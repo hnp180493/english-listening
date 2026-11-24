@@ -13,6 +13,7 @@ import { albumChains, albumOrder, DECORATION_NAME, DECORATION_WHERE, progressTex
 import { TierGem } from './eggs/TierGem';
 import './eggs/eggs.css';
 import './album/album.css';
+import { tl } from '../../../i18n';
 
 type AlbumTab = 'achievements' | 'projects' | 'fish';
 
@@ -43,7 +44,7 @@ export default function AlbumPanel({ onClose }: ActivityPanelProps) {
         ]}
       />
 
-      {tab === 'achievements' && <p className="town-album-lead">Đã đạt {unlocked} / {game.achievements.length} thành tích. Mỗi thành tích cho một danh hiệu để đeo.</p>}
+      {tab === 'achievements' && <p className="town-album-lead">{tl`Đã đạt ${unlocked} / ${game.achievements.length} thành tích. Mỗi thành tích cho một danh hiệu để đeo.`}</p>}
       {tab === 'achievements' && (
         <ul className="town-album-list" aria-label="Thành tích">
           {chains.map((c) => {
@@ -58,7 +59,7 @@ export default function AlbumPanel({ onClose }: ActivityPanelProps) {
                   <div className="town-album-head">
                     <p className="town-album-name">{shown.achievement.name}</p>
                     {c.steps.length > 1 && (
-                      <span className="town-album-steps" role="img" aria-label={`Đã đạt ${c.done} / ${c.steps.length} bậc`}>
+                      <span className="town-album-steps" role="img" aria-label={tl`Đã đạt ${c.done} / ${c.steps.length} bậc`}>
                         {c.steps.map((s) => (
                           <span key={s.achievement.id} className={s.unlockedAt !== null ? 'is-on' : undefined} />
                         ))}
@@ -102,7 +103,7 @@ export default function AlbumPanel({ onClose }: ActivityPanelProps) {
 
       {tab === 'projects' && (
         <div className="stack-sm">
-          <p className="town-album-lead">Xong {doneProjects} / {game.projects.length} dự án. Đây là việc lớn của cả thị trấn, góp dần qua nhiều ngày nghe. Xong việc nào, thị trấn có thêm một thứ mới, giữ mãi.</p>
+          <p className="town-album-lead">{tl`Xong ${doneProjects} / ${game.projects.length} dự án. Đây là việc lớn của cả thị trấn, góp dần qua nhiều ngày nghe. Xong việc nào, thị trấn có thêm một thứ mới, giữ mãi.`}</p>
           <ul className="town-album-list" aria-label="Dự án thị trấn">
             {game.projects.map((p) => {
               const done = p.unlockedAt !== null;
@@ -123,9 +124,9 @@ export default function AlbumPanel({ onClose }: ActivityPanelProps) {
                         <p className="town-album-count">{progressText(p, p.project.metric)}</p>
                       </>
                     )}
-                    <p className="town-album-adds">{done ? `Đã có ${deco}, ${DECORATION_WHERE[p.project.decoration]}.` : `Xong sẽ có ${deco}.`}</p>
+                    <p className="town-album-adds">{done ? tl`Đã có ${deco}, ${DECORATION_WHERE[p.project.decoration]}.` : tl`Xong sẽ có ${deco}.`}</p>
                     <p className="town-album-count">
-                      Danh hiệu “{p.project.title}”{done ? ` · xong ngày ${shortDate(p.unlockedAt!)}` : ''}
+                      Danh hiệu “{p.project.title}”{done ? tl` · xong ngày ${shortDate(p.unlockedAt!)}` : ''}
                     </p>
                   </div>
                 </li>
@@ -141,7 +142,7 @@ export default function AlbumPanel({ onClose }: ActivityPanelProps) {
             <Icon icon={Fish} size={22} />
             <p>
               Đã câu được <strong>{album.caught}</strong> trong {album.total} loài cá
-              {album.catches > 0 ? `, tổng cộng ${album.catches} con.` : '.'}
+              {album.catches > 0 ? tl`, tổng cộng ${album.catches} con.` : '.'}
             </p>
           </div>
           <ul className="town-album-tiers" aria-label="Theo độ hiếm">

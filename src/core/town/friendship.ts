@@ -43,6 +43,7 @@ import {
   type TownProgress,
 } from './progress';
 import type { FactId, ResidentArc, StoryChoice, StoryEpisode, StoryFact, StoryLine } from './story';
+import { tl } from '../../i18n';
 
 export const FRIEND_MAX_POINTS = 1000;
 export const HEART_POINTS = 100;
@@ -149,8 +150,8 @@ export function allHearts(progress: TownProgress): Record<string, number> {
 export function heartCheer(placeId: string, before: number, after: number): { label: string; detail: string } {
   const name = townPlace(placeId)?.resident ?? '';
   const title = friendTitle(after);
-  if (title !== friendTitle(before) && after > 0) return { label: `${name} giờ coi bạn là ${title}!`, detail: `Thân thiết: ${after}/${MAX_HEARTS} tim` };
-  return { label: `Thân với ${name} hơn`, detail: `Thân thiết: ${after}/${MAX_HEARTS} tim` };
+  if (title !== friendTitle(before) && after > 0) return { label: tl`${name} giờ coi bạn là ${title}!`, detail: tl`Thân thiết: ${after}/${MAX_HEARTS} tim` };
+  return { label: tl`Thân với ${name} hơn`, detail: tl`Thân thiết: ${after}/${MAX_HEARTS} tim` };
 }
 
 export interface FriendWrite {

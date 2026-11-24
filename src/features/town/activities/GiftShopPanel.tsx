@@ -19,6 +19,7 @@ import { xu } from '../shellModel';
 import { GIFT_RULES } from '../friends/friendModel';
 import type { ActivityPanelProps } from './types';
 import '../friends/friends.css';
+import { tl } from '../../../i18n';
 
 export default function GiftShopPanel({ sound, onReward }: ActivityPanelProps) {
   const progress = useTownProgress();
@@ -29,12 +30,12 @@ export default function GiftShopPanel({ sound, onReward }: ActivityPanelProps) {
   const buy = (id: string, name: string, romance = false) => {
     const r = buyTownGift(id);
     if (!r.ok) {
-      setNote(r.reason === 'poor' ? `Còn thiếu ${xu(r.missing)}.` : 'Chưa mua được, thử lại nhé.');
+      setNote(r.reason === 'poor' ? tl`Còn thiếu ${xu(r.missing)}.` : 'Chưa mua được, thử lại nhé.');
       return;
     }
     playSfx('pop', sound);
-    setNote(romance ? `Đã mua ${name}. Đứng cạnh người ấy rồi bấm “Hẹn hò”.` : `Đã mua ${name}. Đứng cạnh ai đó rồi bấm “Tặng quà”.`);
-    onReward({ label: `Đã mua ${name}` });
+    setNote(romance ? tl`Đã mua ${name}. Đứng cạnh người ấy rồi bấm “Hẹn hò”.` : tl`Đã mua ${name}. Đứng cạnh ai đó rồi bấm “Tặng quà”.`);
+    onReward({ label: tl`Đã mua ${name}` });
   };
   return (
     <div className="town-shop">
@@ -72,7 +73,7 @@ export default function GiftShopPanel({ sound, onReward }: ActivityPanelProps) {
     const poor = g.cost > balance;
     return (
       <li key={g.id}>
-        <button type="button" className="town-shop-tile" onClick={() => buy(g.id, g.name, !!g.romance)} disabled={poor} aria-label={`Mua ${g.name}, ${xu(g.cost)}${held > 0 ? `, đang có ${held}` : ''}`}>
+        <button type="button" className="town-shop-tile" onClick={() => buy(g.id, g.name, !!g.romance)} disabled={poor} aria-label={tl`Mua ${g.name}, ${xu(g.cost)}${held > 0 ? tl`, đang có ${held}` : ''}`}>
           <span className="town-shop-name">
             {g.name}
             {held > 0 && <span className="town-gift-n tabular"> · có {held}</span>}

@@ -15,6 +15,7 @@ import {
 } from '../../core/cloud/cloudController';
 import SectionHead from './SectionHead';
 import { formatDateTimeVi } from './settingsModel';
+import { tl } from '../../i18n';
 
 const STATUS_LABEL: Partial<Record<CloudStatus, string>> = {
   'signing-in': 'Đang đăng nhập…',
@@ -202,7 +203,7 @@ export default function CloudSection() {
               Đã đăng nhập <strong className="set-file-name">{cloud.user?.email ?? cloud.user?.name ?? 'tài khoản Google'}</strong>
               <span className="meta">
                 {' · '}
-                {cloud.lastSyncAt ? `đồng bộ lần cuối ${formatDateTimeVi(cloud.lastSyncAt)}` : 'chưa đồng bộ lần nào'}
+                {cloud.lastSyncAt ? tl`đồng bộ lần cuối ${formatDateTimeVi(cloud.lastSyncAt)}` : 'chưa đồng bộ lần nào'}
               </span>
             </p>
             {STATUS_LABEL[cloud.status] && (

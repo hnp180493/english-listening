@@ -7,6 +7,7 @@ import { addListeningEntry, type ListeningEntry, type ListeningSource } from '..
 import { localDay } from '../../core/stats';
 import EntryFields from './EntryFields';
 import { entryTitle, readForm, type EntryForm, type FormErrors } from './listeningModel';
+import { tl } from '../../i18n';
 
 interface Props {
   defaultSource: ListeningSource;
@@ -34,7 +35,7 @@ export default function QuickAdd({ defaultSource, now, onSaved }: Props) {
       setErrors({ minutes: 'Chưa lưu được. Kiểm tra lại số phút.' });
       return;
     }
-    setSaved(`Đã ghi ${entryTitle(e)}.`);
+    setSaved(tl`Đã ghi ${entryTitle(e)}.`);
     setForm(blank(form.source, Date.now()));
     onSaved(e);
   };

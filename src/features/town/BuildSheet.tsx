@@ -6,6 +6,7 @@ import { Coin } from './art';
 import { usePanelKeys } from './panelKeys';
 import { renderThumb } from './three/thumbs';
 import { decorationRows, homePerk, lotRows, primaryBuy, xu } from './shellModel';
+import { tl, tr } from '../../i18n';
 
 /** The thumbnail box, CSS px (town.css .town-thumb). */
 const THUMB_W = 56;
@@ -68,7 +69,7 @@ export default function BuildSheet({ overview, wanted, onBuy, onClose }: BuildSh
   const allBuilt = lots.length === 0 && toBuy.length === 0;
 
   const buyButton = (id: string, verb: string, name: string, cost: number) => (
-    <button type="button" className={'btn btn-sm town-buy ' + (id === main ? 'btn-primary' : 'btn-soft')} onClick={() => onBuy(id)} aria-label={`${verb} ${name}, ${xu(cost)}`}>
+    <button type="button" className={'btn btn-sm town-buy ' + (id === main ? 'btn-primary' : 'btn-soft')} onClick={() => onBuy(id)} aria-label={`${tr(verb)} ${tr(name)}, ${xu(cost)}`}>
       {verb}
       <span className="town-buy-cost">
         <Coin size={15} />
@@ -89,7 +90,7 @@ export default function BuildSheet({ overview, wanted, onBuy, onClose }: BuildSh
       <span className="town-row-body">
         <span className="town-row-title">{p.place.name}</span>
         <span className="town-row-meta">
-          {p.affordable ? (homePerk(p) ?? `${p.place.resident} · ${p.place.topic}`) : `${p.place.resident} · còn thiếu ${xu(p.missing)}`}
+          {p.affordable ? (homePerk(p) ?? `${p.place.resident} · ${tr(p.place.topic)}`) : tl`${p.place.resident} · còn thiếu ${xu(p.missing)}`}
           {!p.affordable && <span className="sr-only">, giá {xu(p.cost)}</span>}
         </span>
       </span>

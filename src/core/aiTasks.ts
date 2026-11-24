@@ -3,7 +3,9 @@
 // run the matching sanitize/validate function on the answer. See docs/ai-providers.md (AI layer) and
 // docs/progress-report.md §6 (honesty rules the coach must follow).
 //
-// Prompts are written in English for the model; every learner-facing string the model returns is Vietnamese.
+// Prompts are written in English for the model; every learner-facing string the model returns is in the interface
+// language (docs/i18n.md): Vietnamese, or English in English mode (explain and coach; the generator's `vi` stays
+// Vietnamese). The language is read when a prompt is built or an answer is checked, never when this module loads.
 // Nothing here ever sees an API key.
 
 import type { JsonSchema } from './ai';
@@ -12,11 +14,31 @@ import type { DiffUnit } from './dictation/diff';
 import { PHENOMENON_INFO } from './phenomena';
 import { pooledPhenomena, type ProgressReport } from './progressReport';
 import { PHENOMENA, type Annotation, type Level, type Phenomenon } from './types';
+import { getLang, tl, tr } from '../i18n';
 
 /** The app's Vietnamese names of the phenomena ("Nối âm", …): the only names the model may use. */
 export const PHENOMENON_VI: Readonly<Record<Phenomenon, string>> = Object.fromEntries(
   PHENOMENA.map((p) => [p, PHENOMENON_INFO[p]?.label ?? p]),
 ) as Record<Phenomenon, string>;
+
+/** The English names of the phenomena (docs/i18n.md glossary): the only names the model may use in English mode. */
+export const PHENOMENON_EN: Readonly<Record<Phenomenon, string>> = {
+  linking: 'Linking',
+  elision: 'Elision',
+  assimilation: 'Assimilation',
+  'weak-form': 'Weak form',
+  'flap-t': 'Flap T',
+  reduction: 'Reduction',
+  'h-dropping': 'H-dropping',
+  contraction: 'Contraction',
+};
+
+const isEnglish = () => getLang() === 'en';
+
+/** The phenomenon names of the interface language (read at call time). */
+export function phenomenonNames(): Readonly<Record<Phenomenon, string>> {
+  return isEnglish() ? PHENOMENON_EN : PHENOMENON_VI;
+}
 
 const clip = (s: unknown, max: number): string => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim().slice(0, max).trim() : '');
 
@@ -131,7 +153,7 @@ export interface ExplainMistake {
 
 export interface ExplainAnnotation {
   type: Phenomenon;
-  name: string; // Vietnamese name, e.g. "Nối âm"
+  name: string; // name in the interface language, e.g. "Nối âm" / "Linking"
   original: string;
   spoken: string;
   /** Touches a word the learner got wrong. */
@@ -220,12 +242,13 @@ export function explainInputFrom(
       lastMissing = -2;
     }
   }
+  const names = phenomenonNames();
   const anns: ExplainAnnotation[] = annotations
     .filter((a) => PHENOMENON_VI[a.type])
     .map((a) => {
       let missed = false;
       for (let i = a.from; i <= a.to; i++) if (bad.has(i)) missed = true;
-      return { type: a.type, name: PHENOMENON_VI[a.type], original: clip(a.original, 80), spoken: clip(a.spoken, 80), missed };
+      return { type: a.type, name: names[a.type], original: clip(a.original, 80), spoken: clip(a.spoken, 80), missed };
     });
   // A contraction the learner missed ("I" for "I'm") is a plain fact even where the decoder has no
   // annotation for it (it does not mark "I'm"): add one, so the model may say Viết tắt without "(đoán)".
@@ -235,7 +258,7 @@ export function explainInputFrom(
     const covered = annotations.some((a) => a.type === 'contraction' && a.from <= m.to && a.to >= m.from);
     if (covered) continue;
     const word = m.expected.split(' ').find((w) => w.includes("'")) ?? m.expected;
-    anns.push({ type: 'contraction', name: PHENOMENON_VI.contraction, original: clip(word, 80), spoken: clip(word, 80), missed: true });
+    anns.push({ type: 'contraction', name: names.contraction, original: clip(word, 80), spoken: clip(word, 80), missed: true });
   }
   // missed spots first (they are what the explanation is about), then at most a couple of others
   const missedAnns = anns.filter((a) => a.missed);
@@ -299,7 +322,32 @@ export const EXPLAIN_SCHEMA: JsonSchema = {
   required: ['points', 'summary'],
 };
 
+/** EXPLAIN_SCHEMA for English mode: the same shape, the learner-facing fields in plain English. */
+export const EXPLAIN_SCHEMA_EN: JsonSchema = {
+  type: 'object',
+  properties: {
+    points: {
+      type: 'array',
+      minItems: 1,
+      maxItems: EXPLAIN_MAX_POINTS,
+      items: {
+        type: 'object',
+        properties: {
+          heard: { type: 'string', description: 'What the learner typed at this spot, verbatim ("" if they left it out).' },
+          actual: { type: 'string', description: 'The written words at this spot.' },
+          why: { type: 'string', description: 'Plain English, at most 2 sentences. Phenomenon names in « » exactly as listed.' },
+          tip: { type: 'string', description: 'Plain English, one short concrete listening tip.' },
+        },
+        required: ['heard', 'actual', 'why', 'tip'],
+      },
+    },
+    summary: { type: 'string', description: 'One short plain-English sentence summing up the points above.' },
+  },
+  required: ['points', 'summary'],
+};
+
 const NAMES_LIST = PHENOMENA.map((p) => `«${PHENOMENON_VI[p]}» (${p})`).join(', ');
+const NAMES_LIST_EN = PHENOMENA.map((p) => `«${PHENOMENON_EN[p]}» (${p})`).join(', ');
 
 export const EXPLAIN_SYSTEM = [
   'You are a patient Vietnamese teacher of English listening. Your student is Vietnamese and is learning to hear connected American English speech.',
@@ -315,7 +363,23 @@ export const EXPLAIN_SYSTEM = [
   `points: 1 to ${EXPLAIN_MAX_POINTS} items; "why" at most 2 short sentences; "tip" one short, concrete thing to listen for. summary: ONE Vietnamese sentence summing up the points.`,
 ].join('\n');
 
+/** EXPLAIN_SYSTEM for English mode: the same rules, the answer in plain English with the English names. */
+export const EXPLAIN_SYSTEM_EN = [
+  'You are a patient teacher of English listening. Your student is Vietnamese and is learning to hear connected American English speech.',
+  'The student listened to one English sentence and typed what they heard. You get the sentence, how the whole sentence sounds, what they typed, the words the checker marked wrong (with the spoken chunk each one sits in), and the connected-speech annotations found by the app\'s decoder (type, written words, how it sounds).',
+  'The student ALREADY SEES the decoder\'s rule cards for these annotations right above your answer. Do not just restate them. Add what they do not say: how the sounds of the chunk run together so that it led to exactly what the student typed, mis-heard words that are not a connected-speech event, and one concrete thing to listen for.',
+  'Only the words in Mistakes were marked wrong. Everything else the student typed was accepted, including typos and informal spellings like gonna/wanna/bout: never correct or comment on them. One point per mistake (the most important first), nothing else.',
+  'Mistakes marked "accepted as a typo" were graded right but are a different word: explain them in one short sentence.',
+  `Phenomenon names: write them inside « » exactly as in this list, and use « » for nothing else: ${NAMES_LIST_EN}.`,
+  'Only name a phenomenon that is in the annotations. If you believe a phenomenon is involved that the annotations do not show, you may say so ONLY as a guess, written as «Name» (a guess).',
+  'If a mistake is not caused by connected speech (vocabulary, spelling, grammar), say so plainly instead of inventing a phenomenon.',
+  'To show how something sounds, quote the chunk respelling given for the mistake ("sounds like"), or an annotation\'s "spoken" respelling, exactly (the app\'s convention: lowercase syllables joined by hyphens, "ə" for the weak vowel, e.g. "tur-ni-dof-fi-nə", "wan-chu"); you may write the stressed syllable in CAPITALS. Never invent respellings or IPA.',
+  'Write every field in plain, concise English with short, common words: the student is not a native speaker. No greetings, no praise padding, no markdown.',
+  `points: 1 to ${EXPLAIN_MAX_POINTS} items; "why" at most 2 short sentences; "tip" one short, concrete thing to listen for. summary: ONE short sentence summing up the points.`,
+].join('\n');
+
 export function buildExplainPrompt(input: ExplainInput): TaskPrompt {
+  const en = isEnglish();
   const lines: string[] = [];
   lines.push(`Sentence (what was said): "${input.text}"`);
   if (input.spokenText) lines.push(`How the whole sentence sounds (app respelling): "${input.spokenText}"`);
@@ -331,53 +395,65 @@ export function buildExplainPrompt(input: ExplainInput): TaskPrompt {
   } else lines.push('- (none found by the checker)');
   lines.push('Decoder annotations (name | written | sounds like | touches a mistake):');
   if (input.annotations.length) {
-    for (const a of input.annotations) lines.push(`- ${a.name} | "${a.original}" | "${a.spoken}" | ${a.missed ? 'yes' : 'no'}`);
+    for (const a of input.annotations) lines.push(`- ${en ? (PHENOMENON_EN[a.type] ?? a.name) : a.name} | "${a.original}" | "${a.spoken}" | ${a.missed ? 'yes' : 'no'}`);
   } else lines.push('- (none: the decoder found no connected-speech event)');
   lines.push('Reply with JSON only.');
-  return { system: EXPLAIN_SYSTEM, user: lines.join('\n'), schema: EXPLAIN_SCHEMA, name: 'listening_explanation', maxTokens: 1400 };
+  return { system: en ? EXPLAIN_SYSTEM_EN : EXPLAIN_SYSTEM, user: lines.join('\n'), schema: en ? EXPLAIN_SCHEMA_EN : EXPLAIN_SCHEMA, name: 'listening_explanation', maxTokens: 1400 };
 }
 
 /** Name as cited: "T bật (giọng Mỹ)" may be cited as just "T bật". */
-const shortName = (p: Phenomenon) => PHENOMENON_VI[p].replace(/\s*\(.*\)\s*$/, '');
+const shortName = (name: string) => name.replace(/\s*\(.*\)\s*$/, '');
 const reEsc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Names that can be matched without « »: they are never ordinary words. "Rút gọn" / "Viết tắt" ("dạng rút gọn
- * của", "viết tắt") and "Âm yếu" (inside "nguyên âm yếu") are everyday Vietnamese, so only «…» counts for them.
+ * của", "viết tắt") and "Âm yếu" (inside "nguyên âm yếu") are everyday Vietnamese, so only «…» counts for them;
+ * the same three in English ("a reduction", "a contraction of", "the weak form of to").
  */
 const PLAIN_MATCH: ReadonlySet<Phenomenon> = new Set<Phenomenon>(['linking', 'elision', 'assimilation', 'flap-t', 'h-dropping']);
 
-function nameRe(p: Phenomenon, plain: boolean): RegExp {
-  const n = reEsc(shortName(p));
-  const full = reEsc(PHENOMENON_VI[p]);
+function nameRe(p: Phenomenon, plain: boolean, names: Readonly<Record<Phenomenon, string>>): RegExp {
+  const n = reEsc(shortName(names[p]));
+  const full = reEsc(names[p]);
   return plain ? new RegExp(`«\\s*(?:${full}|${n})\\s*»|(?<![\\p{L}])(?:${full}|${n})(?![\\p{L}])`, 'giu') : new RegExp(`«\\s*(?:${full}|${n})\\s*»`, 'giu');
 }
 
-/** Phenomena (by key) named in `s`: «Name» always counts; a bare name only when it is never an ordinary word. */
+/** Phenomena (by key) named in `s` (names of the interface language): «Name» always counts; a bare name only when it is never an ordinary word. */
 export function phenomenaNamedIn(s: string): Phenomenon[] {
-  return PHENOMENA.filter((p) => nameRe(p, PLAIN_MATCH.has(p)).test(s));
+  const names = phenomenonNames();
+  return PHENOMENA.filter((p) => nameRe(p, PLAIN_MATCH.has(p), names).test(s));
 }
 
 /** "(đoán)" right after the name (or its « »). */
 const GUESS_AFTER = /^\s*»?\s*\(\s*đoán\s*\)/iu;
+/** English mode: "(a guess)" (or "(guess)") right after the name. */
+const GUESS_AFTER_EN = /^\s*»?\s*\(\s*(?:a\s+)?guess\s*\)/iu;
 
 /** A negation right before the name ("không phải nối âm", "chẳng phải do «Nuốt âm»"): the model is ruling it out. */
 const NEGATED_BEFORE = /(?:không|chẳng|chứ không)\s+(?:phải\s+)?(?:là\s+)?(?:do\s+)?(?:hiện tượng\s+)?«?\s*$/iu;
+/** English mode: "not linking", "isn't «Elision»", "not caused by a case of «Linking»", "rather than «Elision»". */
+const NEGATED_BEFORE_EN =
+  /(?:\bnot|n['’]t|\bno|\bnever|\brather than|\binstead of)\s+(?:(?:really|actually)\s+)?(?:(?:due to|caused by|because of|from|about)\s+)?(?:(?:a|an|the)\s+)?(?:(?:case|result|sign|form|example|kind)\s+of\s+)?(?:(?:a|an|the)\s+)?«?\s*$/iu;
 
 /**
- * Marks each unsupported phenomenon name in `s` as a guess, right after the name ("«Nuốt âm» (đoán)"), unless
- * it already is, or the name is negated ("Đây không phải nối âm" rules it out, so no "(đoán)"). A hedge elsewhere
- * in the sentence ("khó đoán", "có lẽ") does not count.
+ * Marks each unsupported phenomenon name in `s` as a guess, right after the name ("«Nuốt âm» (đoán)", in English
+ * mode "«Elision» (a guess)"), unless it already is, or the name is negated ("Đây không phải nối âm" rules it out,
+ * so no "(đoán)"). A hedge elsewhere in the sentence ("khó đoán", "có lẽ") does not count.
  */
 export function markGuesses(s: string, known: ReadonlySet<Phenomenon>): string {
+  const en = isEnglish();
+  const names = phenomenonNames();
+  const guessAfter = en ? GUESS_AFTER_EN : GUESS_AFTER;
+  const negatedBefore = en ? NEGATED_BEFORE_EN : NEGATED_BEFORE;
+  const mark = en ? ' (a guess)' : ' (đoán)';
   let out = s;
   for (const p of PHENOMENA) {
     if (known.has(p)) continue;
-    const re = nameRe(p, PLAIN_MATCH.has(p));
+    const re = nameRe(p, PLAIN_MATCH.has(p), names);
     out = out.replace(re, (m: string, offset: number, whole: string) => {
       const rest = whole.slice(offset + m.length);
       const before = whole.slice(Math.max(0, offset - 40), offset);
-      return GUESS_AFTER.test(rest) || NEGATED_BEFORE.test(before) ? m : `${m} (đoán)`;
+      return guessAfter.test(rest) || negatedBefore.test(before) ? m : m + mark;
     });
   }
   return out;
@@ -734,7 +810,7 @@ export function validateGenerated(
 /** "Chỉ giữ được 4 câu đạt yêu cầu." when fewer than `requested` sentences are left ('' otherwise). */
 export function dropSummaryVi(kept: number, requested: number): string {
   if (kept >= requested) return '';
-  return kept > 0 ? `Chỉ giữ được ${kept} câu đạt yêu cầu.` : '';
+  return kept > 0 ? tl`Chỉ giữ được ${kept} câu đạt yêu cầu.` : '';
 }
 
 const REASON_EN: Record<DropReason, string> = {
@@ -837,19 +913,22 @@ export function buildCoachInput(
   const c = report.checkups;
   const p = report.practice;
   const u = report.understood;
+  // English mode: the labels go to the model in English (tr is a no-op in Vietnamese mode; the report's own
+  // sentences are already written in the interface language, tr leaves those as they are)
+  const en = isEnglish();
   const latestMisses = PHENOMENA.flatMap((ph) => {
     const v = latestByPhenomenon?.[ph];
     if (!v || !(v.seen > 0)) return [];
-    return [{ phenomenon: PHENOMENON_VI[ph], missed: Math.max(0, Math.min(v.seen, Math.floor(v.missed))), seen: Math.floor(v.seen) }];
+    return [{ phenomenon: en ? PHENOMENON_EN[ph] : PHENOMENON_VI[ph], missed: Math.max(0, Math.min(v.seen, Math.floor(v.missed))), seen: Math.floor(v.seen) }];
   });
   const all = checkups ?? [];
   const trend = trendCheckups(all);
   const pooled = pooledPhenomena(all).filter((r) => r.early.seen > 0 || r.late.seen > 0);
-  const caveats = [c.deltaHedge, c.formNote, c.voiceNote, c.staleNote, c.baselineNote].filter((x): x is string => !!x).map((x) => clip(x, 200));
+  const caveats = [c.deltaHedge, c.formNote, c.voiceNote, c.staleNote, c.baselineNote].filter((x): x is string => !!x).map((x) => clip(tr(x), 200));
   return {
     period: report.period,
-    periodLabel: o.periodLabel,
-    alreadyShown: report.insights.map((s) => clip(s, 400)),
+    periodLabel: tr(o.periodLabel),
+    alreadyShown: report.insights.map((s) => clip(tr(s), 400)),
     listening: {
       minutesInPeriod: Math.round(o.listenMinutes),
       minutesAllTime: Math.round(o.totalMinutes),
@@ -878,7 +957,7 @@ export function buildCoachInput(
       caveats,
       latestMisses,
       phenomenonChanges: pooled.map((r) => ({
-        phenomenon: r.label,
+        phenomenon: en ? PHENOMENON_EN[r.p] : r.label,
         earlyTests: `missed ${r.early.missed}/${r.early.seen} sentences`,
         recentTests: `missed ${r.late.missed}/${r.late.seen} sentences`,
         lowSample: r.early.seen < COACH_MIN_PH_SENTENCES || r.late.seen < COACH_MIN_PH_SENTENCES,
@@ -887,7 +966,7 @@ export function buildCoachInput(
     practice: {
       attempts: p.total.n,
       accuracyPct: p.total.pct,
-      modules: p.modules.map((m) => ({ module: m.label, attempts: m.n, accuracyPct: m.pct })),
+      modules: p.modules.map((m) => ({ module: tr(m.label), attempts: m.n, accuracyPct: m.pct })),
       reviewRetentionPct: p.retention.pct,
       reviewGrades: p.retention.n,
       firstListenPct: p.firstListen.pct,
@@ -951,7 +1030,43 @@ export const COACH_SYSTEM = [
   'Natural, concise Vietnamese, no markdown, no emoji, no greeting.',
 ].join('\n');
 
+/** COACH_SCHEMA for English mode. */
+export const COACH_SCHEMA_EN: JsonSchema = {
+  type: 'object',
+  properties: {
+    headline: { type: 'string', description: 'One short plain-English sentence: the single most useful takeaway.' },
+    points: { type: 'array', minItems: 0, maxItems: COACH_MAX_POINTS, items: { type: 'string' } },
+    nextWeek: { type: 'array', minItems: 1, maxItems: COACH_MAX_ACTIONS, items: { type: 'string' } },
+  },
+  required: ['headline', 'points', 'nextWeek'],
+};
+
+/** COACH_FEATURES in English mode: the English menu names (docs/i18n.md glossary), in the same order. */
+export const COACH_FEATURES_EN = [
+  'Dictation', 'Phrases', 'Sound pairs', 'Shadowing', 'Real videos', 'Lessons', 'Decoder', 'Review',
+  'Listening log', 'Checkup',
+] as const;
+
+/** COACH_SYSTEM for English mode: the same rules, the comment in plain English with the English section names. */
+export const COACH_SYSTEM_EN = [
+  'You are a warm but strictly honest coach for a Vietnamese adult learning to understand spoken American English with a listening-practice app.',
+  'You get ONLY aggregate numbers from the learner\'s progress report for the chosen period, plus "alreadyShown": the app\'s own comments that the learner sees right above yours. Comment in plain English with short, common words (the learner is not a native speaker).',
+  'Your comment is an add-on to alreadyShown: never repeat those facts or numbers, never contradict them (they apply the report\'s statistics correctly), and keep their caveats. Your main job is the plan for next week.',
+  'Honesty rules (never break them):',
+  '- Never claim or promise native-like listening, fluency or understanding "everything"/100%. Never use the words "native", "native-like", "fluent", "fluency", "perfect", "flawless", "mastered", "like an American".',
+  '- Only talk about the chosen period, using numbers that are in the data. Do not invent numbers, dates or causes; do not compute new percentages.',
+  '- Small samples must be hedged ("only N tests so far", "little data", "seems to"): fewer than 4 trend tests is not a trend; a checkup score change of 10 points or less is "no clear change yet" (one comprehension answer is worth 10 points); a phenomenon marked lowSample is not evidence; a test with repeatForm true was seen before, so its score may be too high; practice accuracy depends on which exercises the learner chose. Respect checkups.caveats.',
+  '- Self-rated understanding is always called "self-rated" and depends on how hard the chosen content was. Its scale: 1 = under 30%, 2 = 30–50%, 3 = 50–70%, 4 = 70–90%, 5 = over 90% understood; quote it as the range, never as a single %.',
+  '- Listening: durations are minutes; write them like the app ("2 h 15 min", "45 min"). A bucket with partial true is still running (elapsedDays so far): never call it lower than the others. More real listening is the main driver of progress; praise consistency, not perfection. Only "Listening log" (real English content outside the app) and "Real videos" add listening hours; the other sections are exercises, so never suggest them as a way to raise listening time.',
+  `Output: "headline" one short sentence; "points" 0 to ${COACH_MAX_POINTS} short bullets with something NEW (not in alreadyShown), each at most 2 sentences — leave it empty rather than restating; "nextWeek" 1 to ${COACH_MAX_ACTIONS} concrete actions for next week, each naming one app section by its exact English name: ` +
+    COACH_FEATURES_EN.map((f) => `"${f}"`).join(', ') +
+    '. Give amounts (minutes per day, number of sentences) when it helps. With no checkup yet (checkups.count 0), the first action is "Checkup".',
+  'When there is little data (fewer than 2 trend tests and under 2 hours of listening), give at most 1 point and never fill with general advice.',
+  'Plain, concise English, no markdown, no emoji, no greeting.',
+].join('\n');
+
 export function buildCoachPrompt(input: CoachInput): TaskPrompt {
+  const en = isEnglish();
   const user = [
     'Progress report data (JSON). Minutes are whole minutes; percentages are 0-100; self-rated levels are 1-5 (see the scale).',
     coachDataIsSparse(input) ? 'Little data so far: at most 1 point.' : '',
@@ -960,7 +1075,7 @@ export function buildCoachPrompt(input: CoachInput): TaskPrompt {
   ]
     .filter(Boolean)
     .join('\n');
-  return { system: COACH_SYSTEM, user, schema: COACH_SCHEMA, name: 'progress_coach', maxTokens: 1200 };
+  return { system: en ? COACH_SYSTEM_EN : COACH_SYSTEM, user, schema: en ? COACH_SCHEMA_EN : COACH_SCHEMA, name: 'progress_coach', maxTokens: 1200 };
 }
 
 /** Claims the report must never make (docs/progress-report.md §6): any sentence with one of these is removed. */
@@ -980,19 +1095,52 @@ const DISHONEST = new RegExp(
   'iu',
 );
 
+/**
+ * The same claims in English mode (checked together with the Vietnamese ones): native-like, fluent, perfect,
+ * mastered, "like an American", 100%, and promises to understand everything / every word.
+ */
+const DISHONEST_EN = new RegExp(
+  [
+    '(?<![\\p{L}])native(?![\\p{L}])',
+    '(?<![\\p{L}])fluen(?:t|tly|cy)(?![\\p{L}])',
+    '(?<![\\p{L}])(?:perfect|perfectly|perfection|flawless|flawlessly|effortless|effortlessly)(?![\\p{L}])',
+    '(?<![\\p{L}])(?:master|mastered|mastery|mastering|proficient|proficiency)(?![\\p{L}])',
+    'mother[- ]tongue',
+    'like (?:an? |the )?(?:americans?|brits?|british|locals?|english speakers?|natives?)(?![\\p{L}])',
+    '100\\s*%',
+    '(?:understand|catch|follow|hear|get)(?:ing)? (?:everything|every (?:single )?word|it all|all of it|all of what)',
+  ].join('|'),
+  'iu',
+);
+
+const dishonest = (s: string): boolean => DISHONEST.test(s) || (isEnglish() && DISHONEST_EN.test(s));
+
+/** The sentences of `s`; in English mode a decimal point ("2.5 h") does not end one. */
+function sentencesOf(s: string): string[] {
+  return s.match(isEnglish() ? /(?:[^.!?…]|(?<=\d)\.(?=\d))+[.!?…]*\s*/g : /[^.!?…]+[.!?…]*\s*/g) ?? [s];
+}
+
 /** Removes every sentence that makes a native-like claim. '' when nothing is left. */
 export function stripDishonest(s: string): string {
   const text = clip(s, 600);
-  if (!DISHONEST.test(text)) return text;
-  const sentences = text.match(/[^.!?…]+[.!?…]*\s*/g) ?? [text];
+  if (!dishonest(text)) return text;
+  const sentences = sentencesOf(text);
   return sentences
-    .filter((x) => !DISHONEST.test(x))
+    .filter((x) => !dishonest(x))
     .join('')
     .trim();
 }
 
 const NUM_RE = /\d+(?:[.,]\d+)?/g;
 const toNum = (s: string) => Number(s.replace(',', '.'));
+/** English mode: a comma groups thousands ("1,200 min"), a point is the decimal mark ("2.5 h"). */
+const NUM_RE_EN = /\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g;
+const toNumEn = (s: string) => Number(s.replace(/,/g, ''));
+
+/** The numbers written in `s`, read the way the interface language writes them. */
+function numbersIn(s: string): number[] {
+  return isEnglish() ? (s.match(NUM_RE_EN) ?? []).map(toNumEn) : (s.match(NUM_RE) ?? []).map(toNum);
+}
 
 /**
  * Every number the coach may quote: the numbers in its input (including the already-shown comments), durations
@@ -1000,7 +1148,9 @@ const toNum = (s: string) => Number(s.replace(',', '.'));
  */
 export function coachNumbers(input: CoachInput): number[] {
   const out = new Set<number>();
-  for (const m of JSON.stringify(input).match(NUM_RE) ?? []) out.add(toNum(m));
+  // English mode: indented JSON, so the comma between two array items never reads as a thousands separator
+  const json = isEnglish() ? JSON.stringify(input, null, 1) : JSON.stringify(input);
+  for (const n of numbersIn(json)) out.add(n);
   for (let i = 0; i <= 10; i++) out.add(i);
   const mins = [input.listening.minutesInPeriod, input.listening.minutesAllTime, ...input.listening.perBucket.map((b) => b.minutes)];
   for (const m of mins) {
@@ -1017,14 +1167,15 @@ export function coachNumbers(input: CoachInput): number[] {
 /** Sentences of `s` whose numbers are all in `allowed` (± rounding). */
 function keepKnownNumbers(s: string, allowed: readonly number[]): string {
   if (!/\d/.test(s)) return s;
-  const sentences = s.match(/[^.!?…]+[.!?…]*\s*/g) ?? [s];
+  const sentences = sentencesOf(s);
   return sentences
-    .filter((x) => (x.match(NUM_RE) ?? []).every((m) => allowed.some((a) => Math.abs(a - toNum(m)) < 0.051)))
+    .filter((x) => numbersIn(x).every((n) => allowed.some((a) => Math.abs(a - n) < 0.051)))
     .join('')
     .trim();
 }
 
 const FEATURE_RE = new RegExp(COACH_FEATURES.join('|'), 'i');
+const FEATURE_RE_EN = new RegExp(`(?<![\\p{L}])(?:${COACH_FEATURES_EN.join('|')})(?![\\p{L}])`, 'iu');
 /** A bullet cut down to a short filler ("Tiếp tục nhé.") is dropped. */
 const MIN_FILLER_CHARS = 25;
 
@@ -1041,7 +1192,7 @@ export function sanitizeCoach(raw: unknown, input?: CoachInput): CoachComment | 
     const original = clip(x, 400);
     let s = stripDishonest(original);
     if (checkNumbers && allowed) s = keepKnownNumbers(s, allowed);
-    if (s !== original && s.length < MIN_FILLER_CHARS && !/\d/.test(s) && !FEATURE_RE.test(s)) return '';
+    if (s !== original && s.length < MIN_FILLER_CHARS && !/\d/.test(s) && !(isEnglish() ? FEATURE_RE_EN : FEATURE_RE).test(s)) return '';
     return s;
   };
   const list = (v: unknown, max: number, checkNumbers: boolean) =>

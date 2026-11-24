@@ -17,6 +17,7 @@ import { MarkerBadge, PlayerArrow } from './mapArt';
 import { MAP_ACTIVITY_ICONS } from './mapArtData';
 import FriendHearts from '../friends/FriendHearts';
 import './map.css';
+import { tl, tr } from '../../../i18n';
 
 
 /** A drag shorter than this (CSS px) is a click. */
@@ -356,7 +357,7 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
       const status = p.built ? 'built' : site ? 'site' : 'lot';
       const h = p.built ? (PLACE_ART[wp.id]?.h ?? 0.8) + 0.15 : 0.6;
       const at = toBox(view, box, wp.x + wp.w / 2, wp.y + wp.d / 2, h);
-      const text = p.place.name;
+      const text = tr(p.place.name);
       cands.push({
         id: `place:${wp.id}`,
         kind: 'place',
@@ -375,12 +376,13 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
       const xs = inn.tiles.map((t) => t.x);
       const ys = inn.tiles.map((t) => t.y);
       const at = toBox(view, box, (Math.min(...xs) + Math.max(...xs) + 1) / 2, (Math.min(...ys) + Math.max(...ys) + 1) / 2, 1.35);
-      cands.push({ id: 'inn', kind: 'inn', text: 'Nhà trọ', x: at.x, y: at.y, w: Math.ceil(textWidth('Nhà trọ', `600 13px ${font}`)) + 18, h: 24, priority: 60, sides: ['above', 'right', 'left'] });
+      const innName = tr('Nhà trọ');
+      cands.push({ id: 'inn', kind: 'inn', text: innName, x: at.x, y: at.y, w: Math.ceil(textWidth(innName, `600 13px ${font}`)) + 18, h: 24, priority: 60, sides: ['above', 'right', 'left'] });
     }
     for (const d of TOWN_WORLD.districts ?? []) {
       if (placeNames.has(d.name)) continue;
       const at = toBox(view, box, d.x + d.w / 2, d.y + d.d / 2);
-      const text = d.name.toLocaleUpperCase('vi');
+      const text = tr(d.name).toLocaleUpperCase('vi');
       const w = Math.ceil(textWidth(text, `600 13px ${font}`) + text.length * 1.3) + 4;
       cands.push({ id: `district:${d.id}`, kind: 'district', text, x: at.x, y: at.y, w, h: 18, priority: 85, sides: ['center', 'below', 'above'] });
       // elsewhere in the district when its middle is taken: a third of the way towards each corner of its box
@@ -455,7 +457,7 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
                 className={'town-map-label is-' + l.cand.status + (on ? ' is-on' : '')}
                 style={style}
                 onClick={() => pick({ kind: 'place', id })}
-                aria-label={l.cand.status === 'built' ? l.cand.text : `${l.cand.text}, chưa xây`}
+                aria-label={l.cand.status === 'built' ? l.cand.text : tl`${l.cand.text}, chưa xây`}
               >
                 {l.cand.text}
               </button>

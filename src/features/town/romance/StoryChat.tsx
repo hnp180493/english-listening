@@ -12,6 +12,7 @@ import { audioKey } from '../../../core/audioKey';
 import { romancePlayback, type SceneCast } from '../../../core/town/romanceAudio';
 import { fillLine } from '../../../core/town/romance';
 import type { ChatLine, ChatOption, RomanceScene } from '../../../core/town/romanceTypes';
+import { tr } from '../../../i18n';
 
 export interface StoryChatProps {
   scene: RomanceScene;
@@ -80,14 +81,16 @@ export default function StoryChat({ scene, them, you, kid = '', cast, autoplay =
   useEffect(() => () => stopSpeaking(), []);
   const name = (who: ChatLine['who']) => (who === 'them' ? them : who === 'you' ? you : who === 'kid' ? kid || 'Bé' : '');
   const fill = (t: string) => fillLine(t, you, kid);
+  // a Vietnamese line is translated before the names go in (its English keeps {name} / {kid})
+  const fillVi = (t: string) => fillLine(tr(t), you, kid);
   return (
     <div className="town-chat">
-      <p className="town-ep-scene">{fill(scene.scene)}</p>
+      <p className="town-ep-scene">{fillVi(scene.scene)}</p>
       <ol className="town-chat-lines" aria-live="polite">
         {shown.map(({ line, key }, i) => (
           <li key={key} ref={i === shown.length - 1 ? endRef : undefined} className={'town-chat-line is-' + line.who}>
             {line.who === 'narr' ? (
-              <p className="town-chat-narr">{fill(line.vi)}</p>
+              <p className="town-chat-narr">{fillVi(line.vi)}</p>
             ) : (
               <>
                 <span className="town-chat-who">{name(line.who)}</span>
@@ -99,7 +102,7 @@ export default function StoryChat({ scene, them, you, kid = '', cast, autoplay =
                     </button>
                   </p>
                 )}
-                <p className="town-chat-vi">{fill(line.vi)}</p>
+                <p className="town-chat-vi">{fillVi(line.vi)}</p>
               </>
             )}
           </li>
@@ -124,7 +127,7 @@ export default function StoryChat({ scene, them, you, kid = '', cast, autoplay =
                 </span>
                 <span className="town-reply-text">
                   <span lang="en">{fill(o.en)}</span>
-                  <span className="town-chat-vi">{fill(o.vi)}</span>
+                  <span className="town-chat-vi">{fillVi(o.vi)}</span>
                 </span>
               </button>
             ))}

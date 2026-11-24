@@ -10,6 +10,7 @@
 
 import { groundAt, TOWN_WORLD, type Collider, type PlaceId, type Tile, type TownWorld, type WorldPlace } from '../../data/townWorld';
 import { BODY_RADIUS, boundsOfCollider, collidersOf, distanceTo, GRID_CLEAR } from './colliders';
+import { tl } from '../../i18n';
 
 export type { Tile } from '../../data/townWorld';
 
@@ -330,7 +331,7 @@ export function nearestWalkable(t: Tile, world: TownWorld = TOWN_WORLD, prefer?:
 
 function placeOf(id: PlaceId | string, world: TownWorld): WorldPlace {
   const p = world.places.find((q) => q.id === id);
-  if (!p) throw new Error(`Thị trấn: không có nơi "${id}"`);
+  if (!p) throw new Error(tl`Thị trấn: không có nơi "${id}"`);
   return p;
 }
 

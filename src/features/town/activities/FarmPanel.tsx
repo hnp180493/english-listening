@@ -34,6 +34,7 @@ import {
 import { useFarmInk } from './farm/useFarmInk';
 import type { ActivityPanelProps } from './types';
 import './farm/farm.css';
+import { tr } from '../../../i18n';
 
 interface Claimed extends HarvestShown {
   celebrations: TownCelebration[];
@@ -110,7 +111,7 @@ export default function FarmPanel({ onClose, onReward, sound }: ActivityPanelPro
               {claimed.celebrations.map((c) => (
                 <li key={c.key}>
                   <span className="town-farm-cele">{c.label}</span>
-                  {c.detail ? ` · ${c.detail}` : ''}
+                  {c.detail ? ` · ${tr(c.detail)}` : ''}
                 </li>
               ))}
             </ul>

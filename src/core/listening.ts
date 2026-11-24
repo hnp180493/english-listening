@@ -16,6 +16,7 @@ import { useSyncExternalStore } from 'react';
 import { deviceId } from './history';
 import { localDay } from './stats';
 import { KEYS, loadJSON, onAppWrite, saveJSON, removeKey, STORAGE_PREFIX } from './storage';
+import { getLang, tl } from '../i18n';
 
 // ───────────────────────── types and labels ─────────────────────────
 
@@ -128,9 +129,12 @@ export function daysBetween(a: string, b: string): number {
   return Math.round((Date.UTC(yb, mb - 1, db) - Date.UTC(ya, ma - 1, da)) / DAY_MS);
 }
 
-/** 'dd/mm' of a day. */
+const MONTH_SHORT_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** 'dd/mm' of a day ("Nov 24" in English mode: an English reader takes 11/24 for month/day). */
 export function ddmm(day: string): string {
   const [, m, d] = day.split('-');
+  if (getLang() === 'en') return `${MONTH_SHORT_EN[Number(m) - 1]} ${Number(d)}`;
   return `${d}/${m}`;
 }
 
@@ -141,23 +145,23 @@ export function formatMinutesVi(minutes: number): string {
   const m = Number.isFinite(minutes) ? Math.max(0, Math.round(minutes)) : 0;
   const h = Math.floor(m / 60);
   const r = m % 60;
-  if (h === 0) return `${r} phút`;
-  return r === 0 ? `${h} giờ` : `${h} giờ ${r} phút`;
+  if (h === 0) return tl`${r} phút`;
+  return r === 0 ? tl`${h} giờ` : tl`${h} giờ ${r} phút`;
 }
 
-/** Integer with Vietnamese thousands dots: 2413 → "2.413", 1000 → "1.000", 950 → "950". */
+/** Integer with Vietnamese thousands dots: 2413 → "2.413", 1000 → "1.000", 950 → "950" (English mode: "2,413"). */
 export function groupVi(n: number): string {
   const v = Math.round(Number.isFinite(n) ? n : 0);
   const sign = v < 0 ? '-' : '';
-  return sign + String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return sign + String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, getLang() === 'en' ? ',' : '.');
 }
 
-/** Hours with one decimal and a Vietnamese comma: "12,5 giờ", "3 giờ", "0 giờ", "2.413 giờ" (no decimal from 100 h). */
+/** Hours with one decimal and a Vietnamese comma: "12,5 giờ", "3 giờ", "0 giờ", "2.413 giờ" (no decimal from 100 h; English mode "12.5 h"). */
 export function formatHoursVi(minutes: number): string {
   const raw = Math.max(0, Number.isFinite(minutes) ? minutes : 0) / 60;
-  if (raw >= 100) return `${groupVi(raw)} giờ`;
+  if (raw >= 100) return tl`${groupVi(raw)} giờ`;
   const h = Math.round(raw * 10) / 10;
-  return `${String(h).replace('.', ',')} giờ`;
+  return tl`${getLang() === 'en' ? String(h) : String(h).replace('.', ',')} giờ`;
 }
 
 /**
@@ -827,7 +831,7 @@ export function nextMilestone(totalMin: number): Milestone {
   for (const h of MILESTONE_HOURS) if (total >= h * 60) reached = h;
   const next = MILESTONE_HOURS.find((h) => total < h * 60) ?? null;
   if (next === null) {
-    return { reachedHours: reached, nextHours: null, remainingMinutes: 0, progress: 1, label: `Đã qua mốc ${groupVi(reached)} giờ` };
+    return { reachedHours: reached, nextHours: null, remainingMinutes: 0, progress: 1, label: tl`Đã qua mốc ${groupVi(reached)} giờ` };
   }
   const remainingMinutes = Math.ceil(next * 60 - total);
   return {
@@ -835,7 +839,7 @@ export function nextMilestone(totalMin: number): Milestone {
     nextHours: next,
     remainingMinutes,
     progress: Math.min(1, Math.max(0, (total - reached * 60) / ((next - reached) * 60))),
-    label: `Còn ${formatDurationVi(remainingMinutes)} đến mốc ${groupVi(next)} giờ`,
+    label: tl`Còn ${formatDurationVi(remainingMinutes)} đến mốc ${groupVi(next)} giờ`,
   };
 }
 

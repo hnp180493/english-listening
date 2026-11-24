@@ -6,6 +6,7 @@ import { aiCacheKey, buildExplainPrompt, explainInputFrom, sanitizeExplanation, 
 import type { DiffUnit } from '../../core/dictation/diff';
 import type { Annotation } from '../../core/types';
 import { safeDecode } from '../dictation/decodeCache';
+import { getLang } from '../../i18n';
 import AiAction from './AiAction';
 import { UNUSABLE_ANSWER } from './useAiTask';
 
@@ -57,7 +58,8 @@ export default function AiExplain({ text, typed, units, annotations, className }
   // the decoder result gives each mistake its spoken chunk and the whole sentence as it sounds
   const input = useMemo(() => explainInputFrom(text, typed, units, annotations, safeDecode(text)), [text, typed, units, annotations]);
   const provider = status.text ? `${status.text.id}/${status.text.model}` : '';
-  const key = input.mistakes.length ? aiCacheKey('explain', { provider, input }) : null;
+  // the answer is written in the interface language: an English answer is cached apart (Vietnamese keys unchanged)
+  const key = input.mistakes.length ? aiCacheKey('explain', { provider, input, lang: getLang() === 'en' ? 'en' : undefined }) : null;
 
   const run = async (signal: AbortSignal): Promise<Explanation> => {
     const p = buildExplainPrompt(input);

@@ -8,6 +8,7 @@
 // it. Narration only: nothing here is spoken, so it needs no audio clip.
 
 import type { FactId } from '../core/town/story';
+import { tl } from '../i18n';
 
 export interface StreetMeet {
   /** 0–1 hearts: polite, a little reserved. */
@@ -178,5 +179,5 @@ export function streetScene(placeId: string, hearts: number, knows: (fact: FactI
  * the next part of their story is told there, not in the street.
  */
 export function streetInvite(resident: string, where: string, relisten: boolean): string {
-  return relisten ? `${resident} rủ bạn lúc nào rảnh ghé ${where}, kể lại chuyện hôm trước cho nhớ.` : `${resident} dặn lúc nào rảnh thì ghé ${where}: có chuyện muốn kể với bạn.`;
+  return relisten ? tl`${resident} rủ bạn lúc nào rảnh ghé ${where}, kể lại chuyện hôm trước cho nhớ.` : tl`${resident} dặn lúc nào rảnh thì ghé ${where}: có chuyện muốn kể với bạn.`;
 }

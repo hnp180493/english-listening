@@ -137,7 +137,7 @@ export interface InventoryContent {
   quickChats?: readonly { placeId: string; lines: readonly TownLine[] }[];
   /** Street talks (data/streetTalks): the resident's lines in their voice, both modes; the learner's in both player voices. */
   streetTalks?: readonly StreetTalk[];
-  /** "Giao hàng cho Emma" (data/townDeliveries): Emma's words for each order, connected, her voice. */
+  /** "Giao hàng cho Emma" (data/townDeliveries): Emma's words for each order, connected + careful, her voice. */
   deliveries?: readonly DeliveryOrder[];
   /** "Vụ án ở thị trấn" (data/cases): every testimony line in its witness's voice, connected + careful. */
   cases?: readonly TownCase[];
@@ -438,7 +438,7 @@ function addStreetTalks(c: Collector, talks: readonly StreetTalk[]): void {
 }
 
 function addDeliveries(c: Collector, orders: readonly DeliveryOrder[]): void {
-  // deliveryAudio sayDelivery(order): dictationAudio({ text, level }).connected in Emma's voice; the result card shows
+  // DeliveryPanel sayDelivery(order): dictationAudio({ text, level }).connected in Emma's voice; the result card shows
   // the decoded line, and "Rõ từng từ" is not offered there, so connected only
   const voice = CAST_VOICES.cafe;
   if (!voice) return;

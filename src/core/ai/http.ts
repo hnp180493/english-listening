@@ -4,6 +4,7 @@
 
 import { AiError, makeError, redactSecrets } from './errors';
 import type { AiErrorCode, ProviderKind } from './types';
+import { tl } from '../../i18n';
 
 /** Abort reason client.ts uses for its timer, so a timeout is told apart from a user abort. */
 export const TIMEOUT_REASON: { readonly aiTimeout: true } = Object.freeze({ aiTimeout: true as const });
@@ -113,11 +114,11 @@ function checkHeaders(opts: SendOptions): void {
     if (SECRET_HEADERS.has(k.toLowerCase())) {
       throw new AiError(
         'bad-key',
-        `API key của ${opts.ctx.label} chứa ký tự không hợp lệ (có thể bạn đã dán key bị che "…" hoặc có ký tự ẩn). Dán lại key đầy đủ trong Cài đặt → AI.`,
+        tl`API key của ${opts.ctx.label} chứa ký tự không hợp lệ (có thể bạn đã dán key bị che "…" hoặc có ký tự ẩn). Dán lại key đầy đủ trong Cài đặt → AI.`,
         { provider: opts.ctx.kind, retryable: false },
       );
     }
-    throw new AiError('bad-request', `Không gửi được yêu cầu tới ${opts.ctx.label}: header "${k}" chứa ký tự không hợp lệ.`, { provider: opts.ctx.kind, retryable: false });
+    throw new AiError('bad-request', tl`Không gửi được yêu cầu tới ${opts.ctx.label}: header "${k}" chứa ký tự không hợp lệ.`, { provider: opts.ctx.kind, retryable: false });
   }
 }
 

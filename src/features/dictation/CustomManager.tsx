@@ -26,6 +26,7 @@ import { PhenomenonChips } from './WhyWrong';
 import AiGenerator from '../ai/AiGenerator';
 import type { GeneratedItem } from '../../core/aiTasks';
 import { useAiStatus } from '../../core/ai';
+import { tl, tr } from '../../i18n';
 
 type Form = { kind: 'add' } | { kind: 'edit'; id: string } | { kind: 'bulk' } | { kind: 'ai' } | null;
 
@@ -136,7 +137,7 @@ export default function CustomManager({
         return;
       }
       onChange(r.list);
-      setFlash(`Đã thêm: “${r.added[0]?.text ?? ''}”`);
+      setFlash(tl`Đã thêm: “${r.added[0]?.text ?? ''}”`);
       setText('');
       setVi('');
       setError(null);
@@ -175,7 +176,7 @@ export default function CustomManager({
     }
     onChange(r.list);
     const skipped = Math.max(0, bulkLines - r.added.length);
-    setFlash(`Đã thêm ${r.added.length} câu${skipped ? `, bỏ qua ${skipped} dòng trùng hoặc không hợp lệ` : ''}.`);
+    setFlash(tl`Đã thêm ${r.added.length} câu${skipped ? tl`, bỏ qua ${skipped} dòng trùng hoặc không hợp lệ` : ''}.`);
     setOpen(true);
     closeForm();
   };
@@ -187,7 +188,7 @@ export default function CustomManager({
       return;
     }
     onChange(r.list);
-    setFlash(`Đã thêm ${r.added.length} câu do AI tạo${r.rejected.length ? `, bỏ qua ${r.rejected.length} câu` : ''}.`);
+    setFlash(tl`Đã thêm ${r.added.length} câu do AI tạo${r.rejected.length ? tl`, bỏ qua ${r.rejected.length} câu` : ''}.`);
     setOpen(true);
     closeForm();
   };
@@ -381,8 +382,9 @@ export default function CustomManager({
           </p>
           {bulkItems.length > 0 && (
             <p className="dict-mgr-count" aria-live="polite">
-              Sẽ thêm <b>{bulkValid}</b> câu
-              {bulkLines - bulkValid > 0 ? ` · bỏ qua ${bulkLines - bulkValid} dòng trùng/không hợp lệ` : ''}
+              {/* the count is inside <b>: tr gets it explicitly so "câu" agrees with it in English */}
+              Sẽ thêm <b>{bulkValid}</b> {tr('câu', bulkValid)}
+              {bulkLines - bulkValid > 0 ? tl` · bỏ qua ${bulkLines - bulkValid} dòng trùng/không hợp lệ` : ''}
             </p>
           )}
           {error && (
@@ -434,13 +436,14 @@ export default function CustomManager({
               {shown.slice(0, limit).map((c) => {
                 const p = progress[c.id];
                 const phen = detectedPhenomena(c.text);
+                // glued into one line below, so each label is translated on its own
                 const meta = [
-                  LEVEL_LABEL[c.level],
+                  tr(LEVEL_LABEL[c.level]),
                   phen
                     .slice(0, 2)
-                    .map((ph) => PHENOMENON_INFO[ph]?.label ?? ph)
+                    .map((ph) => tr(PHENOMENON_INFO[ph]?.label ?? ph))
                     .join(', '),
-                  p?.attempts ? `tốt nhất ${Math.round(p.best * 100)}%` : '',
+                  p?.attempts ? tl`tốt nhất ${Math.round(p.best * 100)}%` : '',
                 ].filter(Boolean);
                 return (
                   <li key={c.id} className={'dict-mgr-item' + (editing === c.id ? ' is-editing' : '')}>
@@ -479,7 +482,7 @@ export default function CustomManager({
                           type="button"
                           className="btn btn-sm btn-ghost btn-icon"
                           onClick={() => openForm({ kind: 'edit', id: c.id })}
-                          aria-label={`Sửa câu: ${c.text}`}
+                          aria-label={tl`Sửa câu: ${c.text}`}
                           title="Sửa"
                         >
                           <Icon icon={Pencil} size={15} />
@@ -488,7 +491,7 @@ export default function CustomManager({
                           type="button"
                           className="btn btn-sm btn-ghost btn-icon dict-mgr-del"
                           onClick={() => setConfirmId(c.id)}
-                          aria-label={`Xóa câu: ${c.text}`}
+                          aria-label={tl`Xóa câu: ${c.text}`}
                           title="Xóa"
                         >
                           <Icon icon={Trash2} size={15} />

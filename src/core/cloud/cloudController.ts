@@ -27,6 +27,7 @@ import { emptyCloudMeta, parseCloudMeta, runCloudCycle, type CloudMeta, type Clo
 import { cloudConfig, type CloudConfig } from './config';
 import { CloudError, restStore } from './remote';
 import { fetchSharedDays, type SharedDay } from './shared';
+import { tl } from '../../i18n';
 
 // Device-local (the AI layer's prefix): never exported, imported, synced, or removed by "Xóa dữ liệu".
 const SESSION_KEY = 'nghe-noi-am-device:cloud-session';
@@ -512,10 +513,10 @@ async function finishSignIn(cfg: CloudConfig, code: string, verifier: string): P
   const changed = settle(res, e);
   const who = r.session.user.email ?? r.session.user.name ?? 'tài khoản Google';
   if (changed) {
-    setState({ notice: { kind: 'ok', text: `Đã đăng nhập ${who} và gộp dữ liệu từ tài khoản. Đang tải lại…` } });
+    setState({ notice: { kind: 'ok', text: tl`Đã đăng nhập ${who} và gộp dữ liệu từ tài khoản. Đang tải lại…` } });
     window.setTimeout(reload, 700);
   } else {
-    setState({ notice: { kind: 'ok', text: `Đã đăng nhập ${who}.` } });
+    setState({ notice: { kind: 'ok', text: tl`Đã đăng nhập ${who}.` } });
   }
   return { ok: true };
 }

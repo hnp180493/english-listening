@@ -3,6 +3,7 @@
 import { parseTranscriptDetailed, type TranscriptFormat } from '../../core/media/transcript';
 import { toSentences, unitsDuration, type PracticeUnit } from '../../core/media/sentences';
 import { MAX_TRANSCRIPT_BYTES, byteLength } from './library';
+import { tl } from '../../i18n';
 
 export const FORMAT_LABEL: Record<TranscriptFormat, string> = {
   youtube: 'Bản chép lời YouTube',
@@ -33,7 +34,7 @@ export function previewTranscript(text: string): ImportPreview {
   if (size > MAX_TRANSCRIPT_BYTES) {
     return {
       ...EMPTY,
-      error: `Bản chép lời quá lớn (${formatKB(size)}). Giới hạn là ${formatKB(MAX_TRANSCRIPT_BYTES)} — hãy chia video dài thành nhiều phần.`,
+      error: tl`Bản chép lời quá lớn (${formatKB(size)}). Giới hạn là ${formatKB(MAX_TRANSCRIPT_BYTES)} — hãy chia video dài thành nhiều phần.`,
     };
   }
   const { format, cues } = parseTranscriptDetailed(text);

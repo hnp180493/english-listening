@@ -8,6 +8,7 @@ import { Icon } from '../../components/Icon';
 import { RealVoiceLink } from '../../components/ListenPair';
 import type { RealClip } from '../../data/lessonTypes';
 import { embedUrl, splitFocus, watchUrl } from './realClipUrls';
+import { tl } from '../../i18n';
 
 const canEmbed = () => typeof location === 'undefined' || location.protocol !== 'file:';
 
@@ -31,7 +32,7 @@ function ClipCard({ clip }: { clip: RealClip }) {
           <iframe
             key={plays}
             src={embedUrl(clip)}
-            title={`Video: ${clip.text}`}
+            title={tl`Video: ${clip.text}`}
             allow="autoplay; encrypted-media; picture-in-picture"
             referrerPolicy="strict-origin-when-cross-origin"
             loading="lazy"

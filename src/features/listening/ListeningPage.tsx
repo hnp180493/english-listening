@@ -17,6 +17,7 @@ import { defaultSource, entryTitle, listenSummary, recentEntries, todayHead, wee
 import QuickAdd from './QuickAdd';
 import TimerPanel from './TimerPanel';
 import './listening.css';
+import { tl } from '../../i18n';
 
 type Mode = 'quick' | 'timer';
 
@@ -36,7 +37,7 @@ function TodayHead({ s }: { s: ListenSummary }) {
           aria-valuemin={0}
           aria-valuemax={s.goal}
           aria-valuenow={Math.min(s.today, s.goal)}
-          aria-valuetext={`${s.today} trên ${s.goal} phút`}
+          aria-valuetext={tl`${s.today} trên ${s.goal} phút`}
         >
           <span style={{ width: `${s.todayPct}%` }} />
         </div>

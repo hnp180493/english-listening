@@ -20,6 +20,7 @@ import { commitPairsProgress, loadPairsProgress } from '../../pairs/store';
 import { pairReviewQuestions, type Resolved } from '../resolve';
 import type { ItemBaseProps } from './types';
 import Verdict from './Verdict';
+import { tl } from '../../../i18n';
 
 export interface PairItemProps extends ItemBaseProps {
   item: Extract<Resolved, { kind: 'pair' }>;
@@ -104,7 +105,7 @@ export default function PairItem({ item, seed, graded, onGraded, onNext }: PairI
         correct={right}
         total={questions.length}
         ok={ok}
-        detail={ok ? `Bạn vẫn phân biệt tốt nhóm “${set.title}”.` : `Nhóm “${set.title}” cần nghe thêm vài lần.`}
+        detail={ok ? tl`Bạn vẫn phân biệt tốt nhóm “${set.title}”.` : tl`Nhóm “${set.title}” cần nghe thêm vài lần.`}
         onNext={onNext}
       />
     );

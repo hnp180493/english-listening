@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { GROUP_LABEL, hrefFor, NAV_ROUTES, type RouteGroup, type RouteId } from '../core/nav';
-import { useSettings } from '../core/settings';
+import { updateSettings, useSettings } from '../core/settings';
 import { currentStreak } from '../core/stats';
 import { todayProgress } from '../core/goals';
 import { useReview } from '../core/review';
 import { useLiveStats, useNow } from '../features/home/hooks';
-import { Check, Flame, Menu, X } from 'lucide-react';
+import { Check, Flame, Languages, Menu, X } from 'lucide-react';
 import { Icon } from './Icon';
 import ListeningTimerPill from './ListeningTimerPill';
 import { ROUTE_ICON, routeTint } from './routeIcons';
 import './AppNav.css';
+import { tl, tr } from '../i18n';
 
 const GROUPS: RouteGroup[] = ['learn', 'practice', 'track'];
+/** The app's name: the same in both languages. */
+const APP_NAME = 'Nghe Nối Âm';
 
 /** Bottom tab bar shortcuts (mobile). Short labels keep five tabs readable at 375px. */
 const TABS: { id: RouteId; short: string }[] = [
@@ -29,7 +32,7 @@ function countLabel(n: number): string {
 
 /** Screen-reader text for the Ôn tập count (the pill itself is aria-hidden). */
 function dueLabel(n: number): string {
-  return `${n} mục đến hạn`;
+  return tl`${n} mục đến hạn`;
 }
 
 const DESKTOP_QUERY = '(min-width: 900px)';
@@ -60,14 +63,30 @@ function Brand({ compact = false, onNavigate }: { compact?: boolean; onNavigate?
     <a
       className={'nav-brand' + (compact ? ' nav-brand--compact' : '')}
       href={hrefFor('home')}
-      aria-label="Nghe Nối Âm, về trang Hôm nay"
+      aria-label={tl`${APP_NAME}, về trang Hôm nay`}
       onClick={onNavigate}
     >
       <BrandMark size={compact ? 32 : 38} />
       <span className="nav-brand-text">
-        <span className="nav-brand-name">Nghe Nối Âm</span>
+        <span className="nav-brand-name">{APP_NAME}</span>
       </span>
     </a>
+  );
+}
+
+/**
+ * The language switch of the shell: one tap goes to the other language (the choice is a synced setting, also in
+ * Cài đặt → Hiển thị). It shows the language it switches TO, in that language.
+ */
+function LangSwitch() {
+  const { lang } = useSettings();
+  const next = lang === 'en' ? 'vi' : 'en';
+  const label = next === 'en' ? 'Switch to English' : 'Đổi sang tiếng Việt';
+  return (
+    <button type="button" className="nav-lang" data-vi="" lang={next} aria-label={label} title={label} onClick={() => updateSettings({ lang: next })}>
+      <Icon icon={Languages} size={16} />
+      {next === 'en' ? 'EN' : 'VI'}
+    </button>
   );
 }
 
@@ -139,8 +158,8 @@ function GoalCard({ onNavigate }: { onNavigate?: () => void }) {
   // No zero metric before the first attempt today: the goal alone, like Home's plan header.
   const started = p.attempts > 0;
   const label =
-    (started ? `Mục tiêu hôm nay: ${p.attempts} trên ${p.goal} lượt.` : `Mục tiêu hôm nay: ${p.goal} lượt.`) +
-    (streak > 0 ? ` Chuỗi ${streak} ngày.` : '');
+    (started ? tl`Mục tiêu hôm nay: ${p.attempts} trên ${p.goal} lượt.` : tl`Mục tiêu hôm nay: ${p.goal} lượt.`) +
+    (streak > 0 ? tl` Chuỗi ${streak} ngày.` : '');
   return (
     <a className="nav-goal" href={hrefFor('home')} onClick={onNavigate} aria-label={label}>
       {started ? (
@@ -157,7 +176,7 @@ function GoalCard({ onNavigate }: { onNavigate?: () => void }) {
         </>
       ) : (
         <div className="nav-goal-head">
-          <span className="nav-goal-title">Mục tiêu {p.goal} lượt</span>
+          <span className="nav-goal-title">{tl`Mục tiêu ${p.goal} lượt`}</span>
         </div>
       )}
       {/* No "start a streak" nag at 0: the foot appears once there is a streak (or the goal is met). */}
@@ -265,7 +284,10 @@ export default function AppNav({ current }: AppNavProps) {
   return (
     <>
       <aside className="nav-sidebar">
-        <Brand />
+        <div className="nav-head">
+          <Brand />
+          <LangSwitch />
+        </div>
         <nav className="nav-main" aria-label="Điều hướng chính">
           <NavLinks current={current} counts={counts} />
         </nav>
@@ -276,6 +298,7 @@ export default function AppNav({ current }: AppNavProps) {
       <header className="nav-topbar">
         <Brand compact />
         <ListeningTimerPill current={current} placement="topbar" />
+        <LangSwitch />
         <button
           ref={menuBtn}
           type="button"
@@ -327,7 +350,7 @@ export default function AppNav({ current }: AppNavProps) {
               className={'nav-tab' + (active ? ' is-active' : '')}
               href={hrefFor(t.id)}
               aria-current={active ? 'page' : undefined}
-              aria-label={n > 0 ? `${info.label}, ${dueLabel(n)}` : info.label}
+              aria-label={n > 0 ? `${tr(info.label)}, ${dueLabel(n)}` : info.label}
             >
               <span className="nav-tab-icon" aria-hidden="true">
                 <Icon icon={ROUTE_ICON[t.id]} size={21} strokeWidth={active ? 2.25 : 1.9} />

@@ -17,6 +17,7 @@ import {
 } from '../../core/speech';
 import { stopSpeaking } from '../../core/tts';
 import { quietDelayMs } from './autostop';
+import { tl } from '../../i18n';
 
 export type RecPhase = 'idle' | 'starting' | 'recording' | 'stopping' | 'done';
 
@@ -282,7 +283,7 @@ export function useShadowRecorder(opts: RecorderOptions): ShadowRecorder {
             setNotice(
               conflict
                 ? 'Trình duyệt không cho vừa ghi âm vừa nhận dạng giọng nói cùng lúc. Lần này bạn vẫn được ghi âm — nói xong bấm nút để dừng; từ lần sau máy chỉ nhận dạng để chấm điểm (không lưu bản ghi để nghe lại).'
-                : `${err.message} Bạn vẫn đang được ghi âm — nói xong bấm nút để dừng.`,
+                : tl`${err.message} Bạn vẫn đang được ghi âm — nói xong bấm nút để dừng.`,
             );
             return;
           }

@@ -1,6 +1,7 @@
 // The courses of "Bài học", in display order. Lessons say which course they belong to (Lesson.course); the
 // lesson catalogue of all courses is LESSONS in src/data/lessons.ts. Authoring guide: docs/courses.md.
 import { isCourseId, type CourseId, type CourseMeta, type LessonMeta } from '../../core/lessons';
+import { tl, tr } from '../../i18n';
 
 export type { CourseId, CourseMeta };
 
@@ -44,6 +45,6 @@ export function courseTitle(id: string): string {
 
 /** "Bài 3: Nối âm"; outside course "connected" the course comes first: "Từ bất quy tắc · Bài 2: …". */
 export function lessonLabel(l: Pick<LessonMeta, 'course' | 'order' | 'title'>): string {
-  const base = `Bài ${l.order}: ${l.title}`;
-  return l.course && l.course !== 'connected' ? `${courseTitle(l.course)} · ${base}` : base;
+  const base = tl`Bài ${l.order}: ${l.title}`;
+  return l.course && l.course !== 'connected' ? `${tr(courseTitle(l.course))} · ${base}` : base;
 }

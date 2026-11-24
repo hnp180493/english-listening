@@ -4,6 +4,7 @@
 
 import type { FetchFn } from './auth';
 import type { CloudConfig } from './config';
+import { tl } from '../../i18n';
 
 export interface RowHead {
   key: string;
@@ -89,7 +90,7 @@ export function restStore(cfg: CloudConfig, accessToken: () => Promise<string>, 
     if (res.status === 404 || code === '42P01' || code === '42883' || code === 'PGRST202' || code === 'PGRST205') {
       throw new CloudError('missing-table', 'Kho dữ liệu trên máy chủ chưa được tạo (chưa chạy migration của Nghe Nối Âm).');
     }
-    throw new CloudError('server', `Máy chủ báo lỗi (${res.status}). Sẽ thử lại sau.`);
+    throw new CloudError('server', tl`Máy chủ báo lỗi (${res.status}). Sẽ thử lại sau.`);
   };
 
   return {

@@ -8,6 +8,7 @@ import { makeCardId } from '../../core/review/ids';
 import { formatDueVi } from '../../core/review/time';
 import type { ApplyReason, CardId, ReviewCard } from '../../core/review/types';
 import type { PairsProgress, RoundSummary } from './game';
+import { tl } from '../../i18n';
 
 export interface PairReviewCall {
   id: CardId; // pair:<setId>
@@ -76,7 +77,7 @@ export function pairsReviewNote(
   const scheduled = results.filter(isScheduled);
   if (scheduled.length === 0) return undefined;
   if (singleSet && scheduled.length === 1) {
-    return `Bộ này sẽ quay lại trong Ôn tập ${formatDueVi(availableAt(scheduled[0].current), now)}.`;
+    return tl`Bộ này sẽ quay lại trong Ôn tập ${formatDueVi(availableAt(scheduled[0].current), now)}.`;
   }
-  return `${scheduled.length} nhóm âm sẽ quay lại trong Ôn tập.`;
+  return tl`${scheduled.length} nhóm âm sẽ quay lại trong Ôn tập.`;
 }

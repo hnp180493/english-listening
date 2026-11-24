@@ -11,6 +11,7 @@ import type { PairSet } from '../../data/pairs';
 import { ROUND_SIZE, percent, setMastery, setsForFocus, weakItemIds, type PairsProgress } from './game';
 import type { PlayMode } from './PairsPage';
 import { PAIRS_SHORTCUTS } from './shortcuts';
+import { tl, tr } from '../../i18n';
 
 const FLAT_ACCENT = { '--progress-color': 'var(--accent)' } as CSSProperties;
 
@@ -55,7 +56,7 @@ export default function SetPicker({ sets, focus, progress, missingSet, onStart }
               onClick={() => onStart({ kind: 'mix', focus })}
             >
               <Icon icon={Shuffle} size={16} />
-              {focusLabel ? `Trộn ${focusLabel}` : 'Trộn tất cả'} · {ROUND_SIZE} câu
+              {focusLabel ? tl`Trộn ${focusLabel}` : 'Trộn tất cả'} · {ROUND_SIZE} câu
             </button>
             {weakIds.length > 0 && (
               <button
@@ -146,9 +147,9 @@ export default function SetPicker({ sets, focus, progress, missingSet, onStart }
                     disabled={!tts}
                     onClick={() => onStart({ kind: 'set', setId: s.id })}
                     aria-label={
-                      `${s.title}. ${info.label}, ${s.items.length} câu` +
-                      (playedSet ? `, đã thuộc ${m.mastered}/${m.total}, cao nhất ${percent(st.best)}%` : '') +
-                      `. ${s.description}`
+                      tl`${s.title}. ${info.label}, ${s.items.length} câu` +
+                      (playedSet ? tl`, đã thuộc ${m.mastered}/${m.total}, cao nhất ${percent(st.best)}%` : '') +
+                      `. ${tr(s.description)}`
                     }
                   >
                     <span className="item-card-title" title={s.title}>

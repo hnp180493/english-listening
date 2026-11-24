@@ -13,6 +13,7 @@ import RealClipsBlock from './RealClips';
 import type { LessonBlock, LessonExample, LessonSection, WordItem } from '../../data/lessonTypes';
 import { contextSentence, keyOf, parseMark, parseMd, spokenHint, type MarkPart, type MdSpan } from './logic';
 import { WORD_SLOW_RATE } from './quizPlayback';
+import { tl, tr } from '../../i18n';
 
 /** Turtle rate of word rows (single words). Sentences use the playback modes (src/core/playback.ts). */
 export const SLOW_RATE = WORD_SLOW_RATE;
@@ -30,9 +31,12 @@ function Spans({ spans }: { spans: MdSpan[] }) {
   );
 }
 
-/** Render md-lite text: paragraphs, bullet lists and **bold**. */
+/**
+ * Render md-lite text: paragraphs, bullet lists and **bold**. The whole text is translated before it is parsed
+ * (docs/i18n.md: the pieces would never match a dictionary entry).
+ */
 export function Md({ md, className }: { md: string; className?: string }) {
-  const blocks = useMemo(() => parseMd(md), [md]);
+  const blocks = useMemo(() => parseMd(tr(md)), [md]);
   return (
     <div className={['lessons-md', className].filter(Boolean).join(' ')}>
       {blocks.map((b, i) =>
@@ -203,7 +207,7 @@ function CompareCard({ block, connected = true }: { block: Extract<LessonBlock, 
             size="sm"
             variant="soft"
             title={connected ? CONNECTED_TITLE : 'Nghe câu'}
-            ariaLabel={connected ? `Nghe, ${CONNECTED_TITLE.toLowerCase()}` : undefined}
+            ariaLabel={connected ? tl`Nghe, ${CONNECTED_TITLE.toLowerCase()}` : undefined}
           />
           {connected && <RealVoiceLink phrase={youglishPhrase(block.natural, naturalDecoded)} className="lessons-real" />}
         </div>
@@ -243,11 +247,11 @@ export function MarkedWord({ word, parts, className }: { word: string; parts: Ma
 
 /** Two icon buttons: normal speed (Volume2) and slow (Turtle). `inSentence`: `text` is a sentence using `name`. */
 export function WordListen({ text, name, inSentence = false }: { text: string; name: string; inSentence?: boolean }) {
-  const what = inSentence ? `câu có “${name}”` : `“${name}”`;
+  const what = inSentence ? tl`câu có “${name}”` : `“${name}”`;
   return (
-    <div className="lessons-word-play" role="group" aria-label={`Nghe: ${name}`}>
-      <SpeakIconButton text={text} icon={Volume2} label={`Nghe ${what}`} />
-      <SpeakIconButton text={text} rate={SLOW_RATE} label={`Nghe chậm ${what}`} />
+    <div className="lessons-word-play" role="group" aria-label={tl`Nghe: ${name}`}>
+      <SpeakIconButton text={text} icon={Volume2} label={tl`Nghe ${what}`} />
+      <SpeakIconButton text={text} rate={SLOW_RATE} label={tl`Nghe chậm ${what}`} />
     </div>
   );
 }
@@ -322,7 +326,7 @@ function WordsBlock({ block }: { block: Extract<LessonBlock, { type: 'words' }> 
           aria-controls={listId}
           onClick={() => setOpen((o) => !o)}
         >
-          {open ? 'Thu gọn' : `Xem thêm ${hidden} từ`}
+          {open ? 'Thu gọn' : tl`Xem thêm ${hidden} từ`}
         </button>
       )}
     </section>
@@ -343,7 +347,7 @@ function StoryBlock({ block }: { block: Extract<LessonBlock, { type: 'story' }> 
         <ul className="lessons-story-words" aria-label="Nghe các từ trong chuyện">
           {words.map((w) => (
             <li key={w}>
-              <PlayButton text={w} label={w} size="sm" variant="ghost" title={`Nghe “${w}”`} />
+              <PlayButton text={w} label={w} size="sm" variant="ghost" title={tl`Nghe “${w}”`} />
             </li>
           ))}
         </ul>

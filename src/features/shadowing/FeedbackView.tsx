@@ -8,6 +8,7 @@ import { PHENOMENON_INFO } from '../../core/phenomena';
 import { useSettings } from '../../core/settings';
 import type { Annotation, Phenomenon } from '../../core/types';
 import { scoreVerdict, type ShadowFeedback } from './feedback';
+import { tl } from '../../i18n';
 
 type ColorStyle = CSSProperties & { '--shadow-p'?: string };
 
@@ -58,7 +59,7 @@ export default function FeedbackView({ fb }: { fb: ShadowFeedback }) {
           className="shadow-ring"
           style={ringStyle}
           role="img"
-          aria-label={`Điểm ${fb.percent} phần trăm: đúng ${fb.matched} trên ${fb.total} từ`}
+          aria-label={tl`Điểm ${fb.percent} phần trăm: đúng ${fb.matched} trên ${fb.total} từ`}
         >
           <span className="shadow-ring-num">
             {fb.percent}
@@ -69,8 +70,8 @@ export default function FeedbackView({ fb }: { fb: ShadowFeedback }) {
           <p className="shadow-fb-title">{verdict.title}</p>
           <p className="shadow-fb-detail">{verdict.detail}</p>
           <p className="muted shadow-fb-count">
-            Máy nhận ra {fb.matched}/{fb.total} từ
-            {fb.extra.length > 0 && `, thêm ${fb.extra.length} từ không có trong câu`}.
+            {tl`Máy nhận ra ${fb.matched}/${fb.total} từ`}
+            {fb.extra.length > 0 && tl`, thêm ${fb.extra.length} từ không có trong câu`}.
           </p>
         </div>
       </div>
@@ -82,14 +83,14 @@ export default function FeedbackView({ fb }: { fb: ShadowFeedback }) {
             <span
               key={w.index}
               className={`shadow-word is-${w.status}`}
-              title={w.status === 'miss' ? (w.heard ? `Máy nghe thành “${w.heard}”` : 'Máy không nghe thấy từ này') : undefined}
+              title={w.status === 'miss' ? (w.heard ? tl`Máy nghe thành “${w.heard}”` : 'Máy không nghe thấy từ này') : undefined}
             >
               <span className="shadow-word-text">
                 {w.status === 'miss' && <span className="shadow-sr">thiếu: </span>}
                 {w.raw}
               </span>
               {w.status === 'miss' && (
-                <span className="shadow-word-heard">{w.heard ? `nghe: ${w.heard}` : 'không nghe thấy'}</span>
+                <span className="shadow-word-heard">{w.heard ? tl`nghe: ${w.heard}` : 'không nghe thấy'}</span>
               )}
             </span>
           ))}

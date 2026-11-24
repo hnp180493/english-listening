@@ -4,6 +4,7 @@
 // Pure module: no DOM, no storage. Times are epoch ms; intervals are in days.
 
 import { startOfLocalDay } from './review/time';
+import { getLang, tl } from '../i18n';
 
 export type Grade = 'again' | 'hard' | 'good' | 'easy';
 export const GRADES: readonly Grade[] = ['again', 'hard', 'good', 'easy'] as const;
@@ -120,13 +121,13 @@ export function isDueToday(card: CardState, now: number): boolean {
 /** Short Vietnamese duration label: "<1 phút", "10 phút", "3 giờ", "4 ngày", "2 tháng", "1,5 năm". */
 export function formatInterval(ms: number): string {
   if (ms <= MINUTE) return '<1 phút';
-  if (ms < HOUR - MINUTE / 2) return `${Math.round(ms / MINUTE)} phút`;
-  if (ms < DAY - HOUR / 2) return `${Math.max(1, Math.round(ms / HOUR))} giờ`;
+  if (ms < HOUR - MINUTE / 2) return tl`${Math.round(ms / MINUTE)} phút`;
+  if (ms < DAY - HOUR / 2) return tl`${Math.max(1, Math.round(ms / HOUR))} giờ`;
   const days = ms / DAY;
-  if (days < 30) return `${Math.max(1, Math.round(days))} ngày`;
-  if (days < 365) return `${Math.max(1, Math.round(days / 30))} tháng`;
+  if (days < 30) return tl`${Math.max(1, Math.round(days))} ngày`;
+  if (days < 365) return tl`${Math.max(1, Math.round(days / 30))} tháng`;
   const years = Math.round((days / 365) * 10) / 10;
-  return `${String(years).replace('.', ',')} năm`;
+  return tl`${getLang() === 'en' ? String(years) : String(years).replace('.', ',')} năm`;
 }
 
 /** Label shown under each grade button: when the card would come back. */

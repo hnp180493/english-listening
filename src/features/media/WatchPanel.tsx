@@ -8,6 +8,7 @@ import PhTag from '../../components/PhTag';
 import type { DecodeResult } from '../../core/types';
 import { hrefFor } from '../../core/nav';
 import SpokenSentence from '../../components/SpokenSentence';
+import { tl } from '../../i18n';
 
 interface Props {
   text: string;
@@ -81,7 +82,7 @@ export default function WatchPanel({ text, decoded, showSubs, done, onToggleDone
           ) : (
             <>
               <p className="media-why-title">
-                Có {decoded.annotations.length} chỗ âm bị biến đổi
+                {tl`Có ${decoded.annotations.length} chỗ âm bị biến đổi`}
                 {kinds.length > 0 && ':'} {kinds.length > 0 && <PhTag p={kinds[0]} more={kinds.length - 1} />}
               </p>
               <SpokenSentence

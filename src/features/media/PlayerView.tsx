@@ -53,6 +53,7 @@ import { lineIsFresh, lineTally, newListenSession, noteLinePlay, noteLineShown, 
 import { mediaReviewPlan } from './reviewPlan';
 import { useListenAutoLog } from './listenAutoLog';
 import { dismissSaveWarning, isSessionOnly, rememberFile, rememberedFile, setPrefs, updateItem, useSaveFailed } from './store';
+import { tl } from '../../i18n';
 
 interface Bound {
   index: number;
@@ -414,7 +415,7 @@ export default function PlayerView({ item, prefs, startUnit }: { item: MediaItem
       <PageHeader
         back={{ href: hrefFor('media'), label: 'Thư viện' }}
         title={item.title}
-        subtitle={`${item.kind === 'youtube' ? 'YouTube' : item.fileType === 'audio' ? 'Audio' : 'Video'} · ${units.length} câu`}
+        subtitle={tl`${item.kind === 'youtube' ? 'YouTube' : item.fileType === 'audio' ? 'Audio' : 'Video'} · ${units.length} câu`}
         help={<ShortcutsHelp items={SHORTCUTS} note="Phím chữ và mũi tên không dùng được khi đang gõ." />}
       />
 

@@ -1,3 +1,4 @@
+import { tl } from '../../i18n';
 // Table-driven knowledge: multi-word reductions, contractions, weak forms.
 //
 // ── Respelling convention ────────────────────────────────────────────────────────────────
@@ -224,7 +225,10 @@ export interface WeakInfo {
 }
 
 export function weakRule(word: string, spoken: string, ipa: string, extra = ''): string {
-  return `'${word}' là từ chức năng không nhấn nên đọc yếu thành ${ipa} ('${spoken}')${extra ? ', ' + extra : ''}.`;
+  // two templates, so the extra note (a plain Vietnamese string) is a value of its own and gets translated
+  return extra
+    ? tl`'${word}' là từ chức năng không nhấn nên đọc yếu thành ${ipa} ('${spoken}'), ${extra}.`
+    : tl`'${word}' là từ chức năng không nhấn nên đọc yếu thành ${ipa} ('${spoken}').`;
 }
 
 /** h-words after which weak "of" keeps its /v/ because the /h/ drops: all of his → ə-viz. */

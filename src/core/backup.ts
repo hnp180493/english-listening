@@ -6,6 +6,7 @@ import { LISTEN_GOAL_OPTIONS } from './settings';
 import { localDay } from './stats';
 import { isDeviceLocalKey, KEYS, STORAGE_PREFIX } from './storage';
 import { mergeReset, parseReset, withReset, type ResetMarker } from './syncMarkers';
+import { tl } from '../i18n';
 
 export const BACKUP_APP = 'nghe-noi-am';
 export const BACKUP_VERSION = 1;
@@ -47,6 +48,7 @@ export function sanitizeSettingsJSON(raw: string): string | null {
   if (s.voiceEngine === 'browser' || s.voiceEngine === 'clips') out.voiceEngine = s.voiceEngine;
   else if (s.voiceEngine === 'ai') out.voiceEngine = 'clips';
   if (typeof s.voiceChosen === 'boolean') out.voiceChosen = s.voiceChosen;
+  if (s.lang === 'vi' || s.lang === 'en') out.lang = s.lang;
   if (typeof s.changedAt === 'number' && Number.isFinite(s.changedAt) && s.changedAt > 0) out.changedAt = s.changedAt;
   return JSON.stringify(out);
 }
@@ -147,15 +149,15 @@ export function validateBackup(json: unknown, opts: ValidateOptions = {}): Valid
   const data: Record<string, string> = {};
   for (const [k, val] of entries) {
     if (!k.startsWith(STORAGE_PREFIX) || k.length === STORAGE_PREFIX.length) {
-      return { ok: false, error: `Bản sao lưu chứa mục lạ: “${k.slice(0, 40)}”.` };
+      return { ok: false, error: tl`Bản sao lưu chứa mục lạ: “${k.slice(0, 40)}”.` };
     }
     if (typeof val !== 'string' || val.length > MAX_VALUE_LENGTH) {
-      return { ok: false, error: `Mục “${k.slice(STORAGE_PREFIX.length, STORAGE_PREFIX.length + 40)}” bị hỏng.` };
+      return { ok: false, error: tl`Mục “${k.slice(STORAGE_PREFIX.length, STORAGE_PREFIX.length + 40)}” bị hỏng.` };
     }
     try {
       JSON.parse(val);
     } catch {
-      return { ok: false, error: `Mục “${k.slice(STORAGE_PREFIX.length, STORAGE_PREFIX.length + 40)}” không phải JSON hợp lệ.` };
+      return { ok: false, error: tl`Mục “${k.slice(STORAGE_PREFIX.length, STORAGE_PREFIX.length + 40)}” không phải JSON hợp lệ.` };
     }
     if (isDeviceLocalKey(k)) continue; // another browser's timer / draft / id: never imported
     if (k === SETTINGS_KEY) {

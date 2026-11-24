@@ -6,6 +6,7 @@ import { hrefFor, navigate } from '../../core/nav';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import type { Phenomenon } from '../../core/types';
 import type { PhenomenonCount } from './focus';
+import { tl } from '../../i18n';
 
 export interface FocusPickerProps {
   counts: readonly PhenomenonCount[];
@@ -22,9 +23,9 @@ function go(e: MouseEvent<HTMLAnchorElement>, p: Phenomenon) {
 }
 
 function metaFor(r: PhenomenonCount): string {
-  const parts = [`${r.total} cụm`];
-  if (r.due > 0) parts.push(`${r.due} đến hạn`);
-  else if (r.fresh > 0) parts.push(`${r.fresh} mới`);
+  const parts = [tl`${r.total} cụm`];
+  if (r.due > 0) parts.push(tl`${r.due} đến hạn`);
+  else if (r.fresh > 0) parts.push(tl`${r.fresh} mới`);
   return parts.join(' · ');
 }
 

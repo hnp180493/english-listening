@@ -19,11 +19,23 @@ import {
   type MediaLibrary,
 } from './library';
 import { deleteItem, dismissSaveWarning, updateItem, useSaveFailed } from './store';
+import { getLang, tl, tr } from '../../i18n';
 
 const STEPS = ['Chọn video có phụ đề', 'Dán bản chép lời', 'Nghe và chép từng câu'];
 
 function kindLabel(item: MediaItem): string {
   return item.kind === 'youtube' ? 'YouTube' : item.fileType === 'audio' ? 'Audio' : 'Video';
+}
+
+/**
+ * " · mở hôm nay". The day is lower-cased after it is translated (the dictionary knows "Hôm nay", not "hôm nay");
+ * in English only the words "Today" / "Yesterday" are, never a date.
+ */
+function openedLabel(openedAt: number, now: number): string {
+  const day = relativeDay(openedAt, now);
+  if (getLang() !== 'en') return tl` · mở ${day.toLowerCase()}`;
+  const en = tr(day);
+  return tl` · mở ${day === 'Hôm nay' || day === 'Hôm qua' ? en.toLowerCase() : en}`;
 }
 
 function ItemCard({ item, now }: { item: MediaItem; now: number }) {
@@ -96,7 +108,7 @@ function ItemCard({ item, now }: { item: MediaItem; now: number }) {
                 className="media-card-menu"
                 triggerClassName="btn btn-ghost btn-sm btn-icon"
                 trigger={<Icon icon={MoreHorizontal} size={18} />}
-                triggerLabel={`Tùy chọn cho ${item.title}`}
+                triggerLabel={tl`Tùy chọn cho ${item.title}`}
                 title="Tùy chọn"
                 align="end"
               >
@@ -147,7 +159,7 @@ function ItemCard({ item, now }: { item: MediaItem; now: number }) {
 
         <span className="item-card-meta">
           {kindLabel(item)} · {item.units.length} câu
-          {item.openedAt ? ` · mở ${relativeDay(item.openedAt, now).toLowerCase()}` : ''}
+          {item.openedAt ? openedLabel(item.openedAt, now) : ''}
         </span>
 
         {menu === 'confirm-delete' ? (
@@ -188,7 +200,7 @@ function ItemCard({ item, now }: { item: MediaItem; now: number }) {
               <span
                 className={'progress' + (pct >= 100 ? ' is-done' : '')}
                 role="progressbar"
-                aria-label={`Tiến độ ${item.title}`}
+                aria-label={tl`Tiến độ ${item.title}`}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={pct}

@@ -72,6 +72,7 @@ import {
 import { PHENOMENON_INFO } from './phenomena';
 import { localDay, MODULE_LABEL, type ModuleId } from './stats';
 import { PHENOMENA, type Phenomenon } from './types';
+import { getLang, tl, tr } from '../i18n';
 
 export type ReportPeriod = '7d' | '4w' | '3m' | 'all';
 
@@ -297,10 +298,10 @@ function dmy(ts: number): string {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
-/** 3.25 → "3,3" (Vietnamese decimal comma, one decimal, integers without ",0"). */
+/** 3.25 → "3,3" (Vietnamese decimal comma, one decimal, integers without ",0"); "3.3" in English mode. */
 export function decimalVi(n: number): string {
   const r = Math.round(n * 10) / 10;
-  return String(r).replace('.', ',');
+  return getLang() === 'en' ? String(r) : String(r).replace('.', ',');
 }
 
 /** The self-rating levels as prose (never "<30%" inside a sentence). */
@@ -339,13 +340,16 @@ function makeWeeks(currentMonday: string, n: number, today: string): ReportWeek[
 const monthKey = (y: number, m: number) => `${y}-${String(m + 1).padStart(2, '0')}-01`;
 
 const WD_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+const WD_SHORT_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_SHORT_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** One bucket per day from `fromDay` to `today` (the "7 ngày" period), oldest first. */
 function makeDays(fromDay: string, today: string): ReportWeek[] {
   const out: ReportWeek[] = [];
+  const names = getLang() === 'en' ? WD_SHORT_EN : WD_SHORT;
   for (let d = fromDay; d <= today; d = addDays(d, 1)) {
     const [y, m, dd] = d.split('-').map(Number);
-    const wd = WD_SHORT[new Date(y, m - 1, dd).getDay()];
+    const wd = names[new Date(y, m - 1, dd).getDay()];
     out.push({ key: d, end: d, label: wd, rangeLabel: `${wd} ${ddmm(d)}`, isCurrent: d === today });
   }
   return out;
@@ -356,11 +360,15 @@ function makeMonths(fromDay: string, today: string): ReportWeek[] {
   const [fy, fm] = fromDay.split('-').map(Number);
   const [ty, tm] = today.split('-').map(Number);
   const out: ReportWeek[] = [];
+  const en = getLang() === 'en';
   for (let y = fy, m = fm - 1; y < ty || (y === ty && m <= tm - 1); m === 11 ? ((m = 0), (y += 1)) : (m += 1)) {
     const key = monthKey(y, m);
     const last = new Date(y, m + 1, 0).getDate();
     const end = `${y}-${String(m + 1).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
-    out.push({ key, end, label: `T${m + 1}/${String(y).slice(2)}`, rangeLabel: `tháng ${m + 1}/${y}`, isCurrent: key <= today && today <= end });
+    // English: "Nov ’25" on the axis, "Nov 2025" in full (a bare "11/25" would read as a date)
+    const label = en ? `${MONTH_SHORT_EN[m]} ’${String(y).slice(2)}` : `T${m + 1}/${String(y).slice(2)}`;
+    const rangeLabel = en ? `${MONTH_SHORT_EN[m]} ${y}` : tl`tháng ${m + 1}/${y}`;
+    out.push({ key, end, label, rangeLabel, isCurrent: key <= today && today <= end });
   }
   return out;
 }
@@ -368,12 +376,12 @@ function makeMonths(fromDay: string, today: string): ReportWeek[] {
 /** "nhiều hơn kỳ trước 40%" / "gấp khoảng 3 lần kỳ trước" / "gần bằng kỳ trước" / "ít hơn kỳ trước 10%". */
 export function listenChange(cur: number, prev: number, what = 'kỳ trước'): { pct: number; label: string } {
   const pct = Math.round(((cur - prev) / prev) * 100);
-  if (Math.abs(pct) < 10) return { pct, label: `gần bằng ${what}` };
+  if (Math.abs(pct) < 10) return { pct, label: tl`gần bằng ${what}` };
   if (pct >= 100) {
     const x = cur / prev;
-    return { pct, label: `gấp khoảng ${x < 3 ? decimalVi(x) : Math.round(x)} lần ${what}` };
+    return { pct, label: tl`gấp khoảng ${x < 3 ? decimalVi(x) : Math.round(x)} lần ${what}` };
   }
-  return { pct, label: pct > 0 ? `nhiều hơn ${what} ${pct}%` : `ít hơn ${what} ${Math.abs(pct)}%` };
+  return { pct, label: pct > 0 ? tl`nhiều hơn ${what} ${pct}%` : tl`ít hơn ${what} ${Math.abs(pct)}%` };
 }
 
 /** Caveat when older checkups (standard text) are compared with connected-speech ones. */
@@ -386,8 +394,8 @@ export const FIRST_AUDIO_MODE_NOTE = 'Lần đầu dùng giọng đọc chuẩn 
 /** The checkup section's condition caveat (voice and/or audio mode changed between the compared tests), or null. */
 function conditionNote(cmp: CheckupComparison | null): string | null {
   const notes = [
-    cmp?.voiceChanged ? VOICE_NOTE : null,
-    cmp?.audioModeChanged ? AUDIO_MODE_NOTE : cmp?.firstAudioModeDiffers ? FIRST_AUDIO_MODE_NOTE : null,
+    cmp?.voiceChanged ? tr(VOICE_NOTE) : null,
+    cmp?.audioModeChanged ? tr(AUDIO_MODE_NOTE) : cmp?.firstAudioModeDiffers ? tr(FIRST_AUDIO_MODE_NOTE) : null,
   ].filter(Boolean);
   return notes.length ? notes.join(' ') : null;
 }
@@ -397,6 +405,16 @@ function signed(n: number): string {
 }
 
 const mean = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+
+/**
+ * One bar of a chart's text alternative: "tuần 12/10: 3 giờ" (unit word + bar label + value). One template per
+ * unit, so the English can put the words in its own order ("week of 12/10: 3 h", "Mon 19/10: …").
+ */
+function barLine(unit: ChartUnit, label: string, value: string): string {
+  if (unit === 'month') return tl`tháng ${label}: ${value}`;
+  if (unit === 'day') return tl`ngày ${label}: ${value}`;
+  return tl`tuần ${label}: ${value}`;
+}
 
 function listenBars(log: readonly ListeningEntry[], refs: readonly ReportWeek[], today: string, goal: number): ListenBar[] {
   return refs.map((w) => {
@@ -467,7 +485,7 @@ export function buildReport(input: ReportInput): ProgressReport {
   const periodLen = daysBetween(fromDay, today) + 1;
   const prevTo = addDays(fromDay, -1);
   const prevFrom = addDays(fromDay, -periodLen);
-  const periodLabel = input.period === 'all' ? 'Từ đầu đến nay' : `Từ ${ddmm(fromDay)}`;
+  const periodLabel = input.period === 'all' ? 'Từ đầu đến nay' : tl`Từ ${ddmm(fromDay)}`;
 
   // ── overview ──
   const listenMinutes = minutesBetween(log, fromDay, today);
@@ -518,9 +536,9 @@ export function buildReport(input: ReportInput): ProgressReport {
     maxMinutes: Math.max(goalPerBar, ...lw.map((w) => w.minutes), 1),
     sources: sourceSplit(log, fromDay, today),
     summary:
-      `Giờ nghe theo ${unitWord}, ${periodLabel.toLowerCase()}: ` +
-      lw.map((w) => `${unitWord} ${w.label}${w.isCurrent ? ' (chưa hết)' : ''}: ${w.minutesLabel}`).join('; ') +
-      (goal ? `. Mục tiêu ${goal} phút mỗi ngày.` : '.'),
+      tl`Giờ nghe theo ${unitWord}, ${tr(periodLabel).toLowerCase()}: ` +
+      lw.map((w) => barLine(unit, w.label + (w.isCurrent ? tr(' (chưa hết)') : ''), w.minutesLabel)).join('; ') +
+      (goal ? tl`. Mục tiêu ${goal} phút mỗi ngày.` : '.'),
   };
 
   // ── checkups ──
@@ -562,26 +580,26 @@ export function buildReport(input: ReportInput): ProgressReport {
     comparison,
     firstScore: first?.score ?? null,
     latestScore: latest?.score ?? null,
-    deltaFirstLabel: dFirst !== null ? `${signed(dFirst)} điểm so với lần đầu` : null,
-    deltaPrevLabel: comparison?.vsPrev && tn > 2 ? `${signed(comparison.vsPrev.score)} điểm so với lần trước` : null,
+    deltaFirstLabel: dFirst !== null ? tl`${signed(dFirst)} điểm so với lần đầu` : null,
+    deltaPrevLabel: comparison?.vsPrev && tn > 2 ? tl`${signed(comparison.vsPrev.score)} điểm so với lần trước` : null,
     deltaHedge:
       dFirst === null
         ? null
         : Math.abs(dFirst) <= SCORE_NOISE
-          ? `Chênh từ ${SCORE_NOISE} điểm trở xuống có thể chỉ do đề hoặc may rủi.`
+          ? tl`Chênh từ ${SCORE_NOISE} điểm trở xuống có thể chỉ do đề hoặc may rủi.`
           : tn < MIN_TREND_CHECKUPS
-            ? `Mới có ${tn} lần đo, cần khoảng ${MIN_TREND_CHECKUPS} lần mới chắc được xu hướng.`
+            ? tl`Mới có ${tn} lần đo, cần khoảng ${MIN_TREND_CHECKUPS} lần mới chắc được xu hướng.`
             : null,
-    baselineNote: tn === 1 && first ? `Đây là mốc đầu tiên (${first.score} điểm). ${baselineNext(due)}` : null,
+    baselineNote: tn === 1 && first ? tl`Đây là mốc đầu tiên (${first.score} điểm). ${baselineNext(due)}` : null,
     voiceNote: conditionNote(comparison),
     formNote: latestPoint?.repeatForm
-      ? `Lần gần nhất là đề ${latestPoint.form}, bạn đã làm đề này trước đây: điểm có thể cao hơn thực tế.`
+      ? tl`Lần gần nhất là đề ${latestPoint.form}, bạn đã làm đề này trước đây: điểm có thể cao hơn thực tế.`
       : tn >= 2
         ? 'Mỗi lần là một đề khác nhau (A–F), độ khó tương đương nhưng không giống hệt.'
         : null,
     staleNote:
       due.daysSince !== null && due.daysSince > 2 * CHECKUP_CADENCE_DAYS
-        ? `Lần gần nhất cách đây ${due.daysSince} ngày; làm bài mới để biết hiện tại.`
+        ? tl`Lần gần nhất cách đây ${due.daysSince} ngày; làm bài mới để biết hiện tại.`
         : null,
     phenomena: (comparison?.phenomena ?? [])
       .filter((p) => !(p.firstMissed === 0 && p.latestMissed === 0) && p.change !== null)
@@ -593,10 +611,10 @@ export function buildReport(input: ReportInput): ProgressReport {
         ? 'Đến lúc kiểm tra định kỳ'
         : due.kind === 'baseline' || !due.nextDueAt
           ? 'Làm bài đầu tiên để có mốc so sánh'
-          : `Lần kiểm tra tiếp theo: từ ${ddmm(localDay(due.nextDueAt))}`,
+          : tl`Lần kiểm tra tiếp theo: từ ${ddmm(localDay(due.nextDueAt))}`,
     summary: checkups.length
-      ? 'Điểm kiểm tra định kỳ: ' +
-        points.map((p) => `${p.dateLabel}, đề ${p.form}: ${p.score} điểm (chép ${p.dictationPct}%, hiểu ${p.comprehensionCorrect}/${p.comprehensionTotal})`).join('; ') +
+      ? tr('Điểm kiểm tra định kỳ: ') +
+        points.map((p) => tl`${p.dateLabel}, đề ${p.form}: ${p.score} điểm (chép ${p.dictationPct}%, hiểu ${p.comprehensionCorrect}/${p.comprehensionTotal})`).join('; ') +
         '.'
       : 'Chưa có bài kiểm tra định kỳ.',
   };
@@ -618,11 +636,11 @@ export function buildReport(input: ReportInput): ProgressReport {
     note: 'Tự đánh giá của bạn khi ghi giờ nghe, không phải điểm đo. Mức hiểu còn tùy độ khó nội dung bạn chọn.',
     weeks: uw,
     avg: uAvg,
-    avgLabel: uAvg !== null ? `${decimalVi(uAvg)}/5 · ${understoodProse(uAvg)}` : null,
+    avgLabel: uAvg !== null ? `${decimalVi(uAvg)}/5 · ${tr(understoodProse(uAvg))}` : null,
     rated,
     summary:
-      `Tự đánh giá mức hiểu theo ${unitWord} (1 là dưới 30%, 5 là trên 90%): ` +
-      uw.map((w) => `${unitWord} ${w.label}: ${w.avg === null ? 'chưa có' : `${decimalVi(w.avg)} (${w.count} lần ghi)`}`).join('; ') +
+      tl`Tự đánh giá mức hiểu theo ${unitWord} (1 là dưới 30%, 5 là trên 90%): ` +
+      uw.map((w) => barLine(unit, w.label, w.avg === null ? 'chưa có' : tl`${decimalVi(w.avg)} (${w.count} lần ghi)`)).join('; ') +
       '.',
   };
 
@@ -655,11 +673,11 @@ export function buildReport(input: ReportInput): ProgressReport {
     weeks: pw,
     total: { n: pt.n, ok: pt.ok, pct: pt.pct },
     modules,
-    retention: { ...ret, label: ret.pct !== null ? `Nhớ được ở ${ret.pct}% lượt ôn thẻ đã thuộc (${ret.n} lượt)` : null },
-    firstListen: { ...once, label: once.pct !== null ? `Câu mới nghe 1 lần là đúng: ${once.pct}% (${once.n} câu)` : null },
+    retention: { ...ret, label: ret.pct !== null ? tl`Nhớ được ở ${ret.pct}% lượt ôn thẻ đã thuộc (${ret.n} lượt)` : null },
+    firstListen: { ...once, label: once.pct !== null ? tl`Câu mới nghe 1 lần là đúng: ${once.pct}% (${once.n} câu)` : null },
     firstListenReal: {
       ...onceReal,
-      label: onceReal.pct !== null ? `Video thật, câu mới nghe 1 lần là đúng: ${onceReal.pct}% (${onceReal.n} câu)` : null,
+      label: onceReal.pct !== null ? tl`Video thật, câu mới nghe 1 lần là đúng: ${onceReal.pct}% (${onceReal.n} câu)` : null,
     },
     lessonsPassed: passDays.filter((d) => d >= fromDay && d <= today).length,
     lessonsPassedTotal: passDays.length,
@@ -667,8 +685,8 @@ export function buildReport(input: ReportInput): ProgressReport {
     words: { total: wordsTotal, added: wordsLearnedBetween(days, fromDay, today), weeks: wordsWeeks },
     archiveSince: input.history.base ? localDay(input.history.base.until) : null,
     summary:
-      `Độ chính xác khi luyện theo ${unitWord}: ` +
-      pw.map((w) => `${unitWord} ${w.label}: ${w.total.pct === null ? 'chưa luyện' : `${w.total.pct}% (${w.total.n} lượt)`}`).join('; ') +
+      tl`Độ chính xác khi luyện theo ${unitWord}: ` +
+      pw.map((w) => barLine(unit, w.label, w.total.pct === null ? 'chưa luyện' : tl`${w.total.pct}% (${w.total.n} lượt)`)).join('; ') +
       '.',
   };
 
@@ -707,8 +725,8 @@ export function buildReport(input: ReportInput): ProgressReport {
 
 function baselineNext(due: CheckupDue): string {
   if (due.daysSince !== null && due.daysSince >= CHECKUP_CADENCE_DAYS) return 'Đã đủ 2 tuần, làm bài lần 2 để thấy thay đổi.';
-  if (due.nextDueAt) return `Làm lại từ ngày ${ddmm(localDay(due.nextDueAt))} để thấy thay đổi.`;
-  return `Làm lại sau ${CHECKUP_CADENCE_DAYS} ngày để thấy thay đổi.`;
+  if (due.nextDueAt) return tl`Làm lại từ ngày ${ddmm(localDay(due.nextDueAt))} để thấy thay đổi.`;
+  return tl`Làm lại sau ${CHECKUP_CADENCE_DAYS} ngày để thấy thay đổi.`;
 }
 
 // ───────────────────────── "Nhận xét" ─────────────────────────
@@ -747,11 +765,11 @@ export function buildInsights(i: InsightInput): string[] {
 function listeningInsight(i: InsightInput): string {
   const total = totalMinutes(i.log);
   if (total === 0) return 'Chưa có giờ nghe nào được ghi. Nghe tiếng Anh thật 15–30 phút mỗi ngày là phần quan trọng nhất để quen tai.';
-  const phrase = i.period === 'all' ? 'Từ đầu đến nay' : `Từ ${ddmm(i.fromDay)} đến nay`;
-  if (i.listenMinutes === 0) return `${phrase} bạn chưa ghi giờ nghe nào; tổng cộng bạn đã nghe ${formatDurationVi(total)}.`;
-  let s = `${phrase} bạn nghe ${formatDurationVi(i.listenMinutes)}${i.change ? `, ${i.change.label}` : ''}.`;
+  const phrase = i.period === 'all' ? 'Từ đầu đến nay' : tl`Từ ${ddmm(i.fromDay)} đến nay`;
+  if (i.listenMinutes === 0) return tl`${phrase} bạn chưa ghi giờ nghe nào; tổng cộng bạn đã nghe ${formatDurationVi(total)}.`;
+  let s = tl`${phrase} bạn nghe ${formatDurationVi(i.listenMinutes)}${i.change ? `, ${i.change.label}` : ''}.`;
   const g = goalDays(i);
-  if (g) s += ` 7 ngày qua đạt mục tiêu ${i.goal} phút ${g.met}/${g.of} ngày.`;
+  if (g) s += tl` 7 ngày qua đạt mục tiêu ${i.goal} phút ${g.met}/${g.of} ngày.`;
   return s;
 }
 
@@ -781,14 +799,14 @@ function checkupInsight(i: InsightInput): string {
   if (n === 0) return 'Chưa có bài kiểm tra định kỳ: làm bài đầu tiên (khoảng 10 phút) để có mốc so sánh.';
   const stale =
     i.daysSinceCheckup !== null && i.daysSinceCheckup > 2 * CHECKUP_CADENCE_DAYS
-      ? ` Lần gần nhất cách đây ${i.daysSinceCheckup} ngày; làm bài mới để biết hiện tại.`
+      ? tl` Lần gần nhất cách đây ${i.daysSinceCheckup} ngày; làm bài mới để biết hiện tại.`
       : '';
   if (n === 1) {
     const next =
       i.daysSinceCheckup !== null && i.daysSinceCheckup >= CHECKUP_CADENCE_DAYS
         ? 'đã đủ 2 tuần, làm bài lần 2 để thấy thay đổi.'
-        : `làm lại sau ${CHECKUP_CADENCE_DAYS} ngày để thấy thay đổi.`;
-    return `Bài kiểm tra đầu tiên được ${trend[0].score} điểm, đây là mốc để so sánh; ${next}`;
+        : tl`làm lại sau ${CHECKUP_CADENCE_DAYS} ngày để thấy thay đổi.`;
+    return tl`Bài kiểm tra đầu tiên được ${trend[0].score} điểm, đây là mốc để so sánh; ${next}`;
   }
   // Compare the mean of the first k tests with the mean of the last k (k = 2 from 4 tests): one lucky or unlucky
   // test cannot make the trend on its own.
@@ -804,23 +822,23 @@ function checkupInsight(i: InsightInput): string {
   const lastStep = scores[n - 1] - scores[n - 2];
   const da = Math.round(mean(early.map((c) => c.dictation.pct)));
   const db = Math.round(mean(late.map((c) => c.dictation.pct)));
-  const what = k === 2 ? `trung bình 2 lần đầu ${a}, 2 lần gần nhất ${b}` : `${a} → ${b}`;
+  const what = k === 2 ? tl`trung bình 2 lần đầu ${a}, 2 lần gần nhất ${b}` : `${a} → ${b}`;
   let s: string;
   if (n >= 3 && (hi - lo > Math.abs(d) + SCORE_NOISE || (Math.abs(lastStep) > SCORE_NOISE && Math.sign(lastStep) === -Math.sign(d)))) {
-    s = `Điểm kiểm tra dao động từ ${lo} đến ${hi}, chưa thấy xu hướng rõ.`;
+    s = tl`Điểm kiểm tra dao động từ ${lo} đến ${hi}, chưa thấy xu hướng rõ.`;
   } else if (Math.abs(d) <= SCORE_NOISE) {
-    s = `Điểm kiểm tra chưa thay đổi rõ (${what}): chênh từ ${SCORE_NOISE} điểm trở xuống có thể chỉ do đề hoặc may rủi.`;
+    s = tl`Điểm kiểm tra chưa thay đổi rõ (${what}): chênh từ ${SCORE_NOISE} điểm trở xuống có thể chỉ do đề hoặc may rủi.`;
   } else if (d > 0) {
-    s = `Điểm kiểm tra tăng (${what}); phần chép chính tả từ ${da}% lên ${db}%.`;
+    s = tl`Điểm kiểm tra tăng (${what}); phần chép chính tả từ ${da}% lên ${db}%.`;
   } else {
-    s = `Điểm kiểm tra giảm (${what}); một lần thấp có thể do đề hay do mệt.`;
+    s = tl`Điểm kiểm tra giảm (${what}); một lần thấp có thể do đề hay do mệt.`;
   }
-  if (n < MIN_TREND_CHECKUPS && Math.abs(d) > SCORE_NOISE) s += ` Mới có ${n} lần đo nên chưa chắc.`;
+  if (n < MIN_TREND_CHECKUPS && Math.abs(d) > SCORE_NOISE) s += tl` Mới có ${n} lần đo nên chưa chắc.`;
   const cmp = compareAll(trend);
-  if (cmp?.voiceChanged) s += ' Giọng đọc đã đổi giữa các lần, nên so sánh có thể lệch.';
-  if (cmp?.audioModeChanged) s += ' ' + AUDIO_MODE_NOTE;
-  else if (cmp?.firstAudioModeDiffers) s += ' ' + FIRST_AUDIO_MODE_NOTE;
-  if (isRepeatForm(i.checkups, trend[n - 1])) s += ' Lần gần nhất là đề đã làm trước đây, điểm có thể cao hơn thực tế.';
+  if (cmp?.voiceChanged) s += tr(' Giọng đọc đã đổi giữa các lần, nên so sánh có thể lệch.');
+  if (cmp?.audioModeChanged) s += ' ' + tr(AUDIO_MODE_NOTE);
+  else if (cmp?.firstAudioModeDiffers) s += ' ' + tr(FIRST_AUDIO_MODE_NOTE);
+  if (isRepeatForm(i.checkups, trend[n - 1])) s += tr(' Lần gần nhất là đề đã làm trước đây, điểm có thể cao hơn thực tế.');
   return s + stale;
 }
 
@@ -850,16 +868,16 @@ function phenomenonInsight(i: InsightInput): string | null {
     .filter((r) => pctOf(r.early) - pctOf(r.late) >= MIN_PHENOMENON_CHANGE)
     .sort((a, b) => pctOf(b.early) - pctOf(b.late) - (pctOf(a.early) - pctOf(a.late)))[0];
   const weak = rows.filter((r) => pctOf(r.late) >= 50 && r !== better).sort((a, b) => pctOf(b.late) - pctOf(a.late))[0];
-  const count = (v: { seen: number; missed: number }) => `${v.missed}/${v.seen} câu`;
+  const count = (v: { seen: number; missed: number }) => tl`${v.missed}/${v.seen} câu`;
   if (better) {
-    let s = `Trong bài kiểm tra, ${lower(better.label)} có vẻ tiến bộ: sót ${count(better.early)} ở các lần đầu, ${count(better.late)} gần đây.`;
-    if (weak) s += ` ${capitalize(lower(weak.label))} vẫn hay bị nghe sót (${count(weak.late)}).`;
+    let s = tl`Trong bài kiểm tra, ${inSentence(better.label)} có vẻ tiến bộ: sót ${count(better.early)} ở các lần đầu, ${count(better.late)} gần đây.`;
+    if (weak) s += tl` ${capitalize(inSentence(weak.label))} vẫn hay bị nghe sót (${count(weak.late)}).`;
     return s;
   }
-  if (weak) return `Trong bài kiểm tra, ${lower(weak.label)} vẫn hay bị nghe sót (${count(weak.late)} gần đây).`;
+  if (weak) return tl`Trong bài kiểm tra, ${inSentence(weak.label)} vẫn hay bị nghe sót (${count(weak.late)} gần đây).`;
   const w = weakestRate(i.stats, 10);
   if (w && w.rate >= 0.3) {
-    return `Khi luyện, ${lower(PH_LABEL(w.phenomenon))} là phần bạn hay nghe sót nhất (sót ${Math.round(w.rate * 100)}% lần gặp).`;
+    return tl`Khi luyện, ${inSentence(PH_LABEL(w.phenomenon))} là phần bạn hay nghe sót nhất (sót ${Math.round(w.rate * 100)}% lần gặp).`;
   }
   return null;
 }
@@ -870,6 +888,16 @@ const PH_LABEL = (p: Phenomenon) => PHENOMENON_INFO[p].label;
 function lower(label: string): string {
   if (/^\p{Lu}(\s|$)/u.test(label)) return label;
   return label.charAt(0).toLocaleLowerCase('vi') + label.slice(1);
+}
+
+/**
+ * A sound change's name inside a sentence. Vietnamese: `lower`. English: translated first (the lower-cased
+ * Vietnamese is no dictionary key), then lower-cased unless it starts with a lone capital ("H-dropping", "T …").
+ */
+function inSentence(label: string): string {
+  if (getLang() !== 'en') return lower(label);
+  const en = tr(label);
+  return /^\p{Lu}(?!\p{Ll})/u.test(en) ? en : en.charAt(0).toLowerCase() + en.slice(1);
 }
 
 function capitalize(s: string): string {
@@ -898,9 +926,9 @@ function practiceInsight(i: InsightInput): string | null {
   if (!best) return null;
   const label = MODULE_LABEL[best.m];
   const unit = 'trên các bài bạn chọn luyện';
-  if (best.b - best.a >= 5) return `${label}: độ đúng ${unit} tăng từ ${best.a}% (nửa đầu kỳ) lên ${best.b}% (nửa sau).`;
-  if (best.a - best.b >= 5) return `${label}: độ đúng ${unit} giảm từ ${best.a}% (nửa đầu kỳ) xuống ${best.b}% (nửa sau); có thể bài đang khó hơn.`;
-  return `${label}: độ đúng ${unit} ổn định quanh ${best.b}%.`;
+  if (best.b - best.a >= 5) return tl`${label}: độ đúng ${unit} tăng từ ${best.a}% (nửa đầu kỳ) lên ${best.b}% (nửa sau).`;
+  if (best.a - best.b >= 5) return tl`${label}: độ đúng ${unit} giảm từ ${best.a}% (nửa đầu kỳ) xuống ${best.b}% (nửa sau); có thể bài đang khó hơn.`;
+  return tl`${label}: độ đúng ${unit} ổn định quanh ${best.b}%.`;
 }
 
 /**
@@ -914,16 +942,16 @@ function firstListenInsight(i: InsightInput): string | null {
   if (real) return real;
   const o = i.once;
   if (!o || o.pct === null || o.n < MIN_FIRST_LISTEN_SAMPLE) return null;
-  const s = `Câu mới trong Chép chính tả: bạn nghe 1 lần là viết đúng ở ${o.pct}% số câu (${o.n} câu)${vsPrevious(o, i.oncePrev)}`;
-  return `${s}. Ngoài đời người ta chỉ nói một lần nên đây là số sát thực tế nhất trong app; giọng trong app rõ hơn người thật, nên nghe thật sẽ khó hơn.`;
+  const s = tl`Câu mới trong Chép chính tả: bạn nghe 1 lần là viết đúng ở ${o.pct}% số câu (${o.n} câu)${vsPrevious(o, i.oncePrev)}`;
+  return tl`${s}. Ngoài đời người ta chỉ nói một lần nên đây là số sát thực tế nhất trong app; giọng trong app rõ hơn người thật, nên nghe thật sẽ khó hơn.`;
 }
 
 /** ", tăng so với 20% của kỳ trước" | ", thấp hơn …" | ", gần bằng …" | '' (no previous window with the sample). */
 function vsPrevious(o: FirstListen, p: FirstListen | null | undefined): string {
   if (o.pct === null || !p || p.pct === null || p.n < MIN_FIRST_LISTEN_SAMPLE) return '';
-  if (o.pct - p.pct >= MIN_FIRST_LISTEN_CHANGE) return `, tăng so với ${p.pct}% của kỳ trước`;
-  if (p.pct - o.pct >= MIN_FIRST_LISTEN_CHANGE) return `, thấp hơn ${p.pct}% của kỳ trước (có thể câu đang khó hơn)`;
-  return `, gần bằng kỳ trước (${p.pct}%)`;
+  if (o.pct - p.pct >= MIN_FIRST_LISTEN_CHANGE) return tl`, tăng so với ${p.pct}% của kỳ trước`;
+  if (p.pct - o.pct >= MIN_FIRST_LISTEN_CHANGE) return tl`, thấp hơn ${p.pct}% của kỳ trước (có thể câu đang khó hơn)`;
+  return tl`, gần bằng kỳ trước (${p.pct}%)`;
 }
 
 /**
@@ -934,16 +962,16 @@ function vsPrevious(o: FirstListen, p: FirstListen | null | undefined): string {
 function realFirstListenInsight(i: InsightInput): string | null {
   const o = i.onceReal;
   if (!o || o.pct === null || o.n < MIN_FIRST_LISTEN_SAMPLE) return null;
-  const s = `Video thật: với câu mới, bạn nghe 1 lần là viết đúng ở ${o.pct}% số câu (${o.n} câu)${vsPrevious(o, i.onceRealPrev)}`;
-  return `${s}. Đây là người thật nói ở tốc độ thật, nên là số sát thực tế nhất trong app; nó còn tùy độ khó của video bạn chọn.`;
+  const s = tl`Video thật: với câu mới, bạn nghe 1 lần là viết đúng ở ${o.pct}% số câu (${o.n} câu)${vsPrevious(o, i.onceRealPrev)}`;
+  return tl`${s}. Đây là người thật nói ở tốc độ thật, nên là số sát thực tế nhất trong app; nó còn tùy độ khó của video bạn chọn.`;
 }
 
 function retentionInsight(i: InsightInput): string | null {
   if (i.ret.n < MIN_RETENTION_SAMPLE || i.ret.pct === null) return null;
-  return `Khi ôn tập, bạn nhớ được ở ${i.ret.pct}% lượt ôn thẻ đã thuộc (${i.ret.n} lượt).`;
+  return tl`Khi ôn tập, bạn nhớ được ở ${i.ret.pct}% lượt ôn thẻ đã thuộc (${i.ret.n} lượt).`;
 }
 
 function understoodInsight(i: InsightInput): string | null {
   if (i.rated < 4 || i.uAvg === null) return null;
-  return `Theo tự đánh giá, bạn hiểu ${understoodProse(i.uAvg)} nội dung khi nghe (trung bình ${decimalVi(i.uAvg)}/5); mức hiểu còn tùy độ khó nội dung bạn chọn.`;
+  return tl`Theo tự đánh giá, bạn hiểu ${understoodProse(i.uAvg)} nội dung khi nghe (trung bình ${decimalVi(i.uAvg)}/5); mức hiểu còn tùy độ khó nội dung bạn chọn.`;
 }

@@ -14,6 +14,7 @@ import { normalizeText, splitWords } from '../../core/dictation/normalize';
 import type { DecodeResult } from '../../core/types';
 import SpokenSentence from '../../components/SpokenSentence';
 import { DONE_SCORE } from './library';
+import { tl, tr } from '../../i18n';
 
 export interface CheckOutcome {
   score: number;
@@ -221,7 +222,7 @@ export default function DictationPanel({ text, decoded, bestScore, isLast, onChe
             <strong className="media-score-num">{pct}%</strong>
             <span>
               {verdict(result.al.score, result.revealed, result.once)}
-              {result.heard && !result.revealed ? ` · ${result.heard}` : ''}
+              {result.heard && !result.revealed ? ` · ${tr(result.heard)}` : ''}
             </span>
           </div>
 
@@ -236,14 +237,14 @@ export default function DictationPanel({ text, decoded, bestScore, isLast, onChe
                   );
                 case 'typo':
                   return (
-                    <span key={k} className="media-w media-w-typo" title={`Bạn gõ “${u.answer}” — lỗi chính tả nhỏ, vẫn tính đúng`}>
+                    <span key={k} className="media-w media-w-typo" title={tl`Bạn gõ “${u.answer}” — lỗi chính tả nhỏ, vẫn tính đúng`}>
                       {u.target}
                     </span>
                   );
                 case 'wrong':
                   return (
                     <span key={k} className="media-w media-w-bad">
-                      <s className="media-w-typed" aria-label={`bạn gõ ${u.answer}`}>
+                      <s className="media-w-typed" aria-label={tl`bạn gõ ${u.answer}`}>
                         {u.answer}
                       </s>{' '}
                       <span>{u.target}</span>

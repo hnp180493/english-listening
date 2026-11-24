@@ -1,7 +1,8 @@
 /// <reference types="vitest/config" />
 import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin, type UserConfig } from 'vite'
 
@@ -10,7 +11,7 @@ import { defineConfig, type Plugin, type UserConfig } from 'vite'
  * The app is code-split, so index.html only names the entry chunk; the service worker needs the full
  * list to precache the lazy page chunks for offline use. The three.js chunk (only the town page needs
  * it, about 580 kB) is listed apart as `lazy`: cached on first use, not downloaded at install for
- * every visitor. See the header of public/sw.js.
+ * every visitor; so are the English dictionaries (`en-*`: only English mode loads them). See the header of public/sw.js.
  */
 function swBuildManifest(): Plugin {
   let outDir = 'dist'
@@ -28,7 +29,7 @@ function swBuildManifest(): Plugin {
         .sort()
       lazy = all.filter((f) => {
         const out = bundle[f]
-        return out.type === 'chunk' && out.name === 'three'
+        return out.type === 'chunk' && (out.name === 'three' || out.name.startsWith('en-'))
       })
       assets = all.filter((f) => !lazy.includes(f))
     },
@@ -110,17 +111,49 @@ const webBuild: UserConfig['build'] = {
           { name: 'romance', test: /src[/\\]data[/\\](romance[/\\]|streetTalks[/\\]|cases[/\\]|townStreet|townCafe|townDeliveries)/ },
           { name: 'content', test: /src[/\\]data[/\\](courses[/\\]|lessons|sentences|chunks|realClips)/ },
           { name: 'three', test: /node_modules[/\\]three[/\\]/ },
+          // the town's people (bodies, faces, hair, portraits; three/chars): code-built, loaded with the town page
+          { name: 'town-people', test: /src[/\\]features[/\\]town[/\\]three[/\\]chars[/\\]/ },          // the English dictionaries (src/i18n/en, docs/i18n.md): one chunk per bundle, loaded only in English mode
+          { name: 'en-ui', test: /src[/\\]i18n[/\\]en[/\\]ui/ },
+          { name: 'en-content', test: /src[/\\]i18n[/\\]en[/\\]content/ },
+          { name: 'en-town', test: /src[/\\]i18n[/\\]en[/\\]town/ },
         ],
       },
     },
   },
 }
 
+/**
+ * The app's JSX runs through src/i18n/jsx-runtime.ts (React's runtime plus the English-mode translation of an
+ * element's text, docs/i18n.md): every import of React's JSX runtime from the app's own files resolves to the
+ * wrapper, which itself imports the real one. Packages in node_modules keep React's. Done by a resolver, not by
+ * jsxImportSource: Vite pre-bundles a jsxImportSource as a dependency, which would give the wrapper a second copy
+ * of the language state.
+ */
+function i18nJsx(): Plugin {
+  const slashes = (p: string) => p.split(sep).join('/')
+  const dir = slashes(fileURLToPath(new URL('./src/i18n/', import.meta.url)))
+  const wrappers: Record<string, string> = {
+    'react/jsx-runtime': `${dir}jsx-runtime.ts`,
+    'react/jsx-dev-runtime': `${dir}jsx-dev-runtime.ts`,
+  }
+  return {
+    name: 'nna-i18n-jsx',
+    enforce: 'pre',
+    resolveId(source, importer) {
+      const wrapper = wrappers[source]
+      if (!wrapper || !importer) return null
+      const from = slashes(importer)
+      if (from.includes('/node_modules/') || from.startsWith(`${dir}jsx-`)) return null
+      return wrapper
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const portable = mode === 'portable'
   return {
     base: portable ? './' : '/',
-    plugins: portable ? [react()] : [react(), swBuildManifest(), chunkSizeGuard()],
+    plugins: portable ? [i18nJsx(), react()] : [i18nJsx(), react(), swBuildManifest(), chunkSizeGuard()],
     build: portable ? portableBuild : webBuild,
     test: {
       include: ['src/**/*.test.ts'],

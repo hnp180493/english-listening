@@ -44,6 +44,7 @@ import {
 } from './store';
 import { useClipPlayer } from './useClipPlayer';
 import { useShadowRecorder, type RecOutcome } from './useRecorder';
+import { getLang, tl, tr } from '../../i18n';
 
 const RATINGS: SelfRating[] = ['good', 'ok', 'bad'];
 const RATING_ICON: Record<SelfRating, LucideIcon> = { good: Smile, ok: Meh, bad: Frown };
@@ -83,11 +84,11 @@ function History({ item }: { item: ShadowItem | undefined }) {
                 key={`${a.at}-${i}`}
                 className="shadow-bar"
                 style={style}
-                title={new Date(a.at).toLocaleString('vi-VN')}
+                title={new Date(a.at).toLocaleString(getLang() === 'en' ? 'en-US' : 'vi-VN')}
               >
                 <span className="shadow-bar-fill" aria-hidden="true" />
                 <span className="shadow-bar-label">{a.self ? SELF_LABEL[a.self] : `${p}%`}</span>
-                <span className="shadow-sr">{a.self ? `Tự chấm: ${SELF_LABEL[a.self]}` : `${p} phần trăm`}</span>
+                <span className="shadow-sr">{a.self ? tl`Tự chấm: ${SELF_LABEL[a.self]}` : tl`${p} phần trăm`}</span>
               </li>
             );
           })}
@@ -385,7 +386,7 @@ export default function PracticePanel({ source, item, nextId, onSaved }: Practic
             slow
             mode="connected"
             label="Nghe chậm 0.8×"
-            title={`${CONNECTED_SLOW_TITLE} (S)`}
+            title={`${tr(CONNECTED_SLOW_TITLE)} (S)`}
             onPlay={() => setInterruptKey((k) => k + 1)}
           />
           <PlayButton
@@ -545,9 +546,8 @@ export default function PracticePanel({ source, item, nextId, onSaved }: Practic
               <Icon icon={outcome.usedRecognition ? TriangleAlert : Info} size={16} />
               <span>
                 {outcome.usedRecognition
-                  ? (outcome.recognitionError?.message ??
-                      'Máy chưa nhận ra câu nào. Hãy nói to, rõ và gần micro hơn rồi thử lại.') +
-                    (outcome.audioUrl ? ' Trong lúc đó, bạn có thể nghe lại bản ghi và tự chấm.' : '')
+                  ? tr(outcome.recognitionError?.message ?? 'Máy chưa nhận ra câu nào. Hãy nói to, rõ và gần micro hơn rồi thử lại.') +
+                    (outcome.audioUrl ? tr(' Trong lúc đó, bạn có thể nghe lại bản ghi và tự chấm.') : '')
                   : 'Hãy nghe lại giọng mình, so sánh A-B với mẫu, rồi tự chấm thật lòng.'}
               </span>
             </div>

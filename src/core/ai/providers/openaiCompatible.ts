@@ -33,6 +33,7 @@ import type {
   TtsResult,
 } from '../types';
 import { asciiHeader, testFailure } from './common';
+import { tl, tr } from '../../../i18n';
 
 export type OpenAiLikeKind = Extract<ProviderKind, 'openai' | 'openrouter' | 'openai-compatible'>;
 
@@ -101,7 +102,7 @@ export function mapOpenAiError(status: number, body: unknown, hdrs: Headers, ctx
     // OpenRouter 403 = guardrail block / key lacks permission for this model or provider; a wrong key is 401.
     return makeError('bad-request', {
       ...c,
-      detail: 'OpenRouter chặn yêu cầu (guardrail, hoặc key không có quyền dùng model/nhà cung cấp này): kiểm tra cài đặt key trên openrouter.ai.' + (detail ? ' ' + detail : ''),
+      detail: tr('OpenRouter chặn yêu cầu (guardrail, hoặc key không có quyền dùng model/nhà cung cấp này): kiểm tra cài đặt key trên openrouter.ai.') + (detail ? ' ' + detail : ''),
     });
   }
   if (status === 404 || code === 'model_not_found' || /model .*(does not exist|not found)|no endpoints found|invalid model/.test(msg)) {
@@ -265,7 +266,7 @@ export function createOpenAiCompatibleAdapter(kind: OpenAiLikeKind): AiAdapter {
       throw makeError('model', { ...ctx, provider: kind, detail: OPENAI_TTS_RETIRED_DETAIL }, { retryable: false });
     }
     if (req.text.length > OPENAI_TTS_MAX_CHARS) {
-      throw makeError('bad-request', { ...ctx, provider: kind, detail: `văn bản dài quá ${OPENAI_TTS_MAX_CHARS} ký tự` });
+      throw makeError('bad-request', { ...ctx, provider: kind, detail: tl`văn bản dài quá ${OPENAI_TTS_MAX_CHARS} ký tự` });
     }
     const body: Record<string, unknown> = {
       model,
@@ -318,22 +319,22 @@ export function createOpenAiCompatibleAdapter(kind: OpenAiLikeKind): AiAdapter {
   async function testConnection(config: ProviderConfig, signal?: AbortSignal): Promise<TestResult> {
     const model = config.model.trim();
     const ctx = ctxOf(kind, config, model);
-    if (!config.apiKey && defaultsFor(kind).requiresKey) return { ok: false, code: 'bad-key', message: `Chưa nhập API key ${ctx.label}.` };
+    if (!config.apiKey && defaultsFor(kind).requiresKey) return { ok: false, code: 'bad-key', message: tl`Chưa nhập API key ${ctx.label}.` };
     try {
       if (kind === 'openai') {
         await sendJson({ url: joinUrl(base(config), `models/${encodeURIComponent(model)}`), headers: openAiHeaders(kind, config, false), signal, ctx, mapError: mapOpenAiError });
-        return { ok: true, message: `Kết nối ${labelInSentence(ctx.label)} thành công (model ${model}).` };
+        return { ok: true, message: tl`Kết nối ${labelInSentence(ctx.label)} thành công (model ${model}).` };
       }
       if (kind === 'openrouter') {
         // GET /models is public on OpenRouter; /key actually checks the key.
         await sendJson({ url: joinUrl(base(config), 'key'), headers: openAiHeaders(kind, config, false), signal, ctx, mapError: mapOpenAiError });
-        return { ok: true, message: `Kết nối ${labelInSentence(ctx.label)} thành công.` };
+        return { ok: true, message: tl`Kết nối ${labelInSentence(ctx.label)} thành công.` };
       }
       const models = await listModels(config, signal);
       if (model && models.length && !models.some((m) => m.id === model)) {
-        return { ok: false, code: 'model', message: `Máy chủ ${ctx.label} đang chạy nhưng không có model "${model}". Có: ${models.slice(0, 8).map((m) => m.id).join(', ')}.` };
+        return { ok: false, code: 'model', message: tl`Máy chủ ${ctx.label} đang chạy nhưng không có model "${model}". Có: ${models.slice(0, 8).map((m) => m.id).join(', ')}.` };
       }
-      return { ok: true, message: `Kết nối ${labelInSentence(ctx.label)} thành công${model ? ` (model ${model})` : ''}.` };
+      return { ok: true, message: tl`Kết nối ${labelInSentence(ctx.label)} thành công${model ? ` (model ${model})` : ''}.` };
     } catch (e) {
       return testFailure(e, ctx);
     }

@@ -5,6 +5,7 @@ import { PHENOMENA } from '../../core/types';
 import { PHENOMENON_INFO } from '../../core/phenomena';
 import SpeakIconButton from '../lessons/SpeakIconButton';
 import { naturalRate } from '../../core/playback';
+import { getLang, tl } from '../../i18n';
 
 type ColorStyle = CSSProperties & { '--dec-color'?: string };
 
@@ -14,7 +15,7 @@ export default function PhenomenaGuide() {
     <details className="how dec-guide">
       <summary>
         <Icon icon={CircleHelp} size={18} />
-        Học nhanh {PHENOMENA.length} hiện tượng
+        {tl`Học nhanh ${PHENOMENA.length} hiện tượng`}
       </summary>
       <ul className="dec-guide-list">
         {PHENOMENA.map((p) => {
@@ -23,7 +24,7 @@ export default function PhenomenaGuide() {
           const style: ColorStyle = { '--dec-color': info.color };
           return (
             <li key={p} className="dec-guide-item" style={style}>
-              <strong className="dec-guide-name" title={info.en}>
+              <strong className="dec-guide-name" title={getLang() === 'en' ? undefined : info.en}>
                 {info.label}
               </strong>
               <p className="dec-guide-text">{info.summary}</p>
@@ -42,7 +43,7 @@ export default function PhenomenaGuide() {
                     rate={naturalRate()}
                     mode="connected"
                     icon={Volume2}
-                    label={`Nghe "${info.example.written}"`}
+                    label={tl`Nghe "${info.example.written}"`}
                   />
                 </span>
               </div>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { ArrowRight, CircleCheck, CircleX } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
+import { tl } from '../../../i18n';
 
 export interface VerdictProps {
   correct: number;
@@ -25,9 +26,7 @@ export default function Verdict({ correct, total, ok, detail, onNext, extra }: V
       <div className={'callout ' + (ok ? 'callout-ok' : 'callout-bad')} role="status">
         <Icon icon={ok ? CircleCheck : CircleX} size={20} />
         <div>
-          <p className="rev-verdict-title">
-            Đúng {correct}/{total} câu
-          </p>
+          <p className="rev-verdict-title">{tl`Đúng ${correct}/${total} câu`}</p>
           <p className="rev-verdict-detail">{detail}</p>
         </div>
       </div>

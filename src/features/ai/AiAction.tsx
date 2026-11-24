@@ -8,6 +8,7 @@ import { LoaderCircle, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import { useAiStatus } from '../../core/ai';
 import { hrefFor } from '../../core/nav';
+import { tr } from '../../i18n';
 import { useAiTask } from './useAiTask';
 import './ai.css';
 
@@ -23,7 +24,7 @@ export function AiSetupLink({ what, className }: { what?: string; className?: st
     <p className={'ai-setup' + (className ? ' ' + className : '')}>
       <Icon icon={Sparkles} size={15} />
       <span>
-        {what ? `${what}: ` : ''}
+        {what ? `${tr(what)}: ` : ''}
         <a href={AI_SETTINGS_HREF}>Thêm API key trong Cài đặt</a>
       </span>
     </p>

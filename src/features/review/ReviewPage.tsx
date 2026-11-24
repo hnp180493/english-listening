@@ -63,6 +63,7 @@ import '../pairs/pairs.css';
 import '../lessons/lessons.css';
 import '../drill/drill.css';
 import './review.css';
+import { getLang, tl, tr } from '../../i18n';
 
 // ───────────────────────── module state ─────────────────────────
 
@@ -75,12 +76,38 @@ function kindOf(id: CardId): ReviewKind | null {
   return parseCardId(id)?.kind ?? null;
 }
 
+/** English nouns of the kinds (one, many) for counts and the summary; Vietnamese uses KIND_SHORT. */
+const KIND_NOUN_EN: Readonly<Record<ReviewKind, readonly [string, string]>> = {
+  dict: ['sentence', 'sentences'],
+  pair: ['sound group', 'sound groups'],
+  chunk: ['phrase', 'phrases'],
+  lesson: ['lesson', 'lessons'],
+  media: ['video sentence', 'video sentences'],
+  word: ['word', 'words'],
+  talk: ['town line', 'town lines'],
+};
+
+/** "3 câu" / "3 sentences": a count of one kind. */
+function kindCount(k: ReviewKind, n: number): string {
+  if (getLang() === 'en') return `${n} ${KIND_NOUN_EN[k][n === 1 ? 0 : 1]}`;
+  return `${n} ${KIND_SHORT[k].toLowerCase()}`;
+}
+
+/** "Câu 3/4" / "Sentences 3/4": the summary's score of one kind. */
+function kindScore(k: ReviewKind, right: number, total: number): string {
+  if (getLang() === 'en') {
+    const noun = KIND_NOUN_EN[k][1];
+    return `${noun.charAt(0).toUpperCase()}${noun.slice(1)} ${right}/${total}`;
+  }
+  return `${KIND_SHORT[k]} ${right}/${total}`;
+}
+
 /** "3 câu · 3 nhóm âm · 5 cụm từ" (kinds in KIND_ORDER, empty kinds left out). */
 function kindsLine(kinds: readonly (ReviewKind | null)[]): string {
   const counts = new Map<ReviewKind, number>();
   for (const k of kinds) if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
   return KIND_ORDER.filter((k) => counts.has(k))
-    .map((k) => `${counts.get(k)} ${KIND_SHORT[k].toLowerCase()}`)
+    .map((k) => kindCount(k, counts.get(k)!))
     .join(' · ');
 }
 
@@ -122,7 +149,7 @@ const SHORTCUTS: Readonly<Record<ReviewKind, readonly Shortcut[]>> = {
 /** "Gặp lại …" after an answer. A lapsed card keeps part of its interval but is due tomorrow: say when. */
 function nextLine(prev: CardState | undefined, next: CardState, now: number): string {
   if (next.interval >= 1 && localDayDiff(now, availableAt(next)) !== next.interval) {
-    return `Gặp lại ${formatDueVi(availableAt(next), now)}`;
+    return tl`Gặp lại ${formatDueVi(availableAt(next), now)}`;
   }
   return growthLineVi(prev, next, now);
 }
@@ -235,12 +262,12 @@ export default function ReviewPage() {
 /** "Đã xếp lịch ôn…": catch-up cards (SEED_PER_DAY a day) and word cards (WORD_NEW_PER_DAY new words a day) apart. */
 function seedNoticeText(count: number, words: number): string {
   const others = Math.max(0, count - words);
-  const wordPart = `${words} từ trong các bài bạn đã học, mỗi ngày tối đa ${WORD_NEW_PER_DAY} từ mới`;
+  const wordPart = tl`${words} từ trong các bài bạn đã học, mỗi ngày tối đa ${WORD_NEW_PER_DAY} từ mới`;
   if (words > 0 && others > 0) {
-    return `Đã xếp lịch ôn cho ${others} mục bạn từng học (mỗi ngày tối đa ${SEED_PER_DAY}) và ${wordPart}.`;
+    return tl`Đã xếp lịch ôn cho ${others} mục bạn từng học (mỗi ngày tối đa ${SEED_PER_DAY}) và ${wordPart}.`;
   }
-  if (words > 0) return `Đã xếp lịch ôn cho ${wordPart}.`;
-  return `Đã xếp lịch ôn cho ${count} mục bạn từng học, mỗi ngày tối đa ${SEED_PER_DAY}.`;
+  if (words > 0) return tl`Đã xếp lịch ôn cho ${wordPart}.`;
+  return tl`Đã xếp lịch ôn cho ${count} mục bạn từng học, mỗi ngày tối đa ${SEED_PER_DAY}.`;
 }
 
 // ───────────────────────── start ─────────────────────────
@@ -265,8 +292,8 @@ function StartView({ snap, queue, onStart }: { snap: ReviewSnapshot; queue: Card
         <div className="stack-sm">
           <h2 id="rev-start-title" className="rev-h2 rev-start-title">
             {split
-              ? `${summary.dueToday} mục hôm nay`
-              : `${today ? `${summary.dueToday} mục hôm nay` : `${queue.length} mục sắp đến hạn`} · khoảng ${minutes} phút`}
+              ? tl`${summary.dueToday} mục hôm nay`
+              : tl`${today ? tl`${summary.dueToday} mục hôm nay` : tl`${queue.length} mục sắp đến hạn`} · khoảng ${minutes} phút`}
           </h2>
           <p className="meta rev-kinds">{kinds}</p>
         </div>
@@ -275,7 +302,7 @@ function StartView({ snap, queue, onStart }: { snap: ReviewSnapshot; queue: Card
             <Icon icon={Info} size={18} />
             <div>
               {summary.backlogClears || summary.heldBack === 0
-                ? `Còn ${postponed} mục đến hạn sẽ được chia sang các ngày tới cho nhẹ.`
+                ? tl`Còn ${postponed} mục đến hạn sẽ được chia sang các ngày tới cho nhẹ.`
                 : 'Bạn đang có nhiều mục tồn. Hôm nay ưu tiên ôn, tạm học ít bài mới.'}
             </div>
           </div>
@@ -334,9 +361,9 @@ function EmptyView({ snap }: { snap: ReviewSnapshot }) {
     title = 'Hôm nay bạn ôn đủ rồi';
     text =
       postponed === 0
-        ? `Còn ${wordsNow} từ mới có thể bắt đầu hôm nay nếu bạn ôn thêm, không thì để ngày mai.`
+        ? tl`Còn ${wordsNow} từ mới có thể bắt đầu hôm nay nếu bạn ôn thêm, không thì để ngày mai.`
         : summary.backlogClears || summary.heldBack === 0
-          ? `Còn ${postponed} mục sẽ được chia sang các ngày tới, để mỗi ngày không quá nặng.`
+          ? tl`Còn ${postponed} mục sẽ được chia sang các ngày tới, để mỗi ngày không quá nặng.`
           : 'Bạn đang có nhiều mục tồn. Ôn thêm một chút hôm nay sẽ đỡ hơn cho các ngày tới.';
     actions = (
       <>
@@ -352,7 +379,7 @@ function EmptyView({ snap }: { snap: ReviewSnapshot }) {
     );
   } else if (summary.reviewedToday > 0) {
     title = 'Xong phần ôn hôm nay';
-    text = `Bạn đã ôn ${summary.reviewedToday} mục.` + (next ? ` Mục tiếp theo đến hạn ${next}.` : '');
+    text = tl`Bạn đã ôn ${summary.reviewedToday} mục.` + (next ? tl` Mục tiếp theo đến hạn ${next}.` : '');
     actions = (
       <a className="btn btn-primary" href={backLink().href}>
         {backLink().label}
@@ -360,7 +387,7 @@ function EmptyView({ snap }: { snap: ReviewSnapshot }) {
     );
   } else {
     title = 'Không có gì cần ôn';
-    text = (next ? `Mục tiếp theo đến hạn ${next}. ` : '') + 'Trong lúc chờ, học thêm điều mới nhé.';
+    text = (next ? tl`Mục tiếp theo đến hạn ${next}. ` : '') + tr('Trong lúc chờ, học thêm điều mới nhé.');
     actions = (
       <a className="btn btn-primary" href={hrefFor('dictation')}>
         Chép câu mới
@@ -462,8 +489,9 @@ function SessionView({ run, now, setRun, undo, setUndo }: SessionViewProps) {
   const leftAgain = left - leftFirst;
   const leftText =
     leftFirst > 0
-      ? `${run.day > 0 ? 'Phiên này: còn' : 'Còn'} ${leftFirst} mục${leftAgain > 0 ? ` · ${leftAgain} gặp lại` : ''}`
-      : `Còn ${leftAgain} mục gặp lại`;
+      ? (run.day > 0 ? tl`Phiên này: còn ${leftFirst} mục` : tl`Còn ${leftFirst} mục`) +
+        (leftAgain > 0 ? tl` · ${leftAgain} gặp lại` : '')
+      : tl`Còn ${leftAgain} mục gặp lại`;
   const done = originalDone(state);
   const pct = state.original ? Math.round((done / state.original) * 100) : 0;
   const itemKey = `${id}:${pos}:${run.nonce}`;
@@ -652,15 +680,15 @@ function SummaryView({ run, snap, more, onMore }: { run: Run; snap: ReviewSnapsh
     sum.total === 0
       ? 'Bạn chưa ôn mục nào.'
       : sum.notYet === 0
-        ? `Bạn đã ôn ${sum.total} mục và nhớ hết.`
+        ? tl`Bạn đã ôn ${sum.total} mục và nhớ hết.`
         : sum.remembered === 0
-          ? `Bạn đã ôn ${sum.total} mục. Chúng sẽ quay lại sớm để bạn nhớ chắc hơn.`
-          : `Bạn đã ôn ${sum.total} mục: nhớ ${sum.remembered}, chưa nhớ ${sum.notYet}.`;
+          ? tl`Bạn đã ôn ${sum.total} mục. Chúng sẽ quay lại sớm để bạn nhớ chắc hơn.`
+          : tl`Bạn đã ôn ${sum.total} mục: nhớ ${sum.remembered}, chưa nhớ ${sum.notYet}.`;
   // When to come back: only once nothing more is served today (otherwise "Ôn tiếp" is the answer).
   const comeBack = [
-    summary.nextAt !== null ? `Lần ôn tiếp theo: ${formatDueVi(summary.nextAt, now)}` : '',
+    summary.nextAt !== null ? tl`Lần ôn tiếp theo: ${formatDueVi(summary.nextAt, now)}` : '',
     tomorrow && tomorrow.count > 0
-      ? `Ngày mai: ${tomorrow.count} mục · khoảng ${Math.max(1, Math.ceil(tomorrow.seconds / 60))} phút`
+      ? tl`Ngày mai: ${tomorrow.count} mục · khoảng ${Math.max(1, Math.ceil(tomorrow.seconds / 60))} phút`
       : '',
   ].filter(Boolean);
   // "Ôn tiếp" names today's remaining count (the nav badge's number) when there is one.
@@ -677,7 +705,7 @@ function SummaryView({ run, snap, more, onMore }: { run: Run; snap: ReviewSnapsh
             {kinds
               .map((k) => {
                 const r = sum.byKind[k]!;
-                return `${KIND_SHORT[k]} ${r.remembered}/${r.total}`;
+                return kindScore(k, r.remembered, r.total);
               })
               .join(' · ')}
           </p>

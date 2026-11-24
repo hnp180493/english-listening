@@ -28,6 +28,7 @@ import {
   type ReductionEntry,
   type WeakInfo,
 } from './tables';
+import { tl, tr } from '../../i18n';
 
 type BKind = 'link' | 'rlink' | 'glide' | 'flap' | 'yod' | 'place' | 'hdrop' | 'elision';
 
@@ -406,7 +407,7 @@ function analyse(text: string): DecodeResult {
         to: i,
         original: cores[i],
         spoken: f,
-        rule: `Trong '${cores[i]}', âm /t/ nằm giữa hai nguyên âm và âm tiết sau không nhấn, nên giọng Mỹ đọc thành /ɾ/ nghe gần như 'd': '${f}'.`,
+        rule: tl`Trong '${cores[i]}', âm /t/ nằm giữa hai nguyên âm và âm tiết sau không nhấn, nên giọng Mỹ đọc thành /ɾ/ nghe gần như 'd': '${f}'.`,
       });
       continue;
     }
@@ -661,47 +662,47 @@ function analyse(text: string): DecodeResult {
     let ipa: string | undefined;
     switch (ev.kind) {
       case 'link':
-        rule = `Phụ âm cuối /${cIpa(ev.c)}/ của '${L}' nối sang nguyên âm đầu của '${R}', hai từ đọc liền như một: '${spoken}'.`;
+        rule = tl`Phụ âm cuối /${cIpa(ev.c)}/ của '${L}' nối sang nguyên âm đầu của '${R}', hai từ đọc liền như một: '${spoken}'.`;
         break;
       case 'rlink':
-        rule = `Giọng Mỹ luôn phát âm /r/ cuối; /r/ của '${L}' nối thẳng sang nguyên âm của '${R}': '${spoken}'.`;
+        rule = tl`Giọng Mỹ luôn phát âm /r/ cuối; /r/ của '${L}' nối thẳng sang nguyên âm của '${R}': '${spoken}'.`;
         break;
       case 'glide':
         rule =
           ev.glide === 'y'
-            ? `'${L}' kết thúc bằng âm /i/ nên khi gặp nguyên âm của '${R}' sẽ chèn âm /j/ (y) để nối: '${spoken}'.`
-            : `'${L}' kết thúc bằng âm /u/ nên khi gặp nguyên âm của '${R}' sẽ chèn âm /w/ để nối: '${spoken}'.`;
+            ? tl`'${L}' kết thúc bằng âm /i/ nên khi gặp nguyên âm của '${R}' sẽ chèn âm /j/ (y) để nối: '${spoken}'.`
+            : tl`'${L}' kết thúc bằng âm /u/ nên khi gặp nguyên âm của '${R}' sẽ chèn âm /w/ để nối: '${spoken}'.`;
         break;
       case 'flap':
         rule =
           ev.c === 't'
-            ? `/t/ cuối '${L}' kẹp giữa hai nguyên âm khi nối sang '${R}', giọng Mỹ đọc thành âm bật nhẹ /ɾ/ nghe như 'd': '${spoken}'.`
-            : `/d/ cuối '${L}' kẹp giữa hai nguyên âm nên được bật rất nhẹ /ɾ/ và nối luôn sang '${R}': '${spoken}'.`;
+            ? tl`/t/ cuối '${L}' kẹp giữa hai nguyên âm khi nối sang '${R}', giọng Mỹ đọc thành âm bật nhẹ /ɾ/ nghe như 'd': '${spoken}'.`
+            : tl`/d/ cuối '${L}' kẹp giữa hai nguyên âm nên được bật rất nhẹ /ɾ/ và nối luôn sang '${R}': '${spoken}'.`;
         ipa = '/ɾ/';
         break;
       case 'yod': {
         const res = ev.c === 't' ? 'tʃ' : ev.c === 'd' ? 'dʒ' : ev.c === 's' ? 'ʃ' : 'ʒ';
         const tail = spoken.split('-').pop() ?? spoken;
-        rule = `Âm /${ev.c}/ cuối '${L}' gặp /j/ của '${R}' nên hòa thành /${res}/ — nghe như '${tail}'.`;
+        rule = tl`Âm /${ev.c}/ cuối '${L}' gặp /j/ của '${R}' nên hòa thành /${res}/ — nghe như '${tail}'.`;
         ipa = `/${ev.c}/ + /j/ → /${res}/`;
         break;
       }
       case 'place':
-        rule = `/n/ cuối '${L}' đứng trước âm môi /${words[b + 1][0]}/ nên môi khép sớm, /n/ biến thành /m/: '${spoken}'.`;
+        rule = tl`/n/ cuối '${L}' đứng trước âm môi /${words[b + 1][0]}/ nên môi khép sớm, /n/ biến thành /m/: '${spoken}'.`;
         ipa = '/n/ → /m/';
         break;
       case 'hdrop': {
         const h = H_FORMS[words[b + 1]];
-        rule = `'${R}' không nhấn nên mất âm /h/, phần còn lại '${h.spoken}' dính vào phụ âm cuối của '${L}': '${spoken}'.`;
+        rule = tl`'${R}' không nhấn nên mất âm /h/, phần còn lại '${h.spoken}' dính vào phụ âm cuối của '${L}': '${spoken}'.`;
         ipa = h.ipa;
         break;
       }
       case 'elision':
         rule =
           words[b] === 'and'
-            ? `'and' trước phụ âm đọc lướt thành 'ən': âm /d/ bị nuốt hẳn, nghe là '${spoken}'.`
-            : `Âm /${ev.c}/ cuối '${L}' bị kẹp giữa hai phụ âm (trước '${R}') nên gần như biến mất: '${spoken}'.` +
-              (/[^e]ed$/.test(words[b]) ? ' Đuôi -ed gần như không nghe thấy, hãy dựa vào ngữ cảnh để nhận ra thì quá khứ.' : '');
+            ? tl`'and' trước phụ âm đọc lướt thành 'ən': âm /d/ bị nuốt hẳn, nghe là '${spoken}'.`
+            : tl`Âm /${ev.c}/ cuối '${L}' bị kẹp giữa hai phụ âm (trước '${R}') nên gần như biến mất: '${spoken}'.` +
+              (/[^e]ed$/.test(words[b]) ? tr(' Đuôi -ed gần như không nghe thấy, hãy dựa vào ngữ cảnh để nhận ra thì quá khứ.') : '');
         break;
     }
     cands.push({ type: ev.type, from, to, original: orig(from, to), spoken, ipa, rule });

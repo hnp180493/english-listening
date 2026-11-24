@@ -39,6 +39,7 @@ import { Coin, Portrait } from '../art';
 import { playSfx } from '../sfx';
 import type { ActivityPanelProps } from './types';
 import './cafe.css';
+import { getLang, tl, tr } from '../../../i18n';
 
 const ITEM: Record<CafeItemId, { name: string; icon: LucideIcon }> = {
   latte: { name: 'Latte', icon: Coffee },
@@ -60,7 +61,7 @@ const NEXT_RIGHT_MS = 900;
 
 const trayText = (b: CafeBasket): string =>
   CAFE_ITEMS.filter((id) => b[id])
-    .map((id) => `${b[id]} ${ITEM[id].name.toLowerCase()}`)
+    .map((id) => (getLang() === 'en' ? `${b[id]} × ${tr(ITEM[id].name).toLowerCase()}` : `${b[id]} ${ITEM[id].name.toLowerCase()}`))
     .join(', ');
 
 /** Say an order in its customer's voice: the shipped clip when there is one, else the browser voice (never paid). */
@@ -269,10 +270,8 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd, onOpen
           <span className="tabular">{shift.score}</span> điểm
         </p>
         <ul className="town-cafe-facts">
-          <li>
-            Giao đúng {right}/{shift.lines.length} khách · chuỗi dài nhất {shift.bestCombo}
-          </li>
-          {!result.record && bestBefore > 0 && toBest > 0 && <li>Còn {toBest} điểm nữa là phá kỷ lục {bestBefore}</li>}
+          <li>{tl`Giao đúng ${right}/${shift.lines.length} khách · chuỗi dài nhất ${shift.bestCombo}`}</li>
+          {!result.record && bestBefore > 0 && toBest > 0 && <li>{tl`Còn ${toBest} điểm nữa là phá kỷ lục ${bestBefore}`}</li>}
           {result.xu > 0 && (
             <li>
               <Coin size={15} /> +{result.xu} xu{result.capped ? ' (đã đủ xu của quầy hôm nay)' : ''}
@@ -284,7 +283,7 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd, onOpen
         </ul>
         {missed.length > 0 && (
           <div className="town-cafe-missed">
-            <h4 className="town-cafe-sub">Nghe lại {missed.length} khách bạn giao chưa đúng</h4>
+            <h4 className="town-cafe-sub">{tl`Nghe lại ${missed.length} khách bạn giao chưa đúng`}</h4>
             <ul className="town-cafe-missed-list">
               {missed.map((o) => (
                 <MissedOrder key={o.id} order={o} />
@@ -316,7 +315,7 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd, onOpen
     return (
       <div className="town-cafe">
         <div className="town-cafe-bar">
-          <span className="town-cafe-hearts" role="img" aria-label={`Còn ${shift.hearts} lần sai`}>
+          <span className="town-cafe-hearts" role="img" aria-label={tl`Còn ${shift.hearts} lần sai`}>
             {[0, 1, 2].map((i) => (
               <Icon key={i} icon={Heart} size={16} className={i < shift.hearts ? 'is-on' : ''} fill={i < shift.hearts ? 'currentColor' : 'none'} />
             ))}
@@ -337,7 +336,7 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd, onOpen
           <div className="town-cafe-guest-body">
             <span className="town-cafe-guest-name">{who}</span>
             {verdict ? (
-              <span className={'town-cafe-verdict' + (verdict.right ? ' is-ok' : ' is-bad')}>{verdict.right ? `Đúng rồi! +${verdict.points}` : verdict.late ? 'Khách chờ lâu quá, đi mất rồi' : 'Chưa đúng món'}</span>
+              <span className={'town-cafe-verdict' + (verdict.right ? ' is-ok' : ' is-bad')}>{verdict.right ? tl`Đúng rồi! +${verdict.points}` : verdict.late ? 'Khách chờ lâu quá, đi mất rồi' : 'Chưa đúng món'}</span>
             ) : (
               // the patience: a bar that empties from the customer's first word (a new one for each customer)
               <span key={order.id} className="town-cafe-patience" role="img" aria-label="Khách đang chờ">
@@ -383,13 +382,13 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd, onOpen
                 const have = tray[id] ?? 0;
                 return (
                   <li key={id}>
-                    <button type="button" className={'town-cafe-tile' + (have ? ' is-on' : '')} onClick={() => put(id, true)} disabled={!!verdict} aria-label={`${ITEM[id].name}${have ? `, đang có ${have}` : ''}`}>
+                    <button type="button" className={'town-cafe-tile' + (have ? ' is-on' : '')} onClick={() => put(id, true)} disabled={!!verdict} aria-label={`${tr(ITEM[id].name)}${have ? tl`, đang có ${have}` : ''}`}>
                       <Icon icon={ITEM[id].icon} size={20} />
                       <span className="town-cafe-tile-name">{ITEM[id].name}</span>
                       {have > 0 && <span className="town-cafe-tile-n tabular">{have}</span>}
                     </button>
                     {have > 0 && !verdict && (
-                      <button type="button" className="town-cafe-less" onClick={() => put(id, false)} aria-label={`Bớt một ${ITEM[id].name}`}>
+                      <button type="button" className="town-cafe-less" onClick={() => put(id, false)} aria-label={tl`Bớt một ${ITEM[id].name}`}>
                         −
                       </button>
                     )}
@@ -416,13 +415,13 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd, onOpen
         <ul className="town-cafe-facts">
           {best > 0 && (
             <li>
-              Kỷ lục của bạn: <span className="tabular">{best}</span> điểm{bestToday > 0 ? ` · hôm nay ${bestToday}` : ''}
+              Kỷ lục của bạn: <span className="tabular">{best}</span> điểm{bestToday > 0 ? tl` · hôm nay ${bestToday}` : ''}
             </li>
           )}
           {streak >= 2 && <li>{streak} ngày liền đứng quầy</li>}
         </ul>
       )}
-      <p className="town-build-hint">{xuLeft > 0 ? `Hôm nay quầy còn trả tới ${xuLeft} xu.` : 'Quầy đã trả đủ xu hôm nay; chơi tiếp vẫn tính điểm và kỷ lục.'}</p>
+      <p className="town-build-hint">{xuLeft > 0 ? tl`Hôm nay quầy còn trả tới ${xuLeft} xu.` : 'Quầy đã trả đủ xu hôm nay; chơi tiếp vẫn tính điểm và kỷ lục.'}</p>
       <div className="town-talk-foot">
         <button type="button" className="btn btn-primary" onClick={open} autoFocus>
           <Icon icon={Coffee} size={16} />

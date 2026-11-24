@@ -48,6 +48,7 @@ import FocusPicker from './FocusPicker';
 import { DRILL_SHORTCUTS } from './labels';
 import { computeDrillSummary, EXTRA_NEW, extraAfterLearnMore, newCardQuota } from './summary';
 import './drill.css';
+import { getLang, tl } from '../../i18n';
 
 /** Cards in a learning step (again/hard) come back within the same session. */
 const LEARN_AHEAD_MS = 20 * 60_000;
@@ -69,7 +70,7 @@ function queueFor(chunks: readonly Chunk[], store: DrillStore, now: number, held
 
 function formatWhen(ts: number): string {
   try {
-    return new Date(ts).toLocaleString('vi-VN', {
+    return new Date(ts).toLocaleString(getLang() === 'en' ? 'en-US' : 'vi-VN', {
       hour: '2-digit',
       minute: '2-digit',
       day: '2-digit',
@@ -339,15 +340,15 @@ function DrillSession({ focus }: { focus: Phenomenon | null }) {
             <IconTile icon={Check} tint="var(--ok)" size="lg" className="drill-done-icon" />
             <h2>Xong bài hôm nay!</h2>
             <p className="muted">
-              {studied > 0 ? `Bạn đã học ${studied} cụm từ hôm nay. ` : ''}
+              {studied > 0 ? tl`Bạn đã học ${studied} cụm từ hôm nay. ` : ''}
               {nextDueTs !== null
-                ? `Thẻ tiếp theo đến hạn sau ${formatInterval(nextDueTs - now)} (${formatWhen(nextDueTs)}).`
+                ? tl`Thẻ tiếp theo đến hạn sau ${formatInterval(nextDueTs - now)} (${formatWhen(nextDueTs)}).`
                 : 'Chưa có thẻ nào cần ôn.'}
             </p>
             {unseenTotal > 0 ? (
               <button type="button" className="btn btn-primary" onClick={learnMore}>
                 <Icon icon={Plus} size={16} />
-                Học thêm {Math.min(EXTRA_NEW, unseenTotal)} thẻ mới
+                {tl`Học thêm ${Math.min(EXTRA_NEW, unseenTotal)} thẻ mới`}
               </button>
             ) : (
               <p className="drill-done-all">Bạn đã bắt đầu học tất cả {chunks.length} cụm từ.</p>
@@ -375,7 +376,7 @@ function DrillSession({ focus }: { focus: Phenomenon | null }) {
           // The session size means nothing next to the browse list.
           view === 'study' &&
           cardsToday > 0 && (
-            <span className="badge drill-today" title={`${today.due} cần ôn · ${today.newAvailable} thẻ mới`}>
+            <span className="badge drill-today" title={tl`${today.due} cần ôn · ${today.newAvailable} thẻ mới`}>
               {cardsToday} thẻ
             </span>
           )

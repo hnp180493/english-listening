@@ -2,6 +2,7 @@
 // (DST-safe), never `+ k * DAY`. Imports only core/stats (no cycle with core/srs).
 
 import { localDay } from '../stats';
+import { tl } from '../../i18n';
 
 export { localDay };
 
@@ -30,9 +31,9 @@ export function localDayDiff(from: number, to: number): number {
 /** "3 ngày", "2 tuần", "4 tháng" (at least 1 in each unit). */
 export function formatDaysVi(days: number): string {
   const d = Math.max(1, Math.round(days));
-  if (d <= 6) return `${d} ngày`;
-  if (d <= 59) return `${Math.max(1, Math.round(d / 7))} tuần`;
-  return `${Math.max(1, Math.round(d / 30))} tháng`;
+  if (d <= 6) return tl`${d} ngày`;
+  if (d <= 59) return tl`${Math.max(1, Math.round(d / 7))} tuần`;
+  return tl`${Math.max(1, Math.round(d / 30))} tháng`;
 }
 
 /**
@@ -41,11 +42,11 @@ export function formatDaysVi(days: number): string {
  */
 export function formatDueVi(at: number, now: number): string {
   if (at <= now) return 'bây giờ';
-  if (at - now < 60 * MINUTE) return `sau ${Math.max(1, Math.round((at - now) / MINUTE))} phút`;
+  if (at - now < 60 * MINUTE) return tl`sau ${Math.max(1, Math.round((at - now) / MINUTE))} phút`;
   if (localDay(at) === localDay(now)) {
     const d = new Date(at);
-    return `lúc ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return tl`lúc ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   }
   const days = localDayDiff(now, at);
-  return days === 1 ? 'ngày mai' : `sau ${formatDaysVi(days)}`;
+  return days === 1 ? 'ngày mai' : tl`sau ${formatDaysVi(days)}`;
 }

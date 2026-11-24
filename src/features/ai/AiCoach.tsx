@@ -6,6 +6,7 @@ import { aiJson, useAiStatus } from '../../core/ai';
 import { aiCacheKey, buildCoachInput, buildCoachPrompt, localDayKey, sanitizeCoach, type CoachComment } from '../../core/aiTasks';
 import type { CheckupResult } from '../../core/benchmark';
 import type { ProgressReport } from '../../core/progressReport';
+import { getLang } from '../../i18n';
 import AiAction from './AiAction';
 import { UNUSABLE_ANSWER } from './useAiTask';
 
@@ -47,7 +48,8 @@ export default function AiCoach({
   const status = useAiStatus();
   const input = useMemo(() => buildCoachInput(report, latest?.byPhenomenon ?? null, checkups), [report, latest, checkups]);
   const provider = status.text ? `${status.text.id}/${status.text.model}` : '';
-  const key = aiCacheKey('coach', { provider, day: localDayKey(report.generatedAt), input });
+  // the comment is written in the interface language: an English one is cached apart (Vietnamese keys unchanged)
+  const key = aiCacheKey('coach', { provider, day: localDayKey(report.generatedAt), input, lang: getLang() === 'en' ? 'en' : undefined });
 
   const run = async (signal: AbortSignal): Promise<CoachComment> => {
     const p = buildCoachPrompt(input);

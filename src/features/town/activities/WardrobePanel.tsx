@@ -16,6 +16,7 @@ import { TierGem } from './eggs/TierGem';
 import { lockedTitleCount, NONE_LABEL, TITLE_FROM, WARDROBE_TABS, type WardrobeTab } from './wardrobe/wardrobeModel';
 import './eggs/eggs.css';
 import './wardrobe/wardrobe.css';
+import { tl, tr } from '../../../i18n';
 
 export default function WardrobePanel({ sound }: ActivityPanelProps) {
   const game = useTownGame();
@@ -61,7 +62,7 @@ export default function WardrobePanel({ sound }: ActivityPanelProps) {
             {body}
           </button>
         ) : (
-          <div className="town-wd-tile is-locked" aria-label={`Chưa có: một món ${RARITY[item.tier].name.toLowerCase()}, ra từ trứng`}>
+          <div className="town-wd-tile is-locked" aria-label={tl`Chưa có: một món ${tr(RARITY[item.tier].name).toLowerCase()}, ra từ trứng`}>
             {body}
           </div>
         )}
@@ -87,7 +88,7 @@ export default function WardrobePanel({ sound }: ActivityPanelProps) {
         block
         value={tab}
         onChange={setTab}
-        options={WARDROBE_TABS.map((t) => ({ value: t.id, label: t.label, title: `${t.label}: có ${counts[t.id]}` }))}
+        options={WARDROBE_TABS.map((t) => ({ value: t.id, label: t.label, title: tl`${t.label}: có ${counts[t.id]}` }))}
       />
 
       {failed && <p className="town-wd-hint">Món này chưa có trên máy này (có thể chưa đồng bộ xong).</p>}

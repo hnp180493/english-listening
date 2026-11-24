@@ -581,6 +581,49 @@ checked: by a person, walking the lanes by hand, on a real phone or a weak lapto
 whether the open meadows and fields read as calm or as empty, and whether passers-by spending part of their walk
 in the countryside leaves the town feeling emptier.
 
+**The coast and the mountains** (2026-11-24; `data/townWorld.ts`, `three/scene/backdrop.ts`, `three/scene/range.ts`).
+The owner: "được thì mở rộng bản đồ đi, có biển/núi non này nọ cũng được". The island grew again, from 72 × 72 to 84 × 84
+tiles, but only on its two near sides (x and y 72..83): nothing moved, so every coordinate, test and stored thing of
+before stays as it was. The new band is a coast: grass, then dunes with palms ('p', a palm on sand), a sandy beach (':'
+sand, walkable like grass), then the sea ('~' tiles at the map's edge). Its parts:
+- **Bãi biển** (y 72..83): the footpath goes on down from the hills' lane to a beach promenade (y 74) that runs from the
+  island's west edge (a coast road out into the mountains' foot) east to the cape; beach huts in the dunes, umbrellas
+  with loungers on the sand, benches looking out to sea, a lantern and a signpost where the footpath comes down.
+- **Bến cảng** (x 72..83): the main road goes on east past the old bus stop to a little quay (x 78..80, y 50..54) with a
+  fish stall and two lanterns, and a wooden jetty (seen only) out over the sea with boats bobbing round it; a coast lane
+  (x 74) joins it to the promenade, a lane from the east lane's bend (y 30) to the east beach.
+- **Mũi hải đăng** (the near corner): a rocky cape on a low knoll with the lighthouse (its lamp lit at night), a bench,
+  a few rocks.
+- **Round the island, seen only** (`backdrop.ts`): the sea out to the horizon (a floor that gets deeper and darker under
+  the town's own water material, in fine cells near the island and four wide planes beyond), and a range of mountains
+  behind the two far sides (x < 0 and y < 0): foothills, pine forest, grey rock, snow above about 10, peaks up to about 17,
+  down to the coast at both near ends; two passes where the farm lane (north) and the shore walk (west) leave the map,
+  and the falls that come over a cliff at row 41 into a ravine and on by a short stream (x 0..2, y 40..41) into the big
+  lake. `mountainHeight` (`range.ts`, pure) is shared by the 3D range and the map.
+
+Everyday life uses the coast: the ways in and out (`ends`) are the harbour (by boat), the two passes and the coast road;
+passers-by walk past six more spots there; benches, three chat spots, an angler where the jetty starts, a customer at the
+fish stall. Three more districts (18): Bãi biển, Bến cảng, Mũi hải đăng (English in `i18n/en/town/data-world.ts`).
+
+How it was made safe: the shore curve is made from the map's water plus the sea out past the near edges
+(`shore.ts seaShore`, `TownWorld.coast`), so the coast's curve never pinches against the map's edge; spits, one-tile
+strips and the cape's tip were trimmed until a body standing against the water always stands on the drawn land (the
+shore test); no grassy rim along the sea (the island's earth rim is drawn only along land); open sea far from any shore
+is one cell a tile. The sand, the palms, the new scenery (lighthouse, hut, umbrella, boulder, boat, jetty), the sea and
+the mountains (cells of colour by height and little snow-capped peaks on the full map) are on the map too
+(`drawMap.ts`); the earth cliff under the map's island is gone on a world with a coast.
+
+What it costs: walking, 59–111 draw calls and 0.31–0.51 M triangles (the same as before; the range is one mesh of about
+20,000 triangles, the sea a few hundred); the overview of everything 738–756 calls and 1.9–2.1 M triangles; 60 fps in
+every view at 1600 × 900 and 412 × 892 (2× pixel ratio), day and night, on the owner's laptop GPU in headless Edge. The
+ground takes longer to make (about 150 ms warm in Node against 84–97 ms before); the backdrop (50–75 ms) is made in an
+idle moment after the town's first frame and its shaders compiled in the background before it is shown, so it is not in
+the long task that brings the town up. A reload's longest task in the production build measured 305–369 ms, against
+264–377 ms for the build of `main` before the coast on the same machine the same hour (the machine was slower that day
+than when 125–130 ms was measured; the numbers are noisy). Not checked: by a person, on a real phone (the owner's
+OnePlus), the falls and the lighthouse's lamp moving, whether the mountains read well from the town (from the usual
+camera they show only near the far edges and in the overview), the palms and models close up by a person's eye.
+
 **Toàn màn hình.** On a phone (`(max-width: 720px) and (pointer: coarse)`) the town opens in full screen: the owner,
 2026-11-24, on a OnePlus: "giao diện điện thoại của game thị trấn lỏ vậy, có cách nào bật full màn hình không?" (the
 app bar, the page title and the tab bar took a third of the screen). The browser allows its real full screen only from a
@@ -715,6 +758,26 @@ read), one-shots on top (wave, nod, head shake, cheer: the nod bows and the shak
 read at the town's zoom), the head's look-at, an eased turn with a lean into it, hair on springs. The fishing rod is
 long and dark enough to read against the water (0.9 design units, a thicker line and bobber), and an angler stands
 turned up to half a radian toward side-on to the viewer.
+
+**Drawn portraits** (2026-11-24). The owner found the 3D people "lỏ" next to anime portraits and asked for avatars
+worth dating; an attempt to make the 3D people anime in code (anime eyes, locks of hair, line art) came out worse than
+the cute original and was put back the same day (the owner: "nhân vật lúc đầu còn dễ thương hơn"). What stayed:
+- the residents' avatars can be drawn pictures: the owner makes them in a free AI chat (Gemini or ChatGPT) from
+  `docs/portrait-prompts.md` and `docs/portraits/<name>.md` (one ready text per resident; a smiling and a sad version
+  in the same chat), drops
+  them in `portraits-src/` (not in git) and runs `npm run portraits` (`scripts/portraits.mjs`: headless Edge crops each
+  to a square, 512 px WebP in `public/portraits/<placeId>.webp` / `-happy.webp` / `-sad.webp`, and writes
+  `src/features/town/portraitFiles.ts` with a hash per file). `Portrait` (`art.tsx`, mood `sad` after a wrong answer
+  in a conversation or an episode, drawn pictures only) shows the picture when there is
+  one (the smiling one falls back to the plain one; small sizes scale in on the face), else the 3D portrait as before;
+  a picture that does not load falls back too. The player's own character always uses the 3D portrait;
+- "Hẹn hò & gia đình" lists the five one can court as picture cards (two a row), a resident's page there opens with a
+  132 px picture, the creator's preview is up to 240 px, a conversation's picture 108 px on a wide screen (60 on a
+  phone);
+- a model put in the studio only to compile the portrait shaders is never in a picture (`userData.warmOnly`,
+  `offscreen.ts paint`): on a phone it stood in front of the first portraits drawn;
+- `three/chars` is its own chunk (`town-people`, about 80 kB, loaded with the town page), so TownPage stays under the
+  500 kB warning (491 kB with the other sessions' work in the tree).
 
 **Planted feet** (rebuilt 2026-11-21 after a frame-by-frame critique measured the feet skating at 0.55–0.61 of the
 body's speed; since "The cosy gait" below, planted only while the leg reaches: a stroll, not a brisk walk): the person is told where the body stands each frame (`Animator.placeAt`); a foot on the ground stays

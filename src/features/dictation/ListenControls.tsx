@@ -3,6 +3,7 @@ import { Icon } from '../../components/Icon';
 import { PENDING_ARIA, PENDING_LABEL } from '../../components/pendingLabel';
 import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_TITLE, CONNECTED_SLOW_TITLE, CONNECTED_TITLE } from '../../core/playback';
 import type { Player } from './usePlayer';
+import { tl } from '../../i18n';
 
 /**
  * The three listen buttons (normal / slow / chunks) + the chunk progress dots, in an inset panel.
@@ -99,7 +100,7 @@ export function CarefulListen({ player }: { player: Player }) {
         aria-pressed={on}
         aria-busy={(pending && on) || undefined}
         aria-label={on ? undefined : CAREFUL_ARIA}
-        title={`${CAREFUL_TITLE}, chậm: so với cách nói nhanh ở trên`}
+        title={tl`${CAREFUL_TITLE}, chậm: so với cách nói nhanh ở trên`}
       >
         {on ? (
           pending ? (

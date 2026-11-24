@@ -7,6 +7,7 @@ import { hrefFor } from '../../core/nav';
 import { loadStats } from '../../core/stats';
 import { availableCourses, LESSONS, lessonsOf } from '../../data/lessons';
 import { courseProgress, recommendNext } from './logic';
+import { tl } from '../../i18n';
 
 /** Neutral lead icon of each course row (no colour: docs/design-system.md, list row anatomy). */
 const COURSE_ICON: Record<CourseId, LucideIcon> = {
@@ -72,8 +73,8 @@ export default function CourseList({ missing }: { missing?: Missing }) {
             const next = isActive ? recommendNext(lessons, progress) : null;
             const minutes = lessons.reduce((n, l) => n + (l.minutes > 0 ? l.minutes : 0), 0);
             const meta = started
-              ? `${completed}/${total} bài`
-              : [`${total} bài`, minutes > 0 ? `khoảng ${minutes} phút` : null].filter(Boolean).join(' · ');
+              ? tl`${completed}/${total} bài`
+              : [tl`${total} bài`, minutes > 0 ? tl`khoảng ${minutes} phút` : null].filter(Boolean).join(' · ');
             return (
               <li key={c.id}>
                 <div className={'list-row lessons-course' + (isActive ? ' is-next' : '')}>
@@ -108,7 +109,7 @@ export default function CourseList({ missing }: { missing?: Missing }) {
                       <a
                         className="btn btn-primary btn-sm lessons-course-cta"
                         href={hrefFor('lessons', { id: next.id })}
-                        aria-label={`${startedAny ? 'Học tiếp' : 'Bắt đầu'}: Bài ${next.order}, ${next.title}`}
+                        aria-label={tl`${startedAny ? 'Học tiếp' : 'Bắt đầu'}: Bài ${next.order}, ${next.title}`}
                       >
                         {startedAny ? 'Học tiếp' : 'Bắt đầu'}
                       </a>

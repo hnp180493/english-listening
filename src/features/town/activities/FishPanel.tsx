@@ -47,6 +47,7 @@ import { TierGem } from './fish/TierGem';
 import { useFishVoice } from './fish/useFishVoice';
 import type { ActivityPanelProps } from './types';
 import './fish/fish.css';
+import { tl, tr } from '../../../i18n';
 
 type Tab = 'fish' | 'album';
 
@@ -163,7 +164,7 @@ export default function FishPanel({ onReward, sound }: ActivityPanelProps) {
       if (r.celebrations.length > 0) clearTownCelebrations(r.celebrations.map((x) => x.key));
       if (r.outcome.caught) {
         playSfx(r.newSpecies || r.outcome.firstListen ? 'first' : 'right', soundRef.current);
-        if (r.earned > 0) rewardRef.current({ label: `Câu được ${c.species.name}` + (r.newSpecies ? ' (loài mới)' : ''), xu: r.earned });
+        if (r.earned > 0) rewardRef.current({ label: tl`Câu được ${c.species.name}` + (r.newSpecies ? tr(' (loài mới)') : ''), xu: r.earned });
       } else if (answer.plays > 0) playSfx('wrong', soundRef.current);
     },
     [voiceStop],
@@ -336,13 +337,13 @@ export default function FishPanel({ onReward, sound }: ActivityPanelProps) {
   const worth = cast ? Math.min(catchXuNow(cast.xu, Math.max(1, state.plays)), xuLeft) : 0;
   const replaysLeft = cast ? playsLeft(state, cast.maxPlays) : 0;
   const afterReplay = cast ? Math.min(xuAfterReplay(cast.xu, state.plays), xuLeft) : 0;
-  const worthNote = state.plays > 1 ? 'đã nghe lại' : afterReplay < worth && replaysLeft > 0 ? `nghe lại chỉ còn +${afterReplay}` : '';
+  const worthNote = state.plays > 1 ? 'đã nghe lại' : afterReplay < worth && replaysLeft > 0 ? tl`nghe lại chỉ còn +${afterReplay}` : '';
   const ask = cast?.item.ask === 'meaning' ? 'Câu cá vừa nói nghĩa là gì?' : 'Cá vừa nói gì?';
 
   let status = '';
   if (phase === 'idle') status = '';
   else if (phase === 'waiting') status = 'Chờ cá cắn câu…';
-  else if (phase === 'bite' || (phase === 'listening' && !shown)) status = speaking ? 'Cá đang nói…' : voice.pending ? 'Đang tạo giọng…' : `Cá ${tierName.toLowerCase()} cắn câu!`;
+  else if (phase === 'bite' || (phase === 'listening' && !shown)) status = speaking ? 'Cá đang nói…' : voice.pending ? 'Đang tạo giọng…' : tl`Cá ${tr(tierName).toLowerCase()} cắn câu!`;
   else if (phase === 'listening') status = speaking ? 'Cá đang nói lại…' : ask;
 
   const lowTime = clockOn && left <= 2500;
@@ -409,7 +410,7 @@ export default function FishPanel({ onReward, sound }: ActivityPanelProps) {
             <div className="town-fish-start">
               <p className="town-fish-lead">
                 {streak > 0
-                  ? `Đang câu được ${streak} con liên tiếp: cá hiếm hay cắn hơn.`
+                  ? tl`Đang câu được ${streak} con liên tiếp: cá hiếm hay cắn hơn.`
                   : 'Thả câu, chờ cá cắn, rồi nghe nó nói. Chọn đúng trước khi dây đứt là câu được.'}
               </p>
               <button type="button" className="btn btn-primary town-fish-cta" onClick={doCast} disabled={!voice.canSpeak} aria-keyshortcuts="Space">
@@ -441,7 +442,7 @@ export default function FishPanel({ onReward, sound }: ActivityPanelProps) {
               {cast && shown && (
                 <>
                   <div ref={clockRef} className={'town-fish-clock' + (lowTime ? ' is-low' : '')}>
-                    <div className="town-fish-time" role="timer" aria-label={`Còn ${secondsVi(left)}`}>
+                    <div className="town-fish-time" role="timer" aria-label={tl`Còn ${secondsVi(left)}`}>
                       <span style={{ transform: `scaleX(${frac})` }} />
                     </div>
                     <span className="town-fish-secs tabular" aria-hidden="true">
@@ -456,10 +457,10 @@ export default function FishPanel({ onReward, sound }: ActivityPanelProps) {
                       onClick={replay}
                       disabled={!canReplay(state, cast.maxPlays)}
                       aria-keyshortcuts="R"
-                      title={`${CONNECTED_TITLE}. Đồng hồ vẫn chạy khi nghe lại`}
+                      title={tl`${CONNECTED_TITLE}. Đồng hồ vẫn chạy khi nghe lại`}
                     >
                       <Icon icon={RotateCcw} size={15} />
-                      {replaysLeft > 0 ? `Nghe lại (còn ${replaysLeft})` : 'Hết lượt nghe lại'}
+                      {replaysLeft > 0 ? tl`Nghe lại (còn ${replaysLeft})` : 'Hết lượt nghe lại'}
                     </button>
                     {xuLeft > 0 && (
                       <span className={'town-fish-worth' + (state.plays > 1 ? ' is-halved' : '')}>
@@ -481,7 +482,7 @@ export default function FishPanel({ onReward, sound }: ActivityPanelProps) {
                 </span>
                 <div className="town-fish-verdict-text">
                   <p className="town-fish-verdict-title">
-                    {caught ? `Câu được ${cast.species.name}!` : state.timedOut || result.outcome.reason === 'slow' ? 'Dây đứt: hết giờ rồi' : 'Cá sổng mất rồi'}
+                    {caught ? tl`Câu được ${cast.species.name}!` : state.timedOut || result.outcome.reason === 'slow' ? 'Dây đứt: hết giờ rồi' : 'Cá sổng mất rồi'}
                     {result.newSpecies && <span className="town-fish-new">Loài mới!</span>}
                   </p>
                   <p className="town-fish-verdict-sub">
@@ -490,12 +491,13 @@ export default function FishPanel({ onReward, sound }: ActivityPanelProps) {
                       <>
                         {tierName} · trong {secondsVi(result.outcome.ms)}
                         {result.outcome.firstListen && ' · nghe 1 lần'}
-                        {result.streak > 1 && ` · chuỗi ${result.streak}`}
+                        {result.streak > 1 && tl` · chuỗi ${result.streak}`}
                         {!result.newSpecies && result.record && result.record.caught > 1 && result.record.bestMs === result.outcome.ms && ' · nhanh nhất từ trước tới giờ'}
                       </>
                     ) : (
                       <>
-                        Một con {cast.species.name} ({tierName.toLowerCase()}).{lostStreak > 1 && ` Chuỗi ${lostStreak} con dừng ở đây.`}
+                        {tl`Một con ${cast.species.name} (${tr(tierName).toLowerCase()}).`}
+                        {lostStreak > 1 && tl` Chuỗi ${lostStreak} con dừng ở đây.`}
                       </>
                     )}
                   </p>
@@ -530,7 +532,7 @@ export default function FishPanel({ onReward, sound }: ActivityPanelProps) {
                         onClick={() => (voice.playing === 'careful' ? voice.stop() : void voice.play('careful'))}
                         aria-pressed={voice.playing === 'careful'}
                         aria-label={voice.playing === 'careful' ? undefined : CAREFUL_ARIA}
-                        title={`${CAREFUL_TITLE}, chậm: so với cách nói nhanh`}
+                        title={tl`${CAREFUL_TITLE}, chậm: so với cách nói nhanh`}
                       >
                         <Icon icon={Turtle} size={15} />
                         {voice.playing === 'careful' ? (voice.pending ? PENDING_LABEL : 'Dừng') : CAREFUL_LABEL}

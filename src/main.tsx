@@ -8,6 +8,8 @@ import { reloadReview } from './core/review/api';
 import { getSettings, reloadSettings } from './core/settings';
 import { reloadStats } from './core/stats';
 import { applyTheme } from './core/theme';
+import { i18nMisses } from './i18n';
+import { applyLang } from './i18n/load';
 import App from './App';
 import RootBoundary from './components/RootBoundary';
 
@@ -36,6 +38,12 @@ async function boot() {
   safely('stats', reloadStats);
   safely('review', reloadReview);
   safely('theme', () => applyTheme(getSettings().theme));
+  // English mode: its dictionaries load before the first render (a failed load leaves the texts Vietnamese).
+  try {
+    await applyLang(getSettings().lang);
+  } catch {
+    // the interface stays Vietnamese
+  }
 
   const root = document.getElementById('root');
   if (root) {
@@ -58,6 +66,9 @@ async function boot() {
 }
 
 void boot();
+
+// Development: the Vietnamese texts English mode showed untranslated, for the console (docs/i18n.md).
+if (import.meta.env.DEV) (window as unknown as { i18nMisses: typeof i18nMisses }).i18nMisses = i18nMisses;
 
 // Offline support: only in production builds (the dev server serves modules that must not be cached).
 // Skipped for the portable single-file build opened from disk (file://), where service workers cannot run.

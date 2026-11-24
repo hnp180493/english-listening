@@ -10,6 +10,7 @@ import { Coin } from './art';
 /** The icon of each activity in the "Chơi" menu. */
 const ACTIVITY_ICONS: Readonly<Record<ActivityId, typeof Fish>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee, case: Search, delivery: Package };
 import { levelLabel, taskCount, xu } from './shellModel';
+import { getLang, tl } from '../../i18n';
 
 /** A number that counts towards its new value instead of jumping (instant under reduced motion). */
 function useCountTo(value: number, delayMs = 420, durationMs = 700): number {
@@ -84,7 +85,7 @@ export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, 
               <span className="sr-only"> ngày liên tiếp</span>
             </span>
           )}
-          <span ref={xuRef} className={'town-pill town-xu' + (moving ? ' is-moving' : '')} role="img" aria-label={`Bạn có ${xu(balance)}`}>
+          <span ref={xuRef} className={'town-pill town-xu' + (moving ? ' is-moving' : '')} role="img" aria-label={tl`Bạn có ${xu(balance)}`}>
             <Coin size={18} />
             <span className="tabular" aria-hidden="true">
               {shown}
@@ -143,7 +144,7 @@ export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, 
                 )}
               </>
             }
-            triggerLabel={`Việc hôm nay${tasksDone > 0 ? `, xong ${tasksDone} trên ${tasks.length}` : ''}`}
+            triggerLabel={tl`Việc hôm nay${tasksDone > 0 ? tl`, xong ${tasksDone} trên ${tasks.length}` : ''}`}
             title="Việc hôm nay"
           >
             <ul className="town-task-list">
@@ -200,7 +201,8 @@ export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, 
             type="button"
             className="town-pill town-hud-btn town-hud-icon"
             onClick={onFull}
-            aria-label={full ? 'Thu nhỏ' : 'Toàn màn hình'}
+            // 'Thu nhỏ' is "Zoom out" on the map: here it leaves full screen
+            aria-label={full ? (getLang() === 'en' ? 'Exit full screen' : 'Thu nhỏ') : 'Toàn màn hình'}
             title={full ? 'Thu nhỏ (Esc)' : 'Toàn màn hình'}
           >
             <Icon icon={full ? Minimize2 : Maximize2} size={17} />

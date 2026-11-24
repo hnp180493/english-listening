@@ -1,3 +1,4 @@
+import { tl } from '../i18n';
 // Microphone input: speech recognition (Web Speech API) and raw audio recording.
 //
 // - Speech recognition exists in Chrome / Edge / Safari (prefixed "webkit"); NOT in Firefox.
@@ -238,7 +239,7 @@ export function recognitionErrorInfo(code: string): SpeechErrorInfo {
     case 'aborted':
       return { code, kind: 'ignore', message: 'Đã dừng nhận dạng giọng nói.' };
     case 'not-allowed':
-      return { code, kind: 'permission', message: `Cần cho phép dùng micro để nhận dạng giọng nói. ${PERMISSION_HELP}` };
+      return { code, kind: 'permission', message: tl`Cần cho phép dùng micro để nhận dạng giọng nói. ${PERMISSION_HELP}` };
     case 'service-not-allowed':
       return {
         code,
@@ -275,7 +276,7 @@ export function recognitionErrorInfo(code: string): SpeechErrorInfo {
     case 'start-failed':
       return { code, kind: 'retry', message: 'Không khởi động được nhận dạng giọng nói. Đợi một chút rồi thử lại.' };
     default:
-      return { code, kind: 'retry', message: `Lỗi nhận dạng giọng nói (${code}). Hãy thử lại.` };
+      return { code, kind: 'retry', message: tl`Lỗi nhận dạng giọng nói (${code}). Hãy thử lại.` };
   }
 }
 
@@ -295,7 +296,7 @@ export function micErrorInfo(err: unknown): MicErrorInfo {
   switch (name) {
     case 'NotAllowedError':
     case 'PermissionDeniedError':
-      return { kind: 'permission', message: `Bạn chưa cho phép dùng micro. ${PERMISSION_HELP}` };
+      return { kind: 'permission', message: tl`Bạn chưa cho phép dùng micro. ${PERMISSION_HELP}` };
     case 'SecurityError':
       return {
         kind: 'insecure',

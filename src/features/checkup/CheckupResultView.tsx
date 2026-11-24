@@ -9,10 +9,14 @@ import type { BenchmarkForm } from '../../data/benchmarkTypes';
 import AiExplain from '../ai/AiExplain';
 import { safeDecode } from '../dictation/decodeCache';
 import DiffView from '../dictation/DiffView';
-import { comparisonFor, comparisonSummary, dateVi, durationVi, phenomenonRows, weakestPhenomenon } from './checkupModel';
+import { comparisonFor, comparisonSummary, dateVi, dayMonthVi, durationVi, phenomenonRows, weakestPhenomenon } from './checkupModel';
 import { useCheckupAudio, type CheckupAudio } from './useCheckupAudio';
+import { tl, tr } from '../../i18n';
 
-/** "Mất âm H" → "mất âm H" (inside "Luyện …"); "T bật (giọng Mỹ)" keeps its capital letter. */
+/**
+ * "Mất âm H" → "mất âm H" (inside "Luyện …"); "T bật (giọng Mỹ)" keeps its capital letter. Called with the label
+ * already translated: "Linking" → "Practice linking", "H-dropping" keeps its capital.
+ */
 function practiceLabel(label: string): string {
   return /^\p{Lu}\p{Ll}/u.test(label) ? label[0].toLowerCase() + label.slice(1) : label;
 }
@@ -100,7 +104,7 @@ export default function CheckupResultView({
             <dd className="tabular">{result.dictation.pct}%</dd>
             <dd className="meta">
               {result.dictation.correct}/{result.dictation.words} từ đúng
-              {result.dictation.extra > 0 ? ` · thừa ${result.dictation.extra}` : ''}
+              {result.dictation.extra > 0 ? tl` · thừa ${result.dictation.extra}` : ''}
             </dd>
           </div>
           <div>
@@ -137,7 +141,7 @@ export default function CheckupResultView({
         <div className="ck-score-actions">
           {weakest && weakRow ? (
             <a className="btn btn-primary btn-lg" href={hrefFor('dictation', { focus: weakest })}>
-              Luyện {practiceLabel(weakRow.label)}
+              Luyện {practiceLabel(tr(weakRow.label))}
               <Icon icon={ArrowRight} size={17} />
             </a>
           ) : (
@@ -165,15 +169,15 @@ export default function CheckupResultView({
                     <span className="sr-only">Mục</span>
                   </th>
                   <th scope="col">
-                    Lần đầu<span className="ck-cmp-date">{dateVi(first.at).slice(0, 5)}</span>
+                    Lần đầu<span className="ck-cmp-date">{dayMonthVi(first.at)}</span>
                   </th>
                   {showPrev && prev && (
                     <th scope="col">
-                      Lần trước<span className="ck-cmp-date">{dateVi(prev.at).slice(0, 5)}</span>
+                      Lần trước<span className="ck-cmp-date">{dayMonthVi(prev.at)}</span>
                     </th>
                   )}
                   <th scope="col">
-                    Lần này<span className="ck-cmp-date">{dateVi(result.at).slice(0, 5)}</span>
+                    Lần này<span className="ck-cmp-date">{dayMonthVi(result.at)}</span>
                   </th>
                 </tr>
               </thead>
@@ -223,16 +227,12 @@ export default function CheckupResultView({
                       <PhDot p={r.p} />
                       {r.label}
                     </span>
-                    <span className="ck-ph-val tabular">
-                      sai {r.missed}/{r.seen} câu
-                    </span>
+                    <span className="ck-ph-val tabular">{tl`sai ${r.missed}/${r.seen} câu`}</span>
                     <span className="progress ck-ph-bar" aria-hidden="true">
                       <span style={{ width: `${r.missPct}%` }} />
                     </span>
                     {r.firstMissPct !== null && r.firstMissPct !== r.missPct && (
-                      <span className="ck-ph-first meta">
-                        Lần đầu sai {r.firstMissPct}%, lần này {r.missPct}%
-                      </span>
+                      <span className="ck-ph-first meta">{tl`Lần đầu sai ${r.firstMissPct}%, lần này ${r.missPct}%`}</span>
                     )}
                   </li>
                 ))}
@@ -242,7 +242,7 @@ export default function CheckupResultView({
               <p className="ck-ph-clean">
                 <Icon icon={Check} size={15} strokeWidth={2.5} />
                 <span>
-                  Nghe đúng hết: {cleanRows.map((r) => r.label).join(', ')}.
+                  Nghe đúng hết: {cleanRows.map((r) => tr(r.label)).join(', ')}.
                 </span>
               </p>
             )}

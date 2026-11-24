@@ -31,13 +31,14 @@ import { CAST_VOICES } from '../../core/town/voices';
 import { PLAYER_FEMALE } from '../../core/town/romanceAudio';
 import { useTownLife } from '../../core/town/lifeStore';
 import { speak } from '../../core/tts';
+import { tl, tr } from '../../i18n';
 
 /** The resident's portrait in the panel: big enough to read the face, a little smaller on a phone. */
 function portraitSize(): number {
   try {
-    return window.matchMedia('(max-width: 720px)').matches ? 56 : 88;
+    return window.matchMedia('(max-width: 720px)').matches ? 60 : 108;
   } catch {
-    return 88;
+    return 108;
   }
 }
 
@@ -93,8 +94,8 @@ export default function Conversation({ place, turns, met, friend, onJournal, onG
   const answered = useCallback(
     (r: TownAnswerResult, v: Verdict) => {
       setResults((list) => [...list, r]);
-      setMood(r.outcome === 'wrong' ? 'neutral' : 'happy');
-      setAnnounce(`${v.title}${r.reward > 0 ? ` Được ${r.reward} xu.` : ''}`);
+      setMood(r.outcome === 'wrong' ? 'sad' : 'happy');
+      setAnnounce(`${tr(v.title)}${r.reward > 0 ? tl` Được ${r.reward} xu.` : ''}`);
       onAnswered(r, v);
     },
     [onAnswered],
@@ -136,7 +137,7 @@ export default function Conversation({ place, turns, met, friend, onJournal, onG
   );
 
   return (
-    <section ref={setBox} className={'town-talk' + (done ? ' is-result' : '')} role="group" aria-label={`Trò chuyện nhanh với ${place.resident}`} tabIndex={-1}>
+    <section ref={setBox} className={'town-talk' + (done ? ' is-result' : '')} role="group" aria-label={tl`Trò chuyện nhanh với ${place.resident}`} tabIndex={-1}>
       <header className="town-talk-head">
         <Portrait placeId={placeId} size={faceSize} mood={mood} />
         <div className="town-talk-who">
@@ -149,7 +150,7 @@ export default function Conversation({ place, turns, met, friend, onJournal, onG
           {/* the five steps on their own line: on the name's line they squeezed the place name onto two */}
           {!done && (
             <div className="town-talk-meta">
-              <ol className="town-steps" aria-label={`Câu ${index + 1} trên ${turns.length}`}>
+              <ol className="town-steps" aria-label={tl`Câu ${index + 1} trên ${turns.length}`}>
                 {turns.map((t, i) => {
                   const r = results[i];
                   const cls = r ? (r.outcome === 'wrong' ? ' is-bad' : ' is-ok') : i === index ? ' is-now' : '';
@@ -387,7 +388,25 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
     );
   };
 
-  const status = result ? '' : sounding ? `${resident} đang nói…` : pending ? 'Đang tạo giọng…' : heard ? `${resident} vừa nói xong.` : `Bấm Nghe để nghe ${resident} nói.`;
+  // The learner's own character speaks an episode line as 'Bạn': whole sentences of their own (the same Vietnamese),
+  // so English does not read "You is speaking…".
+  const isYou = resident === 'Bạn';
+  const status = result
+    ? ''
+    : sounding
+      ? isYou
+        ? 'Bạn đang nói…'
+        : tl`${resident} đang nói…`
+      : pending
+        ? 'Đang tạo giọng…'
+        : heard
+          ? isYou
+            ? 'Bạn vừa nói xong.'
+            : tl`${resident} vừa nói xong.`
+          : isYou
+            ? 'Bấm Nghe để nghe Bạn nói.'
+            : tl`Bấm Nghe để nghe ${resident} nói.`;
+  const askWhat = isYou ? 'Bạn vừa nói gì?' : tl`${resident} vừa nói gì?`;
 
   return (
     <div className="town-turn">
@@ -439,7 +458,7 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
                 aria-pressed={playing === 'careful'}
                 aria-busy={(pending && playing === 'careful') || undefined}
                 aria-label={playing === 'careful' ? undefined : CAREFUL_ARIA}
-                title={`${CAREFUL_TITLE}, chậm: so với cách nói nhanh ở trên`}
+                title={tl`${CAREFUL_TITLE}, chậm: so với cách nói nhanh ở trên`}
               >
                 {playing === 'careful' ? stopIcon : <Icon icon={Turtle} size={15} />}
                   {playing === 'careful' ? (pending ? PENDING_LABEL : 'Dừng') : CAREFUL_LABEL}
@@ -484,7 +503,7 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
       )}
 
       {typing ? (
-        <div className={'town-type' + (result ? ' is-locked' : '')} role="group" aria-label={`Gõ lại cụm ${resident} vừa nói`}>
+        <div className={'town-type' + (result ? ' is-locked' : '')} role="group" aria-label={tl`Gõ lại cụm ${resident} vừa nói`}>
           <p className="town-ask">
             Gõ lại cụm {resident} vừa nói
             {!result && <span className="town-type-why"> · gõ đúng được thêm xu</span>}
@@ -509,7 +528,7 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
               readOnly={!!result}
               maxLength={80}
               placeholder={judge && !result ? judge.hint : ''}
-              aria-label={`Cụm ${resident} vừa nói (${typing.target.split(/\s+/).length} từ)`}
+              aria-label={tl`Cụm ${resident} vừa nói (${typing.target.split(/\s+/).length} từ)`}
               aria-invalid={result ? result.outcome === 'wrong' : undefined}
               autoComplete="off"
               autoCorrect="off"
@@ -553,8 +572,8 @@ export function Turn({ turn, speaker, met, last, onSpeaking, onAnswered, onNext,
           )}
         </div>
       ) : (
-      <div className={'town-replies' + (result ? ' is-locked' : '')} role="group" aria-label={`${resident} vừa nói gì?`}>
-        <p className="town-ask">{resident} vừa nói gì?</p>
+      <div className={'town-replies' + (result ? ' is-locked' : '')} role="group" aria-label={askWhat}>
+        <p className="town-ask">{askWhat}</p>
         <div className={'town-reply-list' + (choices.options.length === 4 ? ' is-four' : '')} ref={listRef}>
           {choices.options.map((vi, i) => {
             const right = !!result && i === choices.answer;

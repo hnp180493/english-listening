@@ -315,7 +315,7 @@ export default function CheckupTest({
           <div>
             {item.kind === 'sentence' ? 'Bạn chưa gõ gì. Gõ vài từ nghe được, hoặc ' : 'Bạn chưa chọn đáp án. Chọn một đáp án, hoặc '}
             <button type="button" className="ck-link" onClick={() => goNext(true)}>
-              bỏ qua {item.kind === 'sentence' ? 'câu' : 'đoạn'} này
+              {item.kind === 'sentence' ? 'bỏ qua câu này' : 'bỏ qua đoạn này'}
             </button>
             .
           </div>

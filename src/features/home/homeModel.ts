@@ -2,6 +2,7 @@
 
 import type { ListeningLine, PlanItem } from '../../core/goals';
 import { localDay } from '../../core/stats';
+import { getLang, tl } from '../../i18n';
 
 export function greeting(hour: number): string {
   if (!Number.isFinite(hour)) return 'Xin chào';
@@ -12,11 +13,13 @@ export function greeting(hour: number): string {
   return 'Khuya rồi';
 }
 
-/** "Thứ Sáu, 6 tháng 11" */
+const WEEKDAY_VI = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
+/** "Thứ Sáu, 6 tháng 11" (English mode: "Friday, November 6"). */
 export function formatDateVi(now: number): string {
   const d = new Date(now);
-  const weekday = d.getDay() === 0 ? 'Chủ Nhật' : `Thứ ${['', 'Hai', 'Ba', 'Tư', 'Năm', 'Sáu', 'Bảy'][d.getDay()]}`;
-  return `${weekday}, ${d.getDate()} tháng ${d.getMonth() + 1}`;
+  if (getLang() === 'en') return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  return tl`${WEEKDAY_VI[d.getDay()]}, ${d.getDate()} tháng ${d.getMonth() + 1}`;
 }
 
 /** FNV-1a 32-bit hash: stable across sessions and browsers. */
@@ -48,7 +51,7 @@ export function parseOnboarding(raw: unknown): OnboardingState {
 /** "1 ngày" / "5 ngày" style counts without English plural quirks. */
 export function streakLabel(streak: number): string {
   const n = Number.isFinite(streak) ? Math.max(0, Math.floor(streak)) : 0;
-  return n === 0 ? 'Chưa có chuỗi' : `${n} ngày liên tiếp`;
+  return n === 0 ? 'Chưa có chuỗi' : tl`${n} ngày liên tiếp`;
 }
 
 /**
@@ -70,7 +73,7 @@ export function listenRowText(line: Pick<ListeningLine, 'minutes' | 'goal' | 'ti
   action: string;
 } {
   const fresh = line.minutes <= 0;
-  const title = fresh ? (line.goal > 0 ? `Nghe tiếng Anh ${line.goal} phút` : 'Nghe tiếng Anh') : line.title;
+  const title = fresh ? (line.goal > 0 ? tl`Nghe tiếng Anh ${line.goal} phút` : 'Nghe tiếng Anh') : line.title;
   const detail = line.timerLabel ?? (fresh ? 'Phim, YouTube, podcast… rồi ghi lại giờ nghe' : line.detail);
   return { title, detail, action: line.timerLabel ? 'Mở đồng hồ' : line.actionLabel };
 }

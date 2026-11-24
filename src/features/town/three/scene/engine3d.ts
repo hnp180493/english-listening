@@ -28,6 +28,7 @@ import { doorwayOf, outsideSpots, sameSetting, type Doorway, type OutsideSpots, 
 import { buildInterior, isInteriorId, type InteriorId, type RoomSet } from '../interiors/rooms';
 import { RoomStage } from './roomStage';
 import { FishShow, pierWalk, type FishPhase } from './fishShow';
+import { tl, tr } from '../../../../i18n';
 
 export type { ActKind, BurstKind, Near, SafeInsets, StageTarget } from '../../engine/stage';
 
@@ -2768,7 +2769,7 @@ export class TownEngine3D {
           const its = id === this.hint ? 0 : hot ? 1 : !r.lodger && gridDistance(p.x, p.y, r.x, r.y) < NAME_NEAR ? 2 : 9;
           if (its !== rank) continue;
           const at = this.headAt(r.id, r);
-          add(at.x, at.y, r.lodger ? `${r.place.resident} · ở nhà trọ` : r.place.resident, { marker: this.state.marker[r.place.id], hover: hot }, feetAt(r));
+          add(at.x, at.y, r.lodger ? tl`${r.place.resident} · ở nhà trọ` : r.place.resident, { marker: this.state.marker[r.place.id], hover: hot }, feetAt(r));
         }
       }
       const actHot = hover?.kind === 'activity' ? hover.id : this.near?.kind === 'activity' ? this.near.id : null;
@@ -2777,11 +2778,11 @@ export class TownEngine3D {
         const info = ACTIVITIES.find((x) => x.id === actHot);
         if (a && info) {
           const at = this.project(a.at.x, a.top + 0.15, a.at.z);
-          add(at.x, at.y, info.name, { hover: true });
+          add(at.x, at.y, tr(info.name), { hover: true });
         }
       }
       const me = this.headAt('player', p);
-      add(me.x, me.y, this.playerName, { self: true }, feetAt(p));
+      add(me.x, me.y, this.playerName === 'Bạn' ? tr('Bạn') : this.playerName, { self: true }, feetAt(p));
       const hoverPlace = hover?.kind === 'place' ? hover.placeId : null;
       for (const q of this.world.places) {
         const v = this.town.places.get(q.id);
@@ -2791,7 +2792,7 @@ export class TownEngine3D {
         const hot = hoverPlace === q.id;
         if (!hot && !label) continue;
         const at = this.project(v.centre.x, (built ? v.height : v.height) + 0.25, v.centre.z);
-        add(at.x, at.y, hot ? (label ? `${q.name} · ${label}` : q.name) : (label ?? q.name), { hover: hot, self: !hot });
+        add(at.x, at.y, hot ? (label ? `${tr(q.name)} · ${label}` : tr(q.name)) : (label ?? tr(q.name)), { hover: hot, self: !hot });
       }
       const area = { x0: this.safe.left + 6, y0: this.safe.top + 4, x1: w - Math.max(this.safe.right, this.inset.right) - 6, y1: h - Math.max(this.safe.bottom, this.inset.bottom) - 4 };
       placeTags(

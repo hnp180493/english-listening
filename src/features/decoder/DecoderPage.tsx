@@ -34,6 +34,7 @@ import {
   TEXT_MAX,
 } from './pageModel';
 import './decoder.css';
+import { tl } from '../../i18n';
 
 const DEBOUNCE_MS = 250;
 const NOTICE_MS = 4500;
@@ -269,7 +270,7 @@ export default function DecoderPage() {
     if (current.length > SHADOW_TEXT_MAX) {
       setNotice({
         kind: 'error',
-        text: `Câu quá dài để nói nhại (tối đa ${SHADOW_TEXT_MAX} ký tự). Hãy tách thành câu ngắn hơn.`,
+        text: tl`Câu quá dài để nói nhại (tối đa ${SHADOW_TEXT_MAX} ký tự). Hãy tách thành câu ngắn hơn.`,
       });
       return;
     }
@@ -319,7 +320,7 @@ export default function DecoderPage() {
   const announcement =
     announceFor !== null && announceFor === query && !stale && trimmed
       ? hasTokens
-        ? `Nghe như: ${spokenLine}. ${annotations.length} biến âm.`
+        ? tl`Nghe như: ${spokenLine}. ${annotations.length} biến âm.`
         : 'Không tìm thấy từ tiếng Anh nào để phân tích.'
       : '';
 
@@ -431,7 +432,7 @@ export default function DecoderPage() {
                     type="button"
                     className="dec-hchip-x"
                     onClick={() => forget(h)}
-                    aria-label={`Xóa khỏi lịch sử: ${h}`}
+                    aria-label={tl`Xóa khỏi lịch sử: ${h}`}
                     title="Xóa khỏi lịch sử"
                   >
                     <Icon icon={X} size={14} strokeWidth={2.5} />

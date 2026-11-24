@@ -27,12 +27,13 @@ import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
-import { inlineAudioManifest, normalizeAudioManifest, retireArtFolder, syncAudioFolder } from './portableAudio.mjs'
+import { inlineAudioManifest, normalizeAudioManifest, retireArtFolder, syncAudioFolder, syncPortraitFolder } from './portableAudio.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BUILD_DIR = join(ROOT, 'node_modules', '.portable-build') // keep in sync with vite.config.ts
 const FILE_NAME = 'Nghe-Noi-Am.html'
 const AUDIO_SRC_DIR = join(ROOT, 'public', 'audio')
+const PORTRAITS_SRC_DIR = join(ROOT, 'public', 'portraits')
 /** The folder of town pictures earlier builds put next to the HTML (retired: the town is 3D now). */
 const OLD_ART_DIR = 'art'
 
@@ -203,6 +204,13 @@ async function main() {
     console.log('[portable] Giữ thư mục "audio" cạnh file HTML khi chép đi máy khác.')
   } else {
     console.log('[portable] Chưa có public/audio/manifest.json: bản này dùng giọng AI/trình duyệt như trước.')
+  }
+  // the residents' drawn portraits (docs/portrait-prompts.md): a "portraits" folder next to the HTML, like "audio"
+  const portraits = await readdir(PORTRAITS_SRC_DIR).catch(() => [])
+  const pictures = portraits.filter((f) => f.endsWith('.webp'))
+  if (pictures.length) {
+    const r = await syncPortraitFolder(PORTRAITS_SRC_DIR, join(outDir, 'portraits'), pictures)
+    console.log(`[portable] Chân dung vẽ: ${r.files} ảnh (${formatSize(r.bytes)}) trong ${join(outDir, 'portraits')}. Giữ thư mục "portraits" cạnh file HTML.`)
   }
   console.log('[portable] Mở bằng cách nhấp đúp file (Edge/Chrome) — không cần Node hay máy chủ.')
 }

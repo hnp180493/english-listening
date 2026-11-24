@@ -13,6 +13,7 @@ import { SoundBars } from '../art';
 import { giftReaction, pointsText, type GiftReactionView } from './friendModel';
 import { useSaidLine } from './useSaidLine';
 import './friends.css';
+import { tl } from '../../../i18n';
 
 export interface GiftGiveProps {
   placeId: string;
@@ -46,7 +47,7 @@ export default function GiftGive({ placeId, onGiven, onShop }: GiftGiveProps) {
         {r.reaction && (
           <div className={'town-bubble' + (voice.sounding ? ' is-live' : '')}>
             <SoundBars on={voice.sounding} />
-            <span className="town-bubble-text">{voice.playing ? `${resident} đang nói…` : `${resident} vừa nói.`}</span>
+            <span className="town-bubble-text">{voice.playing ? tl`${resident} đang nói…` : tl`${resident} vừa nói.`}</span>
             <div className="town-bubble-actions">
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => void play(r.reaction!, placeId)} disabled={!voice.canSpeak}>
                 <Icon icon={RotateCcw} size={15} />

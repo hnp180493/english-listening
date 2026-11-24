@@ -2,8 +2,27 @@
 
 import { PHENOMENA, type Phenomenon } from '../../core/types';
 import { localDay, MODULE_LABEL, type Attempt, type ModuleId, type PhenomenonStat } from '../../core/stats';
+import { getLang, tl } from '../../i18n';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** Short month name of a local date ("Nov"): English mode only (Vietnamese labels are written "Th11" / "dd/mm"). */
+export function monthShortEn(d: Date): string {
+  return MONTH_EN[d.getMonth()] ?? '';
+}
+
+/** "24/11" (Vietnamese) or "Nov 24" (English) for a local date. */
+export function dayMonthLabel(d: Date): string {
+  return getLang() === 'en' ? `${monthShortEn(d)} ${d.getDate()}` : `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
+}
+
+/** "24/11/2026" (Vietnamese) or "Nov 24, 2026" (English) for a local date. */
+export function fullDateLabel(d: Date): string {
+  return getLang() === 'en' ? `${monthShortEn(d)} ${d.getDate()}, ${d.getFullYear()}` : `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
 
 export const MIN_SEEN = 3;
 
@@ -98,15 +117,14 @@ export function relativeTimeVi(ts: number, now: number): string {
   const diff = Math.max(0, now - ts);
   const min = Math.floor(diff / 60_000);
   if (min < 1) return 'vừa xong';
-  if (min < 60) return `${min} phút trước`;
+  if (min < 60) return tl`${min} phút trước`;
   const hours = Math.floor(min / 60);
-  if (hours < 24 && localDay(ts) === localDay(now)) return `${hours} giờ trước`;
+  if (hours < 24 && localDay(ts) === localDay(now)) return tl`${hours} giờ trước`;
   const days = Math.round((startOfLocalDay(now) - startOfLocalDay(ts)) / DAY_MS);
   if (days <= 1) return 'hôm qua';
-  if (days < 7) return `${days} ngày trước`;
-  if (days < 30) return `${Math.floor(days / 7)} tuần trước`;
-  const d = new Date(ts);
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  if (days < 7) return tl`${days} ngày trước`;
+  if (days < 30) return tl`${Math.floor(days / 7)} tuần trước`;
+  return fullDateLabel(new Date(ts));
 }
 
 /** Most recent first. */

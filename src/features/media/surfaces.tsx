@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Headphones, RotateCw } from 'lucide-react';
 import { Icon, IconTile } from '../../components/Icon';
 import { YT_HOST, YT_STATE, loadYouTubeApi, youTubeErrorMessage, type YTPlayer } from './youtubeApi';
+import { asIs, tl } from '../../i18n';
 
 export interface MediaHandle {
   play(): void;
@@ -228,11 +229,11 @@ export function FileSurface({
       <span className="media-audio-name" title={file.name}>
         {file.name}
       </span>
-      <audio {...common} className="media-audio-el" aria-label={`Âm thanh: ${file.name}`} />
+      <audio {...common} className="media-audio-el" aria-label={tl`Âm thanh: ${asIs(file.name)}`} />
     </div>
   ) : (
     <div className="media-frame media-frame-video">
-      <video {...common} playsInline className="media-video-el" aria-label={`Video: ${file.name}`} />
+      <video {...common} playsInline className="media-video-el" aria-label={tl`Video: ${asIs(file.name)}`} />
     </div>
   );
 }

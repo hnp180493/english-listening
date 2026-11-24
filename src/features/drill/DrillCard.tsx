@@ -11,6 +11,7 @@ import type { Chunk } from '../../core/types';
 import type { CardKind } from './choice';
 import { GRADE_LABEL } from './labels';
 import { citationText, isGuessCorrect, splitHighlight } from './match';
+import { tl, tr } from '../../i18n';
 
 type Verdict = 'correct' | 'wrong' | 'skipped';
 
@@ -305,7 +306,7 @@ export default function DrillCard({
             <div className="callout callout-ok drill-verdict">
               <Icon icon={CircleCheck} size={18} />
               <span>
-                <strong>Chính xác!</strong> Bạn {choose ? 'chọn' : 'gõ'}: <q lang="en">{choose ? picked?.written : guess.trim()}</q>
+                <strong>Chính xác!</strong> {choose ? 'Bạn chọn:' : 'Bạn gõ:'} <q lang="en">{choose ? picked?.written : guess.trim()}</q>
               </span>
             </div>
           )}
@@ -313,7 +314,7 @@ export default function DrillCard({
             <div className="callout callout-bad drill-verdict">
               <Icon icon={CircleX} size={18} />
               <span>
-                <strong>Chưa đúng.</strong> Bạn {choose ? 'chọn' : 'gõ'}: <q lang="en">{choose ? picked?.written : guess.trim()}</q>
+                <strong>Chưa đúng.</strong> {choose ? 'Bạn chọn:' : 'Bạn gõ:'} <q lang="en">{choose ? picked?.written : guess.trim()}</q>
                 {choose && picked && picked.spoken !== picked.written && (
                   <>
                     {' '}
@@ -390,7 +391,7 @@ export default function DrillCard({
                   }}
                   className={`drill-grade is-${g}` + (g === suggested ? ' is-suggested' : '')}
                   onClick={() => submitGrade(g)}
-                  aria-label={`${GRADE_LABEL[g]}${previews ? `, ôn lại sau ${previews[g]}` : ''}`}
+                  aria-label={`${tr(GRADE_LABEL[g])}${previews ? tl`, ôn lại sau ${previews[g]}` : ''}`}
                   aria-keyshortcuts={String(i + 1)}
                 >
                   <span className="drill-grade-label">{GRADE_LABEL[g]}</span>

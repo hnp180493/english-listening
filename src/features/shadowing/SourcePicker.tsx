@@ -9,6 +9,7 @@ import { CHUNKS } from '../../data/chunks';
 import { SENTENCES } from '../../data/sentences';
 import { CUSTOM_EXAMPLES, MAX_CUSTOM_LENGTH, cleanCustomText, filterChunks, filterSentences, type ShadowSource } from './sources';
 import { customItemId, recentCustom, toPercent, type ShadowState } from './store';
+import { tl } from '../../i18n';
 
 /** Sentences the learner added in "Chép chính tả" (newest first), minus ones listed elsewhere. */
 function loadDictationCustom(exclude: ReadonlySet<string>, limit: number): { id: string; text: string; vi: string }[] {
@@ -53,7 +54,7 @@ function Best({ history, id }: { history: ShadowState; id: string }) {
   if (!item) return null;
   const p = toPercent(item.best);
   return (
-    <span className="meta shadow-best" title={`Cao nhất ${p}% · ${item.total} lần`}>
+    <span className="meta shadow-best" title={tl`Cao nhất ${p}% · ${item.total} lần`}>
       {p}%
     </span>
   );
@@ -264,7 +265,7 @@ export default function SourcePicker({ source, history, onPick }: SourcePickerPr
           {chunks.length === 0 ? (
             <div className="shadow-empty">
               <Icon icon={SearchX} size={22} className="shadow-empty-icon" />
-              <p>{CHUNKS.length === 0 ? 'Chưa có cụm từ nào.' : `Không có cụm nào khớp “${chunkQuery}”.`}</p>
+              <p>{CHUNKS.length === 0 ? 'Chưa có cụm từ nào.' : tl`Không có cụm nào khớp “${chunkQuery}”.`}</p>
               {chunkQuery && (
                 <button type="button" className="btn btn-sm" onClick={() => setChunkQuery('')}>
                   Xóa tìm kiếm

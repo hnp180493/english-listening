@@ -6,6 +6,7 @@ import { hrefFor } from '../../core/nav';
 import { ttsSupported } from '../../core/tts';
 import type { BenchmarkForm } from '../../data/benchmarkTypes';
 import { dateVi } from './checkupModel';
+import { tl } from '../../i18n';
 
 const SHOWN = 6;
 
@@ -73,8 +74,7 @@ export default function CheckupIntro({
         )}
         {tooSoon && due.daysSince !== null && due.nextDueAt !== null && (
           <p className="meta ck-intro-note">
-            Lần gần nhất cách đây {due.daysSince === 0 ? 'chưa tới 1 ngày' : `${due.daysSince} ngày`}. Nên làm cách nhau khoảng 2 tuần (từ{' '}
-            {dateVi(due.nextDueAt)}) để thấy rõ thay đổi.
+            {tl`Lần gần nhất cách đây ${due.daysSince === 0 ? 'chưa tới 1 ngày' : tl`${due.daysSince} ngày`}. Nên làm cách nhau khoảng 2 tuần (từ ${dateVi(due.nextDueAt)}) để thấy rõ thay đổi.`}
           </p>
         )}
 

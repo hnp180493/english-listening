@@ -8,6 +8,7 @@ import { PHENOMENA, type Chunk, type Phenomenon } from '../../core/types';
 import { STATUS_LABEL } from './labels';
 import ListenIcon from './ListenIcon';
 import { dueInfo, sortChunks } from './listStats';
+import { tl, tr } from '../../i18n';
 
 /** Rows rendered at first, and added by each "Xem thêm". */
 const PAGE = 30;
@@ -65,7 +66,8 @@ export default function ChunkList({ chunks, cards, now, onReset, initialFocus = 
       if (phenomenon && !c.phenomena.includes(phenomenon)) return false;
       if (statusFilter !== 'all' && cardStatus(cards[c.id]) !== statusFilter) return false;
       if (!q) return true;
-      return [c.written, c.spoken, c.meaning, c.example].some((f) => fold(f ?? '').includes(q));
+      // the meaning as shown (English mode searches the English meaning)
+      return [c.written, c.spoken, tr(c.meaning ?? ''), c.example].some((f) => fold(f ?? '').includes(q));
     });
   }, [sorted, query, phenomenon, statusFilter, cards]);
 
@@ -187,12 +189,12 @@ export default function ChunkList({ chunks, cards, now, onReset, initialFocus = 
                     </div>
                     {c.meaning && (
                       <div className="list-row-meta drill-row-gloss" title={c.meaning}>
-                        {gloss(c.meaning)}
+                        {gloss(tr(c.meaning))}
                       </div>
                     )}
                   </div>
                   <div className="list-row-end">
-                    <ListenIcon text={c.ttsText} label={`Nghe: ${c.written}`} />
+                    <ListenIcon text={c.ttsText} label={tl`Nghe: ${c.written}`} />
                   </div>
                 </div>
               </li>
@@ -213,7 +215,7 @@ export default function ChunkList({ chunks, cards, now, onReset, initialFocus = 
             type="button"
             className="btn btn-danger btn-sm drill-reset"
             onClick={() => {
-              if (window.confirm('Xóa toàn bộ tiến độ học cụm từ? Thao tác này không hoàn tác được.')) onReset();
+              if (window.confirm(tr('Xóa toàn bộ tiến độ học cụm từ? Thao tác này không hoàn tác được.'))) onReset();
             }}
           >
             <Icon icon={RotateCcw} size={14} />

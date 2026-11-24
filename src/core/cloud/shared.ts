@@ -5,6 +5,7 @@
 import type { FetchFn } from './auth';
 import type { CloudConfig } from './config';
 import { CloudError } from './remote';
+import { tl } from '../../i18n';
 
 export interface SharedDay {
   /** local 'YYYY-MM-DD' */
@@ -49,7 +50,7 @@ export async function fetchSharedDays(cfg: CloudConfig, token: string, tz: strin
     throw new CloudError('network', 'Không kết nối được máy chủ (đang ngoại tuyến?).');
   }
   if (res.status === 401) throw new CloudError('auth', 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.');
-  if (!res.ok) throw new CloudError(res.status === 404 ? 'missing-table' : 'server', `Máy chủ báo lỗi (${res.status}).`);
+  if (!res.ok) throw new CloudError(res.status === 404 ? 'missing-table' : 'server', tl`Máy chủ báo lỗi (${res.status}).`);
   let json: unknown = null;
   try {
     json = await res.json();

@@ -8,6 +8,7 @@ import type { PairItem, PairSet } from '../../data/pairs';
 import { roundKeyAction, type AnswerRecord, type Question, type RoundState } from './game';
 import CueText from './CueText';
 import { PAIRS_SHORTCUTS } from './shortcuts';
+import { tl, tr } from '../../i18n';
 
 export interface RoundViewProps {
   title: string;
@@ -322,7 +323,7 @@ export default function RoundView({
                       onClick={() => toggle(opt, rate, key)}
                       aria-pressed={on}
                       aria-keyshortcuts={String(i + 1)}
-                      aria-label={`Nghe: ${opt}` + (st === 'right' ? ', câu được đọc' : '') + (picked ? ', bạn chọn' : '')}
+                      aria-label={tl`Nghe: ${opt}` + (st === 'right' ? tr(', câu được đọc') : '') + (picked ? tr(', bạn chọn') : '')}
                       disabled={!tts}
                     >
                       <span className="pairs-compare-mark" aria-hidden="true">

@@ -23,6 +23,7 @@ import { joinUrl, mapCommonStatus, parseRetryAfter, providerMessage, sendJson, t
 import { jsonInstruction, parseJsonLoose, sanitizeSchemaName, toClosedSchema } from '../schema';
 import type { AiAdapter, ModelInfo, ProviderConfig, TestResult, TextRequest, TextResult } from '../types';
 import { testFailure } from './common';
+import { tl, tr } from '../../../i18n';
 
 export const ANTHROPIC_VERSION = '2026-10-21';
 const DEFAULT_MAX_TOKENS = 4096;
@@ -187,10 +188,10 @@ async function listModels(config: ProviderConfig, signal?: AbortSignal): Promise
 async function testConnection(config: ProviderConfig, signal?: AbortSignal): Promise<TestResult> {
   const model = config.model.trim();
   const ctx = ctxOf(config, model);
-  if (!config.apiKey) return { ok: false, code: 'bad-key', message: 'Chưa nhập API key Claude.' };
+  if (!config.apiKey) return { ok: false, code: 'bad-key', message: tr('Chưa nhập API key Claude.') };
   try {
     await sendJson({ url: joinUrl(base(config), `models/${encodeURIComponent(model)}`), headers: anthropicHeaders(config, false), signal, ctx, mapError: mapAnthropicError });
-    return { ok: true, message: `Kết nối ${labelInSentence(ctx.label)} thành công (model ${model}).` };
+    return { ok: true, message: tl`Kết nối ${labelInSentence(ctx.label)} thành công (model ${model}).` };
   } catch (e) {
     return testFailure(e, ctx);
   }

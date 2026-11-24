@@ -34,6 +34,7 @@ import { clearAiTaskCache } from '../../core/aiTasks';
 import SectionHead from './SectionHead';
 import './AiSection.css';
 import { aiUsageLine, geminiVoiceStyle, isValidBaseUrl, modelChoices, parseDailyCap, VOICE_CHOICE_LABEL, voiceChoiceHint } from './settingsModel';
+import { getLang, tl, tr } from '../../i18n';
 
 /** Element id of the AI card (#/settings?section=ai scrolls here). */
 export const AI_SECTION_ID = 'set-ai';
@@ -67,6 +68,7 @@ const OTHER_KINDS: { kind: ProviderKind; label: string; note: string }[] = [
 
 /** A provider name inside a sentence: the generic "Máy chủ tương thích OpenAI" loses its capital. */
 function inSentence(label: string): string {
+  if (getLang() === 'en') return tr(label);
   return label === defaultsFor('openai-compatible').label ? label.charAt(0).toLowerCase() + label.slice(1) : label;
 }
 
@@ -146,7 +148,7 @@ function AiVoicePicker({ provider, id }: { provider: ProviderSummary; id: string
             return (
               <option key={v} value={v}>
                 {v}
-                {style ? ` · ${style}` : ''}
+                {style ? ` · ${tr(style)}` : ''}
                 {v === d.ttsVoice ? ' (mặc định)' : ''}
               </option>
             );
@@ -359,10 +361,10 @@ function ProviderForm({ kind, existing, onDone, onCancel }: FormProps) {
         ) : models.status === 'error' ? (
           <>Không tải được danh sách model: {models.error}</>
         ) : models.status === 'ok' ? (
-          `${models.list.filter((m) => m.kind === 'text').length} model từ ${d.label}.`
+          tl`${models.list.filter((m) => m.kind === 'text').length} model từ ${d.label}.`
         ) : (
           <>
-            {d.model ? `Mặc định ${d.model}: nhanh, rẻ, hợp với app này. ` : ''}
+            {d.model ? tl`Mặc định ${d.model}: nhanh, rẻ, hợp với app này. ` : ''}
             <button type="button" className="set-linkbtn" onClick={() => void loadModels()} disabled={(d.requiresKey && !effectiveKey) || urlBad || urlMissing}>
               Tải danh sách model
             </button>
@@ -407,7 +409,7 @@ function ProviderForm({ kind, existing, onDone, onCancel }: FormProps) {
   return (
     <form ref={formRef} className="set-ai-form" onSubmit={(e) => void onSubmit(e)} aria-labelledby={`${uid}-t`} noValidate>
       <div id={`${uid}-t`} className="set-ai-form-title">
-        {existing ? `Sửa ${inSentence(existing.label)}` : `Thêm ${inSentence(d.label)}`}
+        {existing ? tl`Sửa ${inSentence(existing.label)}` : tl`Thêm ${inSentence(d.label)}`}
       </div>
 
       <div className="set-field">
@@ -429,7 +431,7 @@ function ProviderForm({ kind, existing, onDone, onCancel }: FormProps) {
             onBlur={() => setKeyChecked(true)}
             onPaste={() => setKeyChecked(true)}
             placeholder={savedKey ? 'Giữ key đã lưu' : d.requiresKey ? 'Dán key vào đây' : 'Để trống nếu máy chủ không cần'}
-            title={savedKey ? `Để trống để giữ key đã lưu (${maskKey(savedKey)})` : undefined}
+            title={savedKey ? tl`Để trống để giữ key đã lưu (${maskKey(savedKey)})` : undefined}
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
@@ -543,8 +545,10 @@ function ProviderRow({
   const meta = [
     p.hasKey ? `Key ${p.keyMasked}` : d.requiresKey ? 'Chưa có key' : 'Không dùng key',
     p.model || 'chưa chọn model',
-    p.capabilities.tts ? `giọng ${p.ttsVoice || d.ttsVoice}` : '',
-  ].filter(Boolean);
+    p.capabilities.tts ? tl`giọng ${p.ttsVoice || d.ttsVoice}` : '',
+  ]
+    .filter(Boolean)
+    .map((part) => tr(part));
 
   return (
     <div className="set-ai-provider">
@@ -591,7 +595,7 @@ function ProviderRow({
           </div>
           <p id={`${uid}-d`} className="set-hint">
             {p.hasKey && p.kind !== 'openai-compatible'
-              ? `Key sẽ bị xóa khỏi trình duyệt này nhưng vẫn còn hiệu lực ở ${d.label}; nếu không dùng nữa, hãy thu hồi key ở đó.`
+              ? tl`Key sẽ bị xóa khỏi trình duyệt này nhưng vẫn còn hiệu lực ở ${d.label}; nếu không dùng nữa, hãy thu hồi key ở đó.`
               : 'Cấu hình này sẽ bị xóa khỏi trình duyệt.'}
           </p>
           <div className="row">

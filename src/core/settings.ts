@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { DEFAULT_REVIEW_MINUTES, REVIEW_MINUTES_OPTIONS } from './review/constants';
+import { sanitizeLang, type Lang } from '../i18n/lang';
 import { KEYS, loadJSON, removeKey, saveJSON, STORAGE_PREFIX } from './storage';
 
 export interface Settings {
@@ -28,6 +29,8 @@ export interface Settings {
    * existed WAS a choice (the old "Dùng giọng AI"), so it is kept (legacyVoiceChoice).
    */
   voiceChosen: boolean;
+  /** "Ngôn ngữ" (Cài đặt, and the switch in the menu): the language of the interface, 'vi' (default) or 'en' (docs/i18n.md). */
+  lang: Lang;
   /**
    * Epoch ms of the last change to the synced settings on any machine (account sync keeps the copy changed last,
    * core/syncMerge mergeSettings). 0 = never changed since this field exists.
@@ -70,6 +73,7 @@ const DEFAULTS: Settings = {
   listenGoal: DEFAULT_LISTEN_GOAL,
   voiceEngine: 'clips',
   voiceChosen: false,
+  lang: 'vi',
   changedAt: 0,
 };
 
@@ -84,13 +88,15 @@ const withValidReview = (s: Settings): Settings => {
   const voiceChosen = s.voiceChosen === true;
   const voiceEngine: VoiceEngine = voiceChosen ? sanitizeVoiceEngine(s.voiceEngine) : 'clips';
   const changedAt = typeof s.changedAt === 'number' && Number.isFinite(s.changedAt) && s.changedAt > 0 ? s.changedAt : 0;
+  const lang = sanitizeLang(s.lang);
   return s.reviewMinutes === reviewMinutes &&
+    s.lang === lang &&
     s.listenGoal === listenGoal &&
     s.voiceEngine === voiceEngine &&
     s.voiceChosen === voiceChosen &&
     s.changedAt === changedAt
     ? s
-    : { ...s, reviewMinutes, listenGoal, voiceEngine, voiceChosen, changedAt };
+    : { ...s, reviewMinutes, listenGoal, voiceEngine, voiceChosen, lang, changedAt };
 };
 
 /** This browser chose the paid AI voice (device-local, never synced or backed up). */

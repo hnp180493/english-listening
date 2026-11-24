@@ -3,6 +3,8 @@ import { hrefFor, navigate, ROUTES, useRoute, type RouteId } from './core/nav';
 import { getSettings, useSettings } from './core/settings';
 import { applyTheme, watchSystemTheme } from './core/theme';
 import { stopSpeaking } from './core/tts';
+import { tr } from './i18n';
+import { applyLang, useLang, withDictionary } from './i18n/load';
 import AppNav from './components/AppNav';
 import PageBoundary from './components/PageBoundary';
 import SyncBanner from './components/SyncBanner';
@@ -24,7 +26,7 @@ const PAGES = {
   drill: lazyPage(() => import('./features/drill/DrillPage')),
   shadowing: lazyPage(() => import('./features/shadowing/ShadowingPage')),
   media: lazyPage(() => import('./features/media/MediaPage')),
-  town: lazyPage(() => import('./features/town/TownPage')),
+  town: lazyPage(withDictionary('town', () => import('./features/town/TownPage'))),
   stats: lazyPage(() => import('./features/stats/StatsPage')),
   listening: lazyPage(() => import('./features/listening/ListeningPage')),
   checkup: lazyPage(() => import('./features/checkup/CheckupPage')),
@@ -124,7 +126,9 @@ function PageReady({ id, onReady }: { id: RouteId; onReady: (id: RouteId) => voi
 
 export default function App() {
   const route = useRoute();
-  const { theme } = useSettings();
+  const { theme, lang: wantedLang } = useSettings();
+  // The language on screen: it follows the setting once its dictionaries are loaded (i18n/load.ts).
+  const lang = useLang();
   const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -134,9 +138,17 @@ export default function App() {
   useEffect(() => watchSystemTheme(() => getSettings().theme), []);
 
   useEffect(() => {
+    void applyLang(wantedLang);
+  }, [wantedLang]);
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
+  useEffect(() => {
     const info = ROUTES.find((r) => r.id === route.id);
-    document.title = info ? `${info.label} · ${APP_NAME}` : APP_NAME;
-  }, [route.id]);
+    document.title = info ? `${tr(info.label)} · ${APP_NAME}` : APP_NAME;
+  }, [route.id, lang]);
 
   // A click on an in-app "#/…" link does not scroll (no element has that id), so the next page
   // would open at the previous page's scroll offset. Remember link clicks and scroll to the top
@@ -214,8 +226,9 @@ export default function App() {
     if (main && (active === main || active === document.body || !active)) focusPageHeading(main);
   }, []);
 
+  // Keyed by language: a switch redraws every page from scratch, so no label computed earlier stays in the old one.
   return (
-    <div className="shell">
+    <div className="shell" key={lang}>
       <a
         className="shell-skip"
         href={hrefFor(route.id, route.params)}
@@ -227,7 +240,7 @@ export default function App() {
         Chuyển đến nội dung chính
       </a>
       <AppNav current={route.id} />
-      <main ref={mainRef} className="shell-main" tabIndex={-1} aria-label={ROUTES.find((r) => r.id === route.id)?.label}>
+      <main ref={mainRef} className="shell-main" tabIndex={-1} aria-label={tr(ROUTES.find((r) => r.id === route.id)?.label ?? '')}>
         <div className="shell-content">
           <SyncBanner />
           <VoiceNotice />

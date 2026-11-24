@@ -16,6 +16,7 @@ import {
 } from './lessons';
 import type { RouteId } from './nav';
 import { PHENOMENA, type Phenomenon } from './types';
+import { tl, tr } from '../i18n';
 
 export const MODULE_IDS: readonly ModuleId[] = ['dictation', 'drill', 'decoder', 'lesson', 'pairs', 'shadowing', 'media', 'town'];
 
@@ -212,11 +213,11 @@ function lessonPlan(input: PlanInput): PlanItem | null {
   const completed = (id: string) => (progress[id]?.completedAt ?? 0) > 0;
   const label = (l: LessonMeta) => {
     const course = l.course !== 'connected' ? courses.find((c) => c.id === l.course)?.title : undefined;
-    return course ? `Học bài ${l.order} (${course}): ${l.title}` : `Học bài ${l.order}: ${l.title}`;
+    return course ? tl`Học bài ${l.order} (${course}): ${l.title}` : tl`Học bài ${l.order}: ${l.title}`;
   };
   const count = (l: LessonMeta) => {
     const inCourse = lessonsInCourse(lessons, l.course);
-    return `${inCourse.filter((x) => completed(x.id)).length}/${inCourse.length} bài`;
+    return tl`${inCourse.filter((x) => completed(x.id)).length}/${inCourse.length} bài`;
   };
 
   const doneToday = lessons.filter((l) => {
@@ -230,8 +231,8 @@ function lessonPlan(input: PlanInput): PlanItem | null {
       title: label(last),
       detail:
         doneToday.length > 1
-          ? `Hôm nay bạn đã xong ${doneToday.length} bài · ${count(last)}`
-          : `Đã hoàn thành hôm nay · ${count(last)}`,
+          ? tl`Hôm nay bạn đã xong ${doneToday.length} bài · ${count(last)}`
+          : tl`Đã hoàn thành hôm nay · ${count(last)}`,
       route: 'lessons',
       params: { id: last.id },
       done: true,
@@ -249,7 +250,7 @@ function lessonPlan(input: PlanInput): PlanItem | null {
   return {
     id: 'lesson',
     title: label(next),
-    detail: [minutes > 0 ? `Khoảng ${minutes} phút` : null, `${count(next)} đã xong`].filter(Boolean).join(' · '),
+    detail: [minutes > 0 ? tl`Khoảng ${minutes} phút` : null, tl`${count(next)} đã xong`].filter(Boolean).join(' · '),
     route: 'lessons',
     params: { id: next.id },
     done: false,
@@ -264,8 +265,8 @@ function reviewPlan(review: ReviewPlanInput): PlanItem | null {
   if (due > 0) {
     return {
       id: 'review',
-      title: `Ôn tập · khoảng ${minutes} phút`,
-      detail: done > 0 ? `Đã ôn ${done} mục, còn ${due} mục` : `${due} mục đến hạn`,
+      title: tl`Ôn tập · khoảng ${minutes} phút`,
+      detail: done > 0 ? tl`Đã ôn ${done} mục, còn ${due} mục` : tl`${due} mục đến hạn`,
       route: 'review',
       done: false,
       progress: done / (done + due),
@@ -277,7 +278,7 @@ function reviewPlan(review: ReviewPlanInput): PlanItem | null {
     return {
       id: 'review',
       title: 'Ôn tập',
-      detail: moved ? `Đã ôn ${done} mục, phần còn lại dời sang ngày sau` : `Đã ôn ${done} mục, hết mục đến hạn`,
+      detail: moved ? tl`Đã ôn ${done} mục, phần còn lại dời sang ngày sau` : tl`Đã ôn ${done} mục, hết mục đến hạn`,
       route: 'review',
       done: true,
       progress: 1,
@@ -294,7 +295,7 @@ function drillNewPlan(input: PlanInput): PlanItem | null {
     return {
       id: 'drill',
       title: 'Học cụm từ mới',
-      detail: `Đã học ${introduced} cụm mới hôm nay`,
+      detail: tl`Đã học ${introduced} cụm mới hôm nay`,
       route: 'drill',
       done: true,
       progress: 1,
@@ -303,7 +304,7 @@ function drillNewPlan(input: PlanInput): PlanItem | null {
   if (fresh > 0) {
     return {
       id: 'drill',
-      title: `Học ${fresh} cụm từ mới`,
+      title: tl`Học ${fresh} cụm từ mới`,
       detail: 'Các cụm hay bị nói nhanh: gonna, wanna, kinda…',
       route: 'drill',
       done: false,
@@ -321,8 +322,8 @@ function drillPlan(input: PlanInput, today: Attempt[]): PlanItem | null {
   if (due > 0) {
     return {
       id: 'drill',
-      title: `Ôn ${due} thẻ cụm từ đến hạn`,
-      detail: practised > 0 ? `Đã ôn ${practised} lượt hôm nay, còn ${due} thẻ` : 'Ôn đúng lúc để nhớ lâu',
+      title: tl`Ôn ${due} thẻ cụm từ đến hạn`,
+      detail: practised > 0 ? tl`Đã ôn ${practised} lượt hôm nay, còn ${due} thẻ` : 'Ôn đúng lúc để nhớ lâu',
       route: 'drill',
       done: false,
       progress: practised > 0 ? practised / (practised + due) : 0,
@@ -332,7 +333,7 @@ function drillPlan(input: PlanInput, today: Attempt[]): PlanItem | null {
     return {
       id: 'drill',
       title: 'Ôn thẻ cụm từ',
-      detail: `Đã ôn ${practised} lượt, không còn thẻ đến hạn`,
+      detail: tl`Đã ôn ${practised} lượt, không còn thẻ đến hạn`,
       route: 'drill',
       done: true,
       progress: 1,
@@ -341,7 +342,7 @@ function drillPlan(input: PlanInput, today: Attempt[]): PlanItem | null {
   if (fresh > 0) {
     return {
       id: 'drill',
-      title: `Học ${fresh} cụm từ mới`,
+      title: tl`Học ${fresh} cụm từ mới`,
       detail: 'Các cụm hay bị nói nhanh: gonna, wanna, kinda…',
       route: 'drill',
       done: false,
@@ -356,12 +357,12 @@ function dictationPlan(today: Attempt[]): PlanItem {
   const n = ids.size;
   return {
     id: 'dictation',
-    title: `Chép chính tả ${DICTATION_TARGET} câu`,
+    title: tl`Chép chính tả ${DICTATION_TARGET} câu`,
     detail:
       n >= DICTATION_TARGET
-        ? `Đã chép ${n} câu hôm nay`
+        ? tl`Đã chép ${n} câu hôm nay`
         : n > 0
-          ? `Đã chép ${n}/${DICTATION_TARGET} câu, còn ${DICTATION_TARGET - n} câu`
+          ? tl`Đã chép ${n}/${DICTATION_TARGET} câu, còn ${DICTATION_TARGET - n} câu`
           : 'Nghe câu nói tự nhiên rồi gõ lại',
     route: 'dictation',
     done: n >= DICTATION_TARGET,
@@ -384,11 +385,11 @@ function focusPlan(input: PlanInput, today: Attempt[]): PlanItem | null {
   const pct = Math.round(weak.rate * 100);
   return {
     id: 'focus',
-    title: `Luyện điểm yếu: ${info.label}`,
+    title: tl`Luyện điểm yếu: ${info.label}`,
     detail:
       n >= FOCUS_TARGET
-        ? `Đã luyện ${n} lượt về ${info.label} hôm nay`
-        : `Bạn nghe sót ${pct}% · ${route === 'pairs' ? 'Phân biệt âm' : 'Chép chính tả'} ${FOCUS_TARGET} lượt (${Math.min(n, FOCUS_TARGET)}/${FOCUS_TARGET})`,
+        ? tl`Đã luyện ${n} lượt về ${info.label} hôm nay`
+        : tl`Bạn nghe sót ${pct}% · ${route === 'pairs' ? 'Phân biệt âm' : 'Chép chính tả'} ${FOCUS_TARGET} lượt (${Math.min(n, FOCUS_TARGET)}/${FOCUS_TARGET})`,
     route,
     params: { focus: weak.phenomenon },
     done: n >= FOCUS_TARGET,
@@ -401,12 +402,12 @@ function shadowingPlan(input: PlanInput, today: Attempt[]): PlanItem {
   const params = input.shadowSentenceId ? { id: input.shadowSentenceId } : undefined;
   return {
     id: 'shadowing',
-    title: `Nói nhại ${SHADOWING_TARGET} câu`,
+    title: tl`Nói nhại ${SHADOWING_TARGET} câu`,
     detail:
       n >= SHADOWING_TARGET
-        ? `Đã nói theo ${n} lượt hôm nay`
+        ? tl`Đã nói theo ${n} lượt hôm nay`
         : n > 0
-          ? `Đã nói theo ${n}/${SHADOWING_TARGET} câu`
+          ? tl`Đã nói theo ${n}/${SHADOWING_TARGET} câu`
           : input.shadowSentenceId
             ? 'Bắt đầu với câu của ngày: nghe, nói theo, so sánh'
             : 'Nghe, nói theo, so sánh với giọng mẫu',
@@ -429,7 +430,7 @@ function applyBackPressure(items: PlanItem[], heldBack: number): PlanItem[] {
   const later: PlanItem = {
     id: 'later',
     title: 'Ôn trước, học mới sau',
-    detail: `Còn ${heldBack} mục tồn, học mới tạm nghỉ để ôn kịp`,
+    detail: tl`Còn ${heldBack} mục tồn, học mới tạm nghỉ để ôn kịp`,
     route: 'review',
     done: false,
     progress: 0,
@@ -501,7 +502,7 @@ export function listeningLine(input: ListeningLineInput): ListeningLine {
   const goal = nonNegInt(input.goal);
   const t = input.timer ?? null;
   const timerLabel = t
-    ? `${t.status === 'running' ? 'Đang nghe' : t.status === 'paused' ? 'Đang tạm dừng' : 'Chưa lưu'} ${formatClock(t.elapsedMs)}`
+    ? `${tr(t.status === 'running' ? 'Đang nghe' : t.status === 'paused' ? 'Đang tạm dừng' : 'Chưa lưu')} ${formatClock(t.elapsedMs)}`
     : null;
   const done = goal > 0 && minutes >= goal;
   return {
@@ -510,8 +511,8 @@ export function listeningLine(input: ListeningLineInput): ListeningLine {
     goal,
     pct: goal > 0 ? Math.min(100, Math.round((minutes / goal) * 100)) : 0,
     done,
-    title: goal > 0 ? `Nghe tiếng Anh: ${minutes}/${goal} phút` : `Nghe tiếng Anh: ${minutes} phút hôm nay`,
-    detail: goal === 0 ? null : done ? 'Đã đạt mục tiêu hôm nay' : minutes > 0 ? `Còn ${goal - minutes} phút` : null,
+    title: goal > 0 ? tl`Nghe tiếng Anh: ${minutes}/${goal} phút` : tl`Nghe tiếng Anh: ${minutes} phút hôm nay`,
+    detail: goal === 0 ? null : done ? 'Đã đạt mục tiêu hôm nay' : minutes > 0 ? tl`Còn ${goal - minutes} phút` : null,
     timerLabel,
     actionLabel: 'Ghi giờ nghe',
     route: 'listening',
@@ -547,7 +548,7 @@ export function checkupPlan(due: CheckupDue | null | undefined): CheckupPlanItem
     id: 'checkup',
     optional: true,
     title: 'Đến lúc kiểm tra định kỳ',
-    detail: `${days} ngày từ lần trước · khoảng 10 phút`,
+    detail: tl`${days} ngày từ lần trước · khoảng 10 phút`,
     route: 'checkup',
     done: false,
     progress: 0,

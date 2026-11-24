@@ -15,6 +15,7 @@
 // Times are plain numbers (ms, from the caller's clock): nothing here reads Date.now().
 
 import type { CatchAnswer, FishCast } from '../../../../core/town/fishing';
+import { getLang, tl } from '../../../../i18n';
 
 export type CastPhase = 'idle' | 'waiting' | 'bite' | 'listening' | 'answered';
 
@@ -170,14 +171,16 @@ export function abandonAnswer(s: CastState, cast: Pick<FishCast, 'answer' | 'tim
 export function secondsVi(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return '0 giây';
   const s = ms / 1000;
-  const txt = s < 10 ? (Math.round(s * 10) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') : String(Math.round(s));
-  return `${txt} giây`;
+  const point = getLang() === 'en' ? '.' : ',';
+  const txt = s < 10 ? (Math.round(s * 10) / 10).toFixed(1).replace('.', point).replace(/[.,]0$/, '') : String(Math.round(s));
+  return tl`${txt} giây`;
 }
 
 /** The short clock beside the time bar: "4,5" (seconds, one decimal, rounded up so it never shows 0 early). */
 export function clockVi(ms: number): string {
   const tenths = Math.ceil(Math.max(0, ms) / 100);
-  return (tenths / 10).toFixed(1).replace('.', ',');
+  const txt = (tenths / 10).toFixed(1);
+  return getLang() === 'en' ? txt : txt.replace('.', ',');
 }
 
 export type KeyAction = { type: 'cast' } | { type: 'pick'; index: number } | { type: 'replay' } | null;

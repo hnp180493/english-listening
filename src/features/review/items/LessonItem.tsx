@@ -12,6 +12,7 @@ import Quiz from '../../lessons/Quiz';
 import type { Resolved } from '../resolve';
 import type { ItemBaseProps } from './types';
 import Verdict from './Verdict';
+import { tr } from '../../../i18n';
 
 export interface LessonItemProps extends ItemBaseProps {
   item: Extract<Resolved, { kind: 'lesson' }>;
@@ -75,7 +76,7 @@ export default function LessonItem({ item, state, graded, onGraded, onNext }: Le
     <div className="stack rev-lesson">
       <h2 ref={headingRef} tabIndex={-1} className="rev-lesson-title">
         Ôn bài {lesson.order}
-        {lesson.course !== 'connected' && ` (${courseTitle(lesson.course)})`} · {lesson.title}
+        {lesson.course !== 'connected' && ` (${tr(courseTitle(lesson.course))})`} · {lesson.title}
       </h2>
       {done ? (
         <Verdict

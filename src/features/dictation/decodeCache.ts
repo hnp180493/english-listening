@@ -5,6 +5,7 @@ import { clozeTokens } from '../../core/dictation/cloze';
 import { splitWords } from '../../core/dictation/normalize';
 import { connectedText, sayOf, segmentSpeech, type PlaybackPlan } from '../../core/playback';
 import type { DecodeResult, Phenomenon } from '../../core/types';
+import { getLang } from '../../i18n';
 
 const MAX_CACHE = 800;
 const cache = new Map<string, DecodeResult>();
@@ -13,10 +14,14 @@ function empty(text: string): DecodeResult {
   return { input: text, tokens: [], annotations: [], segments: [], spokenText: '' };
 }
 
-/** decode() that never throws and always returns well-formed arrays. Cached by text. */
+/**
+ * decode() that never throws and always returns well-formed arrays. Cached by text and interface language: the
+ * annotations' explanations (`rule`) are written in the language the decoder ran in.
+ */
 export function safeDecode(text: string): DecodeResult {
   const key = typeof text === 'string' ? text : '';
-  const hit = cache.get(key);
+  const cacheKey = getLang() === 'vi' ? key : `${getLang()}\u0000${key}`;
+  const hit = cache.get(cacheKey);
   if (hit) return hit;
   let r: DecodeResult = empty(key);
   try {
@@ -26,7 +31,7 @@ export function safeDecode(text: string): DecodeResult {
     // decoder failure must never break dictation
   }
   if (cache.size >= MAX_CACHE) cache.delete(cache.keys().next().value as string);
-  cache.set(key, r);
+  cache.set(cacheKey, r);
   return r;
 }
 

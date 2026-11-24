@@ -10,6 +10,7 @@ import { pillLabel } from '../features/listening/listeningModel';
 import { useClock } from '../features/listening/useClock';
 import { Icon } from './Icon';
 import './ListeningTimerPill.css';
+import { tl } from '../i18n';
 
 export default function ListeningTimerPill({ current, placement }: { current: RouteId; placement: 'sidebar' | 'topbar' }) {
   const timer = useListeningTimer();
@@ -24,7 +25,7 @@ export default function ListeningTimerPill({ current, placement }: { current: Ro
     <a
       className={`ltp ltp--${placement}` + (status === 'running' ? ' is-running' : '')}
       href={hrefFor('listening')}
-      aria-label={`${label}. Mở Nhật ký nghe`}
+      aria-label={tl`${label}. Mở Nhật ký nghe`}
       title="Mở Nhật ký nghe"
     >
       {status === 'running' && placement === 'sidebar' ? (
