@@ -581,8 +581,14 @@ checked: by a person, walking the lanes by hand, on a real phone or a weak lapto
 whether the open meadows and fields read as calm or as empty, and whether passers-by spending part of their walk
 in the countryside leaves the town feeling emptier.
 
-**Toàn màn hình.** The last HUD button (Maximize2 / Minimize2, "Toàn màn hình" / "Thu nhỏ") puts the stage over the
-whole window: the Fullscreen API on the stage's own box when the browser has it (it hides the browser's bars), and
+**Toàn màn hình.** On a phone (`(max-width: 720px) and (pointer: coarse)`) the town opens in full screen: the owner,
+2026-11-24, on a OnePlus: "giao diện điện thoại của game thị trấn lỏ vậy, có cách nào bật full màn hình không?" (the
+app bar, the page title and the tab bar took a third of the screen). The browser allows its real full screen only from a
+tap, so the overlay comes first and the first tap on the town asks for it (`useFullStage`); "Thu nhỏ" leaves both, and
+the choice holds for the session. Checked in headless Edge at 412 × 892 (the overlay at once; headless refuses the
+Fullscreen API itself, so the real full screen was not seen). An installed app (Chrome ⋮ → "Thêm vào màn hình chính",
+`display: standalone`) has no address bar either. The last HUD button (Maximize2 / Minimize2, "Toàn màn hình" /
+"Thu nhỏ") puts the stage over the whole window: the Fullscreen API on the stage's own box when the browser has it (it hides the browser's bars), and
 always a fixed overlay through CSS (`.town-stage.is-full`; the page under it does not scroll), which is all an
 iPhone gets. The HUD, the conversation, the build panel and the popover of "Việc hôm nay" are all inside the stage,
 so they work there. Esc leaves (the browser's own Esc for the API; ours for the overlay, but only when no panel is

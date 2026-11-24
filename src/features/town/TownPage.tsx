@@ -93,8 +93,21 @@ function narrowStage(): boolean {
   }
 }
 
-/** Full screen was chosen: kept for this session only (a visit of another page and back keeps it, a reload does not). */
-let fullChosen = false;
+/** A phone (a narrow screen held in the hand): the town is a game there, it takes the whole screen. */
+function phoneScreen(): boolean {
+  try {
+    return window.matchMedia('(max-width: 720px) and (pointer: coarse)').matches;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Full screen was chosen: kept for this session only (a visit of another page and back keeps it, a reload does not).
+ * Null until the learner chooses: a phone starts in full screen (owner, 2026-11-24, on a OnePlus: "giao diện điện
+ * thoại của game thị trấn lỏ vậy, có cách nào bật full màn hình không?"), a computer does not.
+ */
+let fullChosen: boolean | null = null;
 
 /**
  * "Toàn màn hình": the stage covers the whole window. The Fullscreen API when the browser has it for an element
@@ -102,7 +115,7 @@ let fullChosen = false;
  * iPhone gets. Esc leaves (the browser's own Esc, or ours for the overlay when no panel is open).
  */
 function useFullStage(box: () => HTMLElement | null, panelOpen: boolean): { full: boolean; toggle: () => void } {
-  const [full, setFull] = useState(() => fullChosen);
+  const [full, setFull] = useState(() => fullChosen ?? phoneScreen());
   const viaApi = useRef(false);
 
   const set = useCallback(
@@ -125,7 +138,24 @@ function useFullStage(box: () => HTMLElement | null, panelOpen: boolean): { full
     },
     [box],
   );
-  const toggle = useCallback(() => set(!fullChosen), [set]);
+  const toggle = useCallback(() => set(!(fullChosen ?? phoneScreen())), [set]);
+
+  // a phone in the overlay: its first tap on the town also asks the browser for real full screen (its own bars and the
+  // phone's status bar go too); a browser only allows that from a tap, so it cannot happen when the page opens
+  useEffect(() => {
+    if (!full || !phoneScreen()) return;
+    const el = box();
+    if (!el || typeof el.requestFullscreen !== 'function' || !document.fullscreenEnabled) return;
+    const onTap = () => {
+      if (document.fullscreenElement) return;
+      viaApi.current = true;
+      el.requestFullscreen().catch(() => {
+        viaApi.current = false;
+      });
+    };
+    el.addEventListener('pointerup', onTap, { once: true });
+    return () => el.removeEventListener('pointerup', onTap);
+  }, [full, box]);
 
   // the browser left full screen by itself (its own Esc, a gesture): the overlay goes too
   useEffect(() => {
