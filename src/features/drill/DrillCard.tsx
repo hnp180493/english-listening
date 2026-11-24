@@ -3,6 +3,7 @@ import { ArrowDown, CircleCheck, CircleX, Eye, Headphones } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import PhTag from '../../components/PhTag';
 import PlayButton from '../../components/PlayButton';
+import { useShortcutAria, useShortcuts } from '../../components/useShortcuts';
 import { GRADES, newCard, previewIntervals, type CardState, type Grade } from '../../core/srs';
 import { speakableFor } from '../../core/decoder';
 import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_RATE, CAREFUL_TITLE, CONNECTED_SLOW_RATE, CONNECTED_SLOW_TITLE, CONNECTED_TITLE, naturalRate } from '../../core/playback';
@@ -121,7 +122,18 @@ export default function DrillCard({
     [chunk.id, reveal],
   );
 
-  // Keyboard: Esc nghe lại · R nghe lại · C câu ví dụ · 1–4 chọn / chấm · Shift+Enter xem đáp án.
+  // The shared practice keys (they work while typing): replay = the big "Nghe" / "Tự nhiên", slow = "Nghe chậm" of a
+  // choose card (still connected), careful = "Rõ từng từ" after the answer, skip = "Không biết, xem đáp án".
+  useShortcuts({
+    replay: () => void speak(revealed ? chunk.ttsText : frontAudio, { rate: naturalRate(), mode: 'connected' }),
+    slow: () => (choose && !revealed ? void speak(exampleAudio, { rate: CONNECTED_SLOW_RATE, mode: 'connected', slow: true }) : false),
+    careful: () => (revealed ? void speak(citationText(chunk.written), { rate: CAREFUL_RATE, mode: 'careful' }) : false),
+    skip: () => (revealed ? false : reveal('skipped')),
+  });
+  const replayAria = useShortcutAria('replay');
+  const skipAria = useShortcutAria('skip');
+
+  // Keyboard: R nghe lại · C câu ví dụ · 1–4 chọn / chấm · Shift+Enter xem đáp án.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (inPopover(e.target)) return;
@@ -131,11 +143,6 @@ export default function DrillCard({
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        void speak(revealed ? chunk.ttsText : frontAudio, { rate: naturalRate(), mode: 'connected' });
-        return;
-      }
       if (!revealed && e.key === 'Enter' && e.shiftKey) {
         e.preventDefault();
         reveal('skipped');
@@ -249,7 +256,7 @@ export default function DrillCard({
                 </button>
               ))}
             </div>
-            <button type="button" className="btn btn-ghost btn-sm drill-skip" onClick={() => reveal('skipped')}>
+            <button type="button" className="btn btn-ghost btn-sm drill-skip" onClick={() => reveal('skipped')} aria-keyshortcuts={skipAria}>
               <Icon icon={Eye} size={15} />
               Không biết, xem đáp án
             </button>
@@ -282,7 +289,7 @@ export default function DrillCard({
                   autoCorrect="off"
                   spellCheck={false}
                   enterKeyHint="done"
-                  aria-keyshortcuts="Escape"
+                  aria-keyshortcuts={replayAria}
                 />
                 <button
                   type="submit"
@@ -294,7 +301,7 @@ export default function DrillCard({
                 </button>
               </div>
             </form>
-            <button type="button" className="btn btn-ghost btn-sm drill-skip" onClick={() => reveal('skipped')}>
+            <button type="button" className="btn btn-ghost btn-sm drill-skip" onClick={() => reveal('skipped')} aria-keyshortcuts={skipAria}>
               <Icon icon={Eye} size={15} />
               Không biết, xem đáp án
             </button>

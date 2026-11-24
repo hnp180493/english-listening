@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { ArrowRight, Check, LoaderCircle, Play, TriangleAlert, VolumeX } from 'lucide-react';
 import { PENDING_LABEL } from '../../components/pendingLabel';
 import { Icon } from '../../components/Icon';
+import { useShortcutAria, useShortcuts } from '../../components/useShortcuts';
 import { MAX_PLAYS } from '../../core/benchmark';
 import { sayOf } from '../../core/playback';
 import { prefetchSpeech } from '../../core/tts';
@@ -121,7 +122,18 @@ export default function CheckupTest({
     else onChange(next);
   };
 
-  // Keys outside the text field: Enter = listen / next, Esc = listen again, 1–4 = pick an option.
+  // The shared "listen again" key (Esc / Ctrl+Space, works in the answer field too): exactly the "Nghe" button's path,
+  // so the limit of plays (MAX_PLAYS) and the saved count are the same. Nothing else is shared here: no slow, no
+  // careful, no hint (the test measures one natural listening).
+  useShortcuts({
+    replay: () => {
+      if (!item || isPlaying || !audio.canSpeak || left <= 0) return false;
+      listen();
+    },
+  });
+  const replayAria = useShortcutAria('replay');
+
+  // Keys outside the text field: Enter = listen / next, 1–4 = pick an option.
   const keyRef = useRef<(e: KeyboardEvent) => void>(() => {});
   useEffect(() => {
     keyRef.current = (e: KeyboardEvent) => {
@@ -130,11 +142,6 @@ export default function CheckupTest({
       if (t?.closest('[role="dialog"], [data-popover]')) return;
       if (t && (t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || t.isContentEditable)) return;
       if (t instanceof HTMLInputElement) return; // the answer field handles its own keys
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        listen();
-        return;
-      }
       if (e.key === 'Enter') {
         // a focused link / other button keeps its own Enter; the listen button and options use "next"
         if (t && t.closest('a, button') && !t.closest('.ck-opt, .ck-play')) return;
@@ -164,9 +171,6 @@ export default function CheckupTest({
     if (e.key === 'Enter') {
       e.preventDefault();
       if (!e.repeat) goNext();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      listen();
     }
   };
 
@@ -230,7 +234,7 @@ export default function CheckupTest({
           onClick={listen}
           disabled={!audio.canSpeak || left <= 0 || isPlaying}
           aria-busy={(isPlaying && audio.pending) || undefined}
-          aria-keyshortcuts="Escape"
+          aria-keyshortcuts={replayAria}
         >
           {isPlaying && audio.pending ? (
             <Icon icon={LoaderCircle} size={17} className="icon-spin" />

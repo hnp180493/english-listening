@@ -200,6 +200,18 @@ const core: Record<string, string> = {
   'T5': 'Thu',
   'T6': 'Fri',
   'T7': 'Sat',
+  'Nghe từng cụm': 'Listen chunk by chunk',
+  'Bỏ qua, sang câu tiếp': 'Skip, go to the next one',
+  'Esc cũng được.': 'Esc works too.',
+  'Vẫn nối âm, chỉ chậm hơn.': 'Still connected, just slower.',
+  'Chép chính tả: từng cụm âm, có ngắt nghỉ.': 'Dictation: sound chunks with pauses.',
+  'Câu viết đọc chậm. Chép chính tả: chỉ sau khi kiểm tra.': 'The written sentence, slowly. Dictation: only after checking.',
+  'Chép chính tả: hiện chữ cái đầu.': 'Dictation: shows the first letters.',
+  'Trước khi kiểm tra: bỏ qua. Sau đó: sang câu tiếp.': 'Before checking: skip. After: next sentence.',
+  'Cần giữ thêm Ctrl (hoặc Alt) để phím dùng được cả khi đang gõ.': 'Hold Ctrl (or Alt) too, so the key works while you type.',
+  'Phím này trình duyệt, Windows hoặc bộ gõ đang dùng. Chọn phím khác.': 'The browser, Windows or your input method uses this key. Pick another one.',
+  'Ctrl + Alt gõ ra chữ trên nhiều bàn phím. Chọn phím khác.': 'Ctrl + Alt types letters on many keyboards. Pick another key.',
+  'Alt + Shift là phím đổi ngôn ngữ của Windows. Chọn phím khác.': 'Alt + Shift switches the Windows input language. Pick another key.',
 };
 
 export default core;

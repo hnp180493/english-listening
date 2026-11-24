@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import PageHeader from '../../components/PageHeader';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
+import type { ShortcutAction } from '../../core/shortcuts';
 import {
   buildCheckupResult,
   clearCheckupDraft,
@@ -28,9 +29,11 @@ import './checkup.css';
 
 type View = { kind: 'intro' } | { kind: 'test'; resumed: boolean } | { kind: 'result'; id: string; justFinished: boolean; saveFailed: boolean };
 
+/** The one shared key the test answers (only while there are plays left): listening again. */
+const SHARED: readonly ShortcutAction[] = ['replay'];
+
 const SHORTCUTS = [
   { keys: ['Enter'], text: 'Nghe (lần đầu), rồi sang câu tiếp' },
-  { keys: ['Esc'], text: 'Nghe lại (nếu còn lượt)' },
   { keys: ['1–4'], text: 'Chọn đáp án (phần 2)' },
 ];
 
@@ -122,7 +125,7 @@ export default function CheckupPage() {
   if (view.kind === 'test' && test && form) {
     return (
       <div className="stack-lg page-focus ck-page">
-        <PageHeader title="Kiểm tra định kỳ" subtitle="Bài nghe 10 phút để đo tiến bộ." help={<ShortcutsHelp items={SHORTCUTS} />} />
+        <PageHeader title="Kiểm tra định kỳ" subtitle="Bài nghe 10 phút để đo tiến bộ." help={<ShortcutsHelp shared={SHARED} items={SHORTCUTS} />} />
         <CheckupTest form={form} state={test} resumed={view.resumed} onChange={update} onVoice={voiceHeard} onFinish={finish} onAbandon={abandon} />
       </div>
     );

@@ -1207,13 +1207,13 @@ input[type='radio'] {
 }
 .shortcuts-row {
   display: grid;
-  grid-template-columns: 112px 1fr;
+  grid-template-columns: 156px 1fr;
   gap: var(--space-3);
   align-items: baseline;
 }
 .shortcuts-row dt {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 3px;
 }

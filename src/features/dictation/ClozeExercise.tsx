@@ -13,6 +13,7 @@ import FollowUps from './FollowUps';
 import ListenControls, { CarefulListen } from './ListenControls';
 import { Meaning, ResultActions, Verdict, type Tone } from './ResultParts';
 import { isCoarsePointer, usePlayer } from './usePlayer';
+import { useDictationKeys } from './useDictationKeys';
 import { AnnotationCard, PhenomenonChips } from './WhyWrong';
 import { tl } from '../../i18n';
 
@@ -58,7 +59,7 @@ export default function ClozeExercise({
 
   const rootRef = useRef<HTMLElement>(null);
   const audio = useMemo(() => dictationAudio(sentence), [sentence]);
-  const player = usePlayer(audio, chunks, { autoPlay, rootRef });
+  const player = usePlayer(audio, chunks, { autoPlay });
   const { canSpeak, plays, play, stop } = player;
 
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
@@ -104,6 +105,8 @@ export default function ClozeExercise({
     }
     check();
   };
+
+  useDictationKeys({ player, rootRef, checked: !!outcome, checkedAtRef, hint: hintShown ? undefined : () => setHintShown(true), onSkip, onNext });
 
   const annById = useMemo(() => new Map(decoded.annotations.map((a) => [a.id, a])), [decoded]);
   const missedAnns = (outcome?.missedAnnotationIds ?? []).map((id) => annById.get(id)).filter((a): a is Annotation => !!a);

@@ -6,7 +6,8 @@ import { speak, stopSpeaking, ttsSupported } from '../../core/tts';
 import ListenPair from '../../components/ListenPair';
 import PlayButton from '../../components/PlayButton';
 import SpokenSentence from '../../components/SpokenSentence';
-import { CONNECTED_SLOW_TITLE, CONNECTED_TITLE } from '../../core/playback';
+import { useShortcutAria, useShortcuts } from '../../components/useShortcuts';
+import { CAREFUL_RATE, CONNECTED_SLOW_TITLE, CONNECTED_TITLE, carefulPlan } from '../../core/playback';
 import type { ChooseItem, Lesson, ListenTypeItem, QuizItem, SilentLetterItem } from '../../data/lessonTypes';
 import { MarkedWord, WordListen } from './Blocks';
 import { quizPlayback, type QuizPlayback } from './quizPlayback';
@@ -133,6 +134,27 @@ export default function Quiz({ lesson, onFinish, onExit, embedded = false }: Qui
     if (play) void speak(play.text, { mode: play.mode });
   };
 
+  // The shared practice keys (they work while typing): replay / slow = the item's "Nghe" and turtle (still the
+  // item's own mode); careful = "Rõ từng từ" of the feedback, so only after answering; skip = "Không nghe ra"
+  // before answering (typed items), "Câu tiếp" after.
+  useShortcuts({
+    replay: () => (play ? void replay() : false),
+    slow: () => (play ? void speak(play.text, { rate: play.slowRate, mode: play.mode, slow: play.mode === 'connected' }) : false),
+    careful: () => {
+      if (!current || !item || !isConnectedSpeechItem(item, lesson.course)) return false;
+      const sentence = itemSentence(item);
+      if (!sentence.trim()) return false;
+      const plan = carefulPlan(sentence, CAREFUL_RATE);
+      void speak(plan.text, { rate: plan.rate, mode: plan.mode });
+    },
+    skip: () => {
+      if (current) return goNext();
+      if (item?.type === 'listen-type') return answer({ kind: 'text', value: '' });
+      return false;
+    },
+  });
+  const skipAria = useShortcutAria('skip');
+
   useKeyboard((e) => {
     if (!item) return false;
     if (e.key === 'Enter' || e.key === 'ArrowRight') {
@@ -198,7 +220,7 @@ export default function Quiz({ lesson, onFinish, onExit, embedded = false }: Qui
               type="button"
               className="btn btn-primary btn-lg"
               onClick={goNext}
-              aria-keyshortcuts="Enter"
+              aria-keyshortcuts={['Enter', skipAria].filter(Boolean).join(' ')}
             >
               {isLast ? 'Xem kết quả' : 'Câu tiếp'}
               <Icon icon={ArrowRight} size={17} />

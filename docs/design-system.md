@@ -178,7 +178,7 @@ import ShortcutsHelp from '../../components/ShortcutsHelp';
   <PageHeader
     title="Chép chính tả"
     subtitle="Nghe câu nói tự nhiên rồi gõ lại."
-    help={<ShortcutsHelp items={[{ keys: ['Enter'], text: 'Kiểm tra' }, { keys: ['Esc'], text: 'Nghe lại' }]} />}
+    help={<ShortcutsHelp shared={['replay', 'slow', 'chunks', 'careful', 'hint', 'skip']} items={[{ keys: ['Enter'], text: 'Kiểm tra' }]} />}
   />
 
   {/* ONE control row, no card around it */}
@@ -428,6 +428,21 @@ import ShortcutsHelp from '../../components/ShortcutsHelp';
 ```
 
 `keys` are pressed together (joined with "+"); write a range as one key (`'1–4'`). Shortcuts stay working: also expose them on the controls with `aria-keyshortcuts`.
+
+**Shared practice keys** (owner, 2026-11-24: "Ctrl + space thì cho nghe lại … có chỗ cài đặt riêng"). The actions every practice page repeats have ONE set of keys, the same everywhere, set in Cài đặt → Phím tắt (`src/core/shortcuts.ts`, device-local key `shortcuts`):
+
+| Action | Default | Where |
+|---|---|---|
+| `replay` Nghe lại | Ctrl+Space (Esc too, fixed) | every page with a "Nghe" |
+| `slow` Nghe chậm | Ctrl+Shift+Space | where a slow button exists (still connected) |
+| `chunks` Nghe từng cụm | Ctrl+. | dictation |
+| `careful` Rõ từng từ | Ctrl+, | where the button is shown; dictation only after the check |
+| `hint` Gợi ý | Ctrl+/ | where a "Gợi ý" exists |
+| `skip` Bỏ qua / câu tiếp | Ctrl+] | before the check: skip; after: next (same guard as Enter) |
+
+Every combo carries Ctrl / Alt / Cmd (or is a free F key: F2, F4, F8, F9), so it works while the cursor is in the answer box and never types a letter. Keys are matched by `KeyboardEvent.code` (the Windows Vietnamese layout types ơ on "]"). The recorder refuses what a browser (Chrome, Edge, Firefox; Safari's Cmd keys), Windows, text editing or Unikey (Ctrl+Shift alone, Alt+Z) uses, Ctrl+Alt (AltGr) and Alt+Shift (input language switch). Enter (check, then next) stays the answer box's own key. Device-local because a key that suits one machine's keyboard and input method is wrong on another (a Mac's Cmd, a phone has none).
+
+A page wires them with `useShortcuts({ replay: () => …, skip: () => … }, { root, priority })` (`src/components/useShortcuts.ts`): the handler calls what the button calls and returns `false` when the action is not available now (the key then goes on). Never add a page's own Esc-to-replay (the dispatcher already maps Esc). List them with `ShortcutsHelp shared={[…]}`: the rows show the keys set on this browser and a "Đổi phím" link to `#/settings?section=keys`. Buttons get `aria-keyshortcuts={useShortcutAria('replay')}`. The settings card shows keys as button labels (it is where they are changed), still never a `<kbd>`. Like ShortcutsHelp, the card is hidden on touch devices.
 
 ### FilterButton
 

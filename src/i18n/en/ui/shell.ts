@@ -69,6 +69,9 @@ const shell: Record<string, string> = {
   'Giọng đọc, giao diện, sao lưu': 'Voice, display, backup',
   'Học': 'Learn',
   'Theo dõi': 'Track',
+  'Phím có Ctrl hoặc Esc dùng được cả khi đang gõ.': 'Keys with Ctrl, and Esc, work while you type.',
+  'Bộ phím chung đang tắt.': 'The shared keys are off.',
+  'Đổi phím': 'Change keys',
 };
 
 export default shell;

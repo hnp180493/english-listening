@@ -6,6 +6,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { ArrowRight, CircleCheck, CircleX, Eye, RotateCw } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import PlayButton from '../../../components/PlayButton';
+import { useShortcuts } from '../../../components/useShortcuts';
+import { NEXT_GUARD_MS } from '../../dictation/constants';
 import { formatDaysVi, gradeAuto, gradeWordChoice, recordReview } from '../../../core/review';
 import { wordIndex, type WordSource } from '../../../core/review/words';
 import { useSettings } from '../../../core/settings';
@@ -104,6 +106,7 @@ interface ListenViewProps {
 
 function ListenView({ source, plan, onAnswer, onNext }: ListenViewProps) {
   const [picked, setPicked] = useState<number | null>(null); // -1 = "xem đáp án"
+  const answeredAtRef = useRef(0);
   const firstRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const { text, context } = plan.audio;
@@ -122,11 +125,23 @@ function ListenView({ source, plan, onAnswer, onNext }: ListenViewProps) {
   const pick = useCallback(
     (i: number) => {
       if (picked !== null) return;
+      answeredAtRef.current = Date.now();
       setPicked(i);
       onAnswer(i === plan.answer);
     },
     [picked, onAnswer, plan.answer],
   );
+
+  // The shared practice keys: replay / slow = "Nghe" / "Nghe chậm"; skip = "Không biết, xem đáp án", then "Tiếp".
+  useShortcuts({
+    replay: () => void speak(text),
+    slow: () => void speak(text, { rate: SLOW_RATE }),
+    skip: () => {
+      if (!answered) return pick(-1);
+      if (Date.now() - answeredAtRef.current < NEXT_GUARD_MS) return;
+      onNext();
+    },
+  });
 
   // 1–4 chọn · R nghe lại
   useEffect(() => {
@@ -298,11 +313,25 @@ function ReadView({ source, state, context, onGrade, onNext }: ReadViewProps) {
   const choose = useCallback(
     (g: Grade) => {
       if (mine) return;
+      gradedAtRef.current = Date.now();
       setMine(g);
       onGrade(g);
     },
     [mine, onGrade],
   );
+
+  // The shared practice keys (only once the card is flipped: before it the word is read aloud by the learner):
+  // replay / slow = the reveal's "Nghe" / "Nghe chậm"; skip = "Tiếp" once graded.
+  const gradedAtRef = useRef(0);
+  useShortcuts({
+    replay: () => (flipped ? void speak(audio) : false),
+    slow: () => (flipped ? void speak(audio, { rate: SLOW_RATE }) : false),
+    skip: () => {
+      if (!mine) return false;
+      if (Date.now() - gradedAtRef.current < NEXT_GUARD_MS) return;
+      onNext();
+    },
+  });
 
   // 1–4 tự chấm · R nghe lại (after flipping)
   useEffect(() => {

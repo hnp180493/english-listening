@@ -5,6 +5,7 @@ import PageHeader from '../../components/PageHeader';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
 import { isLessonCompleted, loadLessonProgress, recordLessonResult } from '../../core/lessons';
 import { hrefFor } from '../../core/nav';
+import type { ShortcutAction } from '../../core/shortcuts';
 import { recordReview } from '../../core/review';
 import { recordAttempt } from '../../core/stats';
 import { stopSpeaking } from '../../core/tts';
@@ -20,6 +21,9 @@ import { NoBreakRespell } from './LessonBits';
 import { tl } from '../../i18n';
 
 const TITLE_ID = 'lessons-view-title';
+
+/** The shared practice keys the quiz answers (core/shortcuts.ts); the reading steps answer none. */
+const QUIZ_SHARED: readonly ShortcutAction[] = ['replay', 'slow', 'careful', 'skip'];
 
 const SHORTCUTS = [
   { keys: ['←', '→'], text: 'Phần trước / phần sau' },
@@ -160,7 +164,7 @@ export default function LessonView({ lesson }: { lesson: Lesson }) {
         title={<NoBreakRespell text={lesson.title} />}
         titleId={TITLE_ID}
         subtitle={tl`Bài ${lesson.order} · ${lesson.minutes} phút`}
-        help={<ShortcutsHelp items={SHORTCUTS} note="Phím chữ và số không dùng được khi đang gõ." />}
+        help={<ShortcutsHelp shared={phase.kind === 'quiz' ? QUIZ_SHARED : undefined} items={SHORTCUTS} note="Phím chữ và số không dùng được khi đang gõ." />}
       />
 
       <div className="lessons-dots" role="group" aria-label="Các phần của bài học">

@@ -252,6 +252,17 @@ const settings: Record<string, string> = {
   'dùng nhận dạng giọng nói của trình duyệt: trên Chrome và Edge, âm thanh được gửi tới dịch vụ đám mây của Google/Microsoft.': 'uses the browser’s speech recognition: in Chrome and Edge, the audio is sent to Google’s or Microsoft’s cloud services.',
   'Các giọng “Online (Natural)” của Edge được tạo trên máy chủ của Microsoft.': 'Edge’s “Online (Natural)” voices are generated on Microsoft’s servers.',
   'Xem lại phần giới thiệu': 'Show the introduction again',
+  '{} đang dùng cho “{}”. Đổi hoặc bỏ phím đó trước.': '{0} is already used for “{1}”. Change or remove that key first.',
+  'Một bộ phím cho mọi trang luyện, dùng được cả khi đang gõ. Chỉ lưu trên máy này.': 'One set of keys for every practice page, working while you type. Saved on this device only.',
+  'Dùng phím tắt khi luyện': 'Use shortcuts while practising',
+  'Tắt thì Enter, phím số và phím chữ của từng trang vẫn dùng được.': 'When off, Enter and each page\'s number and letter keys still work.',
+  'Bấm phím mới…': 'Press the new keys…',
+  'Chưa có phím': 'No key',
+  'Về phím mặc định ({})': 'Back to the default ({0})',
+  'Bỏ phím này': 'Remove this key',
+  'Giữ Ctrl (hoặc Alt) rồi bấm một phím. Esc để hủy.': 'Hold Ctrl (or Alt) and press a key. Esc to cancel.',
+  'Phím của ô gõ, không đổi được.': 'The answer box\'s own key; can\'t be changed.',
+  'Khôi phục mặc định': 'Restore defaults',
 };
 
 export default settings;

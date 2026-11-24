@@ -65,6 +65,7 @@ import {
 import AiSection, { AI_SECTION_ID, VoiceEngineRow } from './AiSection';
 import SectionHead from './SectionHead';
 import CloudSection from './CloudSection';
+import KeysSection, { KEYS_SECTION_ID } from './KeysSection';
 import './settings.css';
 import { tl, tr } from '../../i18n';
 
@@ -769,10 +770,12 @@ function AboutSection() {
 
 export default function SettingsPage() {
   const section = useRoute().params.section;
-  // #/settings?section=ai: bring the "Trợ lý AI" card into view (links from AI features).
+  // #/settings?section=ai: bring the "Trợ lý AI" card into view (links from AI features); ?section=keys: "Phím tắt"
+  // (link from the shortcuts help).
   useEffect(() => {
-    if (section !== 'ai') return;
-    const id = window.requestAnimationFrame(() => document.getElementById(AI_SECTION_ID)?.scrollIntoView({ block: 'start' }));
+    const target = section === 'ai' ? AI_SECTION_ID : section === 'keys' ? KEYS_SECTION_ID : null;
+    if (!target) return;
+    const id = window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ block: 'start' }));
     return () => window.cancelAnimationFrame(id);
   }, [section]);
   return (
@@ -781,6 +784,7 @@ export default function SettingsPage() {
       <VoiceSection />
       <DisplaySection />
       <GoalSection />
+      <KeysSection />
       <AiSection />
       <CloudSection />
       <DataSection />

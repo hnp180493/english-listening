@@ -20,6 +20,7 @@ import { Icon } from '../../components/Icon';
 import PhTag from '../../components/PhTag';
 import PlayButton from '../../components/PlayButton';
 import SpokenSentence from '../../components/SpokenSentence';
+import { useShortcuts } from '../../components/useShortcuts';
 import { decode } from '../../core/decoder';
 import { hrefFor, navigate } from '../../core/nav';
 import { useSettings } from '../../core/settings';
@@ -233,7 +234,29 @@ export default function PracticePanel({ source, item, nextId, onSaved }: Practic
     if (nextId) navigate('shadowing', { id: nextId });
   };
 
-  // Keyboard shortcuts: M record/stop, R/L listen 1.0× (R = "nghe lại" as in the other modules), S slow 0.8×, N next, Esc stop.
+  // The shared practice keys (core/shortcuts.ts), the same as the buttons of step 1. Not while recording: the model
+  // voice must not leak into the microphone (the buttons are disabled then too).
+  const playModel = (rate: number, slow: boolean) => {
+    if (busy) return false;
+    setInterruptKey((x) => x + 1);
+    stopAB();
+    clip.stop();
+    void speak(model, { rate, mode: 'connected', slow });
+  };
+  useShortcuts({
+    replay: () => playModel(naturalRate(), false),
+    slow: () => playModel(0.8, true),
+    careful: () => {
+      if (busy) return false;
+      setInterruptKey((x) => x + 1);
+      stopAB();
+      clip.stop();
+      void speak(source.text, { rate: CAREFUL_RATE, mode: 'careful' });
+    },
+    skip: () => (nextId && !busy ? goNext() : false),
+  });
+
+  // Keyboard shortcuts: M record/stop, R/L listen 1.0× (R = "nghe lại" as in the other modules), S slow 0.8×, N next.
   // Keys pressed inside the nav (incl. the modal drawer) or any dialog, or already handled, are not ours.
   const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {});
   const onKey = (e: KeyboardEvent) => {
@@ -253,7 +276,9 @@ export default function PracticePanel({ source, item, nextId, onSaved }: Practic
     } else if (k === 'n' && nextId && !busy) {
       e.preventDefault();
       goNext();
-    } else if (k === 'escape') {
+    } else if (k === 'escape' && busy) {
+      // while recording Esc still stops (the shared Esc = "Nghe lại" does nothing then: replay returns false)
+      e.preventDefault();
       if (rec.phase === 'recording' || rec.phase === 'starting') rec.stop();
       setInterruptKey((x) => x + 1);
       stopAB();

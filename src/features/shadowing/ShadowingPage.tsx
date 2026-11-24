@@ -11,7 +11,7 @@ import { CHUNKS } from '../../data/chunks';
 import { SENTENCES } from '../../data/sentences';
 import PracticePanel from './PracticePanel';
 import { newestAttempt, shouldEnrolTake } from './reviewHook';
-import { SHADOW_SHORTCUTS } from './shortcuts';
+import { SHADOW_SHARED, SHADOW_SHORTCUTS } from './shortcuts';
 import SourcePicker from './SourcePicker';
 import { nextItemId, resolveSource, suggestSentence } from './sources';
 import { loadShadowing, type ShadowState } from './store';
@@ -132,7 +132,7 @@ export default function ShadowingPage() {
             </button>
           )
         }
-        help={source ? <ShortcutsHelp items={SHADOW_SHORTCUTS} /> : undefined}
+        help={source ? <ShortcutsHelp shared={SHADOW_SHARED} items={SHADOW_SHORTCUTS} /> : undefined}
       />
 
       {wanted && !source && (

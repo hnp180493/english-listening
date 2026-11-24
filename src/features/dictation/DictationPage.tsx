@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader';
 import { PhDot } from '../../components/PhTag';
 import Segmented, { type SegmentedOption } from '../../components/Segmented';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
+import type { ShortcutAction } from '../../core/shortcuts';
 import {
   dedupeKey,
   isCustomId,
@@ -104,9 +105,10 @@ const LEVEL_OPTS: readonly SegmentedOption<LevelFilter>[] = [
 
 const SHORTCUTS = [
   { keys: ['Enter'], text: 'Kiểm tra, rồi sang câu tiếp' },
-  { keys: ['Esc'], text: 'Nghe lại câu' },
   { keys: ['Ctrl', 'Enter'], text: 'Điền từ: kiểm tra ngay' },
 ];
+/** The shared practice keys an exercise answers (core/shortcuts.ts; set in Cài đặt → Phím tắt). */
+const SHARED_KEYS: readonly ShortcutAction[] = ['replay', 'slow', 'chunks', 'careful', 'hint', 'skip'];
 
 interface NavState {
   fkey: string; // filters the queue was built for
@@ -692,7 +694,7 @@ export default function DictationPage() {
 
   return (
     <div className="stack-lg page-focus dict-page">
-      <PageHeader title="Chép chính tả" subtitle="Nghe câu nói tự nhiên rồi gõ lại." help={<ShortcutsHelp items={SHORTCUTS} />} />
+      <PageHeader title="Chép chính tả" subtitle="Nghe câu nói tự nhiên rồi gõ lại." help={<ShortcutsHelp shared={SHARED_KEYS} items={SHORTCUTS} />} />
 
       <div className="toolbar dict-toolbar">
         <Segmented

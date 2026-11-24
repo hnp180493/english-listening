@@ -11,8 +11,11 @@ import { SENTENCES } from '../../data/sentences';
 import { Icon } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
 import ListenPair, { RealVoiceLink } from '../../components/ListenPair';
-import { annotationPlayback, youglishPhrase } from '../../core/playback';
+import { CAREFUL_RATE, annotationPlayback, carefulPlan, connectedPlan, youglishPhrase } from '../../core/playback';
+import { speak } from '../../core/tts';
+import type { ShortcutAction } from '../../core/shortcuts';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
+import { useShortcuts } from '../../components/useShortcuts';
 import SpokenSentence from '../../components/SpokenSentence';
 import AnnotationList, { AnnotationCard } from './AnnotationList';
 import PhenomenaGuide from './PhenomenaGuide';
@@ -40,6 +43,9 @@ const DEBOUNCE_MS = 250;
 const NOTICE_MS = 4500;
 /** "Gần đây" appears only once there is a real history (2+ entries) and the input is empty. */
 const HISTORY_MIN = 2;
+/** The shared practice keys the page answers while a result is shown (core/shortcuts.ts). */
+const SHARED: readonly ShortcutAction[] = ['replay', 'careful'];
+
 const SHORTCUTS = [
   { keys: ['Enter'], text: 'Giải mã' },
   { keys: ['Shift', 'Enter'], text: 'Xuống dòng' },
@@ -324,6 +330,21 @@ export default function DecoderPage() {
         : 'Không tìm thấy từ tiếng Anh nào để phân tích.'
       : '';
 
+  // The shared practice keys, only while a decoded result is shown: the same as ListenPair's "Nghe" (connected) and
+  // "Rõ từng từ" (the written sentence, slowly). They work in the textarea too (Ctrl combos).
+  useShortcuts({
+    replay: () => {
+      if (!trimmed || !hasTokens) return false;
+      const fast = connectedPlan(query, result, say);
+      void speak(fast.text, { rate: fast.rate, mode: fast.mode });
+    },
+    careful: () => {
+      if (!trimmed || !hasTokens) return false;
+      const slow = carefulPlan(query, CAREFUL_RATE);
+      void speak(slow.text, { rate: slow.rate, mode: slow.mode });
+    },
+  });
+
   const showHistory = !hasInput && history.length >= HISTORY_MIN;
 
   return (
@@ -335,7 +356,7 @@ export default function DecoderPage() {
       <PageHeader
         title="Giải mã câu"
         subtitle="Dán một câu tiếng Anh, xem người bản xứ thực sự nói thế nào."
-        help={<ShortcutsHelp items={SHORTCUTS} />}
+        help={<ShortcutsHelp shared={SHARED} items={SHORTCUTS} />}
       />
 
       <section className="card dec-input" aria-label="Nhập câu">

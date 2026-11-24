@@ -1,5 +1,5 @@
 // TTS playback shared by the dictation exercises: normal / slow / chunk-by-chunk / careful,
-// auto-play after the first user gesture, Esc = replay.
+// auto-play after the first user gesture. The keys (Ctrl+Space, Esc …) are the page's: components/useShortcuts.
 //
 // The exercise audio is the CONNECTED version (src/core/playback.ts): that is what the learner must decode.
 //  - 'normal': connected, the learner's rate (level 1: a little slower, still connected);
@@ -12,7 +12,7 @@
 // counts as slowed when Tốc độ đọc is below normal speed, and the tally starts from the plays the page remembers
 // for the sentence (`initial`) and reports each new one (`onListen`), so it survives a remount of the exercise.
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { addListen, NO_LISTENS, tallyKindFor, type ListenKind, type ListenTally } from '../../core/dictation/listens';
 import { useSettings } from '../../core/settings';
 import { CAREFUL_RATE, CONNECTED_SLOW_RATE, dictationRate, type SpeechMode } from '../../core/playback';
@@ -73,7 +73,6 @@ export function usePlayer(
   chunks: readonly string[],
   opts: {
     autoPlay: boolean;
-    rootRef: RefObject<HTMLElement | null>;
     /** Plays of this sentence made before this mount (read once, when the exercise mounts). */
     initial?: ListenTally;
     /** Every play the tally counts, with the counter it went to (the page keeps it across remounts). */
@@ -172,31 +171,10 @@ export function usePlayer(
   useEffect(() => {
     playRef.current = play;
   }, [play]);
-  const { autoPlay, rootRef } = opts;
+  const { autoPlay } = opts;
   useEffect(() => {
     if (autoPlay) void playRef.current('normal', false, true);
   }, [autoPlay]);
-
-  // Esc = replay, anywhere on the page except other form fields (settings panel, sentence manager …)
-  useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || e.repeat) return;
-      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
-      const t = e.target;
-      if (t instanceof HTMLElement) {
-        const ownInput = t instanceof HTMLInputElement && !!rootRef.current?.contains(t);
-        if (!ownInput) {
-          if (t.isContentEditable || t instanceof HTMLSelectElement || t instanceof HTMLTextAreaElement) return;
-          if (t instanceof HTMLInputElement) return;
-          if (t.closest('.app-settings, [role="dialog"], [data-popover], .dict-mgr')) return;
-        }
-      }
-      e.preventDefault();
-      void playRef.current('normal', false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [rootRef]);
 
   return { canSpeak, playing, pending: pending && playing !== null, chunkPos, chunkCount: chunks.length, plays, listens, play, stop };
 }

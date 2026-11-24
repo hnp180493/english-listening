@@ -17,6 +17,7 @@ import FollowUps from './FollowUps';
 import ListenControls, { CarefulListen } from './ListenControls';
 import { ResultActions, Verdict, type Tone } from './ResultParts';
 import { isCoarsePointer, usePlayer } from './usePlayer';
+import { useDictationKeys } from './useDictationKeys';
 import WhyWrong, { AnnotationCard, PhenomenonChips } from './WhyWrong';
 import { tl } from '../../i18n';
 
@@ -99,7 +100,6 @@ export default function Exercise({
   const audio = useMemo(() => dictationAudio(sentence), [sentence]);
   const player = usePlayer(audio, chunks, {
     autoPlay,
-    rootRef,
     initial: heardBefore,
     voice,
     // only the plays before the check belong to the sentence's tally: the answer is on screen after it
@@ -157,6 +157,12 @@ export default function Exercise({
       onNext();
     } else check();
   };
+
+  const showHint = () => {
+    setHintShown(true);
+    onHint?.();
+  };
+  useDictationKeys({ player, rootRef, checked: !!outcome, checkedAtRef, hint: hintShown ? undefined : showHint, onSkip, onNext });
 
   const hint = useMemo(() => makeHint(targetRaw), [targetRaw]);
   const activeAnnotation = decoded.annotations.find((a) => a.id === activeAnn) ?? null;
@@ -244,10 +250,7 @@ export default function Exercise({
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() => {
-                setHintShown(true);
-                onHint?.();
-              }}
+              onClick={showHint}
               disabled={hintShown}
             >
               <Icon icon={Lightbulb} size={15} />

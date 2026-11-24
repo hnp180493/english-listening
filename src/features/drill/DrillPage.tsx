@@ -45,7 +45,7 @@ import {
 } from './focus';
 import { FocusBanner, FocusDone } from './FocusPanels';
 import FocusPicker from './FocusPicker';
-import { DRILL_SHORTCUTS } from './labels';
+import { DRILL_SHARED, DRILL_SHORTCUTS } from './labels';
 import { computeDrillSummary, EXTRA_NEW, extraAfterLearnMore, newCardQuota } from './summary';
 import './drill.css';
 import { getLang, tl } from '../../i18n';
@@ -381,7 +381,7 @@ function DrillSession({ focus }: { focus: Phenomenon | null }) {
             </span>
           )
         }
-        help={<ShortcutsHelp items={DRILL_SHORTCUTS} note="R, C và số chỉ dùng được khi con trỏ không nằm trong ô gõ." />}
+        help={<ShortcutsHelp shared={DRILL_SHARED} items={DRILL_SHORTCUTS} note="R, C và số chỉ dùng được khi con trỏ không nằm trong ô gõ." />}
       />
 
       <div className="toolbar">

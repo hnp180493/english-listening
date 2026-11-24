@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, Check, CircleCheck, CircleX, Play, RotateCcw, Square, TriangleAlert, Turtle, Volume2, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
+import { useShortcutAria, useShortcuts } from '../../components/useShortcuts';
 import { useSettings } from '../../core/settings';
 import { speak, stopSpeaking, ttsSupported } from '../../core/tts';
 import type { PairItem, PairSet } from '../../data/pairs';
 import { roundKeyAction, type AnswerRecord, type Question, type RoundState } from './game';
 import CueText from './CueText';
-import { PAIRS_SHORTCUTS } from './shortcuts';
+import { PAIRS_SHARED, PAIRS_SHORTCUTS } from './shortcuts';
 import { tl, tr } from '../../i18n';
 
 export interface RoundViewProps {
@@ -158,6 +159,15 @@ export default function RoundView({
     return () => window.removeEventListener('keydown', onKey);
   }, [answer, item.options, onChoose, onNext, played, rate, slowRate, toggle, tts]);
 
+  // the shared practice keys (they also work with the cursor elsewhere): the same as R / S / Enter
+  useShortcuts({
+    replay: () => (tts ? void toggle(played, rate, 'main') : false),
+    slow: () => (tts ? void toggle(played, slowRate, 'slow') : false),
+    skip: () => (answer ? onNext() : false),
+  });
+  const replayAria = useShortcutAria('replay');
+  const slowAria = useShortcutAria('slow');
+
   const answeredCount = round.answers.length;
   const total = round.queue.length;
   const isLast = round.index >= total - 1;
@@ -181,7 +191,7 @@ export default function RoundView({
               </span>
             </p>
             <div className="pairs-round-tools">
-              <ShortcutsHelp items={PAIRS_SHORTCUTS} />
+              <ShortcutsHelp shared={PAIRS_SHARED} items={PAIRS_SHORTCUTS} />
               <button type="button" className="btn btn-ghost btn-sm" onClick={onQuit}>
                 <Icon icon={X} size={15} />
                 Thoát
@@ -210,7 +220,7 @@ export default function RoundView({
               onClick={() => toggle(played, rate, 'main')}
               aria-pressed={playing === 'main'}
               aria-label={heard ? 'Nghe lại' : 'Nghe câu'}
-              aria-keyshortcuts="R"
+              aria-keyshortcuts={['R', replayAria].filter(Boolean).join(' ')}
               title={heard ? 'Nghe lại (R)' : 'Nghe câu (R)'}
             >
               {playing === 'main' ? (
@@ -238,7 +248,7 @@ export default function RoundView({
                   className="btn btn-ghost btn-sm"
                   onClick={() => toggle(played, slowRate, 'slow')}
                   aria-pressed={playing === 'slow'}
-                  aria-keyshortcuts="S"
+                  aria-keyshortcuts={['S', slowAria].filter(Boolean).join(' ')}
                   title="Nghe chậm (S)"
                 >
                   {playing === 'slow' ? (

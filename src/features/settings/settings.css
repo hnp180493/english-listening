@@ -528,3 +528,69 @@
     transition: none;
   }
 }
+
+/* ───────── Phím tắt (KeysSection): one row per action, the key as a button that records the next combo ───────── */
+.set-keys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.set-keys-item {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+.set-keys-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.set-keys-ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  margin-left: auto;
+}
+.set-keys-key {
+  min-width: 132px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.set-keys-key.is-empty {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.set-keys-key.is-recording {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.set-keys-fixed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  min-height: 32px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.set-keys-note,
+.set-keys-error {
+  margin: var(--space-2) 0 0;
+}
+.set-keys-error {
+  font-size: var(--fs-sm);
+  color: var(--bad);
+}
+/* No keyboard on a touch device: like ShortcutsHelp, the card is not shown there. */
+@media (hover: none), (pointer: coarse) {
+  .set-keys-section {
+    display: none;
+  }
+}

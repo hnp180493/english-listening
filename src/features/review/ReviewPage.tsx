@@ -6,6 +6,7 @@ import { ArrowRight, BellOff, CircleHelp, Ellipsis, Flag, History, Info, Plus, U
 import { Icon, IconTile } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
 import ShortcutsHelp, { type Shortcut } from '../../components/ShortcutsHelp';
+import type { ShortcutAction } from '../../core/shortcuts';
 import { hrefFor, parseHash } from '../../core/nav';
 import {
   admitToday,
@@ -112,10 +113,17 @@ function kindsLine(kinds: readonly (ReviewKind | null)[]): string {
 }
 
 /** Keyboard shortcuts of the item kind on screen (the embedded exercises keep their own key handlers). */
-const TYPE_KEYS: readonly Shortcut[] = [
-  { keys: ['Enter'], text: 'Kiểm tra, rồi sang mục tiếp' },
-  { keys: ['Esc'], text: 'Nghe lại' },
-];
+const TYPE_KEYS: readonly Shortcut[] = [{ keys: ['Enter'], text: 'Kiểm tra, rồi sang mục tiếp' }];
+/** The shared practice keys (core/shortcuts.ts) each item kind answers. */
+const SHARED: Readonly<Record<ReviewKind, readonly ShortcutAction[]>> = {
+  dict: ['replay', 'slow', 'chunks', 'careful', 'hint', 'skip'],
+  media: ['replay', 'slow', 'chunks', 'careful', 'hint', 'skip'],
+  talk: ['replay', 'slow', 'chunks', 'careful', 'hint', 'skip'],
+  pair: ['replay', 'slow', 'skip'],
+  lesson: ['replay', 'slow', 'careful', 'skip'],
+  chunk: ['replay', 'slow', 'careful', 'skip'],
+  word: ['replay', 'slow', 'skip'],
+};
 const SHORTCUTS: Readonly<Record<ReviewKind, readonly Shortcut[]>> = {
   dict: TYPE_KEYS,
   media: TYPE_KEYS,
@@ -134,7 +142,6 @@ const SHORTCUTS: Readonly<Record<ReviewKind, readonly Shortcut[]>> = {
   chunk: [
     { keys: ['Enter'], text: 'Kiểm tra' },
     { keys: ['Shift', 'Enter'], text: 'Không biết, xem đáp án' },
-    { keys: ['Esc'], text: 'Nghe lại (cả khi đang gõ)' },
     { keys: ['R'], text: 'Nghe lại' },
     { keys: ['C'], text: 'Nghe câu ví dụ' },
     { keys: ['1–4'], text: 'Chọn đáp án, hoặc tự chấm: Lại · Khó · Được · Dễ' },
@@ -218,6 +225,7 @@ export default function ReviewPage() {
       help={
         sessionKind ? (
           <ShortcutsHelp
+            shared={SHARED[sessionKind]}
             items={SHORTCUTS[sessionKind]}
             note={sessionKind === 'pair' || sessionKind === 'lesson' || sessionKind === 'word' ? undefined : 'Phím chữ không dùng được khi đang gõ.'}
           />

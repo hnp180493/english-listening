@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { ArrowRight, Check, Eye, Lightbulb, RotateCcw, TriangleAlert, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import PhTag from '../../components/PhTag';
+import { useShortcutAria, useShortcuts } from '../../components/useShortcuts';
+import { NEXT_GUARD_MS } from '../dictation/constants';
 import { align, type AlignResult } from '../../core/dictation/align';
 import { classify, type ClassifyResult } from '../../core/dictation/classify';
 import { buildDiff, type DiffUnit } from '../../core/dictation/diff';
@@ -74,6 +76,8 @@ export default function DictationPanel({ text, decoded, bestScore, isLast, onChe
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const targetRaw = useMemo(() => splitWords(text), [text]);
   const checkingRef = useRef(false);
+  const checkedAtRef = useRef(0);
+  const rootRef = useRef<HTMLDivElement>(null);
   // same semantics as the main dictation: a retry is not a new attempt, a hinted answer is not "correct"
   const retriedRef = useRef(false);
   const hintedRef = useRef(false);
@@ -91,6 +95,7 @@ export default function DictationPanel({ text, decoded, bestScore, isLast, onChe
       return;
     }
     checkingRef.current = true;
+    checkedAtRef.current = Date.now();
     const answerRaw = splitWords(answer);
     const al = align(targetRaw, answerRaw);
     const cls = classify(decoded, al.ops, answerRaw, targetRaw);
@@ -131,13 +136,25 @@ export default function DictationPanel({ text, decoded, bestScore, isLast, onChe
     onReplay();
   };
 
+  // The shared practice keys (they work while typing). priority 1: while this panel is open its keys win over the
+  // player's (same replay, but "skip" here is "xem đáp án" before the check and "Câu sau" after it).
+  useShortcuts(
+    {
+      replay: () => void onReplay(),
+      hint: () => (result ? false : toggleHint()),
+      skip: () => {
+        if (!result) return check(true);
+        if (Date.now() - checkedAtRef.current < NEXT_GUARD_MS) return;
+        onNext();
+      },
+    },
+    { root: rootRef, priority: 1 },
+  );
+  const replayAria = useShortcutAria('replay');
+  const hintAria = useShortcutAria('hint');
+
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      onReplay();
-      return;
-    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (e.repeat) return;
@@ -152,7 +169,7 @@ export default function DictationPanel({ text, decoded, bestScore, isLast, onChe
   const errorsOther = result ? result.cls.errors.filter((e) => e.category === 'other').length : 0;
 
   return (
-    <div className="media-dict">
+    <div className="media-dict" ref={rootRef}>
       <div className="media-dict-head">
         <label className="field-label media-dict-label" htmlFor="media-dict-input">
           Gõ lại câu bạn vừa nghe
@@ -200,11 +217,11 @@ export default function DictationPanel({ text, decoded, bestScore, isLast, onChe
           >
             Kiểm tra
           </button>
-          <button type="button" className="btn" onClick={onReplay} aria-keyshortcuts="Escape">
+          <button type="button" className="btn" onClick={onReplay} aria-keyshortcuts={replayAria}>
             <Icon icon={RotateCcw} size={15} />
             Nghe lại
           </button>
-          <button type="button" className={'btn ' + (hint ? 'btn-soft' : 'btn-ghost')} aria-pressed={hint} onClick={toggleHint}>
+          <button type="button" className={'btn ' + (hint ? 'btn-soft' : 'btn-ghost')} aria-pressed={hint} onClick={toggleHint} aria-keyshortcuts={hintAria}>
             <Icon icon={Lightbulb} size={15} />
             {hint ? 'Ẩn gợi ý' : 'Gợi ý chữ đầu'}
           </button>

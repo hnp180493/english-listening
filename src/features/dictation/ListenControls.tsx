@@ -3,6 +3,7 @@ import { Icon } from '../../components/Icon';
 import { PENDING_ARIA, PENDING_LABEL } from '../../components/pendingLabel';
 import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_TITLE, CONNECTED_SLOW_TITLE, CONNECTED_TITLE } from '../../core/playback';
 import type { Player } from './usePlayer';
+import { useShortcutAria } from '../../components/useShortcuts';
 import { tl } from '../../i18n';
 
 /**
@@ -11,6 +12,9 @@ import { tl } from '../../i18n';
  */
 export default function ListenControls({ player, emphasis = false }: { player: Player; emphasis?: boolean }) {
   const { canSpeak, playing, pending, plays, chunkPos, chunkCount, play } = player;
+  const keyReplay = useShortcutAria('replay');
+  const keySlow = useShortcutAria('slow');
+  const keyChunks = useShortcutAria('chunks');
   // AI voice: a spinner while the clip is generated (a click still stops).
   const stopIcon = pending ? (
     <Icon icon={LoaderCircle} size={14} className="icon-spin" />
@@ -28,7 +32,7 @@ export default function ListenControls({ player, emphasis = false }: { player: P
           aria-pressed={playing === 'normal'}
           aria-busy={(pending && playing === 'normal') || undefined}
           aria-label={pending && playing === 'normal' ? PENDING_ARIA : undefined}
-          aria-keyshortcuts="Escape"
+          aria-keyshortcuts={keyReplay}
           title={CONNECTED_TITLE}
         >
           {playing === 'normal' ? stopIcon : <Icon icon={Play} size={17} fill="currentColor" strokeWidth={1.5} />}
@@ -38,6 +42,7 @@ export default function ListenControls({ player, emphasis = false }: { player: P
           type="button"
           className="btn btn-lg dict-play-alt"
           onClick={() => void play('slow')}
+          aria-keyshortcuts={keySlow}
           disabled={!canSpeak}
           aria-pressed={playing === 'slow'}
           aria-busy={(pending && playing === 'slow') || undefined}
@@ -51,6 +56,7 @@ export default function ListenControls({ player, emphasis = false }: { player: P
           type="button"
           className="btn btn-lg dict-play-alt"
           onClick={() => void play('chunks')}
+          aria-keyshortcuts={keyChunks}
           disabled={!canSpeak}
           aria-pressed={playing === 'chunks'}
           aria-busy={(pending && playing === 'chunks') || undefined}
@@ -89,6 +95,7 @@ export default function ListenControls({ player, emphasis = false }: { player: P
  */
 export function CarefulListen({ player }: { player: Player }) {
   const { canSpeak, playing, pending, play } = player;
+  const keyCareful = useShortcutAria('careful');
   if (!canSpeak) return null;
   const on = playing === 'careful';
   return (
@@ -97,6 +104,7 @@ export function CarefulListen({ player }: { player: Player }) {
         type="button"
         className={'btn btn-ghost btn-sm' + (on ? ' is-playing' : '')}
         onClick={() => void play('careful')}
+        aria-keyshortcuts={keyCareful}
         aria-pressed={on}
         aria-busy={(pending && on) || undefined}
         aria-label={on ? undefined : CAREFUL_ARIA}

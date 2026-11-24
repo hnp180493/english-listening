@@ -23,6 +23,8 @@ import { Icon, IconTile } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
 import Segmented from '../../components/Segmented';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
+import { useShortcuts } from '../../components/useShortcuts';
+import type { ShortcutAction } from '../../core/shortcuts';
 import { decode } from '../../core/decoder';
 import { formatClock } from '../../core/media/transcript';
 import { hrefFor, navigate } from '../../core/nav';
@@ -69,8 +71,11 @@ const SHORTCUTS = [
   { keys: ['←'], text: 'Câu trước' },
   { keys: ['→'], text: 'Câu sau' },
   { keys: ['Enter'], text: 'Chép chính tả: kiểm tra, rồi sang câu sau' },
-  { keys: ['Esc'], text: 'Chép chính tả: nghe lại câu' },
 ];
+
+/** The shared practice keys the player answers (core/shortcuts.ts); in "Chép chính tả" the panel adds the hint. */
+const WATCH_SHARED: readonly ShortcutAction[] = ['replay', 'skip'];
+const DICTATION_SHARED: readonly ShortcutAction[] = ['replay', 'hint', 'skip'];
 
 const LOOP_PAUSE_MS = 700;
 /** How long to wait for the player to report a time inside the window after a seek. */
@@ -367,6 +372,13 @@ export default function PlayerView({ item, prefs, startUnit }: { item: MediaItem
 
   // ---------------------------------------------------------------- keyboard
 
+  // The shared practice keys (core/shortcuts.ts): replay = "Lặp lại" (like R), skip = "Câu sau". The dictation
+  // panel registers the same actions with priority 1, so while it is open its own meaning wins.
+  useShortcuts({
+    replay: () => (ready ? void replay() : false),
+    skip: () => (units.length > 0 ? next() : false),
+  });
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
@@ -416,7 +428,7 @@ export default function PlayerView({ item, prefs, startUnit }: { item: MediaItem
         back={{ href: hrefFor('media'), label: 'Thư viện' }}
         title={item.title}
         subtitle={tl`${item.kind === 'youtube' ? 'YouTube' : item.fileType === 'audio' ? 'Audio' : 'Video'} · ${units.length} câu`}
-        help={<ShortcutsHelp items={SHORTCUTS} note="Phím chữ và mũi tên không dùng được khi đang gõ." />}
+        help={<ShortcutsHelp shared={prefs.mode === 'dictation' ? DICTATION_SHARED : WATCH_SHARED} items={SHORTCUTS} note="Phím chữ và mũi tên không dùng được khi đang gõ." />}
       />
 
       {isSessionOnly(item.id) && (
