@@ -59,6 +59,9 @@ import { CAST_VOICES } from './town/voices';
 import { PLAYER_FEMALE, romanceAudioText, romanceVoice, type SceneCast } from './town/romanceAudio';
 import { STREET_TALKS } from '../data/streetTalks';
 import { CAFE_ORDERS } from '../data/townCafe';
+import { TOWN_CASES } from '../data/cases';
+import { caseLineId } from './town/cases';
+import type { TownCase } from './town/caseTypes';
 import type { CafeOrder } from './town/cafeTypes';
 import { streetPlan } from './town/streetTalk';
 import type { StreetTalk } from './town/streetTalkTypes';
@@ -132,6 +135,8 @@ export interface InventoryContent {
   quickChats?: readonly { placeId: string; lines: readonly TownLine[] }[];
   /** Street talks (data/streetTalks): the resident's lines in their voice, both modes; the learner's in both player voices. */
   streetTalks?: readonly StreetTalk[];
+  /** "Vụ án ở thị trấn" (data/cases): every testimony line in its witness's voice, connected + careful. */
+  cases?: readonly TownCase[];
   /** "Phụ quầy cà phê" (data/townCafe): every order in its customer's voice, connected + careful. */
   cafeOrders?: readonly CafeOrder[];
   /** "Hẹn hò, cưới, con": the courtship scenes and the children's (data/romance), each speaker in their own voice. */
@@ -157,6 +162,7 @@ export function defaultInventoryContent(): InventoryContent {
     romance: { suitors: SUITORS, kids: KID_LINES },
     streetTalks: STREET_TALKS,
     cafeOrders: CAFE_ORDERS,
+    cases: TOWN_CASES,
   };
 }
 
@@ -426,6 +432,24 @@ function addStreetTalks(c: Collector, talks: readonly StreetTalk[]): void {
   }
 }
 
+function addCases(c: Collector, cases: readonly TownCase[]): void {
+  // CasePanel sayLine(placeId, line, level, careful): dictationAudio({ text, level }) in the witness's voice
+  for (const cs of cases) {
+    cs.chapters.forEach((ch, ci) =>
+      ch.testimonies.forEach((t, ti) => {
+        const voice = CAST_VOICES[t.placeId];
+        if (!voice) return;
+        t.lines.forEach((line, li) => {
+          const a = dictationAudio({ text: line.text, level: cs.level });
+          const ref = caseLineId(cs.id, ci, ti, li);
+          c.add('town', ref, 'main', 'connected', a.connected, false, voice);
+          c.add('town', ref, 'careful', 'careful', a.careful, false, voice);
+        });
+      }),
+    );
+  }
+}
+
 function addCafe(c: Collector, orders: readonly CafeOrder[]): void {
   // CafePanel sayOrder(order, careful): dictationAudio(order) connected / careful in the customer's voice (the old cast
   // always speaks in its Gemini voice: owner, 2026-11-24)
@@ -496,6 +520,7 @@ export function buildAudioInventory(content: InventoryContent = defaultInventory
   if (content.romance) addRomance(c, content.romance);
   if (content.streetTalks) addStreetTalks(c, content.streetTalks);
   if (content.cafeOrders) addCafe(c, content.cafeOrders);
+  if (content.cases) addCases(c, content.cases);
   return c.result();
 }
 

@@ -1,7 +1,7 @@
 // The town map's small game pictures as data (features/town/map): their colours (GAME ART: the overlay's, passed
 // inline, never in CSS; docs/design-system.md "Thị trấn: game art") and the activities' icons.
 
-import { BookOpen, Coffee, Egg, Heart, UserRound, Fish, Gift, Shirt, Sprout, Trophy, type LucideIcon } from 'lucide-react';
+import { BookOpen, Coffee, Search, Egg, Heart, UserRound, Fish, Gift, Shirt, Sprout, Trophy, type LucideIcon } from 'lucide-react';
 import type { ActivityId } from '../activities/types';
 import type { Marker } from '../engine/stage';
 
@@ -21,7 +21,7 @@ export const MAP_ART = {
 } as const;
 
 /** The icon of each activity on the map (as in the HUD's "Chơi" menu). */
-export const MAP_ACTIVITY_ICONS: Readonly<Record<ActivityId, LucideIcon>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee };
+export const MAP_ACTIVITY_ICONS: Readonly<Record<ActivityId, LucideIcon>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee, case: Search };
 
 /** A resident's marker colour on the minimap ring (null: no ring). */
 export function markerColor(marker: Marker | null): string | null {

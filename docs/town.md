@@ -2137,7 +2137,9 @@ Nobody can know it holds people until somebody plays it for days: these are the 
 - The patience starts with the customer's first word: 8 s + 2.2 s a thing (+2.5 s for a level 3), times
   1 − 0.04 × skill, never under 6 s. "Nghe lại" (R) costs nothing but time, and the first-listen bonus.
 - Points for a right tray: 10 a level + up to 10 for speed + 5 for hearing it once, times the combo.
-- After a miss the order shows as it was said, with its meaning and the right tray, for 3.2 s. The result lists every
+- After a miss the order shows as it was said, with its meaning, the right tray, "Nghe lại" and "Rõ từng từ", and
+  waits for "Khách tiếp theo" (Enter): the owner found 3.2 s "qua nhanh quá chưa đọc đc gì". A right tray goes on by
+  itself after 0.9 s. The result lists every
   missed order with its connected-speech reveal, "Nghe" and "Rõ từng từ": the learning moment of the game.
 - Orders got right least often come first, so a missed one comes back in a later shift.
 - Starting a shift takes the player to the café's door with Emma beside them (`onScene`). The customers show as
@@ -2155,3 +2157,37 @@ browser voice of the customer's sex plays; never a paid request (`browserOnly`).
 
 Not done: customers walking up to the counter in 3D; a card in Ôn tập for a missed order (it only comes back inside
 the game); the daily tasks do not know the café.
+
+## 17. Vụ án ở thị trấn: one chapter a day (2026-11-24)
+
+The owner, after the café game: "sao mới có 1 game à… tìm được game gì giúp hứng thú gây nghiện cho người học nữa
+chưa". The café is the fast game to replay; this is the slow one to come back to, built on two other things the
+reading found:
+
+| What brings people back daily | Source | Here |
+|---|---|---|
+| One puzzle a day: scarcity leaves people wanting the next | Josh Wardle on Wordle (New York Times); Northeastern game-design faculty | a chapter opens the local day after the one before was solved; nothing else to grind |
+| An unfinished story | a 2023 two-experiment study (Communication Research Reports): cliffhangers raise suspense and the wish for the next part | every chapter ends on a cliffhanger; a case takes five days |
+
+Honest limits: the popular "Zeigarnik effect" behind cliffhangers has failed replications, and the study above
+measured the wish for a sequel, not learning or retention. These are reasons to try it, not a promise.
+
+**The game** (`core/town/cases.ts`, `casesStore.ts`, `features/town/activities/CasePanel.tsx`, activity `case`,
+content `data/cases/`, contract `core/town/caseTypes.ts`):
+
+- A case is a cosy mystery of five chapters (nobody is a criminal: a surprise, a mix-up, a kindness). Three cases:
+  the fountain's coins (level 1), Emma's recipe notebook (level 2), the unsigned notes on the notice board (level 3,
+  where the detail is easy to mishear: thirteen / thirty, can / can't, a correction mid-sentence).
+- A chapter: three residents each say 2–3 lines in their own voices, with nothing to read. Once all three were heard,
+  a Vietnamese question appears whose answer is a detail said by exactly one of them; a wrong pick names whom to
+  hear again. The fifth chapter asks who did it.
+- Solved: 3 stars for the first pick with every witness heard once, 2 with a replay, 1 after a wrong pick; 4 xu + 2 a
+  star, once. Then the lines show with their connected-speech reveal, "Nghe" and "Rõ từng từ", the clue goes into
+  "Sổ điều tra", and the cliffhanger says why to come back. Closing a case gives its `friend` +20 friendship.
+- **Stored**: `town-cases` (synced; merger `mergeCases`, laws in syncMerge.props.test): per case and chapter, when it
+  was first solved and its stars (the earlier time, the higher stars).
+- **Voices**: every line is in the clip inventory in its witness's Gemini voice, connected + careful
+  (`audioInventory addCases`).
+
+Not done: the witnesses are portraits in the panel, not met in the 3D town; a solved chapter cannot be replayed; a
+missed detail does not enter Ôn tập; only three cases (fifteen days).

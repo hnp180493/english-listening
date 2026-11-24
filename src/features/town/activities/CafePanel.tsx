@@ -54,9 +54,8 @@ const ITEM: Record<CafeItemId, { name: string; icon: LucideIcon }> = {
   sandwich: { name: 'Sandwich', icon: Sandwich },
 };
 
-/** How long the verdict of a tray stays before the next customer (ms): longer for a miss, to read what was said. */
+/** How long a right tray's verdict stays before the next customer (ms). A miss waits for the learner. */
 const NEXT_RIGHT_MS = 900;
-const NEXT_MISS_MS = 3200;
 
 const trayText = (b: CafeBasket): string =>
   CAFE_ITEMS.filter((id) => b[id])
@@ -177,17 +176,27 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd }: Acti
       setShift(after);
       setVerdict({ order: o, right, late: line.outcome === 'late', points: line.points });
       playSfx(right ? (line.firstListen ? 'first' : 'right') : 'wrong', sound);
-      g.timers.push(
-        window.setTimeout(
-          () => {
+      // a right tray goes on by itself (the pace of the game); a miss waits for "Khách tiếp theo": the learner reads
+      // what was said and hears it again first (owner, 2026-11-24: "bị qua nhanh quá chưa đọc đc gì")
+      if (right) {
+        g.timers.push(
+          window.setTimeout(() => {
             if (shiftOver(after) || !call(after)) end(after);
-          },
-          right ? NEXT_RIGHT_MS : NEXT_MISS_MS,
-        ),
-      );
+          }, NEXT_RIGHT_MS),
+        );
+      }
     },
     [call, clearTimers, end, sound],
   );
+
+  /** After a miss: on to the next customer (or the result) when the learner says so. */
+  const next = useCallback(() => {
+    const g = game.current;
+    const sh = g.shift;
+    if (!sh || !g.judged || g.timers.length > 0) return;
+    stopSpeaking();
+    if (shiftOver(sh) || !call(sh)) end(sh);
+  }, [call, end]);
   useEffect(() => {
     judgeRef.current = judge;
   }, [judge]);
@@ -235,7 +244,8 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd }: Acti
       if (e.defaultPrevented || e.repeat) return;
       if (e.key === 'Enter') {
         e.preventDefault();
-        give();
+        if (game.current.judged) next();
+        else give();
       } else if (e.key === 'r' || e.key === 'R') {
         e.preventDefault();
         again();
@@ -243,7 +253,7 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd }: Acti
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [playing, again, give]);
+  }, [playing, again, give, next]);
 
   const missed = useMemo(() => (result && shift ? shift.lines.filter((l) => l.outcome !== 'right').map((l) => CAFE_ORDERS.find((o) => o.id === l.orderId)).filter((o): o is CafeOrder => !!o) : []), [result, shift]);
 
@@ -342,6 +352,21 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd }: Acti
             </p>
             <p className="town-cafe-said-vi">{verdict.order.vi}</p>
             <p className="town-cafe-said-vi">Món đúng: {trayText(verdict.order.items)}</p>
+            <div className="town-cafe-missed-btns">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void sayOrder(verdict.order)}>
+                <Icon icon={Volume2} size={15} />
+                Nghe lại
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void sayOrder(verdict.order, true)}>
+                <Icon icon={Turtle} size={15} />
+                {CAREFUL_LABEL}
+              </button>
+            </div>
+            <div className="town-talk-foot">
+              <button type="button" className="btn btn-primary" onClick={next} autoFocus aria-keyshortcuts="Enter">
+                {shiftOver(shift) ? 'Xem kết quả' : 'Khách tiếp theo'}
+              </button>
+            </div>
           </div>
         ) : (
           <>

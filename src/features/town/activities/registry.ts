@@ -11,6 +11,7 @@ export const PANELS: Record<ActivityId, LazyExoticComponent<ComponentType<Activi
   gifts: lazy(() => import('./GiftShopPanel')),
   journal: lazy(() => import('./JournalPanel')),
   cafe: lazy(() => import('./CafePanel')),
+  case: lazy(() => import('./CasePanel')),
   love: lazy(() => import('../romance/LovePanel')),
   character: lazy(() => import('../romance/CharacterPanel')),
 };

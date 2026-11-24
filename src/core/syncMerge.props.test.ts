@@ -16,6 +16,7 @@ import {
   mergeTown,
   mergeLife,
   mergeCafe,
+  mergeCases,
   mergeValue,
 } from './syncMerge';
 import { parseDrillStore, rollDaily } from '../features/drill/drillStore';
@@ -235,6 +236,16 @@ describe('merger laws', () => {
       kids: Object.fromEntries(['kid-1', 'kid-2', 'kid-3', 'kid-4'].filter(() => maybe(0.4)).map((id) => [id, { name: pick(['Bin', 'Na']), gender: pick(['boy', 'girl']), born: pick([T0, T0 + 1, T0 + 5]), at: pick([T0, T0 + 1, T0 + 2]) }])),
       choices: Object.fromEntries(['cafe-date-1', 'park-date-2'].filter(() => maybe()).map((id) => [id, { o: pick([id + '-a', id + '-b']), at: pick([T0, T0 + 1]) }])),
       talked: Object.fromEntries(townDays.slice(ri(50), 60).filter(() => maybe(0.3)).map((d) => [d, [pick(['spouse', 'kid-1'])]])),
+    };
+  });
+  // town-cases (docs/town.md §17): per case and chapter the earlier solve and the higher stars
+  checkLaws('town cases', mergeCases, () => {
+    if (maybe(0.05)) return pick<unknown>([null, 'junk', [], { done: 7 }]);
+    return {
+      version: 1,
+      done: Object.fromEntries(
+        ['case-1', 'case-2', 'Bad Id', '__proto__'].filter(() => maybe(0.6)).map((id) => [id, Object.fromEntries(['0', '1', '4', '9', 'x'].filter(() => maybe(0.5)).map((ch) => [ch, pick<unknown>([{ at: T0 + ri(3), stars: 1 + ri(3) }, { at: 0, stars: 2 }, { at: T0, stars: 9 }, null])]))]),
+      ),
     };
   });
   // town-cafe (docs/town.md §16): best score, skill (newer), per-order counts, per-day per-browser rows

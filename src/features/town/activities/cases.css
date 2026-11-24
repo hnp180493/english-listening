@@ -1,0 +1,128 @@
+/* "Vụ án ở thị trấn" (docs/town.md §17): a chapter inside the activity sheet. Tokens only. */
+
+.town-case {
+  display: grid;
+  gap: var(--space-3);
+}
+.town-case-kicker {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-case-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.town-case-sub {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* the three witnesses */
+.town-case-witnesses {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-case-witness {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.town-case-witness.is-live {
+  border-color: var(--accent);
+}
+.town-case-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.town-case-heard {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}
+
+/* the question */
+.town-case-ask {
+  display: grid;
+  gap: var(--space-2);
+}
+.town-case-q {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* solved */
+.town-case-verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--ok);
+  font-weight: 600;
+}
+.town-case-clue {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-weight: 500;
+}
+.town-case-cliff,
+.town-case-ending {
+  margin: 0;
+  font-style: italic;
+}
+.town-case-said {
+  display: grid;
+  gap: var(--space-3);
+}
+.town-case-witness-said {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.town-case-line {
+  display: grid;
+  gap: var(--space-1);
+}
+.town-case-en {
+  margin: 0;
+  font-weight: 600;
+}
+.town-case-vi {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-case-line-btns {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* the notebook */
+.town-case-clues {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  font-size: var(--fs-sm);
+}
+
+/* the answers one under the other: the sheet is narrow, a meaning is a whole phrase */
+.town-case-ask .town-reply-list {
+  grid-template-columns: minmax(0, 1fr);
+}

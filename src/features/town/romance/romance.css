@@ -181,3 +181,8 @@
 .btn.is-on {
   border-color: var(--accent);
 }
+
+/* a scene's choice: one answer a row (the sheet is narrow) */
+.town-chat-choice .town-reply-list {
+  grid-template-columns: minmax(0, 1fr);
+}
