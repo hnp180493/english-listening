@@ -63,7 +63,7 @@ import {
   voiceDisplayName,
 } from './settingsModel';
 import AiSection, { AI_SECTION_ID, VoiceEngineRow } from './AiSection';
-import SectionHead from './SectionHead';
+import SectionHead, { FoldSection } from './SectionHead';
 import CloudSection from './CloudSection';
 import KeysSection, { KEYS_SECTION_ID } from './KeysSection';
 import './settings.css';
@@ -553,8 +553,7 @@ function DataSection() {
   const summary = pending ? summarizeBackup(pending.backup) : null;
 
   return (
-    <section className="card set-section" aria-labelledby={`${uid}-h`}>
-      <SectionHead id={`${uid}-h`} title="Dữ liệu" sub="Sao lưu, khôi phục hoặc xóa dữ liệu trên máy này." />
+    <FoldSection headId={`${uid}-h`} title="Dữ liệu" sub="Sao lưu, khôi phục hoặc xóa dữ liệu trên máy này.">
       {!storage && (
         <div className="callout callout-warn" role="status">
           <Icon icon={TriangleAlert} size={16} />
@@ -713,7 +712,7 @@ function DataSection() {
           <div>{status.text}</div>
         </div>
       )}
-    </section>
+    </FoldSection>
   );
 }
 
@@ -722,8 +721,7 @@ function DataSection() {
 function AboutSection() {
   const uid = useId();
   return (
-    <section className="card set-section" aria-labelledby={`${uid}-h`}>
-      <SectionHead id={`${uid}-h`} title="Giới thiệu" sub={tl`${APP_NAME} · phiên bản ${APP_VERSION}`} />
+    <FoldSection headId={`${uid}-h`} title="Giới thiệu" sub={tl`${APP_NAME} · phiên bản ${APP_VERSION}`}>
       <p className="set-about-text">
         Người bản xứ không nói từng từ tách rời: <em>“turn it off”</em> thành <strong>tur-ni-doff</strong>, <em>“want to”</em> thành{' '}
         <strong>wanna</strong>. Nghe Nối Âm giúp người Việt nhận ra 8 hiện tượng nối âm của giọng Mỹ.
@@ -764,7 +762,7 @@ function AboutSection() {
           Xem lại phần giới thiệu
         </button>
       </div>
-    </section>
+    </FoldSection>
   );
 }
 
@@ -775,7 +773,12 @@ export default function SettingsPage() {
   useEffect(() => {
     const target = section === 'ai' ? AI_SECTION_ID : section === 'keys' ? KEYS_SECTION_ID : null;
     if (!target) return;
-    const id = window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ block: 'start' }));
+    const id = window.requestAnimationFrame(() => {
+      const el = document.getElementById(target);
+      // a folded card (Phím tắt) opens when a link asks for it
+      if (el instanceof HTMLDetailsElement) el.open = true;
+      el?.scrollIntoView({ block: 'start' });
+    });
     return () => window.cancelAnimationFrame(id);
   }, [section]);
   return (

@@ -798,7 +798,7 @@ input paused, the town living on. A panel gets `onClose`, `sound` and `onReward(
 **People** (`three/chars/`). Every person is one skinned, toon-shaded body built in code (body, clothes, hair, extras
 such as glasses, an apron, a cap; 2 draw calls, 3–4 with a hat and a held prop), with a face from one shared atlas
 that blinks and changes expression (happy after a right answer). The cast (`castLook`): the player and the thirteen
-residents, each recognisable at a glance (the player: fair hair, blue dungarees). The animation brain
+residents, each recognisable at a glance (the player: fair hair, a T-shirt and jeans; a woman's character wears dungarees: never a man, owner 2026-11-25). The animation brain
 (`chars/anim.ts`, tested in node) builds every pose from layers that ease in and out, so nothing pops: idle life
 (breathing, weight shift, looking about), the walk or run, one activity at a time (sit, talk, drink, water, fish,
 read), one-shots on top (wave, nod, head shake, cheer: the nod bows and the shake turns the whole upper body, so they
@@ -1216,7 +1216,11 @@ a 2D canvas redrawn 15 times a second; while the theme changes, night's sky is l
 talk to) is drawn with a soft noise-like dither (interleaved gradient noise; a 2 × 2 checkerboard until 2026-11-21).
 Only what rises above the ground the person stands on can hide them (`Shared.holeFloor`, the hole sized from their
 feet there): before 2026-11-25 the ground counted as 0, so on the hill (1.6 up) the slope and the stones in front of
-the player were dithered in a hole far too big (owner: "nó đứng trên đồi mà?"). Trees, tufts, flowers and flags sway in a vertex shader, the lake and the
+the player were dithered in a hole far too big (owner: "nó đứng trên đồi mà?"). A room is lit to keep people's colours
+(2026-11-25, owner: "sao mỗi chỗ model mỗi kiểu vậy?"): a near-neutral fill (`ROOM_SKY` / `ROOM_GROUND` in
+`interiors/build.ts`), a key no stronger than the town's sun, the town's day exposure (`roomExposure` 0.92 by day),
+and soft warm-white lamps at night (`LAMP_NIGHT` 1.8, not 4.5 of amber), so black hair stays black, jeans blue and
+brown hair brown indoors as out. Trees, tufts, flowers and flags sway in a vertex shader, the lake and the
 fountain ripple. Under reduced motion: no camera travel, no particles, no pop, no sway or ripples, the xu count changes
 at once; people stand still in their pose (no breathing, no walk cycle, no nod / shake / wave; walking, they glide);
 emotes and the "+N" stand still for a moment instead of rising.

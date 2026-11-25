@@ -32,6 +32,12 @@ import { Merge, shapes, type Paint, type Place } from '../scene/merge';
 import { C } from '../scene/palette3d';
 import type { InteriorId, InteriorSet, RoomAnchor, RoomShot } from './contracts';
 
+/** A room's fill light: near neutral (the town's people keep their colours indoors). */
+const ROOM_SKY = '#f6f2ea';
+const ROOM_GROUND = '#b9ae9f';
+/** A room's lamps at night (was 4.5 of amber). */
+const LAMP_NIGHT = 1.8;
+
 /** The seat top of chairs, benches, sofas (tiles): what the sit pose expects (chars/person.ts SEAT_HEIGHT). */
 export const SEAT = 0.18;
 /** A table top, a hand above the seat (like the café terrace in the town). */
@@ -585,7 +591,10 @@ export function finish(r: Room, cast: Cast, t0: number): RoomSet {
 
   // the light rig
   const fill = cast.fill ?? 1;
-  const hemi = new HemisphereLight('#fff6e8', '#d9c9b2', 1.5);
+  // the same people look the same in a room as in the town (owner, 2026-11-25: "sao mỗi chỗ model mỗi kiểu vậy?"):
+  // a near-neutral fill and a key no stronger than the town's sun, so black hair stays black and brown stays brown
+  // (a warm cream fill at 1.3 with exposure 1 washed them out to grey and orange under ACES)
+  const hemi = new HemisphereLight(ROOM_SKY, ROOM_GROUND, 1.5);
   root.add(hemi);
   const key = new DirectionalLight('#fff1d8', 2.2);
   const [kx, ky, kz] = cast.key ?? [r.W * 0.35, 4.2, r.D * 0.9 + 1.5];
@@ -608,7 +617,8 @@ export function finish(r: Room, cast: Cast, t0: number): RoomSet {
   const lamps: PointLight[] = [];
   for (let i = 0; i < 2; i++) {
     const at = r.lamps[i] ?? [i ? r.W * 0.2 : -r.W * 0.25, r.H * 0.8, -r.D * 0.15];
-    const l = new PointLight('#ffc27a', 0, 4.8, 1.2);
+    // a soft warm white, not amber: an amber bulb next to the people dyed brown hair orange and blue jeans grey
+    const l = new PointLight('#ffe4c4', 0, 4.8, 1.2);
     l.position.set(at[0], at[1], at[2]);
     root.add(l);
     lamps.push(l);
@@ -625,14 +635,14 @@ export function finish(r: Room, cast: Cast, t0: number): RoomSet {
     const k = Math.max(0, Math.min(1, k0));
     night = k;
     // night: dark windows and a dimmer, warmer room lit by its own lamps (the key turns into their spill, never black)
-    hemi.color.set('#fff6e8').lerp(rigColor.set('#9d94cf'), k);
-    hemi.groundColor.set('#d9c9b2').lerp(rigColor.set('#7a5a52'), k);
-    hemi.intensity = (1.3 - 0.72 * k) * fill;
-    key.color.set('#fff1d8').lerp(rigColor.set('#ffcf9c'), k);
-    key.intensity = (2.6 - 1.85 * k) * fill;
+    hemi.color.set(ROOM_SKY).lerp(rigColor.set('#9d94cf'), k);
+    hemi.groundColor.set(ROOM_GROUND).lerp(rigColor.set('#7a5a52'), k);
+    hemi.intensity = (1.05 - 0.5 * k) * fill;
+    key.color.set('#fff4e4').lerp(rigColor.set('#ffe0bd'), k);
+    key.intensity = (2.3 - 1.4 * k) * fill;
     const lampK = Math.max(0, Math.min(1, (k - 0.2) / 0.6));
     lamps.forEach((l, i) => {
-      base[i] = r.flicker?.lamp === i ? r.flicker.day + (4.5 - r.flicker.day) * lampK : 0.15 + 4.5 * lampK;
+      base[i] = r.flicker?.lamp === i ? r.flicker.day + (LAMP_NIGHT - r.flicker.day) * lampK : 0.15 + LAMP_NIGHT * lampK;
       l.intensity = base[i];
     });
     glassMat.color.copy(GLASS_DAY).lerp(GLASS_NIGHT, k);

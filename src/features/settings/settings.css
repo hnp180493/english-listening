@@ -24,6 +24,54 @@
   color: var(--text-muted);
 }
 
+/* A card shown folded (FoldSection: Phím tắt, Dữ liệu, Giới thiệu): the head opens it */
+.set-fold {
+  gap: 0;
+}
+.set-fold-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: calc(-1 * var(--space-2));
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  list-style: none;
+}
+.set-fold-summary::-webkit-details-marker {
+  display: none;
+}
+.set-fold-summary > .set-section-head {
+  flex: 1;
+}
+.set-fold-summary::after {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--space-1);
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform var(--dur) var(--ease);
+}
+.set-fold[open] > .set-fold-summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+.set-fold-summary:hover {
+  background: var(--surface-2);
+}
+.set-fold-summary:focus-visible {
+  outline-offset: 0;
+}
+.set-fold-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+  margin-top: var(--space-5);
+}
+
 /* ───────── Fields ───────── */
 .set-field {
   display: flex;
@@ -524,6 +572,7 @@
   .set-switch,
   .set-switch::after,
   .set-privacy > summary::after,
+  .set-fold-summary::after,
   .set-range::-webkit-slider-thumb {
     transition: none;
   }

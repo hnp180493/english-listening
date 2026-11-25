@@ -1,10 +1,11 @@
 // "Nhân vật" (docs/town.md §15): the learner makes their own character: man or woman (who they can court follows from
 // it), a name the residents say in text scenes, a skin tone, a hair style and colour. The picture shows the choice at
-// once; "Lưu" puts it on the player in the town (synced to the account with town-life).
+// once, and so does the player in the town while the panel is open; "Lưu" keeps it (synced to the account with
+// town-life), leaving without it puts the saved look back.
 
 import { useEffect, useMemo, useState } from 'react';
 import { PLAYER_HAIR, PLAYER_HAIR_COLORS, PLAYER_SKINS, cleanName, partnerOf, type PlayerHair } from '../../../core/town/life';
-import { saveProfile, useTownLife } from '../../../core/town/lifeStore';
+import { loadTownLife, saveProfile, useTownLife } from '../../../core/town/lifeStore';
 import type { PlayerGender } from '../../../core/town/romanceTypes';
 import { Portrait } from '../art';
 import { playerLookKey, profileLook, setPlayerLook } from '../three/chars/looks';
@@ -38,7 +39,15 @@ export default function CharacterPanel({ onOpen, onReward }: ActivityPanelProps)
     setPlayerLook(profileLook({ gender, skin, hair, hairColor }));
     return playerLookKey();
   }, [gender, skin, hair, hairColor]);
-  useEffect(() => () => void setPlayerLook(saved ? profileLook(saved) : null), [saved]);
+  // on leaving, the look saved now, read from the store (not the `saved` of a render: a cleanup run because `saved`
+  // changed, or the unmount in the same commit as the first save, put the look from before "Lưu" back on the player)
+  useEffect(
+    () => () => {
+      const now = loadTownLife().profile;
+      setPlayerLook(now ? profileLook(now) : null);
+    },
+    [],
+  );
   // somebody courted already: the gender is part of that story
   const locked = !!saved && !!partnerOf(life);
   const clean = cleanName(name);

@@ -1,4 +1,4 @@
-import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { CircleHelp, Ear, FastForward, Footprints, Gift, Hammer, Heart, MessageCircle, Sparkles, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
@@ -47,7 +47,7 @@ import { metInStreet, playerStand, type TalkSetting } from './engine/staging';
 import { homeSetting, streetTalkView } from './streetModel';
 import { getCarrying, handDelivery, useCarrying } from '../../core/town/deliveryStore';
 import { townRomanceSteps, useTownLife } from '../../core/town/lifeStore';
-import { castLook, profileLook, setPlayerLook } from './three/chars/looks';
+import { castLook, playerLookKey, profileLook, setPlayerLook, subscribePlayerLook } from './three/chars/looks';
 import { kidAge, kidsOf, partnerOf } from '../../core/town/life';
 import type { SceneSpot } from '../../data/romance/places';
 import type { StageKid } from './engine/sim';
@@ -515,11 +515,9 @@ export default function TownPage() {
   // (it only changes a module's look, idempotent): the stage, a child, applies its state before this page's effects.
   const life = useTownLife();
   const profile = life.profile;
-  const body = useMemo(() => {
-    const l = profile ? profileLook(profile) : null;
-    setPlayerLook(l);
-    return l ? JSON.stringify(l) : '';
-  }, [profile]);
+  useMemo(() => setPlayerLook(profile ? profileLook(profile) : null), [profile]);
+  // the look the player wears now: the saved one, or the one being made in "Nhân vật" (it follows the choice live)
+  const body = useSyncExternalStore(subscribePlayerLook, playerLookKey);
   // the farm field in the world shows the learner's review cards (the same field the farm's panel reads)
   const farmField = useTownFarm().field;
   const farmKey = fieldLook(farmField, FARM_LOOK_SLOTS).slots.join(',');

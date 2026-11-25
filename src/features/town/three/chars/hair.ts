@@ -134,11 +134,13 @@ export function addHair(b: GeoBuilder, spec: HairSpec, R: number, center: Vec3, 
   const tie = new Color('#f28fa6');
 
   if (style === 'ponytail') {
-    const root = toBind(at(1.22, Math.PI, 1.06));
+    // tied high at the back of the crown and swept over to one side, so it shows from the front as well (owner,
+    // 2026-11-25: "tóc đuôi ngựa đâu?": tied low and hanging straight down, the head hid it from the front)
+    const root = toBind(at(0.82, Math.PI - 0.32, 1.06));
     rig.tailA = root;
-    const tip: Vec3 = [root[0], root[1] - 0.3, root[2] - 0.1];
-    addTail(b, root, tip, 0.062, c, bones.tailA, d);
-    tieAround(b, root, tip, 0.03, tie, bones.tailA, d);
+    const tip: Vec3 = [root[0] + 0.17, root[1] - 0.4, root[2] - 0.05];
+    addTail(b, root, tip, 0.072, c, bones.tailA, d);
+    tieAround(b, root, tip, 0.034, tie, bones.tailA, d);
   } else if (style === 'pigtails') {
     for (const side of [1, -1]) {
       const root = toBind(at(1.72, side * 1.95, 1.06));

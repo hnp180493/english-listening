@@ -235,7 +235,8 @@ export interface Stats3D {
 }
 
 /** A room's exposure by night amount (its own lamps light it: a touch brighter at night, as the rooms were made for). */
-const roomExposure = (night: number) => 1 + 0.08 * night;
+// a room's exposure: the town's by day (DAY_RIG 0.9), so a face or a shirt is the same colour inside and out
+const roomExposure = (night: number) => 0.92 + 0.12 * night;
 
 const smoothstepK = (a: number, b: number, t: number): number => {
   const x = Math.max(0, Math.min(1, (t - a) / (b - a)));

@@ -23,15 +23,16 @@ export function cafe(r: Room): Cast {
   f.add(shapes.box(0.2, 0.015, 0.08, 0.008, 1), C.metal, top(mx, 0.01, 0.13), { ao: false });
   cup(r, top, mx + 0.07, 0.13, C.white, true, false);
   for (let i = 0; i < 3; i++) cup(r, top, mx - 0.06 + i * 0.05, -0.1, i === 1 ? C.mint : C.white, false, false);
-  // a grinder and a jar of beans
-  f.add(shapes.box(0.08, 0.12, 0.08, 0.02, 1), C.navy, top(mx - 0.25, 0.06, -0.05), { ao: false });
-  f.add(shapes.cone(0.05, 0.08, 10), C.glass, top(mx - 0.25, 0.16, -0.05), { ao: false });
-  // the till and a tip jar
-  f.add(shapes.box(0.16, 0.08, 0.12, 0.02, 1), C.stoneDark, top(0.05, 0.04, -0.06), { ao: false });
-  r.screens.add(shapes.box(0.12, 0.08, 0.01, 0.008, 1), '#6fb0d8', top(0.05, 0.13, -0.02, { rx: -0.4 }));
-  f.add(shapes.cyl(0.03, 0.03, 0.07, 8), C.sky, top(-0.12, 0.035, 0.08), { ao: false });
-  // the cake stand at the front end: two tiers of cakes and cupcakes
-  const ck = -0.62;
+  // a grinder and a jar of beans, at the far end
+  f.add(shapes.box(0.08, 0.12, 0.08, 0.02, 1), C.navy, top(mx + 0.25, 0.06, -0.05), { ao: false });
+  f.add(shapes.cone(0.05, 0.08, 10), C.glass, top(mx + 0.25, 0.16, -0.05), { ao: false });
+  // the till and a tip jar at the front end: low, so Emma behind them is seen
+  f.add(shapes.box(0.16, 0.08, 0.12, 0.02, 1), C.stoneDark, top(-0.84, 0.04, -0.06), { ao: false });
+  r.screens.add(shapes.box(0.12, 0.08, 0.01, 0.008, 1), '#6fb0d8', top(-0.84, 0.13, -0.02, { rx: -0.4 }));
+  f.add(shapes.cyl(0.03, 0.03, 0.07, 8), C.sky, top(-0.6, 0.035, 0.1), { ao: false });
+  // the cake stand by the machine: two tiers of cakes and cupcakes (at the front end it stood between the camera and
+  // Emma's face, owner 2026-11-25)
+  const ck = 0.2;
   f.add(shapes.cyl(0.13, 0.13, 0.012, 16), C.white, top(ck, 0.04, 0), { ao: false });
   f.add(shapes.cyl(0.012, 0.012, 0.16, 6), C.metal, top(ck, 0.1, 0), { ao: false });
   f.add(shapes.cyl(0.09, 0.09, 0.012, 14), C.white, top(ck, 0.16, 0), { ao: false });

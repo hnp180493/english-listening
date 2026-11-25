@@ -43,8 +43,9 @@ const hair = (style: HairSpec['style'], color: string): HairSpec => ({ style, co
 
 /** The cast. Each one is recognisable at a glance: hair style + colour, one or two signature extras. */
 const CAST: Readonly<Record<string, CharacterLook>> = {
-  // the learner: fair hair, blue dungarees
-  player: { skin: '#f6d3b8', hair: hair('short', '#e9c46e'), top: '#f5efe2', bottom: '#5f8fd6', shoes: '#8a5a44', extras: ['dungarees'] },
+  // the learner: fair hair, a T-shirt (an outfit from the wardrobe colours it) and jeans; a woman's character wears
+  // dungarees (profileLook). No dungarees for a man (owner, 2026-11-25: "con trai bắt mặc yếm là sao")
+  player: { skin: '#f6d3b8', hair: hair('short', '#e9c46e'), top: '#f5efe2', bottom: '#4f6fa8', shoes: '#8a5a44', extras: [] },
   // Quảng trường: Leo, curly dark hair, coral hoodie
   square: { skin: '#c98f66', hair: hair('curly', '#3b2a22'), top: '#f19a74', bottom: '#56658a', shoes: '#f3efe6', extras: [] },
   // Quán cà phê: Emma, chestnut ponytail, mint café apron
@@ -87,13 +88,34 @@ export function castLook(id: CharacterId): CharacterLook {
 let playerOverride: CharacterLook | null = null;
 let playerKey = '';
 
+const lookListeners = new Set<() => void>();
+let lookNotice = false;
+
 /** Use this look for 'player' from now on (every new player model, room and portrait). True when it changed. */
 export function setPlayerLook(look: CharacterLook | null): boolean {
   const key = look ? JSON.stringify(look) : '';
   if (key === playerKey) return false;
   playerOverride = look;
   playerKey = key;
+  // told a moment later, not now: this is called while a page renders (a listener re-renders the town page)
+  if (!lookNotice && lookListeners.size > 0) {
+    lookNotice = true;
+    queueMicrotask(() => {
+      lookNotice = false;
+      for (const f of lookListeners) f();
+    });
+  }
   return true;
+}
+
+/**
+ * Be told when the player's look changes (useSyncExternalStore with playerLookKey): the town's own player follows the
+ * creator's choice while it is made, and goes back to the saved one when the panel closes unsaved (owner, 2026-11-25:
+ * "sao avatar không đồng bộ với nhân vật vậy?").
+ */
+export function subscribePlayerLook(f: () => void): () => void {
+  lookListeners.add(f);
+  return () => void lookListeners.delete(f);
 }
 
 /** A short key of the player's look now ('' = the default): a cache or a model made with another one is stale. */
@@ -101,10 +123,10 @@ export function playerLookKey(): string {
   return playerKey;
 }
 
-/** The look of a created character: skin, hair, and for a woman lashes; the player's dungarees either way. */
+/** The look of a created character: skin, hair; a man the T-shirt and jeans, a woman dungarees and lashes. */
 export function profileLook(p: { gender: 'male' | 'female'; skin: string; hair: HairSpec['style']; hairColor: string }): CharacterLook {
   const base = CAST.player;
-  return { ...base, skin: p.skin, hair: hair(p.hair, p.hairColor), extras: p.gender === 'female' ? ['dungarees', 'lashes'] : ['dungarees'] };
+  return { ...base, skin: p.skin, hair: hair(p.hair, p.hairColor), extras: p.gender === 'female' ? ['dungarees', 'lashes'] : [] };
 }
 
 // ───────────────────────── passers-by ─────────────────────────

@@ -17,7 +17,7 @@ import {
   withKey,
   type ShortcutAction,
 } from '../../core/shortcuts';
-import SectionHead from './SectionHead';
+import { FoldSection } from './SectionHead';
 import { tl } from '../../i18n';
 
 export const KEYS_SECTION_ID = 'set-keys';
@@ -69,8 +69,7 @@ export default function KeysSection() {
   };
 
   return (
-    <section className="card set-section set-keys-section" id={KEYS_SECTION_ID} aria-labelledby={`${uid}-h`} data-no-shortcuts="">
-      <SectionHead id={`${uid}-h`} title="Phím tắt" sub="Một bộ phím cho mọi trang luyện, dùng được cả khi đang gõ. Chỉ lưu trên máy này." />
+    <FoldSection className="set-keys-section" id={KEYS_SECTION_ID} headId={`${uid}-h`} title="Phím tắt" sub="Một bộ phím cho mọi trang luyện, dùng được cả khi đang gõ. Chỉ lưu trên máy này." data-no-shortcuts="">
 
       <label className="set-row set-switch-row">
         <span className="set-row-text">
@@ -193,6 +192,6 @@ export default function KeysSection() {
           </div>
         </>
       )}
-    </section>
+    </FoldSection>
   );
 }
