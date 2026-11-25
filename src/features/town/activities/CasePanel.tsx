@@ -38,6 +38,8 @@ export default function CasePanel({ onReward, sound, onClose, onOpen }: Activity
   const [plays, setPlays] = useState<number[]>([0, 0, 0]);
   const [speaking, setSpeaking] = useState<number | null>(null);
   const [wrong, setWrong] = useState<number[]>([]);
+  /** How often the hinted witness had been heard at the last wrong answer (their face is worried until heard again). */
+  const [missedAt, setMissedAt] = useState<number | null>(null);
   const [result, setResult] = useState<(ChapterResult & { stars: Stars }) | null>(null);
   const token = useRef(0);
   useEffect(
@@ -76,6 +78,7 @@ export default function CasePanel({ onReward, sound, onClose, onOpen }: Activity
       if (at.kind !== 'open' || !chapter || result) return;
       if (i !== chapter.answer) {
         setWrong((w) => (w.includes(i) ? w : [...w, i]));
+        setMissedAt(plays[chapter.hint]);
         playSfx('wrong', sound);
         return;
       }
@@ -185,7 +188,8 @@ export default function CasePanel({ onReward, sound, onClose, onOpen }: Activity
       <ul className="town-case-witnesses" aria-label="Nhân chứng">
         {chapter.testimonies.map((t, i) => (
           <li key={i} className={'town-case-witness' + (speaking === i ? ' is-live' : '')}>
-            <Portrait placeId={t.placeId as PlaceId} size={44} />
+            {/* remembering while they tell it; the one whose words were missed looks worried until heard again */}
+            <Portrait placeId={t.placeId as PlaceId} size={44} mood={speaking === i ? 'thinking' : i === chapter.hint && missedAt !== null && plays[i] <= missedAt ? 'worried' : 'neutral'} />
             <span className="town-case-name">
               {nameOf(t.placeId)}
               {plays[i] > 0 && <span className="town-case-heard"> · đã nghe {plays[i]} lần</span>}

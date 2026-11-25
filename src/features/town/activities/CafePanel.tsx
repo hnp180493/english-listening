@@ -58,6 +58,8 @@ const ITEM: Record<CafeItemId, { name: string; icon: LucideIcon }> = {
 
 /** How long a right tray's verdict stays before the next customer (ms). A miss waits for the learner. */
 const NEXT_RIGHT_MS = 900;
+/** The part of the patience gone when the customer starts to look worried. */
+const HURRY_AT = 0.65;
 
 const trayText = (b: CafeBasket): string =>
   CAFE_ITEMS.filter((id) => b[id])
@@ -88,6 +90,8 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd, onOpen
   const [bestBefore, setBestBefore] = useState(0);
   /** The patience of the customer at the counter (ms): the bar's length in time. */
   const [wait, setWait] = useState(0);
+  /** The customer's patience is running low (the last third): their face shows it. */
+  const [hurry, setHurry] = useState(false);
   const [today] = useState(() => townDay(Date.now()));
   // The game as the handlers and timers see it (the state above is its picture): written only in handlers.
   const game = useRef<{ shift: Shift | null; order: CafeOrder | null; judged: boolean; tray: CafeBasket; from: number; ms: number; plays: number; staged: boolean; timers: number[] }>({
@@ -143,7 +147,9 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd, onOpen
     setTray({});
     setVerdict(null);
     setWait(ms);
+    setHurry(false);
     void sayOrder(next);
+    g.timers.push(window.setTimeout(() => setHurry(true), ms * HURRY_AT));
     g.timers.push(window.setTimeout(() => judgeRef.current(null), ms));
     return true;
   }, []);
@@ -332,7 +338,7 @@ export default function CafePanel({ onReward, sound, onScene, onSceneEnd, onOpen
         </div>
 
         <div className="town-cafe-guest">
-          <Portrait placeId={order.placeId as PlaceId} size={56} mood={verdict?.right ? 'happy' : 'neutral'} />
+          <Portrait placeId={order.placeId as PlaceId} size={56} mood={verdict ? (verdict.right ? 'happy' : verdict.late ? 'sad' : 'pout') : hurry ? 'worried' : 'neutral'} />
           <div className="town-cafe-guest-body">
             <span className="town-cafe-guest-name">{who}</span>
             {verdict ? (

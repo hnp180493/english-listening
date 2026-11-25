@@ -515,17 +515,37 @@
   width: 100%;
   height: 100%;
 }
-/* a drawn portrait (docs/portrait-prompts.md): head and shoulders; a small one shows the face */
-.town-portrait-img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  user-select: none;
+/* a drawn portrait (docs/portrait-prompts.md): one 3 × 3 grid of faces, three times the frame, moved so the mood's
+   cell fills it (art.tsx sets left / top); head and shoulders. The bust is a hair larger so a rounded edge never
+   shows a sliver of the next cell. */
+.town-portrait-sheet {
+  position: absolute;
+  inset: 0;
+  transform: scale(1.03);
 }
-.town-portrait-img.is-face {
-  transform: scale(1.55);
-  transform-origin: 50% 26%;
+/* a small square one comes in on the face, the top of the cell kept in place: the AI draws the hair close to the
+   panel's top, and a bun, a ponytail or a cap must never be cut (owner, 2026-11-25) */
+.town-portrait-sheet.is-face {
+  transform: scale(1.2);
+  transform-origin: 50% 0;
+}
+/* a round one: the face's own cell only, full size, moved down as far as the resident's head needs to be inside the
+   circle (art.tsx, measured by the script: most need nothing); the frame above has the picture's background colour.
+   The picture is a hair larger inside its cell so no edge of the next cell shows. */
+.town-portrait-sheet.is-round {
+  overflow: hidden;
+  transform: none;
+}
+.town-portrait-sheet.is-round .town-portrait-img {
+  transform: scale(1.03);
+}
+.town-portrait-img {
+  position: absolute;
+  display: block;
+  width: 300%;
+  max-width: none;
+  height: 300%;
+  user-select: none;
 }
 /* a big picture: a rounded card (the hairline ring follows the corners) */
 .town-portrait.is-card {

@@ -1,70 +1,50 @@
 # Grace (Nhà)
 
-Mở một cuộc chat MỚI với Gemini hoặc ChatGPT. Cần 7 ảnh, tất cả trong CÙNG cuộc chat này (để mặt giữ giống
-nhau). Lười thì chỉ làm Bước 1 cũng được: thiếu ảnh nào thì app dùng ảnh gần nhất.
-
-**Bước 1.** Dán nguyên khung dưới đây, gửi. Ưng thì tải ảnh về, đặt tên `grace.png`.
-Chưa ưng thì bảo "vẽ lại" hoặc sửa một ý.
+Một ảnh duy nhất: 9 vẻ mặt xếp lưới 3 × 3. Mở một cuộc chat MỚI với Gemini hoặc ChatGPT, dán nguyên khung dưới
+đây, gửi. Ưng thì tải ảnh về, đặt tên `grace.png` (cách dùng và thứ tự các ô: docs/portrait-prompts.md).
 
 ```
-Draw an original character portrait in the style of a modern anime visual novel.
-Square image (1:1). Bust shot from the chest up, the head in the upper half of the frame, the face centered,
-body turned slightly to the left (three-quarter view), looking at the viewer.
+Draw an original character expression sheet in the style of a modern anime visual novel.
+One square image (1:1) divided into a 3 x 3 grid: nine equal square panels separated by clear white gutters,
+with a thin white margin around the outside. No text, no numbers, no labels, no watermark, no logo.
+
+Every panel shows the same character with an identical face, hairstyle, outfit and plain solid background color,
+drawn at the same size and from the same distance: a bust shot from the mid-chest up, the face centered,
+body turned slightly to the left (three-quarter view). The whole head always fits inside the panel with clear
+empty space above it: the whole bun on top of her head fully visible in all nine panels, never cut off or touching
+the panel's top edge. Hands, when shown, stay inside the panel too.
 Soft cel shading with gentle painted gradients, clean thin line art, detailed glossy anime eyes with highlights,
 soft warm lighting with a subtle rim light, cozy pastel colors, attractive and friendly.
-Plain solid background in one soft color (given below), no scenery, no text, no watermark, no border, no logo.
 Adult character, wholesome, everyday clothes as described.
+
+Panels, left to right, top to bottom:
+1. Neutral: a gentle friendly smile, looking at the viewer.
+2. Happy: a big happy smile, eyes closed in a cheerful curve (^ ^), a light blush.
+3. Sad: a little sad and disappointed, eyebrows raised in the middle, a small downturned mouth,
+   eyes glancing down. No tears.
+4. Shy: a deep blush across the cheeks and nose, a soft embarrassed smile, eyes glancing away,
+   one hand lightly touching her cheek.
+5. Surprised: eyes wide and sparkling, eyebrows raised, a small open "oh" mouth,
+   both hands raised close to her mouth.
+6. Moved: glistening happy tears at the corners of the eyes, a warm trembling smile, a soft blush,
+   hands held together at her chest.
+7. Sulking: cheeks puffed, a small pout, eyebrows slightly knitted, looking to the side, arms folded.
+   Still cute, not angry.
+8. Thinking: curious, one hand on her chin, eyes glancing up, a small thoughtful smile.
+9. Worried: nervous and unsure, eyebrows tilted up, a small awkward smile, a drop of sweat on the temple,
+   one hand scratching the back of her head.
 
 Character: Grace, a kind elderly British lady in her seventies, a retired nurse who grows roses and treats
 the neighbours like family. Fair skin with soft wrinkles, silver-grey hair in a neat bun, round glasses,
 gentle blue-grey eyes, a warm motherly smile. Rose-pink cardigan over a white blouse. Background: soft blush pink.
 ```
 
-**Bước 2.** Ảnh cười (trả lời đúng): dán khung này, gửi. Tải ảnh về, đặt tên `grace-cuoi.png`.
+**Xem kỹ trước khi tải về:**
 
-```
-Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
-but with a big happy smile, eyes closed in a cheerful curve (^ ^), a light blush.
-```
+- đủ 9 ô, có đường kẻ trắng giữa các ô (app cắt theo đường kẻ đó);
+- cả 9 ô thấy trọn đỉnh đầu, không ô nào bị cắt mất búi tóc trên đỉnh đầu ở mép trên;
+- cùng một người, cùng áo, cùng màu nền, cùng cỡ ở cả 9 ô;
+- đúng thứ tự: bình thường, cười, buồn / ngại, bất ngờ, cảm động / dỗi, suy nghĩ, lo lắng.
 
-**Bước 3.** Ảnh buồn (trả lời sai): dán khung này, gửi. Tải ảnh về, đặt tên `grace-buon.png`.
-
-```
-Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
-but looking a little sad and disappointed: eyebrows raised in the middle, a small downturned mouth,
-eyes glancing slightly down. Still gentle and cute, no tears.
-```
-
-**Bước 4.** Ảnh ngại ngùng (tăng thiện cảm, quà rất thích, câu ngọt khi hẹn hò, tỏ tình): dán khung này, gửi. Tải ảnh về, đặt tên `grace-ngai.png`.
-
-```
-Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
-but shy and smitten: a deep blush across the cheeks and nose, a soft embarrassed smile, eyes glancing slightly away,
-one hand lightly touching her cheek. Sweet and charming.
-```
-
-**Bước 5.** Ảnh bất ngờ (lúc được cầu hôn): dán khung này, gửi. Tải ảnh về, đặt tên `grace-ngac.png`.
-
-```
-Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
-but surprised and delighted: eyes wide and sparkling, eyebrows raised, a small open "oh" mouth,
-both hands raised close to her mouth, a light blush.
-```
-
-**Bước 6.** Ảnh cảm động (nhận lời, đám cưới): dán khung này, gửi. Tải ảnh về, đặt tên `grace-camdong.png`.
-
-```
-Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
-but deeply moved and happy: glistening happy tears at the corners of the eyes, a warm trembling smile,
-a soft blush, hands held together at her chest.
-```
-
-**Bước 7.** Ảnh dỗi (quà không thích, câu vụng khi hẹn hò): dán khung này, gửi. Tải ảnh về, đặt tên `grace-doi.png`.
-
-```
-Now draw exactly the same character again: same face, hair, outfit, pose, framing and background color,
-but playfully sulking: cheeks puffed, a small pout, eyebrows slightly knitted, looking to the side,
-arms folded. Still cute, not angry.
-```
-
-**Bước 8.** Bỏ hết ảnh vào thư mục `portraits-src` ở gốc repo rồi chạy `npm run portraits`.
+Chưa ưng thì bảo lại đúng chỗ sai, ví dụ: "Redraw it: leave more empty space above the head in every panel, the
+top of the hair must not be cut off" hoặc "Redraw it: panel 8 must be thinking, one hand on her chin".
