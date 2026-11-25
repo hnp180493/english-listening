@@ -1294,11 +1294,18 @@ export function moveCircle(x: number, y: number, dx: number, dy: number, r: numb
  * a way past just beside it (a corner, a gate), a sidestep into that way (`face` half way between: a step round the
  * corner, never a sideways shuffle).
  */
-export function wayAlong(x: number, y: number, u: Pt2, r: number, world: TownWorld = TOWN_WORLD, people: readonly Body[] = []): { move: Pt2; face: Pt2; blocked: boolean } {
+export function wayAlong(x: number, y: number, u: Pt2, r: number, world: TownWorld = TOWN_WORLD, people: readonly Body[] = [], prefer = 0): { move: Pt2; face: Pt2; blocked: boolean; round?: number } {
   const L = 0.16;
   const px = -u.y;
   const py = u.x;
   const inside = insideAt(x, y, world);
+  // already rounding something (`prefer`): on with that until the walk runs free past it. One open step is not
+  // that: backing out of the hollow between a bush and a stone, the walk saw the step ahead open and went back in
+  if (prefer !== 0) {
+    const on = wayRound(x, y, u, r, world, people, prefer, true);
+    if (on && on.way) return { move: on.way, face: halfWay(on.way, u), blocked: false, round: on.side };
+    prefer = 0;
+  }
   // somebody about to be met nearly head on: round them, on the side the walker already leans to (a slide off a
   // circle met straight on would only creep)
   let who: Body | null = null;
@@ -1335,8 +1342,27 @@ export function wayAlong(x: number, y: number, u: Pt2, r: number, world: TownWor
   const m = Math.hypot(mx, my);
   // free, or a slide (along a wall, round somebody): the body faces the way it really goes. Nearly head-on into a wall
   // (under a third of the way left) is no slide: it stands rather than shoot off along the wall
-  if (m > 0.3 * L) return { move: { x: mx / m, y: my / m }, face: { x: mx / m, y: my / m }, blocked: false };
-  // head on into a wall: a way past a little to one side (the corner of a house, a gap in a fence)?
+  if (m > 0.3 * L) {
+    // a slide that turns the walk far aside (a round thing met nearly head on) may only lead into the hollow between
+    // two things: the way round that really runs free again wins when there is one. A walk already rounding
+    // something (`prefer`) keeps to that until the way is plainly open: a gentle slide back toward the hollow it
+    // just left would undo it at every other step
+    const along = (mx * u.x + my * u.y) / m;
+    const open = m > 0.98 * L && along > 0.995;
+    if (!open && (prefer !== 0 || along < 0.8)) {
+      const round = wayRound(x, y, u, r, world, people, prefer);
+      if (round && round.way) return { move: round.way, face: halfWay(round.way, u), blocked: false, round: round.side };
+    }
+    return { move: { x: mx / m, y: my / m }, face: { x: mx / m, y: my / m }, blocked: false };
+  }
+  // head on into something small standing in the open (a trunk, a stone, a well, a bench, a clump of them): round it,
+  // as anybody would (owner, 2026-11-25: "nhìn thoáng mà đi vào lại bị kẹt"; a walk straight at a tree stood still
+  // one time in five). Before the sidestep below: the two chose opposite sides on alternate steps
+  const round = wayRound(x, y, u, r, world, people, prefer);
+  if (round && round.way) return { move: round.way, face: halfWay(round.way, u), blocked: false, round: round.side };
+  // head on into a wall: a way past a little to one side (the corner of a house, a gap in a fence)? Only one that
+  // really runs free from there: a sidestep toward a gap too narrow for the body, with the way round on the other
+  // side, shuffled left and right on the spot
   for (const s of [0.1, 0.2, 0.3, 0.4]) {
     for (const side of [1, -1]) {
       const ox = x + px * side * s;
@@ -1345,8 +1371,7 @@ export function wayAlong(x: number, y: number, u: Pt2, r: number, world: TownWor
       // the sidestep itself must be clear, and from there the way on
       const side1 = moveCircle(x, y, px * side * s, py * side * s, r, world, people);
       if (Math.hypot(side1.x - ox, side1.y - oy) > 0.02) continue;
-      const on = moveCircle(ox, oy, u.x * 0.35, u.y * 0.35, r, world, people);
-      if (Math.hypot(on.x - ox, on.y - oy) < 0.3) continue;
+      if (!runsFree(ox, oy, u, r, world, people)) continue;
       const k = Math.hypot(px * side + u.x * 0.35, py * side + u.y * 0.35);
       const move = { x: (px * side + u.x * 0.35) / k, y: (py * side + u.y * 0.35) / k };
       // the body turns half way into the sidestep (a step round the corner, not a sideways shuffle)
@@ -1355,6 +1380,120 @@ export function wayAlong(x: number, y: number, u: Pt2, r: number, world: TownWor
     }
   }
   return { move: u, face: u, blocked: true };
+}
+
+/**
+ * Where the body looks while it steps along `way` round something, heading for `u`: half way between the two (a
+ * step round, not a turn away and back). The feet go exactly along `way`: the way round was tried out step by step,
+ * and a body that first had to turn onto it overshot and circled.
+ */
+function halfWay(way: Pt2, u: Pt2): Pt2 {
+  const x = way.x + u.x;
+  const y = way.y + u.y;
+  const k = Math.hypot(x, y);
+  return k > 0.2 ? { x: x / k, y: y / k } : way;
+}
+
+/**
+ * A wall: what a walker stands at instead of rounding it. The water and the map's edge, and anything big (a house, a
+ * site's fence, the pavilion, the lighthouse); a lamp post, a pot or a bench by a house's door is not, whoever owns it.
+ */
+function isWall(c: Collider): boolean {
+  if (c.what === 'ground' || c.what === 'edge') return true;
+  return c.kind === 'circle' ? c.r > ROUND_MOST : Math.max(c.x1 - c.x0, c.y1 - c.y0) > ROUND_LONG;
+}
+/** The biggest round thing a walk rounds by itself (tiles, its radius): a boulder is 0.78, the pavilion 0.97. */
+const ROUND_MOST = 0.8;
+/** The longest box it rounds (tiles): a bench is 0.74, a market stall under 1.2; the bus shelter (1.4) is a building. */
+const ROUND_LONG = 1.25;
+
+/** A walker's probing step (tiles), as wayAlong's. */
+const PROBE = 0.16;
+/** How far to the side a walk goes to round what is in its way (tiles): a boulder or a clump of trees, not a house. */
+const ROUND_REACH = 1.6;
+/** How far back a walk goes to get round (tiles). */
+const ROUND_BACK = 0.8;
+
+/** Two steps straight along `u` from (x, y) are open (nothing pushes the body aside). */
+function runsFree(x: number, y: number, u: Pt2, r: number, world: TownWorld, people: readonly Body[]): boolean {
+  for (let i = 0; i < 2; i++) {
+    const on = moveCircle(x, y, u.x * PROBE, u.y * PROBE, r, world, people);
+    if ((on.x - x) * u.x + (on.y - y) * u.y < 0.9 * PROBE || Math.abs((on.x - x) * -u.y + (on.y - y) * u.x) > 0.02) return false;
+    x = on.x;
+    y = on.y;
+  }
+  return true;
+}
+
+/**
+ * The way round what stops a walker heading along `u` (a unit vector), or null: a thing that stands in the open (when
+ * only walls are in the way (isWall: a house, a site's fence, the water, the map's edge), the walker stands), and only when
+ * the walk really runs free again past it, within ROUND_REACH to the side and ROUND_BACK back. The walk is tried
+ * out: straight on where that is open, else along the thing with it on the other hand, turning as far as it must
+ * (round a clump, out of the hollow between a tree and a stone). The side the thing does not lean to first, so a walk
+ * a little left of a trunk goes round its left; `prefer` (the side a walk is already rounding by, ±1) goes before
+ * that, so a walk between two things does not change its mind at every step. `going` = the walk is already on its
+ * way round: tried out even when the next step is open (the thing may be a step further on), and `way` null means
+ * the way on now runs free.
+ */
+function wayRound(x: number, y: number, u: Pt2, r: number, world: TownWorld, people: readonly Body[], prefer = 0, going = false): { way: Pt2 | null; side: number } | null {
+  const L = PROBE;
+  const px = -u.y;
+  const py = u.x;
+  // what stands in the way one step on
+  const ax = x + u.x * L;
+  const ay = y + u.y * L;
+  let lean = 0;
+  let small = false;
+  solidsNear(world, ax - r, ay - r, ax + r, ay + r, (c) => {
+    if (distanceTo(c, ax, ay) >= r) return;
+    if (isWall(c)) return;
+    small = true;
+    const cx = c.kind === 'circle' ? c.x : (c.x0 + c.x1) / 2;
+    const cy = c.kind === 'circle' ? c.y : (c.y0 + c.y1) / 2;
+    lean += (cx - x) * px + (cy - y) * py;
+  });
+  if (!small && !going) return null;
+  const first = prefer > 0 ? 1 : prefer < 0 ? -1 : Math.abs(lean) > 1e-3 ? -Math.sign(lean) : 1;
+  for (const side of [first, -first]) {
+    // along the thing, turning further from the way when a nearer turn is shut: 79°, 90°, 117°, 135°, 160° to that
+    // side (the last backs out of a hollow that opens only the way the walk came)
+    const turns: Pt2[] = [0.2, 0, -0.5, -1, -2.75].map((f) => {
+      const k = Math.hypot(px * side + u.x * f, py * side + u.y * f);
+      return { x: (px * side + u.x * f) / k, y: (py * side + u.y * f) / k };
+    });
+    let qx = x;
+    let qy = y;
+    let free = 0;
+    let begin: Pt2 | null = null;
+    let ok = false;
+    for (let i = 0; i < 48; i++) {
+      const on = moveCircle(qx, qy, u.x * L, u.y * L, r, world, people);
+      if ((on.x - qx) * u.x + (on.y - qy) * u.y > 0.9 * L) {
+        qx = on.x;
+        qy = on.y;
+        if (++free >= 3 && (qx - x) * u.x + (qy - y) * u.y > 0.3) {
+          ok = true;
+          break;
+        }
+        continue;
+      }
+      free = 0;
+      let went = false;
+      for (const d of turns) {
+        const to = moveCircle(qx, qy, d.x * L, d.y * L, r, world, people);
+        if (Math.hypot(to.x - qx, to.y - qy) < 0.6 * L) continue;
+        begin ??= d;
+        qx = to.x;
+        qy = to.y;
+        went = true;
+        break;
+      }
+      if (!went || Math.abs((qx - x) * px + (qy - y) * py) > ROUND_REACH || (qx - x) * u.x + (qy - y) * u.y < -ROUND_BACK) break;
+    }
+    if (ok && (begin || going)) return { way: begin, side: begin ? side : 0 };
+  }
+  return null;
 }
 
 /**
@@ -1404,39 +1543,6 @@ export function projectColliders(ids: readonly string[] | undefined): Collider[]
   return out;
 }
 
-/** How far a forest block keeps in from its tile's edges (tiles): two side by side leave a gap no body fits through. */
-const FOREST_INSET = 0.1;
-
-/**
- * The woods as solid blocks: a tree of the map (WORLD_ROWS) that has another tree right beside it (not only corner to
- * corner) blocks its whole tile, not only its trunk, so a body never squeezes in between the trunks of a wood and
- * gets wedged there (a lone tree, and two trees corner to corner, keep their round trunks).
- */
-export function forestColliders(world: TownWorld): Collider[] {
-  const tree = (x: number, y: number) => {
-    const c = world.rows[y]?.[x];
-    return c === 'T' || c === 't';
-  };
-  const out: Collider[] = [];
-  for (let y = 0; y < world.rows.length; y++) {
-    for (let x = 0; x < world.rows[y].length; x++) {
-      if (!tree(x, y) || !(tree(x - 1, y) || tree(x + 1, y) || tree(x, y - 1) || tree(x, y + 1))) continue;
-      out.push({ kind: 'box', x0: x + FOREST_INSET, y0: y + FOREST_INSET, x1: x + 1 - FOREST_INSET, y1: y + 1 - FOREST_INSET, what: `wood:${x},${y}` });
-    }
-  }
-  return out;
-}
-
-const FORESTS = new WeakMap<TownWorld, Collider[]>();
-function forestOf(world: TownWorld): Collider[] {
-  let f = FORESTS.get(world);
-  if (!f) {
-    f = forestColliders(world);
-    FORESTS.set(world, f);
-  }
-  return f;
-}
-
 export class TownSim {
   /** The town as it stands now (core/town/colliders.ts walkWorld: what is built and bought blocks the way). */
   world: TownWorld;
@@ -1459,6 +1565,8 @@ export class TownSim {
   /** Seconds a held key has pushed into somebody standing in the way; seconds a click walk has made no way. */
   private pushFor = 0;
   private stallFor = 0;
+  /** The side (±1) the player is rounding something by (wayAlong `round`); 0 while the way is straight. */
+  private roundSide = 0;
   /** Where the player is walking to (for the marker on the ground), if anywhere. */
   goal: Tile | null = null;
   /** The resident in a conversation with the player: the others keep their distance and stop strolling. */
@@ -1539,7 +1647,9 @@ export class TownSim {
     this.decorations = new Set(state.decorations);
     const walk: WalkState = { built: state.built, sites: state.sites, decorations: state.decorations, extraDecor: state.extraDecor };
     const was = this.world;
-    this.world = walkWorld(this.base, walk, [...forestOf(this.base), ...projectColliders(state.extraDecor)]);
+    // (no blocks over the woods any more: a tree stops a body at its trunk only, and a body passes between any two,
+    // colliders.ts TREE_R. Until 2026-11-25 a tree beside another shut its whole tile, unseen: "nhìn thoáng mà kẹt")
+    this.world = walkWorld(this.base, walk, projectColliders(state.extraDecor));
     if (this.world !== was) this.makeRoom();
     this.world.places.forEach((p, index) => {
       const has = this.residents.has(p.id);
@@ -2284,7 +2394,8 @@ export class TownSim {
     let dir: Pt2 = { x: Math.cos(yaw), y: Math.sin(yaw) };
     let goal = 0;
     if (want) {
-      const way = wayAlong(p.x, p.y, want, PLAYER_RADIUS, this.world, bodies);
+      const way = wayAlong(p.x, p.y, want, PLAYER_RADIUS, this.world, bodies, this.roundSide);
+      this.roundSide = way.round ?? 0;
       const to = Math.atan2(way.face.y, way.face.x);
       const err = angleTo(yaw, to);
       const most = PLAYER_TURN * dt;
@@ -2301,7 +2412,10 @@ export class TownSim {
       dir = side || reach < 0.4 ? way.move : { x: Math.cos(yaw), y: Math.sin(yaw) };
       if (way.blocked && keys) this.pushInto(want, dt);
       else this.pushFor = 0;
-    } else this.pushFor = 0;
+    } else {
+      this.pushFor = 0;
+      this.roundSide = 0;
+    }
     // the pace: up quickly; down quickly for a turn or the end of a click walk; let go, a stop at once
     const fast = Math.max(top, this.drive);
     const rate = !want ? fast / PLAYER_STOP : goal < this.drive ? fast / (brake < Infinity ? PLAYER_STOP : PLAYER_ARRIVE) : top / PLAYER_ACCEL;

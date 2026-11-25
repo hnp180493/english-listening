@@ -673,7 +673,8 @@ describe('TownSim', () => {
     expect(sim.goal).toBeNull();
   });
 
-  it('residents stroll a few tiles round their spot, never rest on a doorstep, and wait when the player is near', () => {
+  // (a long simulation: 5 s was not enough on a busy machine, it failed twice in full runs on 2026-11-25)
+  it('residents stroll a few tiles round their spot, never rest on a doorstep, and wait when the player is near', { timeout: 20000 }, () => {
     const sim = new TownSim(TOWN_WORLD, seeded(3));
     sim.setState({ built: WORLD_PLACES.map((p) => p.id), decorations: ['cat'] });
     // keep the player far from everybody: the hill in the woods

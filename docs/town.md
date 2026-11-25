@@ -504,11 +504,35 @@ cosy game:
   its way when it sidesteps a corner or squeezes past somebody.
 
 **No wedges in the woods** (2026-11-21, after a playtest got the player stuck for ten seconds between the trunks by the
-hill and at the island's south edge). A tree of the map with another tree right beside it (not only corner to corner)
-blocks its whole tile, not only its trunk (`forestColliders` in `engine/sim.ts`, added to the walk world as extra
-colliders): a body no longer squeezes in between the trunks of a wood. `engine/noWedge.test.ts` walks a body to every
-point of a quarter-tile lattice it can reach from the start and holds the keys each way from every point near a tree:
-none may leave it stuck in four directions or more (before the fix: one such point, 4.9, 40.9).
+hill and at the island's south edge). `engine/noWedge.test.ts` walks a body to every point of a quarter-tile lattice it
+can reach from the start and holds the keys each way from every point near a tree: none may leave it stuck in four
+directions or more (before the fix: one such point, 4.9, 40.9). That day's fix made a tree with another right beside
+it block its WHOLE TILE (`forestColliders`); it is gone, see the next paragraph.
+
+**Nothing unseen stops a walk** (2026-11-25; the owner, with two screenshots: "có nhiều chỗ nhìn thoáng mà đi vào lại
+bị kẹt, rất nhiều chỗ như vậy"). Measured before: a key held straight at a tree with open ground behind it stood still
+1,788 times in 8,086 (22%), at a boulder every time, and 140 spots in the woods let a body in and not out. Four causes,
+each fixed (`engine/noStuck.test.ts` holds a key at every small thing from 8 sides, through `wayAlong` and through
+`TownSim` itself, in a town of nature lots and in one with everything built; no spot shuts a body in; a body passes
+between any two map trees):
+- the forest blocks: a tree beside another shut its tile (0.8 × 0.8) with nothing to see, the stop half a tile from
+  any trunk. Removed;
+- a tree stopped a body 0.27–0.33 from its foot ("under the lowest branches"), which shut the gap between two trees
+  on neighbouring tiles; from above the crowns hide where that is. `TREE_R` is the trunk now (0.13; a bush 0.3): a
+  body walks under a crown and through a pine's low branches (the see-through dither shows it), never through wood;
+- a walk straight into a round thing stood still (a slide off a circle met head on only creeps; the sidestep reached
+  0.4, a trunk needs 0.5). `wayRound` (sim.ts): what is in the way is rounded when it is small (`isWall`: not the
+  water, the map's edge, a house, a site's fence, the pavilion, the bus shelter: there the walker stands), the way
+  tried out step by step up to `ROUND_REACH` 1.6 to the side and 0.8 back, the side the thing does not lean to first.
+  The walk keeps its side (`TownSim.roundSide`, `wayAlong`'s `prefer`) until it runs free: without that it changed its
+  mind at every other step, and backing out of a hollow it went back in at the first open step. The feet go exactly
+  along the tried way, the body looks half way (`halfWay`): a body that first turned onto it overshot and circled;
+- gaps a finger narrower than a body (a bush and a stone 0.43 apart, a bench and a palm) looked open and were hollows.
+  `lotNature` now leaves a body's room (0.52) between the things of a lot, or stands two right against each other
+  (one clump); the palm by the promenade bench at (59, 75) is gone.
+Not watched by a person, and not tried with real keys: the app's browser pane has no WebGL, so the 3D town does not
+run in it. Things standing 0.2–0.45 from a house's wall (a planter, flowers by a door) still make a nook where a
+walker stands: it is at a wall, and backs out.
 
 **The hovered square** (`pick3d.ts` `stickyTile`, tested; `engine3d.ts setHover / refreshHover`). A white square on the
 tile under the mouse, snapped to it (no easing between tiles), only over a walkable tile: over a person, a house or an
@@ -762,24 +786,41 @@ turned up to half a radian toward side-on to the viewer.
 **Drawn portraits** (2026-11-24). The owner found the 3D people "lỏ" next to anime portraits and asked for avatars
 worth dating; an attempt to make the 3D people anime in code (anime eyes, locks of hair, line art) came out worse than
 the cute original and was put back the same day (the owner: "nhân vật lúc đầu còn dễ thương hơn"). What stayed:
-- the residents' avatars can be drawn pictures: the owner makes them in a free AI chat (Gemini or ChatGPT) from
-  `docs/portrait-prompts.md` and `docs/portraits/<name>.md` (one ready text per resident; a smiling and a sad version
-  in the same chat), drops
-  them in `portraits-src/` (not in git) and runs `npm run portraits` (`scripts/portraits.mjs`: headless Edge crops each
-  to a square, 512 px WebP in `public/portraits/<placeId>.webp` / `-happy.webp` / `-sad.webp`, and writes
-  `src/features/town/portraitFiles.ts` with a hash per file). `Portrait` (`art.tsx`, mood `sad` after a wrong answer
-  in a conversation or an episode, drawn pictures only) shows the picture when there is
-  one (small sizes scale in on the face), else the 3D portrait as before;
-  a picture that does not load falls back too. The player's own character always uses the 3D portrait. Drawn by the
-  owner in Gemini on 2026-11-25: 11 of 13 residents (not yet Mia and Sarah), neutral / happy / sad each, and Emma also
-  the four extra moods below (37 pictures, 512 px WebP, 824 kB in all);
-- moods of a drawn portrait (`PortraitMood`, `art.tsx`): neutral while listening, happy after a right answer, sad after a
-  wrong one, and (every resident has the prompts, docs/portraits/<name>.md: 7 pictures each) 'love' (shy, blushing:
-  a talk or an episode that won friendship, a gift they love, a warm answer on a date, a confession), 'surprised' (a
-  proposal), 'moved' (happy tears: a yes, the wedding), 'pout' (a gift they dislike, a clumsy answer). A mood without
-  its picture falls back (`MOOD_FALLBACK`: moved → love → happy → neutral, pout → sad → neutral…); the 3D portraits
-  only smile or not. A courtship scene shows the one courted at its top, kept in view while the lines grow, their face
-  set by the scene and then by the answer picked (`LovePanel` openingMood / pickedMood);
+- the residents' avatars can be drawn pictures, ONE per resident since 2026-11-25 (owner: separate files per face
+  were getting "rối"): nine faces in a 3 × 3 grid. The owner makes it in a free AI chat (Gemini or ChatGPT) from
+  `docs/portraits/<name>.md` (one ready text per resident, the grid's order and "the whole head inside every panel":
+  the owner's first grid had Zoe's bun cut off; `docs/portrait-prompts.md` is the shared version), drops it in
+  `portraits-src/` (not in git) as `<name>.png` and runs `npm run portraits` (`scripts/portraits.mjs`: headless Edge
+  finds the white gutters, with or without a white margin round the outside: white-ish lines first, the corner's
+  colour only when the corner is a pale margin, three spans of 25–40% each, else no grid; Zoe's first cut, with a
+  pink corner taken for the gutter, was tight round the people), cuts the nine panels a little inside, keeps each
+  cell's top, and writes
+  `public/portraits/<placeId>.webp`, the nine cells side by side with no gutters, 384 px each, plus
+  `src/features/town/portraitFiles.ts`: a hash and the moods drawn; a cell of one flat colour counts as not drawn).
+  `<name>-luoi.png` = a grid for sure (equal thirds when no gutters are found); `<name>-cuoi.png` etc. = one face put
+  in its cell over the picture as it is. `Portrait` (`art.tsx`, `portraitSheet.ts` picks the cell) loads the one
+  picture three times the frame's size and moves it so the mood's cell fills the frame: a new face only moves it,
+  nothing loads. A round frame (most of them) would cut a square picture's corners, and the AI draws a ponytail or a
+  bun close to the panel's top (the owner saw Emma's cut, then rejected a smaller face with a band of space above
+  it): it shows the cell at full size, moved down by the resident's own `lift` (the script measures how far the head
+  of their first face needs to be inside the circle, counting only what is 40+ away from the background and not the
+  outer 6% each side: a background darkening toward the panel's border once read as hair and gave Tom 15%; now
+  0–4.7%) with the gap above in the cell's measured background colour (`bg`). A square card shows the whole cell; a
+  small one scales in 1.2 on the face, its top kept. With no picture, or one that does not load, the 3D portrait as
+  before. The player's own character always uses the 3D portrait. Drawn by the owner in Gemini on 2026-11-25: all 13
+  residents as full grids of nine with the new prompt (13 sheets, 1.48 MB in all; the source PNGs stay in
+  `portraits-src/`, not in git). Checked as cut sheets and as round portraits in the dev server; nobody has played
+  through every mood in the game yet;
+- moods of a drawn portrait (`PortraitMood`, `portraitSheet.ts`, the grid's cells in this order): neutral while
+  listening, happy after a right answer, sad after a wrong one, 'love' (shy, blushing: a talk or an episode that won
+  friendship, a gift they love, a warm answer on a date, a confession), 'surprised' (a proposal), 'moved' (happy tears:
+  a yes, the wedding), 'pout' (a gift they dislike, a clumsy answer, a wrong tray at the café), 'thinking' (a witness
+  in a case while they tell it) and 'worried' (a café customer in the last third of their patience; the witness whose
+  words a wrong answer missed, until heard again). A café customer who waited too long looks sad. A mood without its
+  cell falls back (`MOOD_FALLBACK`: moved → love → happy → neutral, pout → sad → neutral, worried → sad → neutral,
+  thinking → neutral…); the 3D portraits only smile or not. A courtship scene shows the one courted at its top, kept
+  in view while the lines grow, their face set by the scene and then by the answer picked (`LovePanel` openingMood /
+  pickedMood);
 - "Hẹn hò & gia đình" lists the five one can court as picture cards (two a row), a resident's page there opens with a
   132 px picture, the creator's preview is up to 240 px, a conversation's picture 108 px on a wide screen (60 on a
   phone);

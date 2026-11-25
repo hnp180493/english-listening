@@ -76,20 +76,56 @@ export function lotNature(p: Pick<WorldPlace, 'id' | 'x' | 'y' | 'w' | 'd'>): { 
   const trees: TreeAt[] = [];
   const cells = p.w * p.d;
   const count = Math.max(1, Math.min(3, Math.round(cells / 2)));
+  // what stands so far, as circles: the next thing keeps LOT_ROOM clear of each, so a body walks between any two.
+  // (A gap a little narrower than a body looked open and was a hollow to get stuck in: owner, 2026-11-25.)
+  const put: { x: number; y: number; r: number }[] = [];
+  /**
+   * The first of a hundred-odd tries (the same ones every time) that leaves room. A small lot may have none: then
+   * right against one thing (one clump to walk round, plainly shut) with room to the others; else the one that
+   * leaves most.
+   */
+  const spot = (i: number, r: number, margin: number): { x: number; y: number } => {
+    const at = (n: number) => ({ x: p.x + margin + hash2(seed, i, 12 + n * 10) * (p.w - margin * 2), y: p.y + margin + hash2(seed, i, 13 + n * 10) * (p.d - margin * 2) });
+    const roomTo = (x: number, y: number, q: { x: number; y: number; r: number }) => Math.hypot(q.x - x, q.y - y) - q.r - r;
+    let best = at(0);
+    let bestRoom = -Infinity;
+    for (let n = 0; n < 120; n++) {
+      const c = at(n);
+      const room = put.reduce((m, q) => Math.min(m, roomTo(c.x, c.y, q)), Infinity);
+      if (room >= LOT_ROOM) return c;
+      if (room > bestRoom) {
+        bestRoom = room;
+        best = c;
+      }
+    }
+    for (let n = 0; n < 120; n++) {
+      const c = at(n);
+      const near = put.reduce((a, q) => (roomTo(c.x, c.y, q) < roomTo(c.x, c.y, a) ? q : a));
+      const d = Math.hypot(c.x - near.x, c.y - near.y) || 1;
+      const k = (near.r + r + LOT_CLUMP / 2) / d;
+      const x = Math.max(p.x + margin, Math.min(p.x + p.w - margin, near.x + (c.x - near.x) * k));
+      const y = Math.max(p.y + margin, Math.min(p.y + p.d - margin, near.y + (c.y - near.y) * k));
+      if (put.every((q) => (q === near ? Math.abs(roomTo(x, y, q)) <= LOT_CLUMP : roomTo(x, y, q) >= LOT_ROOM))) return { x, y };
+    }
+    return best;
+  };
   for (let i = 0; i < count; i++) {
     const h = hash2(seed, i, 11);
     const kind: TreeKind3 = i === count - 1 && cells > 2 ? 'bush' : h < 0.5 ? 'round' : 'pine';
-    trees.push({
-      x: p.x + 0.35 + hash2(seed, i, 12) * (p.w - 0.7),
-      y: p.y + 0.35 + hash2(seed, i, 13) * (p.d - 0.7),
-      kind,
-      scale: kind === 'bush' ? 0.8 : 0.8 + hash2(seed, i, 14) * 0.3,
-      seed: h,
-    });
+    const scale = kind === 'bush' ? 0.8 : 0.8 + hash2(seed, i, 14) * 0.3;
+    const at = spot(i, TREE_R[kind] * scale, 0.35);
+    put.push({ ...at, r: TREE_R[kind] * scale });
+    trees.push({ ...at, kind, scale, seed: h });
   }
-  const stones = [{ x: p.x + 0.25 + hash2(seed, 9, 15) * (p.w - 0.5), y: p.y + 0.25 + hash2(seed, 9, 16) * (p.d - 0.5), s: 0.7 + hash2(seed, 9, 17) * 0.5 }];
+  const s = 0.7 + hash2(seed, 9, 17) * 0.5;
+  const stones = [{ ...spot(9, STONE_R * s, 0.25), s }];
   return { trees, stones };
 }
+
+/** The room between two things of a lot left to nature (tiles): a body (2 × BODY_RADIUS) and a little air. */
+const LOT_ROOM = 0.52;
+/** Two things of a lot nearer than this (tiles) stand as one clump: nobody takes the crack between them for a way. */
+const LOT_CLUMP = 0.1;
 
 /** A place's lot: built, a construction site on offer, or plain nature. */
 export function lotOf(id: string, state: Pick<WalkState, 'built' | 'sites'>): 'built' | 'site' | 'nature' {
@@ -101,10 +137,13 @@ export function lotOf(id: string, state: Pick<WalkState, 'built' | 'sites'>): 'b
 // ───────────────────────── sizes (tiles), as the 3D models are built ─────────────────────────
 
 /**
- * How far round a tree's foot a body is stopped (× its scale): past the trunk, under the lowest branches; a body may
- * pass under the edge of a crown, never through the trunk.
+ * How far round a tree's foot a body is stopped (× its scale): its TRUNK (0.09–0.1 at the foot) and a finger more, so
+ * a body walks under a crown and through a pine's low branches but never through the wood. Wider (0.27 / 0.33, "under
+ * the lowest branches") shut the gap between two trees on neighbouring tiles, and from above the crowns hide where
+ * that is: woods that look open were a maze of pockets (owner, 2026-11-25: "nhìn thoáng mà đi vào lại bị kẹt").
+ * At 0.13 a body (BODY_RADIUS) passes between ANY two map trees (see TREE_GAP in the tests). A bush is a solid ball.
  */
-export const TREE_R: Readonly<Record<TreeKind3, number>> = { round: 0.27, blossom: 0.27, pine: 0.33, bush: 0.36, palm: 0.16 };
+export const TREE_R: Readonly<Record<TreeKind3, number>> = { round: 0.13, blossom: 0.13, pine: 0.13, bush: 0.3, palm: 0.13 };
 /** A house's walls stand this far in from its lot's edges (places3d.ts INSET 0.18, less the plinth's 0.04). */
 export const WALL_INSET = 0.14;
 /** A construction site's fence stands this far in from the lot's edges (places3d.ts buildSite). */

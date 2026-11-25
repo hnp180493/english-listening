@@ -153,13 +153,15 @@ describe('colliders = what the 3D town shows (docs/town.md §7 "Moving about")',
     });
   }
 
-  it('a tree stops a body past its trunk, under its lowest branches', () => {
-    const trunk = { round: 0.1, blossom: 0.1, pine: 0.09, bush: 0 };
-    const crown = { round: 0.44, blossom: 0.44, pine: 0.46, bush: 0.4 };
-    for (const k of ['round', 'blossom', 'pine', 'bush'] as const) {
-      expect(TREE_R[k]).toBeGreaterThan(trunk[k] + 0.1);
-      expect(TREE_R[k]).toBeLessThanOrEqual(crown[k]);
+  it('a tree stops a body at its trunk (a bush at its ball), never out under the crown', () => {
+    // the trunk's foot as nature.ts draws it; a crown hides from above where a wider stop would be
+    const trunk = { round: 0.1, blossom: 0.1, pine: 0.09 };
+    for (const k of ['round', 'blossom', 'pine'] as const) {
+      expect(TREE_R[k]).toBeGreaterThanOrEqual(trunk[k]);
+      expect(TREE_R[k]).toBeLessThanOrEqual(trunk[k] + 0.05);
     }
+    expect(TREE_R.bush).toBeGreaterThan(0.2);
+    expect(TREE_R.bush).toBeLessThanOrEqual(0.4);
     // and stands where the scene draws it
     const cs = collidersOf(W);
     for (const t of mapTrees(W)) {
