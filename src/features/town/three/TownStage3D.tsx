@@ -34,6 +34,12 @@ const LAYER = { position: 'absolute', inset: 0, width: '100%', height: '100%', p
 
 /** A lost graphics context gets this long (ms) to come back before the page is told the 3D town is gone. */
 const RESTORE_WAIT_MS = 3000;
+/** A finger held this long (ms) without moving walks the player towards it (shorter is a tap). */
+const HOLD_MS = 220;
+/** A finger moved this far (CSS px) before then is a drag: it walks at once. */
+const DRAG_PX = 12;
+/** A finger lifted within this (ms, by the events' own times) without moving is a tap, whatever the frames did. */
+const TAP_MS = 500;
 
 export interface TownStage3DProps extends TownStageProps {
   /**
@@ -200,10 +206,44 @@ export default function TownStage3D({
         let pinch = 0;
         let swallowClick = false;
         let swallowTimer = 0;
+        // one finger held still a moment, or dragged, walks the player towards it until it is lifted (owner, 2026-11-25:
+        // "phải click từng chút từng chút"); a quick tap still walks to the place tapped
+        let press: { id: number; x: number; y: number; at: number; moved: boolean; holding: boolean } | null = null;
+        let pressTimer = 0;
+        // the click a held finger causes when it is lifted is not a tap (kept apart from a pinch's)
+        let holdSwallow = false;
+        let holdTimer = 0;
+        const startHold = () => {
+          window.clearTimeout(pressTimer);
+          if (!press || press.holding || touches.size !== 1) return;
+          if (!e.holdAt(press.x, press.y)) return;
+          press.holding = true;
+          holdSwallow = true;
+        };
+        /** `tap`: the finger was lifted quickly without moving: its click walks as a tap, even if a slow frame let the
+         * hold begin first. */
+        const endHold = (tap = false) => {
+          window.clearTimeout(pressTimer);
+          window.clearTimeout(holdTimer);
+          if (press?.holding) {
+            e.holdEnd();
+            if (tap) holdSwallow = false;
+            else holdTimer = window.setTimeout(() => (holdSwallow = false), 0);
+          }
+          press = null;
+        };
         const onDown = (ev: PointerEvent) => {
           const p = local(ev);
           if (ev.pointerType === 'touch') {
             touches.set(ev.pointerId, p);
+            if (touches.size === 1) {
+              press = { id: ev.pointerId, x: p.x, y: p.y, at: ev.timeStamp, moved: false, holding: false };
+              window.clearTimeout(pressTimer);
+              pressTimer = window.setTimeout(startHold, HOLD_MS);
+            } else {
+              // a second finger: a pinch, not a walk
+              endHold();
+            }
             if (touches.size === 2) {
               const [a, b] = [...touches.values()];
               pinch = Math.hypot(a.x - b.x, a.y - b.y);
@@ -223,6 +263,19 @@ export default function TownStage3D({
           if (ev.pointerType === 'touch') {
             if (!touches.has(ev.pointerId)) return;
             touches.set(ev.pointerId, p);
+            if (press && press.id === ev.pointerId) {
+              if (press.holding) {
+                press.x = p.x;
+                press.y = p.y;
+                e.holdAt(p.x, p.y);
+              } else if (Math.hypot(p.x - press.x, p.y - press.y) > DRAG_PX) {
+                // a drag walks at once, towards where the finger is now
+                press.moved = true;
+                press.x = p.x;
+                press.y = p.y;
+                startHold();
+              }
+            }
             if (touches.size === 2 && pinch > 0) {
               const [a, b] = [...touches.values()];
               const d = Math.hypot(a.x - b.x, a.y - b.y);
@@ -246,6 +299,7 @@ export default function TownStage3D({
         const onUp = (ev: PointerEvent) => {
           if (ev.pointerType === 'touch') {
             touches.delete(ev.pointerId);
+            if (press && press.id === ev.pointerId) endHold(ev.type === 'pointerup' && !press.moved && ev.timeStamp - press.at < TAP_MS);
             if (touches.size < 2) pinch = 0;
             // the gesture is over: a click it causes still lands in this task, the next tap walks
             if (touches.size === 0 && swallowClick) {
@@ -263,7 +317,7 @@ export default function TownStage3D({
         };
         const onLeave = () => e.pointerLeave();
         const onClick = (ev: MouseEvent) => {
-          if (swallowClick) return;
+          if (swallowClick || holdSwallow) return;
           const p = local(ev);
           e.click(p.x, p.y);
         };
@@ -326,6 +380,8 @@ export default function TownStage3D({
           canvas.removeEventListener('webglcontextrestored', onRestored);
           window.clearTimeout(lostTimer);
           window.clearTimeout(swallowTimer);
+          window.clearTimeout(pressTimer);
+          window.clearTimeout(holdTimer);
           window.removeEventListener('keydown', onKey);
           window.removeEventListener('keyup', onKey);
           window.removeEventListener('blur', onBlur);

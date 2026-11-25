@@ -17,7 +17,7 @@ import { Particles } from '../../engine/particles';
 import { gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
 import { createCharacter, createPet, passerLook, type Character3DPlus } from '../characters';
 import type { CharAction, Character3D, Pet3D } from '../contracts';
-import { cameraPosition, fitDistance, followLead, followStiffness, FOLLOW_W, followPoint, FOV, groundHalfExtent, insetShift, keyDirection, PITCH, restDistance, YAW0, yawAfter, zoomAfter } from './cameraRig';
+import { cameraPosition, fitDistance, followLead, followStiffness, FOLLOW_W, followPoint, FOV, groundHalfExtent, HOLD_RUN, holdDirection, insetShift, keyDirection, PITCH, restDistance, YAW0, yawAfter, zoomAfter } from './cameraRig';
 import { angleDiff, headingOf, octantHeading, towardViewer, type P3 } from './coords';
 import { WARP_FAR } from '../../map/mapCard';
 import { pick3, stickyTile, type Hit3, type PickBox, type PickPerson, type Ray } from './pick3d';
@@ -343,6 +343,8 @@ export class TownEngine3D {
   /** Night's sky while it is laid over day's (the theme changing), else null. */
   private skyBlend: HTMLCanvasElement | null = null;
   private readonly raycaster = new Raycaster();
+  /** A finger held on the stage (CSS px), null = none (holdAt / holdEnd). */
+  private hold: { x: number; y: number } | null = null;
   private readonly v = new Vector3();
   private readonly puffAt = { x: 0, y: 0 };
   private readonly puffWorld = { x: 0, y: 0, z: 0 };
@@ -1600,7 +1602,48 @@ export class TownEngine3D {
     return false;
   }
 
+  /**
+   * A finger held on the stage (or dragged over it): the player walks towards the ground under it, on and on, and runs
+   * when it is far (docs/town.md §7 "Moving about"); `holdAt` again as the finger moves. False = the town takes no
+   * walking now (a panel, a dip, a room). A quick tap still walks by `click`.
+   */
+  holdAt(x: number, y: number): boolean {
+    if (this.paused || !this.ready || this.busy()) return false;
+    if (!this.hold) {
+      this.pointerLive = false;
+      this.setHover(null);
+      this.cancelWalk();
+    }
+    this.hold = { x, y };
+    this.steerHold();
+    return true;
+  }
+
+  /** The finger is lifted: the player stops where they are. */
+  holdEnd(): void {
+    if (!this.hold) return;
+    this.hold = null;
+    this.sim.setRun(false);
+    if (this.keysHeld()) this.steerKeys();
+    else this.sim.steer(null);
+  }
+
+  /** Steer towards the ground under the held finger, as the camera stands this frame. */
+  private steerHold(): void {
+    const h = this.hold;
+    if (!h) return;
+    if (this.paused || this.busy()) {
+      this.sim.steer(null);
+      return;
+    }
+    const p = this.sim.player;
+    const way = holdDirection(this.rayAt(h.x, h.y), { x: p.x, y: this.town.lift(p.x, p.y), z: p.y });
+    this.sim.setRun(!!way && way.dist > HOLD_RUN);
+    this.sim.steer(way);
+  }
+
   releaseKeys(): void {
+    this.hold = null;
     this.sim.setRun(false);
     this.keys.up = this.keys.down = this.keys.left = this.keys.right = false;
     this.steerKeys();
@@ -1653,7 +1696,8 @@ export class TownEngine3D {
     this.t += dt;
     if (++this.frames % 60 === 0) this.still = prefersReducedMotion();
     // held keys go relative to the camera as it stands this frame (it may be turning)
-    if (this.keysHeld()) this.steerKeys();
+    if (this.hold) this.steerHold();
+    else if (this.keysHeld()) this.steerKeys();
     this.sim.update(dt);
     // the player's pace on the ground, for the camera's lead (smoothed: a slide or a bump never twitches the view)
     const pl = this.sim.player;

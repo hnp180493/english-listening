@@ -423,6 +423,12 @@ cosy game:
   player goes that way continuously (no tile to tile, no tile asked for ahead): full pace in `PLAYER_ACCEL` 0.09 s,
   and letting go stops them where they are in `PLAYER_STOP` 0.07 s (no finishing the tile). Shift runs. Any key
   cancels a click walk at once.
+- **A finger held** (2026-11-25, owner: on a phone "phải click từng chút từng chút"): one finger held still `HOLD_MS`
+  220 ms, or dragged more than `DRAG_PX` 12 px (`TownStage3D`), steers the player towards the ground under it every
+  frame, like the keys (`engine3d.holdAt / holdEnd`, `holdDirection` in `cameraRig.ts`: the ray through the finger met
+  with the level the player stands on); farther than `HOLD_RUN` 4 tiles they run, within `HOLD_DEAD` 0.35 they stand.
+  Lifting the finger stops them; a second finger ends it (a pinch); a quick tap still walks to what was tapped. In
+  full screen the canvas is `touch-action: none` (any drag walks); in the page a vertical drag still scrolls it.
 - **The body** turns toward where it will really go at `PLAYER_TURN` 16 rad/s (90° in about 0.1 s), and the walk goes
   the way the body faces (no crab walk): within 60° of the way, full pace; a sharper turn is an arc at a lower pace; a
   half turn turns on the spot first (about 0.1 s). The drawn body follows the sim's turn closely (its spring is 38 for

@@ -4,6 +4,7 @@
 // the player, and which way the keys walk. three.js only applies what this works out (engine3d.ts).
 
 import type { P3 } from './coords';
+import type { Ray } from './pick3d';
 
 /** Vertical field of view (degrees): low, so the town reads like a model on a table. */
 export const FOV = 28;
@@ -170,6 +171,27 @@ export function keyDirection(k: { up: boolean; down: boolean; left: boolean; rig
   const y = -Math.sin(yaw) * v - Math.cos(yaw) * h;
   const l = Math.hypot(x, y);
   return { x: x / l, y: y / l };
+}
+
+/** A finger held this close to the player (tiles on the ground) means "stay": no way to go. */
+export const HOLD_DEAD = 0.35;
+/** A finger held farther than this from the player (tiles on the ground) makes them run. */
+export const HOLD_RUN = 4;
+
+/**
+ * A finger held on the stage (docs/town.md §7 "Moving about"): the way from the player to the ground under the finger
+ * (the ray through it met with the level the player stands on), a unit vector on the tile grid, and how far that is.
+ * Null when the finger is on the player, or the ray goes over the horizon.
+ */
+export function holdDirection(ray: Ray, from: { x: number; y: number; z: number }): { x: number; y: number; dist: number } | null {
+  if (ray.d.y > -1e-4) return null;
+  const t = (from.y - ray.o.y) / ray.d.y;
+  if (!(t > 0)) return null;
+  const dx = ray.o.x + ray.d.x * t - from.x;
+  const dz = ray.o.z + ray.d.z * t - from.z;
+  const dist = Math.hypot(dx, dz);
+  if (dist < HOLD_DEAD) return null;
+  return { x: dx / dist, y: dz / dist, dist };
 }
 
 /** Where the camera's target goes on the stage (CSS px from the middle) so it is centred in what panels leave free. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { springStep } from '../../engine/spring';
-import { basisOf, cameraPosition, clampToIsland, EDGE_HOLD, fitDistance, FOLLOW_LEAD, FOLLOW_W, followPoint, FOV, groundHalfExtent, insetShift, keyDirection, PITCH, restDistance, YAW0, YAW_PER_PX, yawAfter, ZOOM_MAX, ZOOM_MIN, zoomAfter, followStiffness, followLead, FOLLOW_W_NARROW } from './cameraRig';
+import { basisOf, cameraPosition, clampToIsland, EDGE_HOLD, fitDistance, FOLLOW_LEAD, FOLLOW_W, followPoint, FOV, groundHalfExtent, HOLD_DEAD, holdDirection, insetShift, keyDirection, PITCH, restDistance, YAW0, YAW_PER_PX, yawAfter, ZOOM_MAX, ZOOM_MIN, zoomAfter, followStiffness, followLead, FOLLOW_W_NARROW } from './cameraRig';
 import type { P3 } from './coords';
 
 const dot = (a: P3, b: P3) => a.x * b.x + a.y * b.y + a.z * b.z;
@@ -196,5 +196,36 @@ describe('a narrow stage follows more stiffly', () => {
     // steady lag behind a runner of a critically damped follow with a lead: v (2/w − lead)
     const lag = (w: number) => 2.8 * (2 / w - followLead(w));
     expect(lag(FOLLOW_W_NARROW)).toBeLessThan(lag(FOLLOW_W) * 0.66);
+  });
+});
+
+describe('a finger held on the stage walks the player towards it', () => {
+  const from = { x: 10, y: 0, z: 10 };
+  const down = (x: number, z: number) => {
+    // a ray from high above at a slant, aimed at (x, 0, z)
+    const o = { x: x + 3, y: 6, z: z + 3 };
+    const l = Math.hypot(3, 6, 3);
+    return { o, d: { x: -3 / l, y: -6 / l, z: -3 / l } };
+  };
+  it('goes towards the ground under the finger, with how far it is', () => {
+    const h = holdDirection(down(14, 10), from)!;
+    expect(h.x).toBeCloseTo(1);
+    expect(h.y).toBeCloseTo(0);
+    expect(h.dist).toBeCloseTo(4);
+    const g = holdDirection(down(7, 7), from)!;
+    expect(g.x).toBeCloseTo(-Math.SQRT1_2);
+    expect(g.y).toBeCloseTo(-Math.SQRT1_2);
+  });
+  it('stays when the finger is on the player, or the ray never meets the ground', () => {
+    expect(holdDirection(down(10 + HOLD_DEAD / 2, 10), from)).toBeNull();
+    expect(holdDirection({ o: { x: 0, y: 5, z: 0 }, d: { x: 1, y: 0, z: 0 } }, from)).toBeNull();
+    expect(holdDirection({ o: { x: 0, y: 5, z: 0 }, d: { x: 0, y: 1, z: 0 } }, from)).toBeNull();
+  });
+  it('meets the level the player stands on (a hill)', () => {
+    const hill = { x: 10, y: 1.6, z: 10 };
+    const o = { x: 13, y: 7.6, z: 10 };
+    const l = Math.hypot(3, 6);
+    const h = holdDirection({ o, d: { x: -3 / l, y: -6 / l, z: 0 } }, hill);
+    expect(h).toBeNull(); // straight onto the player's spot at their height
   });
 });
