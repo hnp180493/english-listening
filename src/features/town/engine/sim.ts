@@ -14,7 +14,7 @@
 
 import { BODY_RADIUS, distanceTo, inside as isInside, pushOut, walkWorld, type WalkState } from '../../../core/town/colliders';
 import type { CropStage } from '../../../core/town/farm';
-import { canStep, findPath, lineFits, nearestWalkable, NEIGHBOURS, sameTile, solidsNear, STEP_STRAIGHT, walkable } from '../../../core/town/map';
+import { canStep, findPath, lineFits, nearestWalkable, NEIGHBOURS, onLand, sameTile, shoreStop, solidsNear, STEP_STRAIGHT, walkable, WATER } from '../../../core/town/map';
 import { TOWN_WORLD, type ActivitySpot, type Collider, type ActivitySpotId, type PlaceId, type Seat, type Tile, type TownWorld, type WorldPlace } from '../../../data/townWorld';
 import { EXTRA_DECOR } from './extraDecor';
 import { CAT_STRIDE, personStride } from './gait';
@@ -1176,10 +1176,15 @@ type Inside = readonly Collider[] | null;
 function insideAt(x: number, y: number, world: TownWorld): Inside {
   let out: Collider[] | null = null;
   solidsNear(world, x, y, x, y, (c) => {
-    if (isInside(c, x, y)) (out ??= []).push(c);
+    if (c.what !== WATER && isInside(c, x, y)) (out ??= []).push(c);
   });
+  // put in the water (it should not happen): it walks out, as off anything it stands inside
+  if (!onLand(world, x, y)) (out ??= []).push(IN_WATER);
   return out;
 }
+
+/** In `Inside`: the walker's middle is in the drawn water, which is then left alone like a thing it stands inside. */
+const IN_WATER: Collider = { kind: 'circle', x: 0, y: 0, r: 0, what: 'in-water' };
 
 /**
  * Push a circle (centre x, y; radius r) out of every solid thing it overlaps (core/town/colliders.ts: a post, a trunk,
@@ -1192,13 +1197,22 @@ function outOfWalls(x: number, y: number, r: number, world: TownWorld, inside: I
     const ax = x;
     const ay = y;
     solidsNear(world, ax - r, ay - r, ax + r, ay + r, (c) => {
-      if (inside && inside.includes(c)) return;
+      // the water stops a body at its drawn edge (below), not at its tiles
+      if (c.what === WATER || (inside && inside.includes(c))) return;
       const to = pushOut(c, x, y, r);
       if (!to) return;
       x = to.x;
       y = to.y;
       moved = true;
     });
+    if (!(inside && inside.includes(IN_WATER))) {
+      const dry = shoreStop(world, x, y);
+      if (dry) {
+        x = dry.x;
+        y = dry.y;
+        moved = true;
+      }
+    }
     if (!moved) break;
   }
   return { x, y };
@@ -1208,8 +1222,9 @@ function outOfWalls(x: number, y: number, r: number, world: TownWorld, inside: I
 function wallsFree(x: number, y: number, r: number, world: TownWorld, inside: Inside): boolean {
   let free = true;
   solidsNear(world, x - r, y - r, x + r, y + r, (c) => {
-    if (free && !(inside && inside.includes(c)) && distanceTo(c, x, y) < r - 1e-6) free = false;
+    if (free && c.what !== WATER && !(inside && inside.includes(c)) && distanceTo(c, x, y) < r - 1e-6) free = false;
   });
+  if (free && !(inside && inside.includes(IN_WATER)) && !onLand(world, x, y)) free = false;
   return free;
 }
 
@@ -1399,7 +1414,7 @@ function halfWay(way: Pt2, u: Pt2): Pt2 {
  * site's fence, the pavilion, the lighthouse); a lamp post, a pot or a bench by a house's door is not, whoever owns it.
  */
 function isWall(c: Collider): boolean {
-  if (c.what === 'ground' || c.what === 'edge') return true;
+  if (c.what === 'ground' || c.what === 'edge' || c.what === WATER) return true;
   return c.kind === 'circle' ? c.r > ROUND_MOST : Math.max(c.x1 - c.x0, c.y1 - c.y0) > ROUND_LONG;
 }
 /** The biggest round thing a walk rounds by itself (tiles, its radius): a boulder is 0.78, the pavilion 0.97. */

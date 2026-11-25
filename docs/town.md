@@ -529,10 +529,27 @@ between any two map trees):
   along the tried way, the body looks half way (`halfWay`): a body that first turned onto it overshot and circled;
 - gaps a finger narrower than a body (a bush and a stone 0.43 apart, a bench and a palm) looked open and were hollows.
   `lotNature` now leaves a body's room (0.52) between the things of a lot, or stands two right against each other
-  (one clump); the palm by the promenade bench at (59, 75) is gone.
-Not watched by a person, and not tried with real keys: the app's browser pane has no WebGL, so the 3D town does not
-run in it. Things standing 0.2–0.45 from a house's wall (a planter, flowers by a door) still make a nook where a
-walker stands: it is at a wall, and backs out.
+  (one clump); the palm by the promenade bench at (59, 75) is gone;
+- **the banks** (found only after the owner played the fix above and came back angrier, with three screenshots by the
+  lake: "tao có thấy cái gì cản đường đâu sao phải đi vòng qua mới được"). The water stopped a body at its TILES,
+  and the bank is drawn along a rounded curve that runs up to `WATER_SLACK` 0.6 of a tile over them: of the drawn
+  land within a tile of any water, 51% (119 tiles², round every lake and pond and along the whole coast) could be
+  seen and not stepped on, some of it a full tile from the waterline. Now a body is stopped by the curve the terrain
+  draws (`core/town/shore.ts`, moved from the scene; `map.ts` `shoreDistance`: the curve's signed distance on a 0.1
+  lattice over the tiles near it, made tile by tile when first asked, because a walk asks thousands of times a
+  frame and the exact curve made one test 13 times slower): `onLand` / `shoreStop` keep its middle `SHORE_STAND`
+  0.1 from the waterline, feet at the water's edge. `solidsNear` still gives a water tile's box (`what` = `WATER`)
+  for the path finder; `sim.ts` leaves those out. Residents keep to the tiles (they do not walk the bank), and a
+  click on the bank walks to the nearest tile's middle, not onto the bank itself.
+The first fix was pushed with the banks still shut: its tests only walked at THINGS, and the old "nothing invisible"
+test walked only the plaza and the streets and counted a water tile within reach as "something there". Both now
+walk the whole island, every third tile, 8 ways, in a first-day town and a full one: a stop must touch a collider,
+the map's edge or the DRAWN waterline (`colliders.test.ts`), and every point of the bank must hold a body
+(`noStuck.test.ts`). A sweep with the model-to-collider tolerance cut from 0.26 to 0.1 found no collider much
+bigger than what is drawn (0.22 at most, a sign pole beside the bus shelter). Still not watched by a person and not
+tried with real keys by the agent: the app's browser pane has no WebGL, so the 3D town does not run in it. Things
+standing 0.2–0.45 from a house's wall (a planter, flowers by a door) still make a nook where a walker stands: it is
+at a wall, and backs out.
 
 **The hovered square** (`pick3d.ts` `stickyTile`, tested; `engine3d.ts setHover / refreshHover`). A white square on the
 tile under the mouse, snapped to it (no easing between tiles), only over a walkable tile: over a person, a house or an

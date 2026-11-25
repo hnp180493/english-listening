@@ -10,6 +10,7 @@
 
 import { groundAt, TOWN_WORLD, type Collider, type PlaceId, type Tile, type TownWorld, type WorldPlace } from '../../data/townWorld';
 import { BODY_RADIUS, boundsOfCollider, collidersOf, distanceTo, GRID_CLEAR } from './colliders';
+import { seaShore, ShoreField, smoothShore } from './shore';
 import { tl } from '../../i18n';
 
 export type { Tile } from '../../data/townWorld';
@@ -113,7 +114,7 @@ export function solidsNear(world: TownWorld, x0: number, y0: number, x1: number,
         const k = inMap ? i : -1 - ((ty + 64) * 4096 + (tx + 64));
         let b = g.tileBoxes.get(k);
         if (!b) {
-          b = { kind: 'box', x0: tx, y0: ty, x1: tx + 1, y1: ty + 1, what: inMap ? 'ground' : 'edge' };
+          b = { kind: 'box', x0: tx, y0: ty, x1: tx + 1, y1: ty + 1, what: !inMap ? 'edge' : world.rows[ty]?.[tx] === '~' ? WATER : 'ground' };
           g.tileBoxes.set(k, b);
         }
         visit(b);
@@ -131,6 +132,116 @@ export function solidsNear(world: TownWorld, x0: number, y0: number, x1: number,
     }
   }
   seen.length = 0;
+}
+
+/**
+ * A water tile's box in solidsNear (its `what`). The path finder and anything that wants the tiles use it as it is; a
+ * BODY is stopped by the drawn shore instead (shoreStop / onLand below), which runs up to 0.6 of a tile over these
+ * boxes: engine/sim.ts leaves them out.
+ */
+export const WATER = 'water';
+
+/** How near a body's middle comes to the drawn waterline (tiles): its feet at the water's edge. */
+export const SHORE_STAND = 0.1;
+
+const SHORES = new WeakMap<readonly string[], ShoreField | null>();
+
+/** The world's drawn shoreline (the same curve terrain.ts draws along), or null for a world without water. */
+export function shoreOf(world: TownWorld): ShoreField | null {
+  const cached = SHORES.get(world.rows);
+  if (cached !== undefined) return cached;
+  let field: ShoreField | null = null;
+  if (world.coast || world.rows.some((r) => r.includes('~'))) {
+    const sea = seaShore(world);
+    field = new ShoreField(smoothShore(sea.isWater, sea.size), sea.size);
+  }
+  SHORES.set(world.rows, field);
+  return field;
+}
+
+/** Samples of the distance to the waterline along a tile's side (the lattice's step is 1 / SHORE_FINE). */
+const SHORE_FINE = 10;
+
+/**
+ * How far it is to the drawn waterline, fast: a lattice of the curve's signed distance (+ on land, − in the water)
+ * over the tiles the curve passes within a tile of, made tile by tile when first asked; anywhere else the tile says
+ * which side it is (the curve keeps within 0.6 of the tiles' edges). A walk asks this thousands of times a frame.
+ */
+interface ShoreGrid {
+  field: ShoreField;
+  /** Per tile: 0 not asked yet, 1 far and land, 2 far and water, 3 near the curve (its samples are in `near`). */
+  kind: Uint8Array;
+  near: Map<number, Float32Array>;
+}
+
+const SHORE_GRIDS = new WeakMap<readonly string[], ShoreGrid | null>();
+
+function shoreGrid(world: TownWorld): ShoreGrid | null {
+  const cached = SHORE_GRIDS.get(world.rows);
+  if (cached !== undefined) return cached;
+  const field = shoreOf(world);
+  const grid = field ? { field, kind: new Uint8Array(world.size * world.size), near: new Map<number, Float32Array>() } : null;
+  SHORE_GRIDS.set(world.rows, grid);
+  return grid;
+}
+
+/** The signed distance to the drawn waterline at (x, y), within ±1 (tiles): + on land, − in the water. */
+export function shoreDistance(world: TownWorld, x: number, y: number): number {
+  const g = shoreGrid(world);
+  if (!g) return 1;
+  const size = world.size;
+  const tx = Math.floor(x);
+  const ty = Math.floor(y);
+  // outside the map the edge stops a body, not the water
+  if (tx < 0 || ty < 0 || tx >= size || ty >= size) return 1;
+  const i = ty * size + tx;
+  let kind = g.kind[i];
+  if (kind === 0) {
+    if (g.field.near(tx, ty)) {
+      const n = SHORE_FINE + 1;
+      const s = new Float32Array(n * n);
+      for (let b = 0; b < n; b++) for (let a = 0; a < n; a++) s[b * n + a] = g.field.signed(tx + a / SHORE_FINE, ty + b / SHORE_FINE, 1);
+      g.near.set(i, s);
+      kind = 3;
+    } else kind = world.rows[ty]?.[tx] === '~' ? 2 : 1;
+    g.kind[i] = kind;
+  }
+  if (kind !== 3) return kind === 2 ? -1 : 1;
+  // between the four samples round the point
+  const s = g.near.get(i)!;
+  const n = SHORE_FINE + 1;
+  const fx = (x - tx) * SHORE_FINE;
+  const fy = (y - ty) * SHORE_FINE;
+  const a0 = Math.min(SHORE_FINE - 1, Math.floor(fx));
+  const b0 = Math.min(SHORE_FINE - 1, Math.floor(fy));
+  const u = fx - a0;
+  const v = fy - b0;
+  const k = b0 * n + a0;
+  return (s[k] * (1 - u) + s[k + 1] * u) * (1 - v) + (s[k + n] * (1 - u) + s[k + n + 1] * u) * v;
+}
+
+/**
+ * A body's middle may be at (x, y) as far as the water goes: on the drawn land, SHORE_STAND or more from the
+ * waterline. True for a world without water.
+ */
+export function onLand(world: TownWorld, x: number, y: number): boolean {
+  return shoreDistance(world, x, y) >= SHORE_STAND - 1e-4;
+}
+
+/**
+ * Where a body's middle goes so that it stands on the drawn land (SHORE_STAND from the waterline): straight away
+ * from the water. Null when it stands there already, or out in deep water (no edge near to be pushed to).
+ */
+export function shoreStop(world: TownWorld, x: number, y: number): { x: number; y: number } | null {
+  const s = shoreDistance(world, x, y);
+  if (s >= SHORE_STAND - 1e-4 || s <= -1) return null;
+  const h = 0.04;
+  const gx = shoreDistance(world, x + h, y) - shoreDistance(world, x - h, y);
+  const gy = shoreDistance(world, x, y + h) - shoreDistance(world, x, y - h);
+  const gl = Math.hypot(gx, gy);
+  if (gl < 1e-6) return null;
+  const step = SHORE_STAND - s + 1e-3;
+  return { x: x + (gx / gl) * step, y: y + (gy / gl) * step };
 }
 
 /** Reused by solidsNear (no garbage per call). */

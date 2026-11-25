@@ -3,12 +3,12 @@
 // (terrain.ts) draws the grass, the sandy beach, the banks and the water along this curve instead of along the tiles'
 // stair steps.
 //
-// Walking keeps the tiles (core/town/map.ts: a water tile is a closed box). The curve stays close to them: the drawn
-// water reaches at most an eighth of a tile into a land tile
-// (LAND_SLACK), so a body of BODY_RADIUS standing against the water's box still stands on the drawn land.
+// Walking follows this curve too (core/town/map.ts shoreOf, engine/sim.ts): a body walks up to the drawn waterline.
+// Until 2026-11-25 it was stopped by the water's TILES, and the bank is drawn up to WATER_SLACK (0.6) over them: a
+// strip of grass and sand more than half a tile wide all round the lakes and along the coast that nobody could step
+// on (owner: "tao có thấy cái gì cản đường đâu"). The path finder keeps the tiles (residents do not walk the bank).
 
-import type { TownWorld } from '../../../../data/townWorld';
-import { groundOf } from './coords';
+import type { TownWorld } from '../../data/townWorld';
 
 /** How far past the map's near edges the sea is part of the shore's tiles (seaShore). */
 export const SEA_MARGIN = 3;
@@ -23,7 +23,7 @@ export function seaShore(world: TownWorld): { isWater: (x: number, y: number) =>
   const coast = !!world.coast;
   const isWater = (x: number, y: number): boolean => {
     if (coast && x >= 0 && y >= 0 && (x >= S || y >= S)) return x < S + SEA_MARGIN && y < S + SEA_MARGIN;
-    return groundOf(world, x, y) === 'water';
+    return x >= 0 && y >= 0 && x < S && y < S && world.rows[y]?.[x] === '~';
   };
   return { isWater, size: coast ? S + SEA_MARGIN : S };
 }
@@ -116,7 +116,7 @@ export function chaikin(loop: readonly ShorePt[]): ShorePt[] {
 
 /** How far the drawn water may reach into a land tile (tiles): less than a body's radius (see the top). */
 export const LAND_SLACK = 0.12;
-/** How far the drawn land may reach over a water tile (tiles: you cannot walk there, it only looks like a bank). */
+/** How far the drawn land may reach over a water tile (tiles): a bank a body walks on, up to the waterline. */
 export const WATER_SLACK = 0.6;
 
 /** The nearest point of the tiles of one kind (water or not) to (px, py) within two tiles, or null. */
@@ -262,6 +262,12 @@ export class ShoreField {
       }
     }
     return inside;
+  }
+
+  /** The curve passes through tile (tx, ty) or one of the eight round it. */
+  near(tx: number, ty: number): boolean {
+    for (let y = ty - 1; y <= ty + 1; y++) for (let x = tx - 1; x <= tx + 1; x++) if (this.cells.has(this.cellKey(x, y))) return true;
+    return false;
   }
 
   /** Signed distance: positive on land, negative in the water (capped at ±`cap`). */

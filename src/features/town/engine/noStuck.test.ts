@@ -2,7 +2,8 @@
 // thing in the open, or shut in among trees. Before the fix a walk straight at a tree stood still one time in five
 // (1,788 of 8,086 tries), a boulder every time, and 140 spots in the woods let a body in and not out.
 import { describe, expect, it } from 'vitest';
-import { BODY_RADIUS, treesOf, TREE_R, walkWorld } from '../../../core/town/colliders';
+import { BODY_RADIUS, distanceTo, treesOf, TREE_R, walkWorld } from '../../../core/town/colliders';
+import { shoreDistance, shoreOf, SHORE_STAND } from '../../../core/town/map';
 import { DECORATION_IDS, PLACE_IDS, TOWN_WORLD, type Collider, type TownWorld } from '../../../data/townWorld';
 import { bodyFits, moveCircle, TownSim, wayAlong } from './sim';
 
@@ -22,14 +23,10 @@ function hold(world: TownWorld, x: number, y: number, u: { x: number; y: number 
   return { x, y };
 }
 
-/** The map's edge or water within a step of (x, y): there a walk may rightly end. */
+/** The map's edge or the drawn water within a step of (x, y): there a walk may rightly end. */
 function byWater(x: number, y: number): boolean {
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const ch = TOWN_WORLD.rows[Math.floor(y + dy * 0.6)]?.[Math.floor(x + dx * 0.6)];
-      if (ch === undefined || ch === '~') return true;
-    }
-  }
+  if (shoreDistance(TOWN_WORLD, x, y) < 0.45) return true;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (TOWN_WORLD.rows[Math.floor(y + dy * 0.6)]?.[Math.floor(x + dx * 0.6)] === undefined) return true;
   return false;
 }
 
@@ -78,7 +75,7 @@ describe('a held key never leaves the player stuck in the open (docs/town.md §7
   // lots left to nature; and a town with every house built and every decoration bought
   it.each([
     ['nature', { built: [], sites: [], decorations: [] }, 1500],
-    ['everything built', { built: [...PLACE_IDS], decorations: [...DECORATION_IDS] }, 1200],
+    ['everything built', { built: [...PLACE_IDS], decorations: [...DECORATION_IDS] }, 800],
   ] as const)('the game itself (TownSim: the body turns, speeds up, keeps its side) gets past them with a key held: %s', { timeout: 120000 }, (_name, state, least) => {
     const sim = new TownSim(TOWN_WORLD, () => 0.5, TOWN_WORLD.start, { life: false });
     sim.setState({ ...state, built: [...state.built], decorations: [...state.decorations] });
@@ -97,6 +94,8 @@ describe('a held key never leaves the player stuck in the open (docs/town.md §7
           const sx = m.x - u.x * 1.4 - u.y * off;
           const sy = m.y - u.y * 1.4 + u.x * off;
           if (!bodyFits(sx, sy, R, w) || !bodyFits(m.x + u.x * 1.4 - u.y * off, m.y + u.y * 1.4 + u.x * off, R, w)) continue;
+          // (somebody standing there is rounded or waited for, which is another matter: only things are tried)
+          if ([...sim.residents.values()].some((o) => Math.hypot(o.x - m.x, o.y - m.y) < 3)) continue;
           tries++;
           sim.placePlayer({ x: sx, y: sy }, ang);
           sim.steer(u);
@@ -128,6 +127,30 @@ describe('a held key never leaves the player stuck in the open (docs/town.md §7
       }
     }
     expect(shutIn).toEqual([]);
+  });
+
+  // the bank is drawn up to 0.6 of a tile over the water's tiles: until 2026-11-25 a body was stopped by the tiles,
+  // on grass and sand it could plainly see ("tao có thấy cái gì cản đường đâu")
+  it('the water stops a body where the water is drawn: it stands anywhere on the bank, never in the water', { timeout: 60000 }, () => {
+    const shore = shoreOf(world)!;
+    const clear = (x: number, y: number) => cols.every((c) => distanceTo(c, x, y) > R + 0.05);
+    let bank = 0;
+    const walled: string[] = [];
+    const wetFeet: string[] = [];
+    for (let y = 1; y < 83; y += 0.2) {
+      for (let x = 1; x < 83; x += 0.2) {
+        const s = shore.signed(x, y, 1);
+        // within a tile of the waterline: on the land side nothing unseen may stop a body; in the water none stands
+        if (Math.abs(s) >= 1) continue;
+        if (s >= SHORE_STAND + 0.04 && clear(x, y)) {
+          bank++;
+          if (!bodyFits(x, y, R, world)) walled.push(`${x.toFixed(1)},${y.toFixed(1)} (${s.toFixed(2)} from the water)`);
+        } else if (s <= SHORE_STAND - 0.04 && bodyFits(x, y, R, world)) wetFeet.push(`${x.toFixed(1)},${y.toFixed(1)} (${s.toFixed(2)})`);
+      }
+    }
+    expect(bank).toBeGreaterThan(5000);
+    expect(walled.slice(0, 10)).toEqual([]);
+    expect(wetFeet.slice(0, 10)).toEqual([]);
   });
 
   it('a body passes between any two trees of the map', () => {

@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BufferGeometry } from 'three';
 import { boundsOfCollider, collidersOf, distanceTo, TREE_R, walkWorld, type WalkState } from '../../../../core/town/colliders';
-import { canStep, NEIGHBOURS, walkable } from '../../../../core/town/map';
+import { canStep, NEIGHBOURS, shoreDistance, SHORE_STAND, walkable } from '../../../../core/town/map';
 import { DECORATION_IDS, PLACE_IDS, TOWN_WORLD, type Collider, type TownWorld } from '../../../../data/townWorld';
 import { EXTRA_DECOR } from '../../engine/extraDecor';
 import { bodyFits, moveCircle, PLAYER_RADIUS, projectColliders, TownSim } from '../../engine/sim';
@@ -278,6 +278,36 @@ describe('nothing invisible in the way', () => {
     expect(starts.length).toBeGreaterThan(100);
     expect(invisible).toEqual([]);
   });
+
+  // (owner, 2026-11-25: "tao có thấy cái gì cản đường đâu": the streets were clear of unseen walls, the banks of
+  // every lake and the coast were not, and nothing walked there in a test)
+  for (const [name, state] of [
+    ['the first day', { built: [], sites: ['square', 'cafe', 'friend'], decorations: [] }],
+    ['a town with everything', { built: [...PLACE_IDS], decorations: [...DECORATION_IDS] }],
+  ] as const) {
+    it(`keys walking anywhere on the island stop only at something there (${name})`, { timeout: 120000 }, () => {
+      const sim = new TownSim(W, () => 0.5, W.start, { life: false });
+      sim.setState({ ...state, built: [...state.built], decorations: [...state.decorations] });
+      const world = sim.world;
+      const dirs = Array.from({ length: 8 }, (_, k) => ({ x: Math.cos((k * Math.PI) / 4), y: Math.sin((k * Math.PI) / 4) }));
+      const invisible: string[] = [];
+      let starts = 0;
+      // every third tile each way, wherever a body fits: grass, sand, woods, banks
+      for (let y = 1; y < W.size; y += 3) {
+        for (let x = 1; x < W.size; x += 3) {
+          const s = { x: x + 0.5, y: y + 0.5 };
+          if (!bodyFits(s.x, s.y, PLAYER_RADIUS, world)) continue;
+          starts++;
+          for (const d of dirs) {
+            const at = walkInto(world, s, d);
+            if (at.why) invisible.push(`${s.x},${s.y} → (${d.x.toFixed(2)},${d.y.toFixed(2)}) stopped at ${at.x.toFixed(2)},${at.y.toFixed(2)}`);
+          }
+        }
+      }
+      expect(starts).toBeGreaterThan(500);
+      expect(invisible.slice(0, 12)).toEqual([]);
+    });
+  }
 });
 
 /**
@@ -310,12 +340,16 @@ function collidersNear(world: TownWorld, x: number, y: number): Collider[] {
   return (world.walk?.colliders ?? collidersOf(world)).filter((c) => distanceTo(c, x, y) < 1);
 }
 
-/** Near water or the map's edge (a closed ground tile within reach of the body). */
+/**
+ * False at the DRAWN waterline (not the water's tiles: the bank is drawn up to 0.6 of a tile over them, and a stop on
+ * that bank with the water still a stride away was the unseen wall of 2026-11-25) or at the map's edge.
+ */
 function inside(world: TownWorld, x: number, y: number): boolean {
+  if (shoreDistance(world, x, y) < SHORE_STAND + 0.03) return false;
   for (let ty = Math.floor(y - 0.3); ty <= Math.floor(y + 0.3); ty++) {
     for (let tx = Math.floor(x - 0.3); tx <= Math.floor(x + 0.3); tx++) {
       const ch = world.rows[ty]?.[tx];
-      if (ch === undefined || ch === '~') {
+      if (ch === undefined) {
         const cx = Math.max(tx, Math.min(tx + 1, x));
         const cy = Math.max(ty, Math.min(ty + 1, y));
         if (Math.hypot(cx - x, cy - y) < PLAYER_RADIUS + 0.03) return false;
