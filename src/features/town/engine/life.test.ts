@@ -81,11 +81,14 @@ describe('the day', () => {
 describe('the world has room for life', () => {
   it('every activity of the game has its spot, walkable and reachable, at its own thing', () => {
     // the gift shop and the Sổ tay have no spot (activities/types SPOT_ACTIVITIES)
-    expect(Object.keys(WORLD_ACTIVITIES).sort()).toEqual([...SPOT_ACTIVITIES].sort());
+    // (the things to use, 'thing:…', are spots too, with a box of their own instead of a prop: core/town/world.test.ts)
+    const own = Object.entries(WORLD_ACTIVITIES).filter(([id]) => !id.startsWith('thing:'));
+    expect(own.map(([id]) => id).sort()).toEqual([...SPOT_ACTIVITIES].sort());
     expect(ACTIVITIES.filter((a) => hasSpot(a.id)).map((a) => a.id).sort()).toEqual([...SPOT_ACTIVITIES].sort());
     for (const [id, spot] of Object.entries(WORLD_ACTIVITIES)) {
       expect(walkable(spot.stand), id).toBe(true);
-      expect(TOWN_WORLD.props.some((p) => p.kind === spot.prop), id).toBe(true);
+      if (id.startsWith('thing:')) expect(spot.box, id).toBeDefined();
+      else expect(TOWN_WORLD.props.some((p) => p.kind === spot.prop), id).toBe(true);
       expect(Math.hypot(spot.look.x - spot.stand.x - 0.5, spot.look.y - spot.stand.y - 0.5), id).toBeLessThan(1.6);
     }
   });

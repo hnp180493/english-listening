@@ -1,0 +1,125 @@
+/* "Cảnh nghe" (ListenPanel.tsx, docs/town.md §19): something heard in the world. Listen, answer, read. */
+.town-ls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.town-ls-faces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.town-ls-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 56px;
+  opacity: 0.72;
+  transition: opacity var(--dur) var(--ease);
+}
+.town-ls-face.is-live {
+  opacity: 1;
+}
+.town-ls-face.is-live > .town-portrait,
+.town-ls-face.is-live > .town-ls-radio {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--primary);
+}
+.town-ls-who {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.2;
+  text-align: center;
+}
+.town-ls-face.is-live .town-ls-who {
+  color: var(--text);
+  font-weight: 600;
+}
+.town-ls-radio {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-muted);
+}
+.town-ls-hearing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-ls-q {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 var(--space-3);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.town-ls-count {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+/* the sheet is narrow: one answer per row, like the case's */
+.town-reply-list.town-ls-options {
+  grid-template-columns: minmax(0, 1fr);
+}
+.town-ls-kicker {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-ls-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-weight: 600;
+}
+.town-ls-sub {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.town-ls-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-ls-line {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.town-ls-line-who {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-ls-en {
+  margin: 0;
+}
+.town-ls-vi {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.town-ls-line-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

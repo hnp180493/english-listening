@@ -4,6 +4,7 @@ import { Icon } from '../../components/Icon';
 import { PANELS } from './activities/registry';
 import { FishStageContext, type FishStage } from './activities/stageLink';
 import { usePanelKeys } from './panelKeys';
+import { listenTitle } from './scenes/things';
 import { ACTIVITIES, type ActivityId, type ActivityPanelProps } from './activities/types';
 
 export interface ActivityHostProps extends ActivityPanelProps {
@@ -41,7 +42,7 @@ export default function ActivityHost({ id, onClose, onReward, sound, onFish, foc
     >
       <header className="town-build-head">
         <h2 id={titleId} className="town-build-title">
-          {info?.name ?? id}
+          {info?.name ?? (id === 'listen' ? listenTitle(focus) : id)}
         </h2>
         <button type="button" className="btn btn-ghost btn-sm btn-icon" onClick={onClose} aria-label="Đóng" title="Đóng (Esc)">
           <Icon icon={X} size={18} />

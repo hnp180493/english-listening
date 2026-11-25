@@ -3,7 +3,7 @@ import { LocateFixed, Minus, Plus, X } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import type { TownOverview } from '../../../core/town/overview';
 import { TOWN_WORLD, type PlaceId } from '../../../data/townWorld';
-import type { ActivitySpotId } from '../../../data/townWorld';
+import type { ActivitySpotId, ThingId } from '../../../data/townWorld';
 import { Portrait } from '../art';
 import { paletteFor, type TownTheme } from '../engine/palette';
 import type { MapSnapshot, StageState, TownStageHandle, TravelMode, TravelTarget } from '../engine/stage';
@@ -341,7 +341,9 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
   const card = picked ? cardFor(picked, overview.places, seen?.residents ?? [], TOWN_WORLD) : null;
   const activitySpots = useMemo(() => {
     if (!view || box.w < 1) return [];
-    return (Object.entries(TOWN_WORLD.activities ?? {}) as [ActivitySpotId, { look: { x: number; y: number } }][]).map(([id, s]) => {
+    // the activities' own spots; the things to use (every bench, the radio) are not places to travel to
+    const own = (Object.entries(TOWN_WORLD.activities ?? {}) as [ActivitySpotId, { look: { x: number; y: number } }][]).filter((e): e is [Exclude<ActivitySpotId, ThingId>, { look: { x: number; y: number } }] => !e[0].startsWith('thing:'));
+    return own.map(([id, s]) => {
       const p = toBox(view, box, s.look.x, s.look.y, 0.5);
       return { id, x: p.x, y: p.y };
     });

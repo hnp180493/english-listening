@@ -1,5 +1,5 @@
 import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { CircleHelp, FastForward, Footprints, Gift, Hammer, Heart, MessageCircle, Sparkles, X } from 'lucide-react';
+import { CircleHelp, Ear, FastForward, Footprints, Gift, Hammer, Heart, MessageCircle, Sparkles, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
@@ -25,7 +25,10 @@ import {
 import type { TownPlace } from '../../core/town/types';
 import type { PlaceView as TownPlaceView } from '../../core/town/overview';
 import type { FriendView } from '../../core/town/friendship';
-import { PLACE_IDS, TOWN_WORLD, type PlaceId } from '../../data/townWorld';
+import { PLACE_IDS, TOWN_WORLD, type ActivitySpotId, type PlaceId } from '../../data/townWorld';
+import { thingPrompt } from './scenes/things';
+import { WEATHER_NAME } from '../../core/town/world';
+import { scenesHeard, townToday } from '../../core/town/worldStore';
 import { episodeSetting, episodeVisitor, quickChatSetting } from '../../data/townStories';
 import { useTownFarm, useTownGame } from '../../core/town/gameStore';
 import { fieldLook, FARM_LOOK_SLOTS, type CropStage } from '../../core/town/farm';
@@ -411,6 +414,9 @@ function FlatTown({ places, suggested, onTalk }: { places: readonly TownPlaceVie
  * scene (three/TownStage3D, without its canvases where this browser cannot draw it); this page is the game around it: the
  * counters over it, the conversation, the build panel, the activities.
  */
+/** What ?listen= may name: a thing to use, or a get-together. */
+const LISTEN_LINK = /^(thing:(bench-[0-9]{1,2}|radio)|event:[a-z]{2,12})$/;
+
 export default function TownPage() {
   const theme = useTownTheme();
   const overview = useTownOverview();
@@ -471,9 +477,12 @@ export default function TownPage() {
   }, []);
   // an activity's panel is open (the pier, the farm field, the egg kiosk, the wardrobe, the album)
   // ?activity=<id> (e.g. Ôn tập's "Về nông trại") opens that panel once the town is drawn
-  const [activity, setActivity] = useState<ActivityId | null>(() => ACTIVITIES.find((a) => a.id === params.activity)?.id ?? null);
+  // ?listen=thing:radio | thing:bench-3 | event:games opens that scene's panel (a link to a thing or to a get-together)
+  const [activity, setActivity] = useState<ActivityId | null>(() => ACTIVITIES.find((a) => a.id === params.activity)?.id ?? (LISTEN_LINK.test(params.listen ?? '') ? 'listen' : null));
   /** The Sổ tay opens at this resident's page (their hearts in a conversation's header, the map card); null: the list. */
   const [journalFor, setJournalFor] = useState<string | null>(null);
+  /** What the "listen" panel is about: a thing used in the world ('thing:bench-3', 'thing:radio') or 'event:<id>'. */
+  const [listenAt, setListenAt] = useState<string | null>(() => (LISTEN_LINK.test(params.listen ?? '') ? (params.listen ?? null) : null));
   /** "Tặng quà" standing next to a resident: the gift sheet for them. */
   const [gifting, setGifting] = useState<PlaceId | null>(null);
   /** Where focus goes back to when the activity's panel closes: the HUD's "Chơi" when it was opened from there. */
@@ -804,11 +813,29 @@ export default function TownPage() {
     setToast(null);
     setActivity(id);
   }, []);
+  /** A spot of the world reached (clicked and walked to, or E beside it): an activity's own, or a thing to use. */
+  const openSpot = useCallback(
+    (id: ActivitySpotId) => {
+      if (id.startsWith('thing:')) {
+        setListenAt(id);
+        openActivity('listen');
+      } else openActivity(id as ActivityId);
+    },
+    [openActivity],
+  );
+  /** Today's get-together (the day's list): its scene opens. */
+  const openEvent = useCallback(
+    (eventId: string) => {
+      setListenAt('event:' + eventId);
+      openActivity('listen', 'hud');
+    },
+    [openActivity],
+  );
   const closeActivity = useCallback(() => {
     setActivity(null);
     setJournalFor(null);
     // a panel opened from the address (?activity=farm) must not reopen on a reload
-    if (parseHash(window.location.hash).params.activity) {
+    if (parseHash(window.location.hash).params.activity || parseHash(window.location.hash).params.listen) {
       try {
         window.history.replaceState(window.history.state, '', hrefFor('town'));
       } catch {
@@ -938,7 +965,7 @@ export default function TownPage() {
     if (!s) return;
     window.clearTimeout(mapTimer.current);
     // sent to an activity's spot: its panel opens on arrival (as from the HUD's menu)
-    const then = target.kind === 'activity' ? () => openActivity(target.id) : undefined;
+    const then = target.kind === 'activity' ? () => openSpot(target.id) : undefined;
     const warped = mode === 'warp' && s.travelTo(target, 'warp', then);
     if (!warped) s.travelTo(target, 'walk', then);
     if (warped && !prefersReducedMotion()) {
@@ -946,7 +973,7 @@ export default function TownPage() {
       mapTimer.current = window.setTimeout(() => setMap(null), 320);
     } else setMap(null);
     s.focus();
-  }, [openActivity]);
+  }, [openSpot]);
   // M opens the map (and closes it: the map's own keys)
   const mapKey = useRef(openMap);
   useEffect(() => {
@@ -989,31 +1016,51 @@ export default function TownPage() {
     return () => window.clearTimeout(id);
   }, [toast]);
 
+  // ───────────────────────── today in the town (docs/town.md §19) ─────────────────────────
+
+  const [todayIs] = useState(() => townToday());
+  const day = useMemo(() => {
+    const ev = todayIs.event;
+    const host = ev ? overview.places.find((q) => q.place.id === ev.host) : undefined;
+    return {
+      weather: WEATHER_NAME[todayIs.weather],
+      event: ev ? { id: ev.id, name: ev.name, blurb: ev.blurb } : null,
+      needs: ev && host && !host.built ? host.place.name : null,
+      done: !!ev && scenesHeard(progressNow, todayIs.day).some((id) => id.startsWith(`ev-${ev.id}-`)),
+    };
+  }, [todayIs, overview.places, progressNow]);
+
   // ───────────────────────── what the one button at the bottom offers ─────────────────────────
 
   const nearPlace = near && near.kind !== 'activity' ? overview.places.find((p) => p.place.id === near.placeId) : undefined;
   // beside somebody out in the town: the button offers a chat right there, not their episode (it waits at home)
   const nearShown = nearPlace && nearStreet ? { ...nearPlace, episode: null } : nearPlace;
   const nearActivity = near?.kind === 'activity' ? ACTIVITIES.find((a) => a.id === near.id) : undefined;
-  const prompt: { icon: typeof Hammer; text: string; build: boolean; id: string; activity?: ActivityId; person?: boolean } | null = nearActivity
+  // a bench, the radio (data/townWorld WORLD_THINGS): "Ngồi xuống nghe", "Nghe radio"
+  const nearThing = near?.kind === 'activity' ? thingPrompt(near.id) : null;
+  const prompt: { icon: typeof Hammer; text: string; build: boolean; id: string; activity?: ActivityId; person?: boolean; spot?: ActivitySpotId } | null = nearActivity
     ? { icon: Sparkles, text: nearActivity.name, build: false, id: nearActivity.id, activity: nearActivity.id }
-    : near?.kind === 'resident' && nearPlace
-      ? { icon: MessageCircle, text: talkPrompt(nearShown ?? nearPlace, true), build: false, id: nearPlace.place.id, person: true }
-      : near?.kind === 'lot' && nearPlace && !nearPlace.built
-        ? { icon: Hammer, text: tl`Xây ${nearPlace.place.name} · ${xu(nearPlace.cost)}`, build: true, id: nearPlace.place.id }
-        : suggested
-          ? { icon: Footprints, text: talkPrompt(suggested, false), build: false, id: suggested.place.id }
-          : null;
+    : nearThing && near?.kind === 'activity'
+      ? { icon: Ear, text: nearThing, build: false, id: near.id, spot: near.id }
+      : near?.kind === 'resident' && nearPlace
+        ? { icon: MessageCircle, text: talkPrompt(nearShown ?? nearPlace, true), build: false, id: nearPlace.place.id, person: true }
+        : near?.kind === 'lot' && nearPlace && !nearPlace.built
+          ? { icon: Hammer, text: tl`Xây ${nearPlace.place.name} · ${xu(nearPlace.cost)}`, build: true, id: nearPlace.place.id }
+          : suggested
+            ? { icon: Footprints, text: talkPrompt(suggested, false), build: false, id: suggested.place.id }
+            : null;
   const promptId = prompt?.id;
   const promptBuilds = prompt?.build ?? false;
   const promptActivity = prompt?.activity ?? null;
   const promptPerson = prompt?.person ?? false;
+  const promptSpot = prompt?.spot ?? null;
   const runPrompt = useCallback(() => {
     if (!promptId) return;
-    if (promptActivity) openActivity(promptActivity);
+    if (promptSpot) openSpot(promptSpot);
+    else if (promptActivity) openActivity(promptActivity);
     else if (promptBuilds) openBuild(promptId);
     else goTalk(promptId, false, promptPerson ? 'person' : 'place');
-  }, [promptId, promptBuilds, promptActivity, promptPerson, openActivity, openBuild, goTalk]);
+  }, [promptId, promptBuilds, promptActivity, promptPerson, promptSpot, openActivity, openSpot, openBuild, goTalk]);
   const onIdleAct = useCallback(() => {
     if (suggested) goTalk(suggested.place.id);
   }, [suggested, goTalk]);
@@ -1120,7 +1167,7 @@ export default function TownPage() {
         onLot={openBuild}
         onNear={onNear}
         onIdleAct={onIdleAct}
-        onActivity={openActivity}
+        onActivity={openSpot}
         onReady={onStageReady}
         onFail={onStageFail}
         speaking={shownTalk ? speaking : greetSpeaking}
@@ -1171,6 +1218,10 @@ export default function TownPage() {
           mapRef={mapBtnRef}
           full={fullStage.full}
           onFull={fullStage.toggle}
+          today={day}
+          onEvent={(id) => {
+            if (townReady && !talk) openEvent(id);
+          }}
         />
 
         {showWelcome && (
@@ -1256,7 +1307,7 @@ export default function TownPage() {
             onReward={onReward}
             sound={ui.sound}
             onFish={onFish}
-            focus={journalFor}
+            focus={shownActivity === 'listen' ? listenAt : journalFor}
             onTalk={(id) => {
               closeActivity();
               goTalk(id);

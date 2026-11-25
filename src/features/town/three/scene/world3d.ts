@@ -357,6 +357,13 @@ export class TownScene {
     for (const pc of this.reuse('scenery', () => buildScenery(world)) as Piece[]) add(pc, '', 0);
     this.activities.clear();
     for (const [id, spot] of Object.entries(world.activities ?? {}) as [ActivitySpotId, NonNullable<TownWorld['activities']>[ActivitySpotId]][]) {
+      // a thing to use (a bench, the radio: townWorld WORLD_THINGS) gives its own box, raised with the ground
+      if (spot.box) {
+        const q = spot.box;
+        const g = groundHeight(q.x, q.y, world);
+        this.activities.set(id, { box: { min: { x: q.x - q.w / 2, y: g, z: q.y - q.d / 2 }, max: { x: q.x + q.w / 2, y: g + q.h, z: q.y + q.d / 2 } }, top: g + q.h, at: { x: q.x, z: q.y } });
+        continue;
+      }
       const i = world.props.findIndex((q) => q.kind === spot.prop);
       const b = propBuilt.get(i);
       const prop = world.props[i];

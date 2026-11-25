@@ -78,7 +78,8 @@ describe('what a click on the map lands on', () => {
   it('every place and every activity can be hit', () => {
     const targets = new Set(SHAPES.map((s) => JSON.stringify(s.target)));
     for (const p of TOWN_WORLD.places) expect(targets.has(JSON.stringify({ kind: 'place', id: p.id }))).toBe(true);
-    for (const id of Object.keys(WORLD_ACTIVITIES)) expect(targets.has(JSON.stringify({ kind: 'activity', id }))).toBe(true);
+    // the activities' own spots; the things to use (every bench, the radio) are not on the map
+    for (const id of Object.keys(WORLD_ACTIVITIES)) expect(targets.has(JSON.stringify({ kind: 'activity', id })), id).toBe(!id.startsWith('thing:'));
   });
 
   it('a shape outline covers its footprint and its top', () => {

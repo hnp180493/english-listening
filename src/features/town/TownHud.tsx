@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, type Ref } from 'react';
-import { BookOpen, Coffee, Search, Package, Check, Heart, UserRound, Egg, Fish, Gift, Flame, Hammer, ListChecks, Map as MapIcon, Maximize2, Minimize2, Shirt, Sprout, Sparkles, Trophy, Volume2, VolumeX } from 'lucide-react';
+import { BookOpen, Coffee, Ear, Search, Package, Check, Heart, UserRound, Egg, Fish, Gift, Flame, Hammer, ListChecks, Map as MapIcon, Maximize2, Minimize2, Shirt, Sprout, Sparkles, Trophy, Volume2, VolumeX } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import Popover from '../../components/Popover';
 import { prefersReducedMotion } from '../../core/motion';
 import type { TownOverview } from '../../core/town/overview';
 import { ACTIVITIES, type ActivityId } from './activities/types';
+import './scenes/today.css';
 import { Coin } from './art';
 
 /** The icon of each activity in the "Chơi" menu. */
-const ACTIVITY_ICONS: Readonly<Record<ActivityId, typeof Fish>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee, case: Search, delivery: Package };
+const ACTIVITY_ICONS: Readonly<Record<ActivityId, typeof Fish>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee, case: Search, delivery: Package, listen: Ear };
 /** The two groups of the "Chơi" menu, in order. */
 const PLAY_GROUPS = [{ id: 'game' }, { id: 'life' }] as const;
 import { levelLabel, taskCount, xu } from './shellModel';
@@ -58,10 +59,25 @@ export interface TownHudProps {
   /** The xu counter (coins fly to it). */
   xuRef?: Ref<HTMLSpanElement>;
   buildRef?: Ref<HTMLButtonElement>;
+  /** The town today (docs/town.md §19): its weather and the get-together that is on, at the head of the day's list. */
+  today?: TownDay;
+  /** "Tới dự": go to today's get-together. */
+  onEvent?: (eventId: string) => void;
+}
+
+/** What the day's list says of today besides the tasks. */
+export interface TownDay {
+  /** Vietnamese: "Trời nắng". */
+  weather: string;
+  event: { id: string; name: string; blurb: string } | null;
+  /** The host's place is not built yet: its Vietnamese name (the get-together waits for it); null when it is. */
+  needs: string | null;
+  /** Heard already today. */
+  done: boolean;
 }
 
 /** What floats over the town: the title with its bar on the left; xu, streak, tasks, build and sound on the right. */
-export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, onPlay, playOpen, full, onFull, onMap, mapOpen = false, mapRef, xuRef, buildRef }: TownHudProps) {
+export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, onPlay, playOpen, full, onFull, onMap, mapOpen = false, mapRef, xuRef, buildRef, today, onEvent }: TownHudProps) {
   const { level, balance, streak, tasks } = overview;
   const shown = useCountTo(balance);
   const moving = shown !== balance;
@@ -160,6 +176,27 @@ export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, 
             triggerLabel={tl`Việc hôm nay${tasksDone > 0 ? tl`, xong ${tasksDone} trên ${tasks.length}` : ''}`}
             title="Việc hôm nay"
           >
+            {today && (
+              <div className="town-day">
+                <p className="town-day-weather">{today.weather}</p>
+                {today.event ? (
+                  <div className="town-day-event">
+                    <p className="town-day-name">
+                      {today.event.name}
+                      {today.done && <span className="town-day-done"> · đã dự</span>}
+                    </p>
+                    <p className="town-day-blurb">{today.needs ? tl`Buổi này chờ ${today.needs} được xây xong.` : today.event.blurb}</p>
+                    {!today.needs && onEvent && (
+                      <button type="button" className="btn btn-soft btn-sm" onClick={() => onEvent(today.event!.id)}>
+                        {today.done ? 'Nghe lại' : 'Tới dự'}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="town-day-blurb">Hôm nay không có buổi gặp mặt nào. Ghế và radio thì ngày nào cũng có chuyện để nghe.</p>
+                )}
+              </div>
+            )}
             <ul className="town-task-list">
               {tasks.map((t) => (
                 <li key={t.id} className={'town-task' + (t.reached ? ' is-done' : '')}>

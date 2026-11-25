@@ -425,7 +425,10 @@ describe('nothing bought gets in the way', () => {
   it('no solid decoration stands at an activity spot or right beside it (the egg kiosk keeps its front)', () => {
     const bad: string[] = [];
     for (const [a, spot] of Object.entries(WORLD_ACTIVITIES)) {
-      for (const s of solids) if (Math.max(Math.abs(s.x - spot.stand.x), Math.abs(s.y - spot.stand.y)) <= 1) bad.push(`${s.id} at ${s.x},${s.y} by ${a}`);
+      // an activity's own spot keeps its whole front clear; a thing to use (a bench, the radio: WORLD_THINGS) only the
+      // tile the player stands on (a lamp or a tree beside a bench is no harm)
+      const reach = a.startsWith('thing:') ? 0 : 1;
+      for (const s of solids) if (Math.max(Math.abs(s.x - spot.stand.x), Math.abs(s.y - spot.stand.y)) <= reach) bad.push(`${s.id} at ${s.x},${s.y} by ${a}`);
     }
     expect(bad).toEqual([]);
   });

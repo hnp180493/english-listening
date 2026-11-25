@@ -107,14 +107,39 @@ export interface WorldProp {
   v?: number;
 }
 
-/** The five activities besides talking and building (src/features/town/activities/types.ts ActivityId). */
-export type ActivitySpotId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album';
+/**
+ * A thing of the scenery that can be used (docs/town.md §19, 2026-11-25: "cảnh vật chỉ cho có, không tương tác được
+ * gì"): a bench to sit and listen from, the café's radio. They are activity spots like the pier or the egg kiosk
+ * (clicked, walked to, E beside them, a name over them), with ids of their own; WORLD_THINGS below.
+ */
+export type ThingId = `thing:${string}`;
 
-/** Where an activity is done: the player walks to `stand` and looks at `look`; clicking its `prop` goes there. */
+/** The five activities besides talking and building (src/features/town/activities/types.ts ActivityId), and the things. */
+export type ActivitySpotId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | ThingId;
+
+/**
+ * Where an activity is done: the player walks to `stand` and looks at `look`; clicking its `prop` (the first of
+ * that kind) goes there, or, for a thing, clicking its `box` (its middle on the grid, how wide, deep and high).
+ */
 export interface ActivitySpot {
   stand: Tile;
   look: Tile;
-  prop: PropKind;
+  prop?: PropKind;
+  box?: { x: number; y: number; w: number; d: number; h: number };
+}
+
+export type ThingKind = 'bench' | 'radio';
+
+/** A thing's kind from its id ('thing:bench-3' → 'bench'), or null for an activity's own spot. */
+export function thingKind(id: string): ThingKind | null {
+  const m = /^thing:(bench|radio)(?:-[0-9]+)?$/.exec(id);
+  return m ? (m[1] as ThingKind) : null;
+}
+
+/** Which bench a bench's id names ('thing:bench-3' → 3), or -1. */
+export function benchNumber(id: string): number {
+  const m = /^thing:bench-([0-9]+)$/.exec(id);
+  return m ? Number(m[1]) : -1;
 }
 
 /** A seat on a bench or a stool: people sit at (x, y) facing octant `oct` (sim.ts OCTANTS), coming from `from`. */
@@ -593,12 +618,30 @@ export const WORLD_DISTRICTS: readonly WorldDistrict[] = [
 ];
 
 /** Where each activity is done (src/features/town/activities). */
+/**
+ * The things that can be used: every bench that is there from the first day (the player stands in front of it, where
+ * a resident steps off it: WORLD_LIFE.seats `from`), and the radio on the café's terrace table.
+ */
+export const WORLD_THINGS: Readonly<Record<ThingId, ActivitySpot>> = (() => {
+  const out: Record<ThingId, ActivitySpot> = {};
+  let n = 0;
+  for (const p of WORLD_PROPS) {
+    if (p.kind !== 'bench') continue;
+    const at = p.tiles[0];
+    const stand = p.dir === 'e' ? T(at.x + 1, at.y) : p.dir === 'w' ? T(at.x - 1, at.y) : T(at.x, at.y + 1);
+    out[`thing:bench-${n++}`] = { stand, look: { x: at.x + 0.5, y: at.y + 0.5 }, box: { x: at.x + 0.5, y: at.y + 0.5, w: 0.85, d: 0.85, h: 0.6 } };
+  }
+  out['thing:radio'] = { stand: T(41, 29), look: { x: 41.5, y: 28.5 }, box: { x: 41.5, y: 28.5, w: 0.9, d: 0.9, h: 1.0 } };
+  return out;
+})();
+
 export const WORLD_ACTIVITIES: Readonly<Record<ActivitySpotId, ActivitySpot>> = {
   fish: { stand: T(29, 27), look: { x: 28.2, y: 27.5 }, prop: 'pier' },
   farm: { stand: T(56, 14), look: { x: 56.5, y: 15.6 }, prop: 'farm' },
   eggs: { stand: T(41, 35), look: { x: 41.5, y: 34.5 }, prop: 'kiosk' },
   wardrobe: { stand: T(20, 45), look: { x: 20.5, y: 44.4 }, prop: 'inn' },
   album: { stand: T(48, 21), look: { x: 48.5, y: 20.5 }, prop: 'board' },
+  ...WORLD_THINGS,
 };
 
 /** Octants (sim.ts OCTANTS): 0 = +x (SE on the screen), 2 = +y (SW), 4 = -x (NW), 6 = -y (NE). */

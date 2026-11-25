@@ -2368,3 +2368,76 @@ Clips: Emma's 48 delivery lines, connected only (`audioInventory addDeliveries`)
 Not done: Ben's shop and Sam's station have no job yet (a checkout with prices and numbers, a departure board with
 times); the delivery has no clock; the recipient does not react in 3D beyond the camera's usual framing; the daily
 tasks ("Việc hôm nay") do not know these games.
+
+## 19. Thế giới sống: things to use, a week, a radio (2026-11-25)
+
+The owner, after the walking fixes: the town has "quá ít tiện nghi / event", and "cảnh vật cũng đang chỉ cho có quá,
+không tương tác được gì". Measured then: in the whole 3D world only residents, houses and five activity spots could
+be clicked; benches, the radio, the well, boats, the lighthouse were scenery; nothing in the code knew a weekday or
+the weather, and the Tuesday board games, the Thursday club, the Friday dinner, the Saturday market and the Sunday
+roast existed only as words in the residents' lines. This is step 1 of `docs/city-proposal.md` (the city itself is
+steps 2–4, not built).
+
+**Cảnh nghe** (`core/town/sceneTypes.ts`, content `data/scenes/`, panel `features/town/scenes/ListenPanel.tsx`,
+activity `listen`, not in the HUD's menu). Something HEARD in the world, not a talk the learner is part of. The
+whole scene plays as sound only (nothing to read), then one question (overheard) or two (a gist and a detail: radio,
+get-togethers), one try each, then the words line by line: decoded, the meaning, "Nghe" (connected) and "Rõ từng từ".
+Three kinds:
+- **overheard** (24, `oh-…`): the learner sits down on a bench (every bench of the first day, 24 of them) and two
+  residents who know each other talk nearby, 4–6 lines. One scene per bench and day (`world.ts overheardAt`), never
+  one heard in the days the daily record keeps while others are left. The line before listening is made from who is
+  talking ("Sam và Lily đang nói chuyện ngay gần đó."), not from the scene's own `scene` (written for one place);
+- **radio** (30, `fm-…`): the little set on the café's terrace table plays Bay FM, the city's station. Marcus, its
+  presenter, alone, 3–5 sentences: 9 forecasts (read only in that weather), 9 notices of the weekday, 12 timeless.
+  `radioNow`: today's own first, a new segment each time;
+- **get-togethers** (15, `ev-<event>-n`, three tellings each, taking turns week by week): 3–4 residents, 8–12 lines.
+  `TOWN_EVENTS`: Sunday roast at Grace's, Tuesday board games with Leo, Thursday conversation club with Daniel,
+  Friday dinner at Emma's, Saturday market (Tom); Monday and Wednesday are quiet. By the learner's own clock. Today's
+  one is at the head of "Việc hôm nay" (`TownHud` `today`), with the weather; "Tới dự" opens it and the stage takes
+  the player to the host's place (`onScene`, as a shift at the café does). It waits for the host's place to be built.
+
+**Things to use** (`data/townWorld.ts` `WORLD_THINGS`, `ThingId` = `thing:bench-<n>` | `thing:radio`). They ARE
+activity spots (`WORLD_ACTIVITIES`), with a `box` of their own instead of a `prop`: so the click, the walk there, E
+beside them, the name over them ("Ghế: ngồi nghe", "Radio Bay FM": `scenes/things.ts`), the hover and "Đến ngay"
+are the activity spots' own code. What had to learn about them: `world3d.ts` (the box), `engine3d.ts` (the name: one
+line), `TownMap.tsx` (they are not on the map), `TownPage.tsx` (`openSpot`, the button "Ngồi xuống nghe" / "Nghe
+radio", `?listen=thing:radio | thing:bench-3 | event:games` opens a panel by a link). A radio was added to the
+terrace's model (`props3d.ts`).
+
+**Rules** (`core/town/world.ts`, `worldStore.ts`, tested in `world.test.ts`). As everywhere: only LISTENING pays.
+A question right at the first try: 2 xu (overheard, radio), 4 xu (a get-together, plus 2 for staying to the end and
++15 friendship with the host). Paid: 4 overheard, 3 radio segments, 1 get-together a day (`SCENE_PAID_A_DAY`); the
+rest can be heard for nothing, and the panel says so. No new stored key: the scenes that paid today are the daily
+set `heard` of `town-progress` (one more entry of `DAILY_SETS`, merged as the others are). The weather
+(`weatherOf(day)`: about half the days clear, a third cloudy, a sixth rain, the same on every machine) only chooses
+the forecast so far: it is not drawn.
+
+**Voices.** A resident's line is in their own Gemini voice (`sceneAudio.ts sceneVoice`): 600 clips (31,211
+characters) are in the inventory and NOT generated yet (`npm run audio:generate`, the owner runs it); until then they
+play the browser's voice of the right sex. Marcus is the first character who is only heard: `SCENE_VOICES`, the
+browser's voice always, no clips (owner: "nhân vật mới có thể xài giọng trình duyệt"). His voice id (`scene-marcus`)
+is no Gemini voice, so nothing is looked up or made under it. A browser voice reads word by word and reduces little:
+his segments train following one speaker for half a minute, less so connected speech.
+
+**Seeing the town** (`scripts/town-shot.mjs`, `three/webgl.ts wantsSoft`). The machine an agent's commands run on
+has no graphics card (WebGL reports "Microsoft Basic Render Driver"), so the 3D town did not draw in its headless
+browser or its browser pane, and the walking bugs of that morning were fixed blind. `#/town?r=soft` (dev builds
+only) draws the town on the software renderer, a frame or two a second; the script takes a picture of it, with
+`--js2` to put the player somewhere (`window.__town3d.sim.placePlayer`) and click things first. Everything of this
+section was looked at that way: the bench's and the radio's name and button at 1400 × 900, a bench scene, a radio
+segment and a get-together through to the words (the last at 390 × 844).
+
+Not done, not checked:
+- nobody has HEARD a scene: the headless browser is mute and plays a scene in a second. The pace between lines, the
+  browser voices, Marcus alone for half a minute: for the owner's ear;
+- the ~330 English lines and their Vietnamese were written by three agents and read by nobody; their reports list
+  invented details (the first city bus at seven twenty, Grace's roast at one, a half-price Wednesday at the cinema,
+  flu shots on Mondays, prices in dollars) and lines a native speaker should check (Max's "I've got heaps", Grace's
+  "Forty years a nurse…");
+- a missed scene is not a review card (the scenes come round again by themselves; the review system knows nothing
+  of them);
+- the two who are overheard are not standing by the bench in the world, and nobody but the host is at a
+  get-together's place: the scenes are heard, not staged;
+- the weather is not drawn; the well, the ducks, the cat, the lighthouse, the boats are still only scenery; nothing
+  can be picked up;
+- the pay and the daily allowances are guesses.

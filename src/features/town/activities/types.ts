@@ -6,7 +6,11 @@
 
 import type { SceneSpot } from '../../../data/romance/places';
 
-export type ActivityId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | 'gifts' | 'journal' | 'character' | 'love' | 'cafe' | 'case' | 'delivery';
+/**
+ * 'listen' is the panel of a thing used in the world (a bench, the radio) or of today's get-together (docs/town.md
+ * §19, scenes/ListenPanel): it is not in ACTIVITIES, so not in the HUD's menu. Which one comes in `focus`.
+ */
+export type ActivityId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | 'gifts' | 'journal' | 'character' | 'love' | 'cafe' | 'case' | 'delivery' | 'listen';
 
 /** The activities with a spot in the world (data/townWorld ActivitySpotId): the player walks there first. */
 export const SPOT_ACTIVITIES = ['fish', 'farm', 'eggs', 'wardrobe', 'album'] as const;

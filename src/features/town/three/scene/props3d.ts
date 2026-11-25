@@ -235,6 +235,12 @@ function propPiece(prop: WorldProp, i: number, world: TownWorld, stationBuilt: b
       m.add(shapes.sphere(0.03, 6, 4), C.trim, { y: 1.42 }, { ao: false });
       m.add(shapes.cyl(0.1, 0.09, 0.03, 12), C.trim, { x: 0.12, y: table + 0.015 }, { ao: false });
       m.add(shapes.cyl(0.03, 0.025, 0.05, 8), C.white, { x: -0.06, y: table + 0.025, z: 0.05 }, { ao: false });
+      // the radio (Bay FM: a thing to use, townWorld WORLD_THINGS 'thing:radio'): a little set with a round speaker,
+      // a dial and its aerial up
+      m.add(shapes.box(0.17, 0.11, 0.07, 0.02, 2), C.mustard, { x: -0.02, y: table + 0.055, z: -0.1 });
+      m.add(shapes.cyl(0.034, 0.034, 0.012, 12), C.trim, { x: -0.055, y: table + 0.055, z: -0.063, rx: Math.PI / 2 }, { ao: false });
+      m.add(shapes.cyl(0.014, 0.014, 0.012, 8), C.cream, { x: 0.03, y: table + 0.07, z: -0.063, rx: Math.PI / 2 }, { ao: false });
+      m.add(shapes.cyl(0.004, 0.004, 0.2, 5), C.metal, { x: 0.05, y: table + 0.2, z: -0.1, rz: -0.3 }, { ao: false });
       for (const s of [-1, 1]) {
         m.add(shapes.cyl(0.11, 0.11, 0.04, 12), C.red, { x: s * 0.34, y: SEAT_TOP - 0.02, z: 0.05 });
         m.add(shapes.cyl(0.02, 0.03, SEAT_TOP - 0.04, 6), C.metal, { x: s * 0.34, y: (SEAT_TOP - 0.04) / 2, z: 0.05 });

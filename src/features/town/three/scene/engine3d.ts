@@ -9,6 +9,7 @@ import { collidersIn, walkable } from '../../../../core/town/map';
 import { lootItem } from '../../../../data/townGame';
 import { TOWN_WORLD, type ActivitySpotId, type PlaceId, type Tile, type TownWorld } from '../../../../data/townWorld';
 import { ACTIVITIES } from '../../activities/types';
+import { thingName } from '../../scenes/things';
 import { cameraDt, springStep } from '../../engine/spring';
 import { drawChatDots, drawEmote, drawFloat, drawParticles, drawSky, drawTag, drawTalkBubble, drawVignette, EMOTE_SECONDS, FLOAT_SECONDS, placeTags, tagSize, type EmoteKind, type TagBox } from '../../engine/draw/overlay';
 import type { ActKind, BurstKind, EngineCallbacks, Near, SafeInsets, StageTarget } from '../../engine/stage';
@@ -2824,10 +2825,11 @@ export class TownEngine3D {
       const actHot = hover?.kind === 'activity' ? hover.id : this.near?.kind === 'activity' ? this.near.id : null;
       if (actHot) {
         const a = this.town.activities.get(actHot);
-        const info = ACTIVITIES.find((x) => x.id === actHot);
-        if (a && info) {
+        // an activity's own name, or a thing's ("Ghế: ngồi nghe", "Radio Bay FM": scenes/things.ts)
+        const name = ACTIVITIES.find((x) => x.id === actHot)?.name ?? thingName(actHot);
+        if (a && name) {
           const at = this.project(a.at.x, a.top + 0.15, a.at.z);
-          add(at.x, at.y, tr(info.name), { hover: true });
+          add(at.x, at.y, tr(name), { hover: true });
         }
       }
       const me = this.headAt('player', p);

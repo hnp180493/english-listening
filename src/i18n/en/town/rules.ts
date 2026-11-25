@@ -138,6 +138,19 @@ const rules: Record<string, string> = {
   'chẳng': 'not',
   'chả': 'not',
   'đừng': 'don’t',
+  'Bữa trưa Chủ nhật nhà Grace': 'Sunday lunch at Grace\'s',
+  'Grace nấu, hàng xóm sang ăn và kể chuyện tuần qua.': 'Grace cooks, the neighbours come round and tell their week.',
+  'Tối board game của Leo': 'Leo\'s board game night',
+  'Tối thứ Ba ở quảng trường: bàn cờ, bánh, và cãi nhau về luật chơi.': 'Tuesday evening on the plaza: boards, cake, and arguing over the rules.',
+  'CLB hội thoại của Daniel': 'Daniel\'s conversation club',
+  'Tối thứ Năm ở trường: mỗi tuần một chủ đề, ai cũng phải nói.': 'Thursday evening at the school: a topic each week, and everybody has to speak.',
+  'Bữa tối thứ Sáu ở quán Emma': 'Friday dinner at Emma\'s café',
+  'Emma đóng quầy sớm, kê bàn dài, ai tới cũng có chỗ.': 'Emma closes the counter early and sets one long table; there is a seat for whoever comes.',
+  'Chợ phiên thứ Bảy': 'Saturday market',
+  'Tom dựng sạp trên quảng trường từ sáng; cả thị trấn ra chợ.': 'Tom sets the stalls up on the plaza from the morning; the whole town comes out.',
+  'Trời nắng': 'Sunny',
+  'Trời nhiều mây': 'Cloudy',
+  'Trời mưa': 'Rain',
 };
 
 export default rules;

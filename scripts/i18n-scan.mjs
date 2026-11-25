@@ -202,6 +202,7 @@ export function areaOf(relPath) {
     if (seg[1] === 'romance') return `town/romance-${base}`
     if (seg[1] === 'streetTalks') return 'town/street-talks'
     if (seg[1] === 'cases') return 'town/cases'
+    if (seg[1] === 'scenes') return 'town/scenes'
     if (/^town/.test(base)) return `town/data-${base.replace(/^town/, '').toLowerCase() || 'town'}`
     return `content/${base}`
   }

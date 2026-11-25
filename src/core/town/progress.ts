@@ -142,10 +142,12 @@ export interface DailyCount {
   served?: string[];
   /** Residents who had a delivery from the café today (./deliveryStore; sorted place ids). */
   sent?: string[];
+  /** The scenes heard in the world today that paid (./world scenePay; sorted scene ids: oh-…, fm-…, ev-…). */
+  heard?: string[];
 }
 
 /** The optional sets of DailyCount (merge: union; parse: dropped when empty). */
-export const DAILY_SETS = ['bond', 'gifted', 'street', 'served', 'sent'] as const;
+export const DAILY_SETS = ['bond', 'gifted', 'street', 'served', 'sent', 'heard'] as const;
 export type DailySet = (typeof DAILY_SETS)[number];
 
 /** The optional counters of DailyCount (merge: max; parse: dropped when 0). */
