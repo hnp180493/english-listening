@@ -17,6 +17,12 @@ export interface Shared {
    * camera there (a wall, a tree) is drawn dithered, so nobody disappears behind it.
    */
   holes: IUniform<Vector4[]>;
+  /**
+   * The ground each hole's person stands on (world y; the hill in the woods is 1.6 high). Only what rises above it
+   * can hide them: the ground and the stones round their feet on a hill are never dithered (owner, 2026-11-25: "nó
+   * đứng trên đồi mà?").
+   */
+  holeFloor: IUniform<number[]>;
 }
 
 export interface Materials {
@@ -48,6 +54,7 @@ const GLOW = new Color(C.glow);
 /** Cut dithered holes where something stands between the camera and a person (Shared.holes). */
 function addHoles(shader: WebGLProgramParametersWithUniforms, shared: Shared): void {
   shader.uniforms.uHoles = shared.holes;
+  shader.uniforms.uHoleFloor = shared.holeFloor;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\nvarying float vHoleZ;\nvarying float vHoleY;')
     .replace(
@@ -61,14 +68,14 @@ function addHoles(shader: WebGLProgramParametersWithUniforms, shared: Shared): v
       #endif`,
     );
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', '#include <common>\nuniform vec4 uHoles[2];\nvarying float vHoleZ;\nvarying float vHoleY;')
+    .replace('#include <common>', '#include <common>\nuniform vec4 uHoles[2];\nuniform float uHoleFloor[2];\nvarying float vHoleZ;\nvarying float vHoleY;')
     .replace(
       '#include <clipping_planes_fragment>',
       `#include <clipping_planes_fragment>
       if (vHoleY > 0.12) {
         for (int i = 0; i < 2; i++) {
           vec4 h = uHoles[i];
-          if (h.z <= 0.0 || vHoleZ < h.w + 0.35) continue;
+          if (h.z <= 0.0 || vHoleZ < h.w + 0.35 || vHoleY <= uHoleFloor[i] + 0.12) continue;
           float d = distance(gl_FragCoord.xy, h.xy) / h.z;
           if (d >= 1.0) continue;
           // a soft, noise-like dither (interleaved gradient noise: no regular checkerboard to catch the eye): about
@@ -131,7 +138,7 @@ function addWater(shader: WebGLProgramParametersWithUniforms, shared: Shared): v
 }
 
 export function makeMaterials(): Materials {
-  const shared: Shared = { time: { value: 0 }, sway: { value: 1 }, night: { value: 0 }, holes: { value: [new Vector4(), new Vector4()] } };
+  const shared: Shared = { time: { value: 0 }, sway: { value: 1 }, night: { value: 0 }, holes: { value: [new Vector4(), new Vector4()] }, holeFloor: { value: [0, 0] } };
   const std = new MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0 });
   std.onBeforeCompile = (s) => addHoles(s, shared);
   std.customProgramCacheKey = () => 'town-std';

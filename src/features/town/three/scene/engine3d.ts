@@ -2640,17 +2640,22 @@ export class TownEngine3D {
     const H = this.renderer.domElement.height;
     const kx = W / Math.max(1, this.viewW);
     const ky = H / Math.max(1, this.viewH);
+    const floors = this.town.mats.shared.holeFloor.value;
     this.town.mats.shared.holes.value.forEach((h, i) => {
       const a: Actor | null | undefined = i === 0 ? this.sim.player : r;
       if (!a) {
         h.set(0, 0, 0, 0);
+        floors[i] = 0;
         return;
       }
       const id = i === 0 ? 'player' : a.id;
       const head = this.headOf(id, a);
+      // the ground they stand on (on the hill 1.6 up; a room's floor is 0): nothing at or below it hides them
+      const floor = this.room ? 0 : this.town.lift(a.x, a.y);
+      floors[i] = floor;
       const top = this.project(head.x, head.y, head.z);
-      const feet = this.project(a.x, 0, a.y);
-      const mid = { x: a.x, y: head.y * 0.55, z: a.y };
+      const feet = this.project(a.x, floor, a.y);
+      const mid = { x: a.x, y: floor + (head.y - floor) * 0.55, z: a.y };
       const c = this.project(mid.x, mid.y, mid.z);
       this.v.set(mid.x, mid.y, mid.z).applyMatrix4(this.camera.matrixWorldInverse);
       const tall = Math.max(20, Math.abs(feet.y - top.y));

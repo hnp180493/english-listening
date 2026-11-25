@@ -1213,7 +1213,10 @@ or faded in front of the player, glass, bulbs, water: `precompile`), so neither 
 hover or purchase waits for the graphics driver. The sky behind the island (gradient, clouds by day, stars by night) is
 a 2D canvas redrawn 15 times a second; while the theme changes, night's sky is laid over day's by the night amount
 (and the darker corners fade in the same way): no snap halfway. A wall or tree in front of the player (or the one they
-talk to) is drawn with a soft noise-like dither (interleaved gradient noise; a 2 × 2 checkerboard until 2026-11-21). Trees, tufts, flowers and flags sway in a vertex shader, the lake and the
+talk to) is drawn with a soft noise-like dither (interleaved gradient noise; a 2 × 2 checkerboard until 2026-11-21).
+Only what rises above the ground the person stands on can hide them (`Shared.holeFloor`, the hole sized from their
+feet there): before 2026-11-25 the ground counted as 0, so on the hill (1.6 up) the slope and the stones in front of
+the player were dithered in a hole far too big (owner: "nó đứng trên đồi mà?"). Trees, tufts, flowers and flags sway in a vertex shader, the lake and the
 fountain ripple. Under reduced motion: no camera travel, no particles, no pop, no sway or ripples, the xu count changes
 at once; people stand still in their pose (no breathing, no walk cycle, no nod / shake / wave; walking, they glide);
 emotes and the "+N" stand still for a moment instead of rising.
