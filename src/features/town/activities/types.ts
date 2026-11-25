@@ -16,23 +16,25 @@ export interface ActivityInfo {
   id: ActivityId;
   /** Vietnamese name shown in the HUD menu and on the spot's tag. */
   name: string;
-  /** One short Vietnamese line: what you do there. */
+  /** One short Vietnamese line: what you do there (the menu tile's tooltip and description). */
   blurb: string;
+  /** The HUD menu's group: a listening game, or your things and the people you know. */
+  group: 'game' | 'life';
 }
 
 export const ACTIVITIES: readonly ActivityInfo[] = [
-  { id: 'cafe', name: 'Phụ quầy cà phê', blurb: 'Nghe khách gọi món, giao đúng trước khi khách hết kiên nhẫn.' },
-  { id: 'delivery', name: 'Giao hàng cho Emma', blurb: 'Nghe Emma dặn món này của ai, tìm đúng người trong thị trấn.' },
-  { id: 'case', name: 'Vụ án ở thị trấn', blurb: 'Mỗi ngày một kỳ: nghe ba nhân chứng, bắt đúng chi tiết.' },
-  { id: 'fish', name: 'Câu cá', blurb: 'Nghe cá "nói", bắt đúng là câu được.' },
-  { id: 'farm', name: 'Nông trại', blurb: 'Câu cần ôn là cây chín: ôn là thu hoạch.' },
-  { id: 'eggs', name: 'Tiệm trứng', blurb: 'Ấp trứng ra thú cưng, mũ áo, danh hiệu.' },
-  { id: 'wardrobe', name: 'Tủ đồ', blurb: 'Mặc đồ, đội mũ, dắt thú cưng.' },
-  { id: 'album', name: 'Sưu tầm', blurb: 'Bộ sưu tập cá, thành tích, danh hiệu.' },
-  { id: 'gifts', name: 'Tiệm quà', blurb: 'Mua quà tặng người dân, mỗi người một món mỗi ngày.' },
-  { id: 'journal', name: 'Sổ tay', blurb: 'Độ thân với từng người, điều bạn biết về họ.' },
-  { id: 'love', name: 'Hẹn hò & gia đình', blurb: 'Thân đủ thì tỏ tình, hẹn hò, cưới, có con.' },
-  { id: 'character', name: 'Nhân vật', blurb: 'Nam hay nữ, tên, màu da, kiểu tóc.' },
+  { id: 'cafe', name: 'Phụ quầy cà phê', blurb: 'Nghe khách gọi món, giao đúng trước khi khách hết kiên nhẫn.', group: 'game' },
+  { id: 'delivery', name: 'Giao hàng cho Emma', blurb: 'Nghe Emma dặn món này của ai, tìm đúng người trong thị trấn.', group: 'game' },
+  { id: 'case', name: 'Vụ án ở thị trấn', blurb: 'Mỗi ngày một kỳ: nghe ba nhân chứng, bắt đúng chi tiết.', group: 'game' },
+  { id: 'fish', name: 'Câu cá', blurb: 'Nghe cá "nói", bắt đúng là câu được.', group: 'game' },
+  { id: 'farm', name: 'Nông trại', blurb: 'Câu cần ôn là cây chín: ôn là thu hoạch.', group: 'game' },
+  { id: 'eggs', name: 'Tiệm trứng', blurb: 'Ấp trứng ra thú cưng, mũ áo, danh hiệu.', group: 'life' },
+  { id: 'wardrobe', name: 'Tủ đồ', blurb: 'Mặc đồ, đội mũ, dắt thú cưng.', group: 'life' },
+  { id: 'album', name: 'Sưu tầm', blurb: 'Bộ sưu tập cá, thành tích, danh hiệu.', group: 'life' },
+  { id: 'gifts', name: 'Tiệm quà', blurb: 'Mua quà tặng người dân, mỗi người một món mỗi ngày.', group: 'life' },
+  { id: 'journal', name: 'Sổ tay', blurb: 'Độ thân với từng người, điều bạn biết về họ.', group: 'life' },
+  { id: 'love', name: 'Hẹn hò & gia đình', blurb: 'Thân đủ thì tỏ tình, hẹn hò, cưới, có con.', group: 'life' },
+  { id: 'character', name: 'Nhân vật', blurb: 'Nam hay nữ, tên, màu da, kiểu tóc.', group: 'life' },
 ];
 
 /** What a panel may ask the page to do. The page owns the stage, the HUD and the toast. */

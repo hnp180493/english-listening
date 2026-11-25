@@ -235,6 +235,9 @@ const page: Record<string, string> = {
   'Vụ án: kỳ': 'Mystery: chapter',
   'đang mở': 'open',
   'Đơn tiếp theo (còn {})': 'Next order ({0} left)',
+  'Chơi: trò chơi nghe, đồ đạc và người quen': 'Play: listening games, your things and people',
+  'Trò chơi nghe': 'Listening games',
+  'Đồ đạc & người quen': 'Your things & people',
 };
 
 export default page;

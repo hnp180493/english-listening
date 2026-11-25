@@ -9,6 +9,8 @@ import { Coin } from './art';
 
 /** The icon of each activity in the "Chơi" menu. */
 const ACTIVITY_ICONS: Readonly<Record<ActivityId, typeof Fish>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee, case: Search, delivery: Package };
+/** The two groups of the "Chơi" menu, in order. */
+const PLAY_GROUPS = [{ id: 'game' }, { id: 'life' }] as const;
 import { levelLabel, taskCount, xu } from './shellModel';
 import { getLang, tl } from '../../i18n';
 
@@ -102,33 +104,44 @@ export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, 
                 <span className="town-hud-label">Chơi</span>
               </>
             }
-            triggerLabel="Chơi: câu cá, nông trại, tiệm trứng, tủ đồ, sưu tầm, tiệm quà, sổ tay"
+            triggerLabel="Chơi: trò chơi nghe, đồ đạc và người quen"
             title="Chơi gì bây giờ?"
           >
-            {(close) => (
-              <ul className="town-play-list">
-                {ACTIVITIES.map((a) => (
-                  <li key={a.id}>
-                    <button
-                      type="button"
-                      className={'town-play-item' + (playOpen === a.id ? ' is-on' : '')}
-                      onClick={() => {
-                        close();
-                        onPlay(a.id);
-                      }}
-                    >
-                      <span className="town-play-icon" aria-hidden="true">
-                        <Icon icon={ACTIVITY_ICONS[a.id]} size={18} />
-                      </span>
-                      <span className="town-play-text">
-                        <span className="town-play-name">{a.name}</span>
-                        <span className="town-play-blurb">{a.blurb}</span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            {(close) =>
+              // a grid of tiles in two groups, not twelve rows with a blurb each (owner, 2026-11-25: the list ran off the
+              // stage); the blurb stays as the tile's tooltip and its accessible description
+              PLAY_GROUPS.map((g) => (
+                <section key={g.id} className="town-play-group" aria-labelledby={`town-play-${g.id}`}>
+                  <h3 id={`town-play-${g.id}`} className="town-play-head">
+                    {g.id === 'game' ? 'Trò chơi nghe' : 'Đồ đạc & người quen'}
+                  </h3>
+                  <ul className="town-play-list">
+                    {ACTIVITIES.filter((a) => a.group === g.id).map((a) => (
+                      <li key={a.id}>
+                        <button
+                          type="button"
+                          className={'town-play-item' + (playOpen === a.id ? ' is-on' : '')}
+                          title={a.blurb}
+                          aria-describedby={`town-play-d-${a.id}`}
+                          onClick={() => {
+                            close();
+                            onPlay(a.id);
+                          }}
+                        >
+                          <span className="town-play-icon" aria-hidden="true">
+                            <Icon icon={ACTIVITY_ICONS[a.id]} size={18} />
+                          </span>
+                          <span className="town-play-name">{a.name}</span>
+                          <span id={`town-play-d-${a.id}`} className="sr-only">
+                            {a.blurb}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))
+            }
           </Popover>
           <Popover
             className="town-tasks"
