@@ -205,6 +205,11 @@ export interface Doing {
   sitAt?: number;
 }
 
+/** Two seats of the same bench (on the same tile). */
+function sameBench(a: Seat, b: Seat): boolean {
+  return Math.floor(a.x) === Math.floor(b.x) && Math.floor(a.y) === Math.floor(b.y);
+}
+
 /** In front of a seat, turned round, a person waits this long (s) before sitting down; getting up takes RISE_TIME. */
 const SIT_TURN_PAUSE = 0.25;
 const RISE_TIME = 0.6;
@@ -2089,6 +2094,82 @@ export class TownSim {
     return this.walkResident(r, at);
   }
 
+  // ───────────────────────── a scene heard from a seat (docs/town.md §19) ─────────────────────────
+
+  /** The seat the PLAYER sits on (a bench, the café's stool: a "cảnh nghe"), or null. Residents keep off it. */
+  playerSeat: Seat | null = null;
+  /** The residents talking to each other nearby while the player listens (they face one another, not the player). */
+  private aside: PlaceId[] = [];
+
+  /**
+   * The player sits down on `seat` (they stand in front of it already: the thing's spot). False when a resident
+   * sits there. Any walk or key gets them up again (update).
+   */
+  sitPlayer(seat: Seat): boolean {
+    // the bench is the player's while they listen: whoever sits on it gets up (two seats of a bench are a hand apart,
+    // and a neighbour sitting down against the player hid them)
+    for (const r of this.residents.values()) if (r.seat && sameBench(r.seat, seat)) this.endDoing(r);
+    const p = this.player;
+    this.cancelErrand();
+    this.steerDir = null;
+    p.path = [];
+    p.moving = false;
+    p.v = 0;
+    this.drive = 0;
+    p.x = seat.x;
+    p.y = seat.y;
+    p.tile = tileOf(p);
+    p.oct = p.want = seat.oct;
+    p.yaw = octAngle(seat.oct);
+    this.playerSeat = seat;
+    return true;
+  }
+
+  /** The player gets up: back to the spot in front of the seat. */
+  standPlayer(): void {
+    const seat = this.playerSeat;
+    if (!seat) return;
+    this.playerSeat = null;
+    const f = seatFront(seat);
+    const p = this.player;
+    p.x = f.x;
+    p.y = f.y;
+    p.tile = tileOf(p);
+  }
+
+  /**
+   * Two (or more) residents come and talk to each other at `spots`: put at `from` (out of the way, a few tiles
+   * off) and walking in, or at their spot at once where there is no way. They stay, turned to one another, until
+   * endAside. Whoever is not in town is left out.
+   */
+  talkAside(ids: readonly PlaceId[], spots: readonly Pt2[], from: readonly (Pt2 | null)[]): void {
+    this.endAside();
+    ids.forEach((id, i) => {
+      const r = this.residents.get(id);
+      const at = spots[i];
+      if (!r || !at) return;
+      const start = from[i];
+      this.jumpResident(id, start ?? at);
+      r.engaged = true;
+      if (start && !this.walkResident(r, at)) this.jumpResident(id, at);
+      this.aside.push(id);
+    });
+  }
+
+  /** This resident is one of those talking aside (the stage names them and shows who speaks). */
+  inAside(id: string): boolean {
+    return (this.aside as readonly string[]).includes(id);
+  }
+
+  /** The talk aside is over: they go back to their day. */
+  endAside(): void {
+    for (const id of this.aside) {
+      const r = this.residents.get(id);
+      if (r) r.engaged = false;
+    }
+    this.aside = [];
+  }
+
   /**
    * The resident is put at `at` at once, with `path` left to walk (the stage skips the part of a walk nobody sees);
    * with no walk left they face the player.
@@ -2675,6 +2756,8 @@ export class TownSim {
     this.time += dt;
     const p = this.player;
     const keys = this.steerDir !== null;
+    // seated (a "cảnh nghe"): the first key or click walk gets them up
+    if (this.playerSeat && (keys || this.errand || p.path.length > 0)) this.standPlayer();
     // the keys always win over a click walk
     if (keys && (this.errand || p.path.length > 0)) {
       this.cancelErrand();
@@ -3030,7 +3113,7 @@ export class TownSim {
         d = { kind, at: { ...(r.lodger ? L.inn.door : r.place.door) }, oct: null, until: 0, arrived: false };
         break;
       case 'sit': {
-        const free = L.seats.map((s, i) => ({ s, i })).filter(({ s, i }) => has(s.needs) && this.freeKey(`seat:${i}`, id) && walkable(s.from, this.world) && this.spaceAt({ x: Math.floor(s.x), y: Math.floor(s.y) }, r) >= 0.3);
+        const free = L.seats.map((s, i) => ({ s, i })).filter(({ s, i }) => has(s.needs) && this.freeKey(`seat:${i}`, id) && !(this.playerSeat && sameBench(s, this.playerSeat)) && walkable(s.from, this.world) && this.spaceAt({ x: Math.floor(s.x), y: Math.floor(s.y) }, r) >= 0.3);
         const c = this.pick(free);
         if (!c) return false;
         d = { kind, at: { ...c.s.from }, oct: c.s.oct, seat: c.s, claim: `seat:${c.i}`, until: 0, arrived: false };
@@ -3345,6 +3428,15 @@ export class TownSim {
       r.waveIn = 30 + this.rng() * 30;
     }
     r.sawPlayer = close;
+    if (r.engaged && this.aside.includes(r.place.id)) {
+      // talking to somebody else nearby (a scene the player overhears): turned to them once there
+      const mate = this.aside.map((id) => this.residents.get(id)).find((o) => o && o !== r);
+      if (mate && !r.moving && r.path.length === 0 && r.lookIn <= 0) {
+        face(r, mate.x, mate.y);
+        r.lookIn = 0.5;
+      }
+      return;
+    }
     if (r.engaged) {
       if (dist < 78 && r.lookIn <= 0) {
         faceIfFar(r, p.x, p.y);

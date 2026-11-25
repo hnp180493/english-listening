@@ -59,9 +59,6 @@ import { CAST_VOICES } from './town/voices';
 import { PLAYER_FEMALE, romanceAudioText, romanceVoice, type SceneCast } from './town/romanceAudio';
 import { STREET_TALKS } from '../data/streetTalks';
 import { CAFE_ORDERS } from '../data/townCafe';
-import { LISTEN_SCENES } from '../data/scenes';
-import { sceneLinePlayback } from './town/sceneAudio';
-import type { ListenScene } from './town/sceneTypes';
 import { TOWN_CASES } from '../data/cases';
 import { DELIVERIES } from '../data/townDeliveries';
 import type { DeliveryOrder } from './town/deliveryTypes';
@@ -148,12 +145,6 @@ export interface InventoryContent {
   cafeOrders?: readonly CafeOrder[];
   /** "Hẹn hò, cưới, con": the courtship scenes and the children's (data/romance), each speaker in their own voice. */
   romance?: { suitors: readonly Suitor[]; kids: KidLines };
-  /**
-   * "Cảnh nghe" (data/scenes, docs/town.md §19): the residents' lines in their own voices, connected + careful.
-   * Somebody only heard (the radio's presenter: core/town/sceneTypes SCENE_VOICES) speaks in the browser's voice and
-   * has no clips, by the owner's rule for new characters.
-   */
-  scenes?: readonly ListenScene[];
 }
 
 export function defaultInventoryContent(): InventoryContent {
@@ -177,7 +168,6 @@ export function defaultInventoryContent(): InventoryContent {
     cafeOrders: CAFE_ORDERS,
     cases: TOWN_CASES,
     deliveries: DELIVERIES,
-    scenes: LISTEN_SCENES,
   };
 }
 
@@ -455,19 +445,6 @@ function addDeliveries(c: Collector, orders: readonly DeliveryOrder[]): void {
   for (const o of orders) c.add('town', o.id, 'main', 'connected', dictationAudio({ text: o.text, level: o.level }).connected, false, voice);
 }
 
-function addScenes(c: Collector, scenes: readonly ListenScene[]): void {
-  // ListenPanel say(line, level, careful): sceneLinePlayback → speak(p.text, p.options)
-  for (const s of scenes) {
-    s.lines.forEach((line, i) => {
-      for (const careful of [false, true]) {
-        const p = sceneLinePlayback(line, s.level, careful);
-        if (!p.ships || !p.options.voice) continue;
-        c.add('town', `${s.id}#${i + 1}`, careful ? 'careful' : 'main', careful ? 'careful' : 'connected', p.text, false, p.options.voice);
-      }
-    });
-  }
-}
-
 function addCases(c: Collector, cases: readonly TownCase[]): void {
   // CasePanel sayLine(placeId, line, level, careful): dictationAudio({ text, level }) in the witness's voice
   for (const cs of cases) {
@@ -557,7 +534,7 @@ export function buildAudioInventory(content: InventoryContent = defaultInventory
   if (content.streetTalks) addStreetTalks(c, content.streetTalks);
   if (content.cafeOrders) addCafe(c, content.cafeOrders);
   if (content.cases) addCases(c, content.cases);
-  if (content.scenes) addScenes(c, content.scenes);
+  // (the "cảnh nghe" of data/scenes are not here: they are heard for fun, in the browser's voice only: docs/town.md §19)
   if (content.deliveries) addDeliveries(c, content.deliveries);
   return c.result();
 }

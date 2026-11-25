@@ -90,6 +90,13 @@ export interface TownStageHandle {
   meet: (placeId: PlaceId, ready: () => void) => boolean;
   /** The town gathers round the player (a wedding), all but these. */
   crowd: (except: readonly PlaceId[]) => void;
+  /**
+   * A "cảnh nghe" at a thing with a seat (docs/town.md §19): the player sits down on it and `who` come and talk to
+   * each other a few steps in front. False = no world, or no free seat (the scene plays all the same).
+   */
+  listenFrom: (spot: ActivitySpotId, who: readonly PlaceId[]) => boolean;
+  /** The scene is over: the player gets up, the ones who talked go back to their day. */
+  endListen: () => void;
   /** A little picture popping up over somebody's head. */
   emote: (target: 'player' | PlaceId, kind: EmoteKind) => void;
   /** Somebody plays a short animation once: a nod ('yes'), a head shake ('no'), a wave. Nothing under reduced motion. */

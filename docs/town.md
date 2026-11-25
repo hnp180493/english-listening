@@ -2412,12 +2412,26 @@ set `heard` of `town-progress` (one more entry of `DAILY_SETS`, merged as the ot
 (`weatherOf(day)`: about half the days clear, a third cloudy, a sixth rain, the same on every machine) only chooses
 the forecast so far: it is not drawn.
 
-**Voices.** A resident's line is in their own Gemini voice (`sceneAudio.ts sceneVoice`): 600 clips (31,211
-characters) are in the inventory and NOT generated yet (`npm run audio:generate`, the owner runs it); until then they
-play the browser's voice of the right sex. Marcus is the first character who is only heard: `SCENE_VOICES`, the
-browser's voice always, no clips (owner: "nhân vật mới có thể xài giọng trình duyệt"). His voice id (`scene-marcus`)
-is no Gemini voice, so nothing is looked up or made under it. A browser voice reads word by word and reduces little:
-his segments train following one speaker for half a minute, less so connected speech.
+**Voices: the browser's, always.** The first version put the residents' 300 lines in the clip inventory (600 clips,
+31,211 characters to generate). The owner the same day: "mấy phần này nghe cho vui nên không cần xài giọng gemini, bỏ
+ra đi khỏi tốn token tạo giọng". So no scene line is in the inventory, none is ever generated, none makes a paid
+request (`sceneAudio.ts`: `browserOnly` always; a test checks the inventory holds nothing of a scene). Each speaker
+has a voice name of the scene's own (`scene-<who>`: no Gemini voice's name, so no clip is looked up under it) and
+their sex (a resident's from `voices.ts`, Marcus's from `SCENE_VOICES`): the browser gives each a voice of their own
+among those of that sex. A browser voice reads word by word and reduces little: these scenes are for following a
+talk, for fun; connected speech is trained by Chép chính tả and the residents' own episodes, in Gemini voices.
+
+**Staged in the world** (the owner, on the first version: "nhìn lởm vậy, nhân vật chính thì không ngồi, nhân vật phụ
+bị nghe lén thì không thấy đâu"). Opening a bench's or the radio's scene, the player SITS DOWN on that thing's seat
+(`sim.sitPlayer`: a seat of `WORLD_LIFE.seats` on the thing's tile, the stool by the radio; drawn seated as a
+resident is, `engine3d.ts` reads `sim.playerSeat`); whoever sat on that bench gets up and nobody sits down beside
+them meanwhile. The two who are overheard come in from a few tiles off and stand side by side a couple of steps in
+front of the bench, turned to each other (`engine3d.listenFrom` → `sim.talkAside`: held there until the panel
+closes, then back to their day); both are named, and whoever speaks has the talk bubble over their head and the talk
+animation (`ActivityPanelProps.onListen` / `onSpeaking` → `TownStageHandle.listenFrom` / `endListen`, the stage's
+`speaking`). A key or a click walk gets the player up. Looked at in pictures (the bench on the plaza, with one of
+the two speaking; the stool by the radio); the walk in, the sitting down and the getting up were not watched moving.
+A get-together is not staged this way yet: the player goes to the host's place and only the host is there.
 
 **Seeing the town** (`scripts/town-shot.mjs`, `three/webgl.ts wantsSoft`). The machine an agent's commands run on
 has no graphics card (WebGL reports "Microsoft Basic Render Driver"), so the 3D town did not draw in its headless
@@ -2436,8 +2450,7 @@ Not done, not checked:
   "Forty years a nurse…");
 - a missed scene is not a review card (the scenes come round again by themselves; the review system knows nothing
   of them);
-- the two who are overheard are not standing by the bench in the world, and nobody but the host is at a
-  get-together's place: the scenes are heard, not staged;
+- nobody but the host is at a get-together's place (the bench and the radio are staged, see above);
 - the weather is not drawn; the well, the ducks, the cat, the lighthouse, the boats are still only scenery; nothing
   can be picked up;
 - the pay and the daily allowances are guesses.

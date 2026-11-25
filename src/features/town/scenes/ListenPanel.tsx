@@ -95,7 +95,7 @@ function SaidLine({ line, level }: { line: SceneLine; level: number }) {
   );
 }
 
-export default function ListenPanel({ onClose, onReward, sound, focus, onScene, onSceneEnd }: ActivityPanelProps) {
+export default function ListenPanel({ onClose, onReward, sound, focus, onScene, onSceneEnd, onListen, onSpeaking }: ActivityPanelProps) {
   // the scene is chosen once, when the panel opens (what was paid meanwhile must not change it under the learner)
   const [{ scene, host }] = useState(() => pickScene(focus, Date.now()));
   const [step, setStep] = useState<'ready' | 'playing' | 'asking' | 'done'>('ready');
@@ -128,6 +128,18 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
     },
     [],
   );
+  // at a bench or the radio: the player sits down, and the residents who are overheard come and talk nearby
+  useEffect(() => {
+    if (!scene || host) return;
+    onListen?.([...new Set(scene.lines.map((l) => l.who))].filter((w) => !!townPlace(w)));
+    return () => onListen?.(null);
+    // once, for the scene this panel opened with
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // whoever speaks is shown speaking in the world too
+  useEffect(() => {
+    onSpeaking?.(speaking !== null && scene ? (scene.lines[speaking]?.who ?? null) : null);
+  }, [speaking, scene, onSpeaking]);
 
   /** The whole scene, line after line; pressing again while it plays stops it. */
   const play = useCallback(async () => {

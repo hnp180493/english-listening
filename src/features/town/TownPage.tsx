@@ -823,6 +823,22 @@ export default function TownPage() {
     },
     [openActivity],
   );
+  /** A "cảnh nghe" at a thing: the player sits down on it, the two who are overheard come and talk nearby. */
+  const [listenSpeaking, setListenSpeaking] = useState<string | null>(null);
+  const listenThing = useRef<string | null>(null);
+  useEffect(() => {
+    listenThing.current = listenAt;
+  }, [listenAt]);
+  const onListen = useCallback((who: readonly string[] | null) => {
+    const s = stage.current;
+    if (!who) {
+      setListenSpeaking(null);
+      s?.endListen();
+      return;
+    }
+    const at = listenThing.current;
+    if (s && at?.startsWith('thing:')) s.listenFrom(at as ActivitySpotId, who.filter((id): id is PlaceId => (PLACE_IDS as readonly string[]).includes(id)));
+  }, []);
   /** Today's get-together (the day's list): its scene opens. */
   const openEvent = useCallback(
     (eventId: string) => {
@@ -1170,7 +1186,7 @@ export default function TownPage() {
         onActivity={openSpot}
         onReady={onStageReady}
         onFail={onStageFail}
-        speaking={shownTalk ? speaking : greetSpeaking}
+        speaking={shownTalk ? speaking : shownActivity === 'listen' ? listenSpeaking : greetSpeaking}
         visitorIn={visitorIn}
         inset={insets.panel}
         safe={insets.safe}
@@ -1315,6 +1331,8 @@ export default function TownPage() {
             onOpen={(id) => openActivity(id, 'hud')}
             onScene={onScene}
             onSceneEnd={onSceneEnd}
+            onListen={onListen}
+            onSpeaking={setListenSpeaking}
           />
         )}
         {shownGift && <GiftSheet placeId={shownGift} onClose={closeGift} onGiven={(r, v) => onGiven(r, v, shownGift)} onShop={giftToShop} />}

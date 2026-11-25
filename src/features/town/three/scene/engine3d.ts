@@ -15,7 +15,7 @@ import { drawChatDots, drawEmote, drawFloat, drawParticles, drawSky, drawTag, dr
 import type { ActKind, BurstKind, EngineCallbacks, Near, SafeInsets, StageTarget } from '../../engine/stage';
 import { paletteFor, type TownPalette } from '../../engine/palette';
 import { Particles } from '../../engine/particles';
-import { gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
+import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
 import { createCharacter, createPet, passerLook, type Character3DPlus } from '../characters';
 import type { CharAction, Character3D, Pet3D } from '../contracts';
 import { cameraPosition, fitDistance, followLead, followStiffness, FOLLOW_W, followPoint, FOV, groundHalfExtent, HOLD_RUN, holdDirection, insetShift, keyDirection, PITCH, restDistance, YAW0, yawAfter, zoomAfter } from './cameraRig';
@@ -950,6 +950,58 @@ export class TownEngine3D {
    * The town comes round (a wedding on the plaza, docs/town.md §15): every resident but the two walks in from a little
    * way off to a ring round the player, then everyday life takes them back.
    */
+  /**
+   * A "cảnh nghe" from a thing with a seat (docs/town.md §19): the player sits down on it (a bench, the café's
+   * stool) and `who` come and talk to each other a few steps in front, in view. False = no free seat (the scene
+   * still plays; the player stands).
+   */
+  listenFrom(spot: ActivitySpotId, who: readonly PlaceId[]): boolean {
+    const a = this.world.activities?.[spot];
+    const seats = this.world.life?.seats ?? [];
+    if (!a?.box) return false;
+    // this thing's seats: on its own tile, there from the first day
+    const own = seats.filter((s) => !s.needs && Math.floor(s.x) === Math.floor(a.box!.x) && Math.floor(s.y) === Math.floor(a.box!.y));
+    // (the stool by the radio stands beside the table's middle, on the same tile)
+    const taken = new Set([...this.sim.residents.values()].map((r) => r.seat));
+    const seat = own.find((s) => !taken.has(s)) ?? null;
+    const sat = seat ? this.sim.sitPlayer(seat) : false;
+    if (who.length > 0) {
+      const p = this.sim.player;
+      const h = octantHeading(seat?.oct ?? p.oct);
+      const fx = Math.cos(h);
+      const fy = Math.sin(h);
+      const fits = (c: { x: number; y: number }) => walkable({ x: Math.floor(c.x), y: Math.floor(c.y) }, this.sim.world) && bodyFits(c.x, c.y, PLAYER_RADIUS, this.sim.world);
+      // a few steps in front of the seat, the two side by side across the view; nearer or further where that is shut
+      let spots: { x: number; y: number }[] | null = null;
+      for (const d of [2.1, 2.7, 1.6, 3.3]) {
+        const c = { x: p.x + fx * d, y: p.y + fy * d };
+        const s = who.map((_, i) => ({ x: c.x - fy * (i - (who.length - 1) / 2) * 1.0, y: c.y + fx * (i - (who.length - 1) / 2) * 1.0 }));
+        if (s.every(fits)) {
+          spots = s;
+          break;
+        }
+      }
+      if (spots) {
+        // they walk in from further off the same way (out of the picture where there is room), else they are there
+        const from = spots.map((s) => {
+          for (const d of [5, 3.5]) {
+            const c = { x: s.x + fx * d, y: s.y + fy * d };
+            if (fits(c)) return c;
+          }
+          return null;
+        });
+        this.sim.talkAside(who, spots, from);
+      }
+    }
+    return sat;
+  }
+
+  /** The scene is over: the player gets up, the ones who talked go back to their day. */
+  endListen(): void {
+    this.sim.standPlayer();
+    this.sim.endAside();
+  }
+
   crowd(except: readonly PlaceId[]): void {
     const p = this.sim.player;
     const ids = [...this.sim.residents.keys()].filter((id) => !except.includes(id));
@@ -2192,7 +2244,7 @@ export class TownEngine3D {
   /** What somebody is doing this frame, as an action of the characters module. */
   private actionOf(a: Actor, walking: boolean): CharAction {
     const r = a.kind === 'resident' ? (a as Resident) : null;
-    if (r?.seat) return 'sit';
+    if (r?.seat || (a.kind === 'player' && this.sim.playerSeat)) return 'sit';
     if (walking) return r?.doing?.kind === 'jog' ? 'run' : 'walk';
     if (this.speaking && (this.speaking === a.id || (a.kind === 'player' && this.speaking === 'player'))) return 'talk';
     const d = r?.doing;
@@ -2209,6 +2261,7 @@ export class TownEngine3D {
   private headingFor(a: Actor): number {
     const r = a.kind === 'resident' ? (a as Resident) : null;
     if (r?.seat) return octantHeading(r.seat.oct);
+    if (a.kind === 'player' && this.sim.playerSeat) return octantHeading(this.sim.playerSeat.oct);
     // the sim's own body direction: walking, it steers round corners (no walking sideways); standing, it eases round
     let h = a.yaw ?? octantHeading(a.oct);
     if (a.moving) return h;
@@ -2255,7 +2308,7 @@ export class TownEngine3D {
     }
     // drawn where the sim has them; a small hop while standing (backing onto a seat, up off it) is eased. Seated,
     // the hips sit a little forward of the seat's middle (the knees clear its front edge), as high as its top
-    const seat = a.kind === 'resident' ? (a as Resident).seat : null;
+    const seat = a.kind === 'resident' ? (a as Resident).seat : a.kind === 'player' ? this.sim.playerSeat : null;
     p.wasSeated = p.seated;
     p.seated = !!seat;
     let tx = a.x;
@@ -2795,6 +2848,12 @@ export class TownEngine3D {
       const at = this.headAt(this.speaking === 'player' ? 'player' : talking.id, who);
       drawTalkBubble(ctx, pal, at.x, Math.max(this.safe.top + 44, at.y + 2), this.t, this.still);
     }
+    // a scene overheard (docs/town.md §19): the bubble over whichever of the two is speaking
+    const aside = this.speaking && this.sim.inAside(this.speaking) ? this.sim.residents.get(this.speaking as PlaceId) : undefined;
+    if (aside && !aside.hidden) {
+      const at = this.headAt(aside.id, aside);
+      drawTalkBubble(ctx, pal, at.x, Math.max(this.safe.top + 44, at.y + 2), this.t, this.still);
+    }
     if (!this.focus) {
       const tags: { box: TagBox; draw: (b: TagBox) => void }[] = [];
       const add = (x: number, y: number, text: string, o: Omit<Parameters<typeof drawTag>[5], 't' | 'still' | 'font'>, alt?: number) => {
@@ -2816,10 +2875,12 @@ export class TownEngine3D {
           if (r.hidden || !this.inTown(r.place.id)) continue;
           const id = r.place.id;
           const hot = (hover?.kind === 'resident' && hover.placeId === id) || (this.near?.kind === 'resident' && this.near.placeId === id);
-          const its = id === this.hint ? 0 : hot ? 1 : !r.lodger && gridDistance(p.x, p.y, r.x, r.y) < NAME_NEAR ? 2 : 9;
+          // (the two overheard from a bench are named, lodgers or not: the panel shows their faces by name)
+          const heard = this.sim.inAside(id);
+          const its = id === this.hint ? 0 : hot || heard ? 1 : !r.lodger && gridDistance(p.x, p.y, r.x, r.y) < NAME_NEAR ? 2 : 9;
           if (its !== rank) continue;
           const at = this.headAt(r.id, r);
-          add(at.x, at.y, r.lodger ? tl`${r.place.resident} · ở nhà trọ` : r.place.resident, { marker: this.state.marker[r.place.id], hover: hot }, feetAt(r));
+          add(at.x, at.y, r.lodger && !heard ? tl`${r.place.resident} · ở nhà trọ` : r.place.resident, { marker: heard ? undefined : this.state.marker[r.place.id], hover: hot }, feetAt(r));
         }
       }
       const actHot = hover?.kind === 'activity' ? hover.id : this.near?.kind === 'activity' ? this.near.id : null;

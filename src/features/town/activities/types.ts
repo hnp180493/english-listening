@@ -61,4 +61,11 @@ export interface ActivityPanelProps {
   onScene?: (scene: { placeId: string; spot: SceneSpot | null; wedding: boolean }) => void;
   /** The scene is over (or left): the camera back on the player; `celebrate` for a yes, a proposal, a wedding. */
   onSceneEnd?: (end: { placeId: string; celebrate: boolean }) => void;
+  /**
+   * A "cảnh nghe" (docs/town.md §19) begins at the thing the player used (`focus`): they sit down on it, `who`
+   * (place ids) come and talk nearby. Null: it is over, everybody goes back to what they did.
+   */
+  onListen?: (who: readonly string[] | null) => void;
+  /** Who is speaking now in a "cảnh nghe" (a place id; null = nobody): the stage shows it over their head. */
+  onSpeaking?: (who: string | null) => void;
 }

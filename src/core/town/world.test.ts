@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { EVENT_SCENES, OVERHEARD_SCENES, RADIO_SCENES } from '../../data/scenes';
 import { TOWN_PLACES } from '../../data/town';
 import { benchNumber, DECORATION_IDS, thingKind, TOWN_WORLD, WORLD_THINGS } from '../../data/townWorld';
-import { bodyFits } from '../../features/town/engine/sim';
+import { bodyFits, TownSim } from '../../features/town/engine/sim';
+import { buildAudioInventory, defaultInventoryContent } from '../audioInventory';
 import { BODY_RADIUS, walkWorld } from './colliders';
 import { walkable } from './map';
 import { emptyTownProgress, parseTownProgress, townDay, updateDaily } from './progress';
@@ -152,24 +153,97 @@ describe('the things to use (data/townWorld WORLD_THINGS)', () => {
   });
 });
 
-describe('how a scene’s line is said', () => {
-  it('a resident in their own voice (a clip to ship), the radio’s presenter in the browser’s voice of his sex', () => {
-    expect(sceneVoice('cafe')).toEqual({ voice: CAST_VOICES.cafe, ships: true });
-    expect(sceneVoice('marcus')).toEqual({ voice: { voice: 'scene-marcus', gender: 'male' }, ships: false });
+describe('how a scene’s line is said: the browser’s voice, never a clip', () => {
+  it('each speaker has a voice name of the scene’s own and their sex; nobody unknown', () => {
+    expect(sceneVoice('cafe')).toEqual({ voice: 'scene-cafe', gender: 'female' });
+    expect(sceneVoice('station')).toEqual({ voice: 'scene-station', gender: 'male' });
+    expect(sceneVoice('marcus')).toEqual({ voice: 'scene-marcus', gender: 'male' });
     expect(sceneVoice('nobody')).toBeNull();
     expect(sceneVoice('toString')).toBeNull();
-    const line = RADIO_SCENES[0].lines[0];
-    const p = sceneLinePlayback(line, 2);
-    expect(p.ships).toBe(false);
-    expect(p.options).toMatchObject({ mode: 'connected', browserOnly: true });
-    const careful = sceneLinePlayback(OVERHEARD_SCENES[0].lines[0], 1, true);
-    expect(careful.text).toBe(OVERHEARD_SCENES[0].lines[0].text);
-    expect(careful.options).toMatchObject({ mode: 'careful', browserOnly: true });
-    expect(careful.ships).toBe(true);
+    // no Gemini voice has such a name: no clip is ever looked up or made under it
+    const gemini = new Set(Object.values(CAST_VOICES).map((v) => v.voice));
+    for (const who of [...Object.keys(CAST_VOICES), 'marcus']) expect(gemini.has(sceneVoice(who)!.voice)).toBe(false);
   });
 
-  it('no clip is ever looked up or made under a heard-only speaker’s name: it is no Gemini voice', () => {
-    const names = new Set(Object.values(CAST_VOICES).map((v) => v.voice));
-    expect(names.has('scene-marcus')).toBe(false);
+  it('connected by default, the written text slowly for the careful version, never a paid request', () => {
+    const line = OVERHEARD_SCENES[0].lines[0];
+    expect(sceneLinePlayback(line, 2).options).toMatchObject({ mode: 'connected', browserOnly: true });
+    const careful = sceneLinePlayback(line, 1, true);
+    expect(careful.text).toBe(line.text);
+    expect(careful.options).toMatchObject({ mode: 'careful', browserOnly: true });
+    expect(sceneLinePlayback(RADIO_SCENES[0].lines[0], 2).options.voice).toEqual({ voice: 'scene-marcus', gender: 'male' });
+  });
+
+  it('no scene line is in the clip inventory (the owner: heard for fun, no tokens spent on voices)', () => {
+    const said = new Set([...OVERHEARD_SCENES, ...RADIO_SCENES, ...EVENT_SCENES].flatMap((s) => s.lines.map((l) => sceneLinePlayback(l, s.level).text)));
+    const clips = buildAudioInventory(defaultInventoryContent()).clips;
+    expect(clips.length).toBeGreaterThan(5000);
+    expect(clips.filter((c) => (c.voice ?? '').startsWith('scene-'))).toEqual([]);
+    // (a scene line may share its words with a clip of another exercise; none is there BECAUSE of a scene)
+    expect(clips.filter((c) => c.refs.some((r) => /(^|:)(oh|fm|ev)-/.test(r))).length).toBe(0);
+    expect(said.size).toBeGreaterThan(400);
+  });
+});
+
+describe('a scene heard from a seat: the player sits, two residents talk aside (engine/sim.ts)', () => {
+  const seats = TOWN_WORLD.life!.seats;
+  const plaza = seats.filter((s) => Math.floor(s.x) === 33 && Math.floor(s.y) === 34);
+  const make = () => {
+    const sim = new TownSim(TOWN_WORLD, () => 0.5, TOWN_WORLD.start, { life: true });
+    sim.setState({ built: TOWN_PLACES.map((p) => p.id), decorations: [] });
+    return sim;
+  };
+
+  it('the player sits on the seat and gets up at the first key, back in front of it', () => {
+    const sim = make();
+    expect(plaza.length).toBe(2);
+    expect(sim.sitPlayer(plaza[0])).toBe(true);
+    expect(sim.playerSeat).toBe(plaza[0]);
+    expect([sim.player.x, sim.player.y]).toEqual([plaza[0].x, plaza[0].y]);
+    for (let i = 0; i < 30; i++) sim.update(1 / 30);
+    expect(sim.playerSeat).toBe(plaza[0]);
+    sim.steer({ x: 1, y: 0 });
+    sim.update(1 / 30);
+    expect(sim.playerSeat).toBeNull();
+    expect(Math.floor(sim.player.x)).toBe(plaza[0].from.x);
+    expect(bodyFits(sim.player.x, sim.player.y, BODY_RADIUS, sim.world)).toBe(true);
+    sim.steer(null);
+  });
+
+  it('the bench is the player’s while they sit: nobody takes the seat beside them', () => {
+    const sim = make();
+    sim.sitPlayer(plaza[0]);
+    // a long while of the town's life
+    for (let i = 0; i < 60 * 90; i++) sim.update(1 / 30);
+    for (const r of sim.residents.values()) expect(r.seat && Math.floor(r.seat.x) === 33 && Math.floor(r.seat.y) === 34, r.place.id).toBeFalsy();
+    sim.standPlayer();
+    expect(sim.playerSeat).toBeNull();
+  });
+
+  it('the two who are overheard come to their spots, stay turned to each other, and go back to their day after', () => {
+    const sim = make();
+    sim.sitPlayer(plaza[0]);
+    const spots = [
+      { x: 35.6, y: 33.83 },
+      { x: 35.6, y: 34.83 },
+    ];
+    sim.talkAside(['station', 'park'], spots, [
+      { x: 40.6, y: 33.83 },
+      { x: 40.6, y: 34.83 },
+    ]);
+    expect(sim.inAside('station')).toBe(true);
+    expect(sim.inAside('cafe')).toBe(false);
+    for (let i = 0; i < 30 * 12; i++) sim.update(1 / 30);
+    const sam = sim.residents.get('station')!;
+    const lily = sim.residents.get('park')!;
+    expect(Math.hypot(sam.x - spots[0].x, sam.y - spots[0].y)).toBeLessThan(0.3);
+    expect(Math.hypot(lily.x - spots[1].x, lily.y - spots[1].y)).toBeLessThan(0.3);
+    // they stay there however long the scene lasts
+    for (let i = 0; i < 30 * 40; i++) sim.update(1 / 30);
+    expect(Math.hypot(sam.x - spots[0].x, sam.y - spots[0].y)).toBeLessThan(0.3);
+    expect(sam.engaged && lily.engaged).toBe(true);
+    sim.endAside();
+    expect(sim.inAside('station')).toBe(false);
+    expect(sam.engaged || lily.engaged).toBe(false);
   });
 });

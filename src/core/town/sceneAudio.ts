@@ -1,7 +1,11 @@
-// How a line of a "cảnh nghe" (./sceneTypes) is said: a resident in their own Gemini voice (./voices: a shipped clip
-// once the owner generates them, the browser's voice of their sex until then), somebody only heard (SCENE_VOICES) in
-// the browser's voice of their sex, always. Connected by default (anything shown decoded must sound decoded:
-// core/playback.ts); the careful version only after the questions.
+// How a line of a "cảnh nghe" (./sceneTypes) is said: ALWAYS in the browser's voice, never a Gemini clip. The owner,
+// 2026-11-25: "mấy phần này nghe cho vui nên không cần xài giọng gemini, bỏ ra đi khỏi tốn token tạo giọng". So no
+// scene line is in the clip inventory (core/audioInventory), none is ever generated, and none makes a paid request.
+// Each speaker still has a voice of their own among the browser's voices of their sex (tts.ts pickSpeakerVoice).
+//
+// Connected by default (anything shown decoded must sound decoded: core/playback.ts); the careful version only after
+// the questions. A browser voice reads word by word and reduces little: these scenes are for following a talk, not
+// the place to train the ear on connected speech (that is Chép chính tả and the residents' own episodes).
 
 import { dictationAudio } from '../../features/dictation/decodeCache';
 import { CAREFUL_RATE } from '../playback';
@@ -12,29 +16,21 @@ import { CAST_VOICES } from './voices';
 export interface SceneLinePlayback {
   text: string;
   options: SpeakOptions;
-  /** A resident's line: its clip ships once generated (core/audioInventory). False: the browser's voice only. */
-  ships: boolean;
-}
-
-/** The voice of whoever says a scene's line; null for a speaker nobody knows (the learner's own voice then). */
-export function sceneVoice(who: string): { voice: SpeakVoice; ships: boolean } | null {
-  const cast = Object.hasOwn(CAST_VOICES, who) ? CAST_VOICES[who] : undefined;
-  if (cast) return { voice: cast, ships: true };
-  const heard = Object.hasOwn(SCENE_VOICES, who) ? SCENE_VOICES[who] : undefined;
-  // a name of its own (not a Gemini voice's): no clip is ever looked up or made under it, and the browser gives each
-  // such speaker a voice of their own among those of their sex
-  return heard ? { voice: { voice: `scene-${who}`, gender: heard.gender }, ships: false } : null;
 }
 
 /**
- * What to pass to speak() for a line: `speak(p.text, p.options)`. `browserOnly` always: a scene never makes a paid
- * request (shipped clips still play).
+ * The voice of whoever says a scene's line: a name of the scene's own (`scene-<who>`, no Gemini voice's name, so no
+ * clip is ever looked up or made under it) and the speaker's sex, a resident's (./voices) or a heard-only speaker's
+ * (SCENE_VOICES). Null for a speaker nobody knows (the learner's own voice then).
  */
+export function sceneVoice(who: string): SpeakVoice | null {
+  const gender = (Object.hasOwn(CAST_VOICES, who) ? CAST_VOICES[who] : undefined)?.gender ?? (Object.hasOwn(SCENE_VOICES, who) ? SCENE_VOICES[who] : undefined)?.gender;
+  return gender ? { voice: `scene-${who}`, gender } : null;
+}
+
+/** What to pass to speak() for a line: `speak(p.text, p.options)`. `browserOnly` always. */
 export function sceneLinePlayback(line: Pick<SceneLine, 'who' | 'text' | 'say'>, level: number, careful = false): SceneLinePlayback {
   const audio = dictationAudio({ text: line.text, level, ...(line.say ? { say: line.say } : {}) });
-  const v = sceneVoice(line.who);
-  const voice = v?.voice ?? null;
-  return careful
-    ? { text: audio.careful.trim(), options: { mode: 'careful', rate: CAREFUL_RATE, voice, browserOnly: true }, ships: !!v?.ships }
-    : { text: audio.connected.trim(), options: { mode: 'connected', voice, browserOnly: true }, ships: !!v?.ships };
+  const voice = sceneVoice(line.who);
+  return careful ? { text: audio.careful.trim(), options: { mode: 'careful', rate: CAREFUL_RATE, voice, browserOnly: true } } : { text: audio.connected.trim(), options: { mode: 'connected', voice, browserOnly: true } };
 }

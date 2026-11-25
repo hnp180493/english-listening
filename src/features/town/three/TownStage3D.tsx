@@ -468,6 +468,10 @@ export default function TownStage3D({
         engineRef.current?.endTalk();
       },
       meet: (placeId, ready) => (flatRef.current ? false : (engineRef.current?.meet(placeId, ready) ?? false)),
+      listenFrom: (spot, who) => (flatRef.current ? false : (engineRef.current?.listenFrom(spot, who) ?? false)),
+      endListen: () => {
+        if (!flatRef.current) engineRef.current?.endListen();
+      },
       crowd: (except) => {
         if (!flatRef.current) engineRef.current?.crowd(except);
       },
