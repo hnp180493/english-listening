@@ -4,7 +4,7 @@
 // the camera, glowing halos and fireflies). Characters are added by the engine.
 
 import { BufferGeometry, CanvasTexture, DirectionalLight, Float32BufferAttribute, Group, HemisphereLight, Mesh, Object3D, PointLight, Points, PointsMaterial, AdditiveBlending, Scene, type Material } from 'three';
-import { groundHeight, type ActivitySpotId, type PlaceId, type TownWorld } from '../../../../data/townWorld';
+import { BUS_THING, groundHeight, type ActivitySpotId, type PlaceId, type TownWorld } from '../../../../data/townWorld';
 import { EXTRA_DECOR } from '../../engine/extraDecor';
 import type { StageState } from '../../engine/sim';
 import { hash2, middleOf } from './coords';
@@ -357,6 +357,8 @@ export class TownScene {
     for (const pc of this.reuse('scenery', () => buildScenery(world)) as Piece[]) add(pc, '', 0);
     this.activities.clear();
     for (const [id, spot] of Object.entries(world.activities ?? {}) as [ActivitySpotId, NonNullable<TownWorld['activities']>[ActivitySpotId]][]) {
+      // the bus is a thing only while it stands there (with the bus station)
+      if (id === BUS_THING && !station) continue;
       // a thing to use (a bench, the radio: townWorld WORLD_THINGS) gives its own box, raised with the ground
       if (spot.box) {
         const q = spot.box;

@@ -261,6 +261,16 @@ const page: Record<string, string> = {
   'Buổi này chờ {} được xây xong.': 'This one waits for {0} to be built.',
   'Tới dự': 'Go',
   'Hôm nay không có buổi gặp mặt nào. Ghế và radio thì ngày nào cũng có chuyện để nghe.': 'No get-together today. The benches and the radio have something to hear every day.',
+  'Nghe trên xe buýt': 'Listening on the bus',
+  'thị trấn': 'town',
+  'Xe số 9 đang chờ ở bến. Lên xe là tới {}.': 'The no. 9 bus is waiting at the stop. Get on and you are in {0}.',
+  'Đi {}': 'Go to {0}',
+  'Xuống xe ở {}': 'Get off at {0}',
+  'Đi luôn, không nghe': 'Just go, no listening',
+  'Lên xe buýt số 9': 'Take bus no. 9',
+  'Đang lên xe số 9…': 'Getting on the no. 9…',
+  'Xe số 9 đi Westbay đang chờ ở bến xe.': 'Bus no. 9 to Westbay is waiting at the bus station.',
+  'Ra bến xe': 'To the bus station',
 };
 
 export default page;

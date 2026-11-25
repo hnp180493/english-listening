@@ -19,6 +19,27 @@ export const smooth = (a: number, b: number, t: number) => {
   return k * k * (3 - 2 * k);
 };
 
+/**
+ * How a world's range is cut (TownWorld.range): where its passes are (the tile along the north side, x, and along the
+ * west side, z), whether the falls come down its west side, and whether a road runs on through each pass (then the
+ * pass is a level cutting right through the range: the way a bus leaves by).
+ */
+export interface RangeShape {
+  north: readonly number[];
+  west: readonly number[];
+  falls: boolean;
+  roads: boolean;
+}
+
+/** The town's: the passes the farm lane (north, x 53) and the shore walk (west, z 32) leave the map by, and the falls. */
+export const TOWN_RANGE: RangeShape = { north: [53.5], west: [32.5], falls: true, roads: false };
+
+/** A road through a pass climbs this much a tile, from the map's edge (a gentle hill road). */
+export const ROAD_CLIMB = 0.045;
+/** Half the width of the level floor of a road's cutting, and where its banks have risen back to the mountain. */
+export const CUT_FLOOR = 1.5;
+export const CUT_BANK = 5;
+
 /** Ridged noise in [0, 1]: sharp crests (the peaks and ridges of a range). */
 function ridged(x: number, z: number, seed: number): number {
   let sum = 0;
@@ -38,7 +59,7 @@ function ridged(x: number, z: number, seed: number): number {
  * through foothills to peaks of about 9 to 17 some 10 to 22 tiles out, down into the sea beyond; lower towards the
  * near ends (they fall to the coast), two passes, the cliff and ravine of the falls.
  */
-export function mountainHeight(x: number, z: number, size: number): number {
+export function mountainHeight(x: number, z: number, size: number, shape: RangeShape = TOWN_RANGE): number {
   if (x >= 0 && z >= 0) return 0;
   const d = Math.max(-x, -z);
   const u = x < 0 && z < 0 ? Math.min(-x, -z) : x < 0 ? z : x;
@@ -51,12 +72,20 @@ export function mountainHeight(x: number, z: number, size: number): number {
   let h = peaks * rise * fall * (0.25 + 0.75 * end) - (1 - fall) * 2.5 - (1 - end) * smooth(4, 20, d) * 3;
   // foothills: gentle bumps close to the island
   h += (valueNoise(x * 0.35, z * 0.35, 44) - 0.45) * 1.2 * smooth(0.5, 4, d) * (1 - smooth(6, 12, d));
-  // the passes the farm lane (north, x 53) and the shore walk (west, z 32) leave the map by
+  // the passes: a dip in the range, or (a road) a level cutting right through it, climbing gently from the map's edge
   const pass = (along: number, at: number) => Math.exp(-((along - at) ** 2) / 22) * (1 - smooth(10, 20, d));
-  if (z < 0 && x >= 0) h *= 1 - 0.8 * pass(x, 53.5);
-  if (x < 0 && z >= 0) h *= 1 - 0.8 * pass(z, 32.5);
+  const cut = (along: number, at: number) => {
+    const k = 1 - smooth(CUT_FLOOR, CUT_BANK, Math.abs(along - at));
+    if (k > 0) h = h * (1 - k) + Math.min(h, d * ROAD_CLIMB) * k;
+  };
+  const through = (along: number, at: number) => {
+    if (shape.roads) cut(along, at);
+    else h *= 1 - 0.8 * pass(along, at);
+  };
+  if (z < 0 && x >= 0) for (const at of shape.north) through(x, at);
+  if (x < 0 && z >= 0) for (const at of shape.west) through(z, at);
   // the falls (west, row 41): a ravine whose floor is level at the top of the falls, a cliff, a pool at its foot
-  if (x < 0 && z >= 0) {
+  if (shape.falls && x < 0 && z >= 0) {
     const across = Math.abs(z - FALLS_Z);
     if (across < 4.5) {
       const ravine = 1 - smooth(1.2, 4.5, across);

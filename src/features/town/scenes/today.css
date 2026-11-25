@@ -35,3 +35,11 @@
   font-size: var(--fs-sm);
   line-height: 1.45;
 }
+
+/* bus no. 9 to Westbay (docs/town.md §20), under the day's get-together */
+.town-day-bus {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}

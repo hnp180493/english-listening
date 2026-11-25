@@ -186,10 +186,11 @@ export function areaOf(relPath) {
     if (seg[1] !== 'town') return `ui/${seg[1]}`
     if (seg[2] === 'activities') return 'town/activities'
     if (seg[2] === 'friends' || seg[2] === 'romance') return 'town/people'
+    if (seg[2] === 'city') return 'town/city'
     return 'town/page'
   }
   if (seg[0] === 'core') {
-    if (seg[1] === 'town') return 'town/rules'
+    if (seg[1] === 'town') return /^city/.test(base) ? 'town/city' : 'town/rules'
     if (seg[1] === 'ai' || base === 'aiTasks') return 'ui/ai'
     if (seg[1] === 'cloud') return 'ui/cloud'
     if (seg[1] === 'decoder' || seg[1] === 'dictation' || seg[1] === 'review') return `ui/${seg[1]}`
@@ -203,6 +204,7 @@ export function areaOf(relPath) {
     if (seg[1] === 'streetTalks') return 'town/street-talks'
     if (seg[1] === 'cases') return 'town/cases'
     if (seg[1] === 'scenes') return 'town/scenes'
+    if (seg[1] === 'city' || base === 'cityWorld') return 'town/city'
     if (/^town/.test(base)) return `town/data-${base.replace(/^town/, '').toLowerCase() || 'town'}`
     return `content/${base}`
   }
@@ -214,7 +216,7 @@ export function areaOf(relPath) {
  * new one here when it appears; in the files of UNACCENTED_NOT it is English being taught, not interface text.
  */
 export const UNACCENTED = new Set(['Nghe', 'Nghe:', 'Nghe: {}', 'Nghe, {}', 'Nghe "{}"', 'Nghe "{}" ({})', 'Nghe {}', 'Nghe “{}”', 'nghe: {}', 'Nghe 1.0×', 'Nghe & xem', 'Sai', 'sai', 'Xong', '(xong)', 'Mua', 'Mua {}, {}{}', 'Giao', 'trong', '· trong', 'xu', '{} xu', 'con', 'Nam', 'Hai', 'Ba', 'Nay', 'Mai', 'Con trai', 'Ghi nhanh', 'Tin vui', 'Ngon!', '1,5× nhanh', 'sau {}', '{} tim', '· {} tim', '{}/{} tim', '{}/8 tim', 'Anh', 'Video: {}', 'Link video YouTube', 'Nam Phi', 'Phim/series', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'])
-const UNACCENTED_NOT = new RegExp('^src/(core/(decoder|dictation)/|core/aiTasks|core/backup|data/(?!town|romance|stories|streetTalks|cases))')
+const UNACCENTED_NOT = new RegExp('^src/(core/(decoder|dictation)/|core/aiTasks|core/backup|data/(?!town|city|romance|stories|streetTalks|cases))')
 
 /** Strings the app never shows as interface text (messages for the console, prompts for the model, tables of sounds). */
 const SKIP_FILES = new Set(['src/core/aiTasks.ts'])

@@ -26,13 +26,13 @@ export interface SceneQuestion {
   answer: number;
 }
 
-export type SceneKind = 'overheard' | 'radio' | 'event';
+export type SceneKind = 'overheard' | 'radio' | 'event' | 'ride';
 
 /** Rain or shine (core/town/world.ts weatherOf): a radio forecast is only read on a day it is true of. */
 export type Weather = 'clear' | 'cloudy' | 'rain';
 
 export interface ListenScene {
-  /** `oh-<n>` (overheard), `fm-<n>` (radio), `ev-<event>-<n>` (a get-together). */
+  /** `oh-<n>` (overheard), `fm-<n>` (radio), `ev-<event>-<n>` (a get-together), `co-<n>` (overheard in the city), `rd-<n>` (on bus no. 9). */
   id: string;
   kind: SceneKind;
   /** A short Vietnamese title, shown only after the scene is heard (never gives the answer away before). */
@@ -52,6 +52,8 @@ export interface ListenScene {
   weekday?: number;
   /** The get-together this belongs to (core/town/world.ts TOWN_EVENTS). */
   event?: string;
+  /** A ride on bus no. 9: which way it goes (to the city, or back to the town). */
+  to?: 'city' | 'town';
 }
 
 /** Somebody only heard: a name for the tag, and the sex of the browser voice that reads them. */
@@ -67,4 +69,10 @@ export interface SceneVoice {
  */
 export const SCENE_VOICES: Readonly<Record<string, SceneVoice>> = {
   marcus: { name: 'Marcus · Bay FM', gender: 'male' },
+  // Westbay (docs/city.md): heard, never met
+  dot: { name: 'Dot', gender: 'female' },
+  tannoy: { name: 'Loa nhà ga', gender: 'female' },
+  bus9: { name: 'Loa xe buýt', gender: 'female' },
+  rider1: { name: 'Hành khách', gender: 'male' },
+  rider2: { name: 'Hành khách', gender: 'female' },
 };

@@ -4,9 +4,9 @@ import { thingKind } from '../../../data/townWorld';
 import { TOWN_EVENTS } from '../../../core/town/world';
 
 /** Vietnamese; the callers put them through the interface language (tr). */
-const NAMES = { bench: 'Ghế: ngồi nghe', radio: 'Radio Bay FM' } as const;
-const PROMPTS = { bench: 'Ngồi xuống nghe', radio: 'Nghe radio' } as const;
-const TITLES = { bench: 'Ngồi nghe', radio: 'Radio Bay FM' } as const;
+const NAMES = { bench: 'Ghế: ngồi nghe', radio: 'Radio Bay FM', bus: 'Xe buýt số 9' } as const;
+const PROMPTS = { bench: 'Ngồi xuống nghe', radio: 'Nghe radio', bus: 'Lên xe buýt số 9' } as const;
+const TITLES = { bench: 'Ngồi nghe', radio: 'Radio Bay FM', bus: 'Xe buýt số 9' } as const;
 
 /** The name over a thing in the world, or null when `id` is no thing. */
 export function thingName(id: string): string | null {

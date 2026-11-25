@@ -1,0 +1,109 @@
+/* Westbay (docs/town.md §20): what the city's page adds to the town's own styles (town.css). */
+
+.city-day {
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.city-welcome-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.city-ep-kicker {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+/* ── "Người quen" ── */
+.city-people {
+  display: grid;
+  gap: var(--space-4, 16px);
+}
+
+.city-people-part {
+  display: grid;
+  gap: var(--space-2, 8px);
+}
+
+.city-people-head {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.city-who-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2, 8px);
+}
+
+.city-who {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: var(--space-3, 12px);
+  align-items: center;
+}
+
+.city-who.is-new .town-portrait,
+.city-who.is-new canvas {
+  opacity: 0.55;
+}
+
+.city-who-text {
+  min-width: 0;
+}
+
+.city-who-name {
+  margin: 0;
+  font-weight: 600;
+  display: flex;
+  gap: var(--space-2, 8px);
+  align-items: baseline;
+}
+
+.city-who-count {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.city-who-role,
+.city-who-status {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.city-who-status.is-on {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── without the 3D world ── */
+.city-flat {
+  display: grid;
+  gap: var(--space-3, 12px);
+  justify-items: start;
+}
+
+.city-flat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+}

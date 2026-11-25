@@ -151,6 +151,9 @@ const rules: Record<string, string> = {
   'Trời nắng': 'Sunny',
   'Trời nhiều mây': 'Cloudy',
   'Trời mưa': 'Rain',
+  'Loa nhà ga': 'Station speaker',
+  'Loa xe buýt': 'Bus speaker',
+  'Hành khách': 'Passenger',
 };
 
 export default rules;

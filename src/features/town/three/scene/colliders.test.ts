@@ -8,7 +8,8 @@
 import { describe, expect, it } from 'vitest';
 import type { BufferGeometry } from 'three';
 import { boundsOfCollider, collidersOf, distanceTo, TREE_R, walkWorld, type WalkState } from '../../../../core/town/colliders';
-import { canStep, NEIGHBOURS, shoreDistance, SHORE_STAND, walkable } from '../../../../core/town/map';
+import { canStep, findPath, NEIGHBOURS, shoreDistance, SHORE_STAND, walkable } from '../../../../core/town/map';
+import { CITY_DECOR_ON, CITY_PLACE_IDS, CITY_ROWS, CITY_SIZE, CITY_VISIT_SPOTS, cityWorldWith } from '../../../../data/cityWorld';
 import { DECORATION_IDS, PLACE_IDS, TOWN_WORLD, type Collider, type TownWorld } from '../../../../data/townWorld';
 import { EXTRA_DECOR } from '../../engine/extraDecor';
 import { bodyFits, moveCircle, PLAYER_RADIUS, projectColliders, TownSim } from '../../engine/sim';
@@ -358,3 +359,79 @@ function inside(world: TownWorld, x: number, y: number): boolean {
   }
   return true;
 }
+
+// Westbay (data/cityWorld.ts, docs/town.md §20): the lesson of the town's unseen walls applied from the first day.
+describe('the city: only what is drawn blocks, and everybody can be reached', () => {
+  const guests = Object.keys(CITY_VISIT_SPOTS).map((id) => ({ id, name: id }));
+  const base = cityWorldWith(guests);
+  const state = { built: [...CITY_PLACE_IDS, ...guests.map((g) => g.id), 'station'], decorations: [...CITY_DECOR_ON] };
+  const sim = new TownSim(base, () => 0.5, base.start, { life: false });
+  sim.setState(state);
+  const world = sim.world;
+
+  it('the map is square, every door and every spot is open ground a body fits on', () => {
+    expect(CITY_ROWS.length).toBe(CITY_SIZE);
+    for (const r of CITY_ROWS) expect(r.length).toBe(CITY_SIZE);
+    const stand = (t: { x: number; y: number }, what: string) => {
+      expect(walkable(t, world), `${what} at ${t.x},${t.y} is walkable`).toBe(true);
+      expect(bodyFits(t.x + 0.5, t.y + 0.5, PLAYER_RADIUS, world), `${what} at ${t.x},${t.y} fits a body`).toBe(true);
+    };
+    stand(base.start, 'the bus stop');
+    for (const p of base.places) {
+      expect(p.face, p.id).toBe('y');
+      expect(p.door.y, `${p.id}: the door is in front of the +y face`).toBe(p.y + p.d);
+      expect(p.door.x >= p.x && p.door.x < p.x + p.w, `${p.id}: the door is along the face`).toBe(true);
+      stand(p.door, `${p.id}'s door`);
+      stand(p.spot, `${p.id}'s spot`);
+    }
+    for (const g of base.guests ?? []) stand(g.spot, `${g.id}'s visiting spot`);
+    for (const [id, a] of Object.entries(base.activities ?? {})) stand(a.stand, id);
+    for (const s of base.life?.seats ?? []) stand(s.from, 'a seat');
+    for (const pair of base.life?.chats ?? []) for (const t of pair) stand(t, 'a chat spot');
+    for (const list of [base.life?.tend, base.life?.read, base.life?.shop]) for (const s of list ?? []) stand(s.at, 'a life spot');
+    for (const t of [...(base.life?.jog ?? []), ...(base.life?.ends ?? []), ...(base.life?.via ?? [])]) stand(t, 'a walk point');
+  });
+
+  it('nothing stands on a street, a square or in front of a door; no two things share a tile', () => {
+    const taken = new Map<string, string>();
+    const take = (t: { x: number; y: number }, what: string) => {
+      const k = `${Math.floor(t.x)},${Math.floor(t.y)}`;
+      expect(taken.get(k), `${what} and ${taken.get(k)} at ${k}`).toBeUndefined();
+      taken.set(k, what);
+    };
+    for (const p of base.places) for (let y = p.y; y < p.y + p.d; y++) for (let x = p.x; x < p.x + p.w; x++) take({ x, y }, `place ${p.id}`);
+    base.props.forEach((p, i) => p.tiles.forEach((t) => take(t, `prop ${i} ${p.kind}`)));
+    (base.scenery ?? []).forEach((s, i) => s.tiles.forEach((t) => take(t, `scenery ${i} ${s.kind}`)));
+    for (const [id, spots] of Object.entries(base.decorations)) spots.forEach((s, i) => s.solid && take(s, `decor ${id} ${i}`));
+    for (const p of base.places) for (const t of [p.door, p.spot]) expect(taken.get(`${t.x},${t.y}`), `${p.id}: ${t.x},${t.y}`).toBeUndefined();
+    // a block or a place never stands on a street
+    for (const [k, what] of taken) {
+      const [x, y] = k.split(',').map(Number);
+      if (what.startsWith('place') || what.includes('block')) expect('.Tt', `${what} at ${k} on ${CITY_ROWS[y][x]}`).toContain(CITY_ROWS[y][x] === 'o' && what.startsWith('place') ? '.' : CITY_ROWS[y][x]);
+    }
+  });
+
+  it('from the bus there is a way to everybody and every thing', () => {
+    for (const p of [...base.places, ...(base.guests ?? [])]) expect(findPath(base.start, p.spot, world).length, `to ${p.id}`).toBeGreaterThan(0);
+    for (const [id, a] of Object.entries(base.activities ?? {})) if (a.stand.x !== base.start.x || a.stand.y !== base.start.y) expect(findPath(base.start, a.stand, world).length, `to ${id}`).toBeGreaterThan(0);
+  });
+
+  it('keys walking anywhere in the city stop only at something there', { timeout: 120000 }, () => {
+    const dirs = Array.from({ length: 8 }, (_, k) => ({ x: Math.cos((k * Math.PI) / 4), y: Math.sin((k * Math.PI) / 4) }));
+    const invisible: string[] = [];
+    let starts = 0;
+    for (let y = 1; y < base.size; y += 2) {
+      for (let x = 1; x < base.size; x += 2) {
+        const s = { x: x + 0.5, y: y + 0.5 };
+        if (!bodyFits(s.x, s.y, PLAYER_RADIUS, world)) continue;
+        starts++;
+        for (const d of dirs) {
+          const at = walkInto(world, s, d);
+          if (at.why) invisible.push(`${s.x},${s.y} → (${d.x.toFixed(2)},${d.y.toFixed(2)}) stopped at ${at.x.toFixed(2)},${at.y.toFixed(2)}`);
+        }
+      }
+    }
+    expect(starts).toBeGreaterThan(250);
+    expect(invisible.slice(0, 12)).toEqual([]);
+  });
+});

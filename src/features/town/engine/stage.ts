@@ -3,7 +3,7 @@
 // browser cannot draw it, the same component with `flat` (no canvases) keeps the page working without a world.
 
 import type { ReactNode, Ref } from 'react';
-import type { ActivitySpotId, PlaceId, Tile } from '../../../data/townWorld';
+import type { ActivitySpotId, PlaceId, Tile, TownWorld } from '../../../data/townWorld';
 import type { EmoteKind } from './draw/overlay';
 import type { Marker, StageState } from './sim';
 import type { TalkSetting } from './staging';
@@ -95,6 +95,8 @@ export interface TownStageHandle {
    * each other a few steps in front. False = no world, or no free seat (the scene plays all the same).
    */
   listenFrom: (spot: ActivitySpotId, who: readonly PlaceId[]) => boolean;
+  /** More people in a staged talk (the city's scenes): `who` come and stand by `host`, until endListen. */
+  joinTalk: (host: PlaceId, who: readonly PlaceId[]) => void;
   /** The scene is over: the player gets up, the ones who talked go back to their day. */
   endListen: () => void;
   /** A little picture popping up over somebody's head. */
@@ -146,6 +148,8 @@ export interface TownStageHandle {
 export type FishStagePhase = 'idle' | 'waiting' | 'bite' | 'listening' | 'caught' | 'escaped';
 
 export interface TownStageProps {
+  /** The map the stage shows: the town (the default), or the city (data/cityWorld.ts). Fixed while the stage is mounted. */
+  world?: TownWorld;
   state: StageState;
   /**
    * A resident (or their house) was clicked, or Enter / E pressed beside them: the page stages the talk (talkAt).
@@ -193,6 +197,8 @@ export interface TownStageProps {
   startAt?: Tile;
   /** For screen readers: what this picture is. */
   label?: string;
+  /** What the loading card says while the world is made (default: the town's). */
+  loading?: string;
   className?: string;
   /** Drawn over the canvas, inside the stage's box (a counter, a speech bubble): position them absolutely. */
   children?: ReactNode;

@@ -84,6 +84,7 @@ export function Portrait({
   frame,
   shape = 'round',
   fluid = false,
+  name: given,
 }: {
   placeId: CharacterId;
   size?: number;
@@ -92,6 +93,8 @@ export function Portrait({
   frame?: PortraitFrame;
   shape?: 'round' | 'card';
   fluid?: boolean;
+  /** Their name, when the id is not a town resident's (somebody of the city). */
+  name?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const framing: PortraitFrame = frame ?? (size >= 100 ? 'bust' : 'face');
@@ -112,7 +115,7 @@ export function Portrait({
     // the 3D faces have no sad expression: they stay as they are
     ctx.drawImage(renderPortrait(placeId, px, FACE_3D[mood]), 0, 0);
   }, [placeId, size, mood, look, useDrawn]);
-  const name = placeId === 'player' ? 'Bạn' : (townPlace(placeId)?.resident ?? '');
+  const name = given ?? (placeId === 'player' ? 'Bạn' : (townPlace(placeId)?.resident ?? ''));
   // in a circle a square picture loses its corners (a ponytail, a bun on one side): the picture moves down just as far
   // as that resident's head needs (measured by the script, most need nothing), the gap above in its own background colour
   const round = useDrawn && !!drawn?.bg && shape === 'round';

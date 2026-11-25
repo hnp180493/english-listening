@@ -77,7 +77,16 @@ function windowsAround(k: Kit, u: number, v: number, o: Parameters<typeof window
   windowOn(k, 'back', 0, v, { ...o, flowers: false, shutters: undefined });
 }
 
-type Recipe = (k: Kit, u: number) => number;
+/** Builds a place on its kit (the door's face is local +Z, `u` the door's offset along it) and returns its height. */
+export type Recipe = (k: Kit, u: number) => number;
+
+/** Recipes of places that are not the town's own: the city's (city/cityPlaces3d.ts registers them when its page loads). */
+const MORE_RECIPES: Record<string, Recipe> = {};
+
+/** Add recipes by place id (the city's places). The town's own cannot be replaced. */
+export function registerRecipes(more: Readonly<Record<string, Recipe>>): void {
+  for (const [id, r] of Object.entries(more)) if (!Object.hasOwn(RECIPES, id)) MORE_RECIPES[id] = r;
+}
 
 const RECIPES: Readonly<Record<PlaceId, Recipe>> = {
   // the pavilion on the plaza: a round stone floor, six posts, a scalloped roof with a lantern under it
@@ -423,7 +432,7 @@ function starGeometry(): BufferGeometry {
 /** A built place. */
 export function buildPlace(p: WorldPlace): Thing {
   const f = kitFor(p);
-  const recipe = RECIPES[p.id] ?? RECIPES.home;
+  const recipe = RECIPES[p.id] ?? (Object.hasOwn(MORE_RECIPES, p.id) ? MORE_RECIPES[p.id] : undefined) ?? RECIPES.home;
   const height = recipe(f.k, f.u);
   return finish(p, f, height);
 }

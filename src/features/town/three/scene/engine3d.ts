@@ -37,7 +37,8 @@ const DAY_PAL = paletteFor('day');
 const NIGHT_PAL = paletteFor('night');
 const EMPTY_STATE: StageState = { built: [], decorations: [], lit: {}, marker: {}, theme: 'day' };
 /** Kept for the session: coming back puts the player where they were. */
-let lastPlayerTile: Tile | null = null;
+/** (by the map's rows: the city with other guests is another world object, the same map) */
+const lastPlayerTile = new WeakMap<readonly string[], Tile>();
 
 const ZOOM_W = 6;
 /**
@@ -408,7 +409,7 @@ export class TownEngine3D {
       this.camera = new PerspectiveCamera(FOV, 1, 0.5, 300);
       // no fog: the island ends in the sky canvas behind it (a fog switched on or off later would rebuild every shader)
       this.town = new TownScene(world);
-      this.sim = new TownSim(world, Math.random, startAt ?? lastPlayerTile ?? undefined, { life: true });
+      this.sim = new TownSim(world, Math.random, startAt ?? lastPlayerTile.get(world.rows), { life: true });
       const ring = new RingGeometry(0.34, 0.44, 32);
       ring.rotateX(-Math.PI / 2);
       this.goalMesh = new Mesh(ring, new MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
@@ -796,7 +797,7 @@ export class TownEngine3D {
 
   destroy(): void {
     this.stop();
-    lastPlayerTile = { ...this.sim.player.tile };
+    lastPlayerTile.set(this.world.rows, { ...this.sim.player.tile });
     for (const p of this.people.values()) p.ch.dispose();
     this.people.clear();
     this.pet?.p.dispose();
@@ -995,6 +996,40 @@ export class TownEngine3D {
       }
     }
     return sat;
+  }
+
+  /**
+   * More people in a talk that is staged (talkAt: the city's scenes, docs/town.md §20): `who` come and stand by
+   * `host`, on the side away from the player, turned to the two. They stay until endListen. Whoever is not in the
+   * world is left out.
+   */
+  joinTalk(host: PlaceId, who: readonly PlaceId[]): void {
+    const h = this.sim.residents.get(host);
+    const here = who.filter((id) => id !== host && this.sim.residents.has(id));
+    if (!h || here.length === 0) return;
+    const p = this.sim.player;
+    const d = Math.hypot(h.x - p.x, h.y - p.y) || 1;
+    // away from the player along the line of the two, then to either side of it
+    const ax = (h.x - p.x) / d;
+    const ay = (h.y - p.y) / d;
+    const fits = (c: { x: number; y: number }) => walkable({ x: Math.floor(c.x), y: Math.floor(c.y) }, this.sim.world) && bodyFits(c.x, c.y, PLAYER_RADIUS, this.sim.world) && Math.hypot(c.x - p.x, c.y - p.y) > 0.9;
+    const tries: [number, number][] = [[1.05, 0], [0.55, 0.95], [0.55, -0.95], [-0.2, 1.15], [-0.2, -1.15], [1.9, 0], [1.3, 1.2], [1.3, -1.2]];
+    const spots: { x: number; y: number }[] = [];
+    for (const [along, side] of tries) {
+      if (spots.length >= here.length) break;
+      const c = { x: h.x + ax * along - ay * side, y: h.y + ay * along + ax * side };
+      if (fits(c) && spots.every((s) => Math.hypot(s.x - c.x, s.y - c.y) > 0.85)) spots.push(c);
+    }
+    const ids = here.slice(0, spots.length);
+    // they walk in from a few steps further off, where there is room
+    const from = spots.map((s) => {
+      for (const k of [4, 2.5]) {
+        const c = { x: s.x + ax * k, y: s.y + ay * k };
+        if (fits(c)) return c;
+      }
+      return null;
+    });
+    this.sim.talkAside(ids, spots, from);
   }
 
   /** The scene is over: the player gets up, the ones who talked go back to their day. */
@@ -2179,7 +2214,8 @@ export class TownEngine3D {
   private nearNow(still: boolean): Near {
     const p = this.sim.player;
     if (still && (p.moving || p.v > 0.05)) return null;
-    const act = this.activitySpots.find(([, a]) => Math.hypot(a.stand.x + 0.5 - p.x, a.stand.y + 0.5 - p.y) < SPOT_REACH);
+    // (a thing that is not there now, the bus before its station, is no spot: town.activities has what stands)
+    const act = this.activitySpots.find(([id, a]) => this.town.activities.has(id) && Math.hypot(a.stand.x + 0.5 - p.x, a.stand.y + 0.5 - p.y) < SPOT_REACH);
     if (act) return { kind: 'activity', id: act[0] };
     let near: Near = null;
     let best = TALK_REACH;

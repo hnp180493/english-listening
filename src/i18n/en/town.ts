@@ -16,6 +16,7 @@ import arcShop from './town/arc-shop';
 import arcSquare from './town/arc-square';
 import arcStation from './town/arc-station';
 import cases from './town/cases';
+import city from './town/city';
 import dataGame from './town/data-game';
 import dataGifts from './town/data-gifts';
 import dataStories from './town/data-stories';
@@ -39,4 +40,4 @@ import romanceStation from './town/romance-station';
 import rules from './town/rules';
 import scenes from './town/scenes';
 
-export default mergeDictionaries({ activities, arcBoard, arcCafe, arcCinema, arcClinic, arcFriend, arcHome, arcOffice, arcPark, arcPhone, arcSchool, arcShop, arcSquare, arcStation, cases, dataGame, dataGifts, dataStories, dataStreet, dataTown, dataWorld, page, people, romanceBoard, romanceCafe, romanceCinema, romanceClinic, romanceFriend, romanceKids, romanceOffice, romancePark, romanceSchool, romanceShop, romanceSquare, romanceStation, rules, scenes });
+export default mergeDictionaries({ activities, arcBoard, arcCafe, arcCinema, arcClinic, arcFriend, arcHome, arcOffice, arcPark, arcPhone, arcSchool, arcShop, arcSquare, arcStation, cases, city, dataGame, dataGifts, dataStories, dataStreet, dataTown, dataWorld, page, people, romanceBoard, romanceCafe, romanceCinema, romanceClinic, romanceFriend, romanceKids, romanceOffice, romancePark, romanceSchool, romanceShop, romanceSquare, romanceStation, rules, scenes });

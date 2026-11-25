@@ -10,8 +10,8 @@ import { hash2, middleOf } from './coords';
 import { LAMP_ARM, LAMP_HEIGHT, lampArm } from './layout';
 import { Merge, shapes, type Place } from './merge';
 import { C } from './palette3d';
-import { gableRoof, onFace, pyramid, rel, walls, windowOn, type Kit } from './kit';
-import { SCENERY_SIZE } from '../../../../core/town/colliders';
+import { flatRoof, gableRoof, onFace, pyramid, rel, walls, windowOn, type Kit } from './kit';
+import { BLOCK_INSET, SCENERY_SIZE } from '../../../../core/town/colliders';
 import { treeGeometry } from './nature';
 import { WATER_LEVEL } from './terrain';
 
@@ -820,6 +820,78 @@ function jetty(p: Parts, len: number, dir: 'x' | 'y'): void {
   m.add(shapes.torus(0.07, 0.016, 10), C.stoneDark, { x: len / 2 - 0.55, y: top + 0.015, z: -0.2, rx: Math.PI / 2 }, { ao: false });
 }
 
+/** The city's blocks (data/cityWorld.ts): wall, trim and roof colours by look. */
+const BLOCK_LOOKS: readonly { wall: ColorRepresentation; base: ColorRepresentation; roof: ColorRepresentation }[] = [
+  { wall: C.cream, base: C.stoneDark, roof: C.coral },
+  { wall: C.sky, base: C.navy, roof: C.stoneDark },
+  { wall: C.peach, base: C.woodDark, roof: C.teal },
+  { wall: C.lilac, base: C.plum, roof: C.stoneDark },
+];
+/** A storey of a block is this high; its ground floor a little higher. */
+const STOREY = 0.78;
+
+/**
+ * A block of flats or offices of the city's skyline: `h` storeys on `w` × `d` tiles, rows of windows on the two
+ * faces the viewer sees (the +y face is the kit's front, the +x face its right), a shop front at the foot, a flat
+ * roof with a water tank or a roof hut. Returns its top.
+ */
+function cityBlock(p: Parts, w: number, d: number, h: number, v: number, seed: number): number {
+  const look = BLOCK_LOOKS[((v % BLOCK_LOOKS.length) + BLOCK_LOOKS.length) % BLOCK_LOOKS.length];
+  const k: Kit = { body: p.body, glass: p.glass, bulbs: p.bulbs, W: w - BLOCK_INSET * 2, D: d - BLOCK_INSET * 2 };
+  const ground = 0.95;
+  const H = ground + (h - 1) * STOREY;
+  walls(k, H, look.wall, { plinth: look.base });
+  for (const face of ['front', 'right'] as const) {
+    const span = face === 'front' ? k.W : k.D;
+    // the ground floor: a band over wide shop windows
+    const f = onFace(k, face, 0, 0, 0.012);
+    p.body.add(shapes.box(span - 0.04, 0.1, 0.03, 0.02, 1), look.base, rel(f, 0, ground - 0.02, 0.01), { ao: false });
+    const n = Math.max(1, Math.round(span / 1.3));
+    for (let c = 0; c < n; c++) {
+      const u = -span / 2 + (span * (c + 0.5)) / n;
+      windowOn(k, face, u, 0.5, { w: Math.min(0.8, span / n - 0.3), h: 0.5, frame: look.base });
+    }
+    // the floors above: a window every 0.85 or so
+    const m = Math.max(1, Math.round(span / 0.85));
+    for (let s = 1; s < h; s++) {
+      for (let c = 0; c < m; c++) {
+        const u = -span / 2 + (span * (c + 0.5)) / m;
+        windowOn(k, face, u, ground + (s - 1) * STOREY + 0.42, { w: 0.3, h: 0.36 });
+      }
+    }
+  }
+  const top = flatRoof(k, H, look.roof, { ledge: C.trim });
+  // something on the roof: a water tank, or a little roof hut
+  const rx = (hash2(seed, 7, 5) - 0.5) * (k.W - 1);
+  const rz = (hash2(seed, 9, 5) - 0.5) * (k.D - 1);
+  if (hash2(seed, 3, 5) > 0.5) {
+    p.body.add(shapes.cyl(0.22, 0.22, 0.34, 12), C.woodLight, { x: rx, y: top + 0.3, z: rz }, { ao: false });
+    p.body.add(shapes.cone(0.26, 0.16, 12), look.roof, { x: rx, y: top + 0.55, z: rz }, { ao: false });
+    for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) p.body.add(shapes.box(0.03, 0.16, 0.03), C.metal, { x: rx + sx * 0.14, y: top + 0.08, z: rz + sz * 0.14 }, { ao: false });
+    return top + 0.65;
+  }
+  p.body.add(shapes.box(0.6, 0.4, 0.5, 0.03, 1), look.wall, { x: rx, y: top + 0.2, z: rz });
+  p.body.add(shapes.box(0.68, 0.06, 0.58, 0.02, 1), look.roof, { x: rx, y: top + 0.42, z: rz }, { ao: false });
+  return top + 0.45;
+}
+
+/** A parked taxi, `len` long along x or y: yellow, a dark band, the sign on its roof (lit). */
+function taxi(p: Parts, len: number, along: 'x' | 'y'): void {
+  // built along local X, turned for a run along y
+  const rot = new Matrix4().makeRotationY(along === 'x' ? 0 : -Math.PI / 2);
+  p.body.base = rot;
+  p.glass.base = rot;
+  p.bulbs.base = rot;
+  const m = p.body;
+  m.add(shapes.box(len, 0.26, 0.66, 0.09, 3), C.mustard, { y: 0.27 });
+  m.add(shapes.box(len * 0.52, 0.22, 0.6, 0.09, 3), C.mustard, { x: -len * 0.04, y: 0.5 });
+  m.add(shapes.box(len * 0.9, 0.05, 0.67, 0.02, 1), '#3d3f4f', { y: 0.3 }, { ao: false });
+  p.glass.add(shapes.box(len * 0.46, 0.15, 0.62, 0.03, 1), C.glass, { x: -len * 0.04, y: 0.5 });
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.add(shapes.cyl(0.12, 0.12, 0.1, 14), '#3d3f4f', { x: sx * len * 0.3, y: 0.12, z: sz * 0.3, rx: Math.PI / 2 }, { ao: false });
+  p.bulbs.add(shapes.box(0.22, 0.08, 0.1, 0.02, 1), C.glow, { x: -len * 0.04, y: 0.66 });
+  for (const sz of [-1, 1]) p.bulbs.add(shapes.sphere(0.04, 8, 6), C.glow, { x: len / 2, y: 0.3, z: sz * 0.22 });
+}
+
 /**
  * The world's scenery (WORLD_SCENERY): the farm's barn, its well and hay bales, the front gardens' fences and hedges,
  * stones and bushes, the ducks on the lake. The hill is the ground's (terrain). What stands up is as big as its
@@ -942,6 +1014,23 @@ export function buildScenery(world: TownWorld): Piece[] {
         const along = s.dir === 'y' ? 'y' : 'x';
         boat(p, along);
         out.push({ ...piece('', i, at, p, 0.35), bob: true, hx: along === 'x' ? 0.68 : 0.3, hz: along === 'x' ? 0.3 : 0.68 });
+        return;
+      }
+      case 'block': {
+        if (s.tiles.length === 0) return;
+        const x0 = Math.min(...s.tiles.map((t) => t.x));
+        const y0 = Math.min(...s.tiles.map((t) => t.y));
+        const w = Math.max(...s.tiles.map((t) => t.x)) - x0 + 1;
+        const d = Math.max(...s.tiles.map((t) => t.y)) - y0 + 1;
+        const top = cityBlock(p, w, d, Math.max(1, s.h ?? 3), s.v ?? 0, i);
+        out.push({ ...piece('', i, { x: x0 + w / 2, z: y0 + d / 2 }, p, top), hx: w / 2 - BLOCK_INSET, hz: d / 2 - BLOCK_INSET });
+        return;
+      }
+      case 'taxi': {
+        const along = s.dir === 'y' ? 'y' : 'x';
+        const len = Math.max(1, s.tiles.length) - 0.24;
+        taxi(p, len, along);
+        out.push({ ...piece('', i, at, p, 0.7), hx: along === 'x' ? len / 2 : 0.4, hz: along === 'x' ? 0.4 : len / 2 });
         return;
       }
       case 'jetty': {

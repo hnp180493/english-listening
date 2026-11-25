@@ -115,12 +115,33 @@ export function eventScene<T extends ListenScene>(list: readonly T[], event: str
   return own[((weekOf(day) % own.length) + own.length) % own.length];
 }
 
+/**
+ * What is heard on bus no. 9 this time (docs/town.md §20): a ride going `to` the city or back to the town, one not
+ * heard lately first, by the day. Null when no ride goes that way.
+ */
+export function rideNow<T extends ListenScene>(list: readonly T[], to: 'city' | 'town', day: string, recent: ReadonlySet<string>): T | null {
+  const own = list.filter((s) => s.to === to);
+  if (own.length === 0) return null;
+  const fresh = own.filter((s) => !recent.has(s.id));
+  const pool = fresh.length > 0 ? fresh : own;
+  return pool[Math.min(pool.length - 1, Math.floor(dayHash(day, 5) * pool.length))];
+}
+
 // ───────────────────────── what a scene pays ─────────────────────────
 
+/** The kind of a scene from its id: `oh-` and `co-` (the city's) are overheard, `fm-` the radio, `ev-` a get-together, `rd-` a ride on bus no. 9. */
+export function sceneKindOf(id: string): ListenScene['kind'] | null {
+  if (id.startsWith('oh-') || id.startsWith('co-')) return 'overheard';
+  if (id.startsWith('fm-')) return 'radio';
+  if (id.startsWith('ev-')) return 'event';
+  if (id.startsWith('rd-')) return 'ride';
+  return null;
+}
+
 /** Scenes of a kind that pay in a day (the rest can still be heard, for nothing). */
-export const SCENE_PAID_A_DAY: Readonly<Record<ListenScene['kind'], number>> = { overheard: 4, radio: 3, event: 1 };
+export const SCENE_PAID_A_DAY: Readonly<Record<ListenScene['kind'], number>> = { overheard: 4, radio: 3, event: 1, ride: 2 };
 /** Xu for a question answered right at the first try. */
-export const SCENE_XU: Readonly<Record<ListenScene['kind'], number>> = { overheard: 2, radio: 2, event: 4 };
+export const SCENE_XU: Readonly<Record<ListenScene['kind'], number>> = { overheard: 2, radio: 2, event: 4, ride: 2 };
 /** Xu for having been at a get-together to its end, whatever was understood. */
 export const EVENT_COME_XU = 2;
 /** Friendship with the host of a get-together attended (once a day). */
@@ -145,8 +166,7 @@ export interface ScenePay {
 
 /** What a scene pays: `paidToday` = the scene ids paid today (town-progress's daily set `heard`). */
 export function scenePay(scene: Pick<ListenScene, 'id' | 'kind'>, result: SceneResult, paidToday: readonly string[]): ScenePay {
-  const prefix = scene.kind === 'overheard' ? 'oh-' : scene.kind === 'radio' ? 'fm-' : 'ev-';
-  const used = paidToday.filter((id) => id.startsWith(prefix));
+  const used = paidToday.filter((id) => sceneKindOf(id) === scene.kind);
   if (used.includes(scene.id) || used.length >= SCENE_PAID_A_DAY[scene.kind]) return { xu: 0, bond: 0, capped: !used.includes(scene.id) };
   const right = Math.max(0, Math.min(result.asked, result.right));
   const xu = right * SCENE_XU[scene.kind] + (scene.kind === 'event' ? EVENT_COME_XU : 0);

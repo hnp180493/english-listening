@@ -78,10 +78,18 @@ export function isCastId(id: CharacterId): boolean {
   return Object.hasOwn(CAST, id);
 }
 
+/** Looks of people who are not the town's own cast: the city's (city/cityLooks.ts registers them when its page loads). */
+const MORE_LOOKS: Record<string, CharacterLook> = {};
+
+/** Add looks by id (the city's people). The town's own cast cannot be replaced. */
+export function registerLooks(more: Readonly<Record<string, CharacterLook>>): void {
+  for (const [id, look] of Object.entries(more)) if (!Object.hasOwn(CAST, id)) MORE_LOOKS[id] = look;
+}
+
 /** The look of a cast member; anybody else gets a seeded passer-by look from their id. */
 export function castLook(id: CharacterId): CharacterLook {
   if (id === 'player' && playerOverride) return playerOverride;
-  return CAST[id] ?? passerLook(hashString(id));
+  return CAST[id] ?? (Object.hasOwn(MORE_LOOKS, id) ? MORE_LOOKS[id] : undefined) ?? passerLook(hashString(id));
 }
 
 /** The learner's own character (the creator, docs/town.md §15); null = the default player. */

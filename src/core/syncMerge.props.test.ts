@@ -17,6 +17,7 @@ import {
   mergeLife,
   mergeCafe,
   mergeCases,
+  mergeCity,
   mergeValue,
 } from './syncMerge';
 import { parseDrillStore, rollDaily } from '../features/drill/drillStore';
@@ -245,6 +246,17 @@ describe('merger laws', () => {
       version: 1,
       done: Object.fromEntries(
         ['case-1', 'case-2', 'Bad Id', '__proto__'].filter(() => maybe(0.6)).map((id) => [id, Object.fromEntries(['0', '1', '4', '9', 'x'].filter(() => maybe(0.5)).map((ch) => [ch, pick<unknown>([{ at: T0 + ri(3), stars: 1 + ri(3) }, { at: 0, stars: 2 }, { at: T0, stars: 9 }, null])]))]),
+      ),
+    };
+  });
+  // town-city (docs/town.md §20): per scene the earlier first hearing, the higher best and count, the later last
+  checkLaws('town city', mergeCity, () => {
+    if (maybe(0.05)) return pick<unknown>([null, 'junk', [], { heard: 7 }]);
+    return {
+      version: 1,
+      first: pick<unknown>([0, T0, T0 + 5, -3, "x"]),
+      heard: Object.fromEntries(
+        ['ct-rico-1', 'ct-nora-2', 'cv-square-1', 'Bad Id', '__proto__'].filter(() => maybe(0.6)).map((id) => [id, pick<unknown>([{ at: pick([T0, T0 + 1]), best: ri(4), times: 1 + ri(3), last: pick([T0 + 1, T0 + 9]) }, { at: 0 }, 'x'])]),
       ),
     };
   });

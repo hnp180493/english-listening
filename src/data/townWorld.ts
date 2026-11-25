@@ -128,11 +128,14 @@ export interface ActivitySpot {
   box?: { x: number; y: number; w: number; d: number; h: number };
 }
 
-export type ThingKind = 'bench' | 'radio';
+export type ThingKind = 'bench' | 'radio' | 'bus';
+
+/** Bus no. 9 between the town and Westbay: a thing to use at the bus (drawn, and so usable, once 'station' is built). */
+export const BUS_THING: ThingId = 'thing:bus';
 
 /** A thing's kind from its id ('thing:bench-3' → 'bench'), or null for an activity's own spot. */
 export function thingKind(id: string): ThingKind | null {
-  const m = /^thing:(bench|radio)(?:-[0-9]+)?$/.exec(id);
+  const m = /^thing:(bench|radio|bus)(?:-[0-9]+)?$/.exec(id);
   return m ? (m[1] as ThingKind) : null;
 }
 
@@ -200,9 +203,11 @@ export interface DecorSpot extends Tile {
  * (on 2 × 2 tiles, about 4.5 tall, its lamp lit at night), 'hut' (a beach hut on 2 × 2 tiles, its door on the +y side),
  * 'umbrella' (a beach umbrella with a lounger, one tile), 'boulder' (a big rock on 2 × 2 tiles), and loose ones: 'boat'
  * (a rowing boat bobbing at `at` on the water, lying along `dir`), 'jetty' (a plank walk from `at` out over the
- * water `len` tiles along `dir`, towards +x or +y; seen only, not walked on).
+ * water `len` tiles along `dir`, towards +x or +y; seen only, not walked on). The city (data/cityWorld.ts, 2026-11-25):
+ * 'block' (a block of flats or offices on its tiles, `h` storeys, in look `v`), 'taxi' (a parked taxi on two tiles
+ * along `dir`).
  */
-export type SceneryKind = 'hill' | 'barn' | 'well' | 'haybale' | 'fence' | 'hedge' | 'rock' | 'bush' | 'duck' | 'lighthouse' | 'hut' | 'umbrella' | 'boulder' | 'boat' | 'jetty';
+export type SceneryKind = 'hill' | 'barn' | 'well' | 'haybale' | 'fence' | 'hedge' | 'rock' | 'bush' | 'duck' | 'lighthouse' | 'hut' | 'umbrella' | 'boulder' | 'boat' | 'jetty' | 'block' | 'taxi';
 
 export interface WorldScenery {
   kind: SceneryKind;
@@ -218,6 +223,8 @@ export interface WorldScenery {
   r?: number;
   h?: number;
   top?: number;
+  /** A block's look (its colours and roof), 0…3. */
+  v?: number;
 }
 
 /** A part of town: its name (the HUD's travel menu), the box it covers and a walkable tile to arrive at. */
@@ -251,6 +258,18 @@ export interface TownWorld {
   districts?: readonly WorldDistrict[];
   /** The sea lies past the map's near edges (x or y from `size` on): the coast's shore runs on out there (three/scene/shore.ts seaShore). Left out in small test worlds. */
   coast?: boolean;
+  /**
+   * People who are here without a place of their own (the city, data/cityWorld.ts: a town resident who has come up
+   * for the day). A place with no footprint (w = d = 0): nothing is drawn or blocks for it, its `spot` is where they
+   * stand about, its `door` where they step out of sight. Their id is their own place id in the town (their look,
+   * their voice).
+   */
+  guests?: readonly WorldPlace[];
+  /**
+   * How the mountains behind the far sides are cut (three/scene/range.ts RangeShape; a world with a coast): its passes,
+   * the falls, roads running on through the passes. Left out = the town's (TOWN_RANGE).
+   */
+  range?: { north: readonly number[]; west: readonly number[]; falls: boolean; roads: boolean };
   /** The centre of the round plaza, on the tile grid. */
   plaza: { x: number; y: number; r: number };
   start: Tile;
@@ -632,6 +651,8 @@ export const WORLD_THINGS: Readonly<Record<ThingId, ActivitySpot>> = (() => {
     out[`thing:bench-${n++}`] = { stand, look: { x: at.x + 0.5, y: at.y + 0.5 }, box: { x: at.x + 0.5, y: at.y + 0.5, w: 0.85, d: 0.85, h: 0.6 } };
   }
   out['thing:radio'] = { stand: T(41, 29), look: { x: 41.5, y: 28.5 }, box: { x: 41.5, y: 28.5, w: 0.9, d: 0.9, h: 1.0 } };
+  // bus no. 9 to Westbay (data/cityWorld.ts), in its lay-by: there once the bus station is built (BUS_THING)
+  out[BUS_THING] = { stand: T(56, 52), look: { x: 57, y: 53.5 }, box: { x: 57, y: 53.5, w: 1.9, d: 0.8, h: 1.3 } };
   return out;
 })();
 

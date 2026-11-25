@@ -20,6 +20,7 @@ import { mergeTownProgress, parseTownProgress } from './town/progress';
 import { mergeTownLife, parseTownLife } from './town/life';
 import { mergeTownCafe, parseTownCafe } from './town/cafe';
 import { mergeTownCases, parseTownCases } from './town/cases';
+import { mergeTownCity, parseTownCity } from './town/city';
 
 /** Full storage key (with prefix) → raw stored JSON string, as in Backup.data. */
 export type DataMap = Record<string, string>;
@@ -616,6 +617,12 @@ export const mergeCafe: Merger = (newer, older) => mergeTownCafe(parseTownCafe(n
  */
 export const mergeCases: Merger = (newer, older) => mergeTownCases(parseTownCases(newer), parseTownCases(older));
 
+/**
+ * town-city (Thị trấn: Westbay, core/town/city): per scene the earlier first hearing, the most questions right, the
+ * higher count and the later last hearing; the earlier first arrival.
+ */
+export const mergeCity: Merger = (newer, older) => mergeTownCity(parseTownCity(newer), parseTownCity(older));
+
 /** Short key (without prefix) → merge strategy. Keys not listed (unknown): newer side wins. */
 const MERGERS: Record<string, Merger> = {
   settings: mergeSettings,
@@ -639,6 +646,7 @@ const MERGERS: Record<string, Merger> = {
   'town-life': mergeLife,
   'town-cafe': mergeCafe,
   'town-cases': mergeCases,
+  'town-city': mergeCity,
 };
 
 function tryParse(raw: string): { ok: true; value: unknown } | { ok: false } {

@@ -1,12 +1,10 @@
-import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { CircleHelp, Ear, FastForward, Footprints, Gift, Hammer, Heart, MessageCircle, Sparkles, X } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
 import { prefersReducedMotion } from '../../core/motion';
-import { hrefFor, parseHash } from '../../core/nav';
-import { useSettings } from '../../core/settings';
-import { resolveTheme, systemPrefersDark } from '../../core/theme';
+import { hrefFor, navigate, parseHash } from '../../core/nav';
 import { knowsFact, lineProgress, typedTotals } from '../../core/town/progress';
 import {
   buyTownItem,
@@ -25,7 +23,7 @@ import {
 import type { TownPlace } from '../../core/town/types';
 import type { PlaceView as TownPlaceView } from '../../core/town/overview';
 import type { FriendView } from '../../core/town/friendship';
-import { PLACE_IDS, TOWN_WORLD, type ActivitySpotId, type PlaceId } from '../../data/townWorld';
+import { BUS_THING, PLACE_IDS, TOWN_WORLD, WORLD_ACTIVITIES, type ActivitySpotId, type PlaceId } from '../../data/townWorld';
 import { thingPrompt } from './scenes/things';
 import { WEATHER_NAME } from '../../core/town/world';
 import { scenesHeard, townToday } from '../../core/town/worldStore';
@@ -41,7 +39,8 @@ import { prewarmPortraits, warmPortrait } from './portraitWarm';
 import BuildSheet from './BuildSheet';
 import Conversation from './Conversation';
 import Episode from './Episode';
-import type { FishStagePhase, MapSnapshot, Near, SafeInsets, TownStageHandle, TownTheme, TravelMode, TravelTarget } from './engine/stage';
+import type { FishStagePhase, MapSnapshot, Near, TownStageHandle, TravelMode, TravelTarget } from './engine/stage';
+import { narrowStage, useFullStage, useStageInsets, useTownTheme } from './stageShell';
 import MiniMap from './map/MiniMap';
 import { metInStreet, playerStand, type TalkSetting } from './engine/staging';
 import { homeSetting, streetTalkView } from './streetModel';
@@ -67,7 +66,6 @@ import GreetBubble from './friends/GreetBubble';
 import { lockText, pointsText, type GiftReactionView } from './friends/friendModel';
 import { useCanGift } from './friends/useCanGift';
 import { useGreeting } from './friends/useGreeting';
-import { inertOutside } from './inertOutside';
 import { getTownUi, setTownUi, useTownUi } from './townUi';
 import './town.css';
 import { tl, tr } from '../../i18n';
@@ -77,206 +75,11 @@ const DeliveryChip = lazy(() => import('./DeliveryChip'));
 /** The full map ("Bản đồ", M): its own chunk, loaded when it is first opened. */
 const TownMap = lazy(() => import('./map/TownMap'));
 
-/** The town follows the app's theme: night in the dark theme, day in the light one. */
-function useTownTheme(): TownTheme {
-  const pref = useSettings().theme;
-  const [dark, setDark] = useState(systemPrefersDark);
-  useEffect(() => {
-    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
-    if (!mq) return;
-    const onChange = () => setDark(mq.matches);
-    mq.addEventListener?.('change', onChange);
-    return () => mq.removeEventListener?.('change', onChange);
-  }, []);
-  return resolveTheme(pref, dark) === 'dark' ? 'night' : 'day';
-}
-
 const isPlaceId = (id: string | undefined): id is PlaceId => !!id && (PLACE_IDS as readonly string[]).includes(id);
 
-/** A sheet that covers the whole width (a phone): buying closes it so the new thing can be seen. */
-function narrowStage(): boolean {
-  try {
-    return window.matchMedia('(max-width: 720px)').matches;
-  } catch {
-    return false;
-  }
-}
-
-/** A phone (a narrow screen held in the hand): the town is a game there, it takes the whole screen. */
-function phoneScreen(): boolean {
-  try {
-    return window.matchMedia('(max-width: 720px) and (pointer: coarse)').matches;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Full screen was chosen: kept for this session only (a visit of another page and back keeps it, a reload does not).
- * Null until the learner chooses: a phone starts in full screen (owner, 2026-11-24, on a OnePlus: "giao diện điện
- * thoại của game thị trấn lỏ vậy, có cách nào bật full màn hình không?"), a computer does not.
- */
-let fullChosen: boolean | null = null;
-
-/**
- * "Toàn màn hình": the stage covers the whole window. The Fullscreen API when the browser has it for an element
- * (it also hides the browser's bars), and in any case a fixed overlay through CSS (`is-full`), which is all an
- * iPhone gets. Esc leaves (the browser's own Esc, or ours for the overlay when no panel is open).
- */
-function useFullStage(box: () => HTMLElement | null, panelOpen: boolean): { full: boolean; toggle: () => void } {
-  const [full, setFull] = useState(() => fullChosen ?? phoneScreen());
-  const viaApi = useRef(false);
-
-  const set = useCallback(
-    (on: boolean) => {
-      fullChosen = on;
-      setFull(on);
-      const el = box();
-      if (on) {
-        if (el && typeof el.requestFullscreen === 'function' && document.fullscreenEnabled && !document.fullscreenElement) {
-          viaApi.current = true;
-          el.requestFullscreen().catch(() => {
-            // refused (no user gesture, a policy): the overlay alone does the job
-            viaApi.current = false;
-          });
-        }
-      } else if (document.fullscreenElement) {
-        viaApi.current = false;
-        document.exitFullscreen().catch(() => undefined);
-      }
-    },
-    [box],
-  );
-  const toggle = useCallback(() => set(!(fullChosen ?? phoneScreen())), [set]);
-
-  // a phone in the overlay: its first tap on the town also asks the browser for real full screen (its own bars and the
-  // phone's status bar go too); a browser only allows that from a tap, so it cannot happen when the page opens
-  useEffect(() => {
-    if (!full || !phoneScreen()) return;
-    const el = box();
-    if (!el || typeof el.requestFullscreen !== 'function' || !document.fullscreenEnabled) return;
-    const onTap = () => {
-      if (document.fullscreenElement) return;
-      viaApi.current = true;
-      el.requestFullscreen().catch(() => {
-        viaApi.current = false;
-      });
-    };
-    el.addEventListener('pointerup', onTap, { once: true });
-    return () => el.removeEventListener('pointerup', onTap);
-  }, [full, box]);
-
-  // the browser left full screen by itself (its own Esc, a gesture): the overlay goes too
-  useEffect(() => {
-    const onChange = () => {
-      if (document.fullscreenElement) return;
-      if (viaApi.current) {
-        viaApi.current = false;
-        fullChosen = false;
-        setFull(false);
-      }
-    };
-    document.addEventListener('fullscreenchange', onChange);
-    return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
-
-  // Esc closes a panel first; with none open it leaves full screen
-  const panelRef = useRef(panelOpen);
-  useEffect(() => {
-    panelRef.current = panelOpen;
-  }, [panelOpen]);
-  useEffect(() => {
-    if (!full) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented || panelRef.current) return;
-      if (e.target instanceof HTMLElement && e.target.closest('[data-popover], [role="dialog"]')) return;
-      e.preventDefault();
-      set(false);
-    };
-    window.addEventListener('keydown', onKey);
-    document.documentElement.classList.add('town-full-open');
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.documentElement.classList.remove('town-full-open');
-    };
-  }, [full, set]);
-
-  // the page under the overlay is still there: the keyboard and the screen reader stay in the town until it ends
-  useEffect(() => {
-    if (!full) return;
-    const el = box();
-    if (!el) return;
-    const undo = inertOutside(el, document.body);
-    if (!el.contains(document.activeElement)) el.querySelector<HTMLElement>('canvas')?.focus({ preventScroll: true });
-    return undo;
-  }, [full, box]);
-
-  // leaving the page leaves full screen (the overlay is gone with the stage)
-  useEffect(
-    () => () => {
-      if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined);
-    },
-    [],
-  );
-  return { full, toggle };
-}
 
 const NO_FRIEND: FriendView = { placeId: '', points: 0, hearts: 0, toNext: 100, part: 0, title: '' };
 
-const NO_INSETS: SafeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
-const sameInsets = (a: SafeInsets, b: SafeInsets) => a.top === b.top && a.right === b.right && a.bottom === b.bottom && a.left === b.left;
-
-/**
- * What the game's own chrome covers on the stage, measured on the page: the counters along the top, the column of
- * buttons down the right edge of a phone, the main button at the bottom, and an open panel (the conversation at the
- * bottom or docked to the side, the build sheet). The stage keeps its name tags out of `safe` and centres what the
- * camera looks at in what is left of `panel`.
- */
-function useStageInsets(box: () => HTMLElement | null, key: string): { safe: SafeInsets; panel: { right: number; bottom: number } } {
-  const [safe, setSafe] = useState<SafeInsets>(NO_INSETS);
-  const [panel, setPanel] = useState({ right: 0, bottom: 0 });
-  useLayoutEffect(() => {
-    const stage = box();
-    if (!stage) return;
-    const measure = () => {
-      const sr = stage.getBoundingClientRect();
-      if (sr.width < 1) return;
-      const next = { ...NO_INSETS };
-      // the counters along the top count in a conversation too: the two people's heads must stay below them
-      const level = stage.querySelector('.town-level')?.getBoundingClientRect();
-      if (level && level.height > 0) next.top = Math.round(level.bottom - sr.top + 6);
-      const coins = stage.querySelector('.town-hud-counts')?.getBoundingClientRect();
-      if (coins && coins.height > 0) next.top = Math.max(next.top, Math.round(coins.bottom - sr.top + 6));
-      const btns = stage.querySelector('.town-hud-btns')?.getBoundingClientRect();
-      if (btns && btns.height > 0) {
-        // a column down the right edge (a phone), or part of the top row
-        if (btns.height > btns.width) next.right = Math.round(sr.right - btns.left + 6);
-        else next.top = Math.max(next.top, Math.round(btns.bottom - sr.top + 6));
-      }
-      const prompt = stage.querySelector('.town-prompt .btn')?.getBoundingClientRect();
-      if (prompt) next.bottom = Math.round(sr.bottom - prompt.top + 6);
-      // Leo's first words: the player and Leo stand above the card, not under it
-      const welcome = stage.querySelector('.town-welcome')?.getBoundingClientRect();
-      if (welcome) next.bottom = Math.max(next.bottom, Math.round(sr.bottom - welcome.top + 6));
-      setSafe((old) => (sameInsets(old, next) ? old : next));
-      const open = stage.querySelector<HTMLElement>('.town-talk, .town-build');
-      let p = { right: 0, bottom: 0 };
-      if (open) {
-        const r = open.getBoundingClientRect();
-        // docked to a side (starting right of the stage's first third, near its top) or along the bottom
-        p = r.left - sr.left > sr.width * 0.3 && r.top - sr.top < sr.height * 0.3 ? { right: Math.round(sr.right - r.left + 12), bottom: 0 } : { right: 0, bottom: Math.round(sr.bottom - r.top + 12) };
-      }
-      setPanel((old) => (old.right === p.right && old.bottom === p.bottom ? old : p));
-    };
-    measure();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
-    ro?.observe(stage);
-    const watched = stage.querySelectorAll('.town-hud, .town-talk, .town-build, .town-prompt, .town-welcome');
-    watched.forEach((el) => ro?.observe(el));
-    return () => ro?.disconnect();
-  }, [box, key]);
-  return { safe, panel };
-}
 
 type Talk =
   | {
@@ -415,7 +218,7 @@ function FlatTown({ places, suggested, onTalk }: { places: readonly TownPlaceVie
  * counters over it, the conversation, the build panel, the activities.
  */
 /** What ?listen= may name: a thing to use, or a get-together. */
-const LISTEN_LINK = /^(thing:(bench-[0-9]{1,2}|radio)|event:[a-z]{2,12})$/;
+const LISTEN_LINK = /^(thing:(bench-[0-9]{1,2}|radio|bus)|event:[a-z]{2,12})$/;
 
 export default function TownPage() {
   const theme = useTownTheme();
@@ -447,6 +250,8 @@ export default function TownPage() {
   const [talk, setTalk] = useState<Talk | null>(() => (linked ? beginTalk(linked, 0) : null));
   // a linked talk starts where it happens: the player stands at the room's door or at their spot outside
   const [startAt] = useState(() => {
+    // back from Westbay: off the no. 9 at the bus station
+    if (params.from === 'city') return { ...WORLD_ACTIVITIES[BUS_THING].stand };
     if (!linked || !talk) return undefined;
     const at = playerStand(TOWN_WORLD, talkSetting(talk, overview.places), linked);
     return at ? { x: Math.floor(at.x), y: Math.floor(at.y) } : undefined;
@@ -476,13 +281,15 @@ export default function TownPage() {
     setNearStreet(n?.kind === 'resident' ? metOutside(stage.current, overviewRef.current.places, n.placeId) : false);
   }, []);
   // an activity's panel is open (the pier, the farm field, the egg kiosk, the wardrobe, the album)
+  // (the bus is there to take only once the bus station is built)
+  const [listenLink] = useState<string | null>(() => (LISTEN_LINK.test(params.listen ?? '') && (params.listen !== BUS_THING || overview.places.some((p) => p.place.id === 'station' && p.built)) ? (params.listen ?? null) : null));
   // ?activity=<id> (e.g. Ôn tập's "Về nông trại") opens that panel once the town is drawn
   // ?listen=thing:radio | thing:bench-3 | event:games opens that scene's panel (a link to a thing or to a get-together)
-  const [activity, setActivity] = useState<ActivityId | null>(() => ACTIVITIES.find((a) => a.id === params.activity)?.id ?? (LISTEN_LINK.test(params.listen ?? '') ? 'listen' : null));
+  const [activity, setActivity] = useState<ActivityId | null>(() => ACTIVITIES.find((a) => a.id === params.activity)?.id ?? (listenLink ? 'listen' : null));
   /** The Sổ tay opens at this resident's page (their hearts in a conversation's header, the map card); null: the list. */
   const [journalFor, setJournalFor] = useState<string | null>(null);
   /** What the "listen" panel is about: a thing used in the world ('thing:bench-3', 'thing:radio') or 'event:<id>'. */
-  const [listenAt, setListenAt] = useState<string | null>(() => (LISTEN_LINK.test(params.listen ?? '') ? (params.listen ?? null) : null));
+  const [listenAt, setListenAt] = useState<string | null>(listenLink);
   /** "Tặng quà" standing next to a resident: the gift sheet for them. */
   const [gifting, setGifting] = useState<PlaceId | null>(null);
   /** Where focus goes back to when the activity's panel closes: the HUD's "Chơi" when it was opened from there. */
@@ -821,6 +628,8 @@ export default function TownPage() {
     },
     [openActivity],
   );
+  /** Bus no. 9 sets off for Westbay (docs/town.md §20): the route's other page (TownRoute). */
+  const toCity = useCallback(() => navigate('town', { at: 'city' }), []);
   /** A "cảnh nghe" at a thing: the player sits down on it, the two who are overheard come and talk nearby. */
   const [listenSpeaking, setListenSpeaking] = useState<string | null>(null);
   const listenThing = useRef<string | null>(null);
@@ -1236,6 +1045,14 @@ export default function TownPage() {
           onEvent={(id) => {
             if (townReady && !talk) openEvent(id);
           }}
+          onBus={
+            overview.places.some((p) => p.place.id === 'station' && p.built)
+              ? () => {
+                  if (!townReady || talk) return;
+                  if (!stage.current?.walkToActivity(BUS_THING, () => openSpot(BUS_THING))) openSpot(BUS_THING);
+                }
+              : undefined
+          }
         />
 
         {showWelcome && (
@@ -1331,6 +1148,7 @@ export default function TownPage() {
             onSceneEnd={onSceneEnd}
             onListen={onListen}
             onSpeaking={setListenSpeaking}
+            onTravel={toCity}
           />
         )}
         {shownGift && <GiftSheet placeId={shownGift} onClose={closeGift} onGiven={(r, v) => onGiven(r, v, shownGift)} onShop={giftToShop} />}

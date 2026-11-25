@@ -68,4 +68,6 @@ export interface ActivityPanelProps {
   onListen?: (who: readonly string[] | null) => void;
   /** Who is speaking now in a "cảnh nghe" (a place id; null = nobody): the stage shows it over their head. */
   onSpeaking?: (who: string | null) => void;
+  /** Bus no. 9 sets off (docs/town.md §20): the page goes to Westbay. */
+  onTravel?: () => void;
 }

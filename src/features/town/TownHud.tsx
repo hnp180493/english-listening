@@ -63,6 +63,8 @@ export interface TownHudProps {
   today?: TownDay;
   /** "Tới dự": go to today's get-together. */
   onEvent?: (eventId: string) => void;
+  /** "Ra bến xe": walk to bus no. 9 (docs/town.md §20). Left out until the bus station is built. */
+  onBus?: () => void;
 }
 
 /** What the day's list says of today besides the tasks. */
@@ -77,7 +79,7 @@ export interface TownDay {
 }
 
 /** What floats over the town: the title with its bar on the left; xu, streak, tasks, build and sound on the right. */
-export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, onPlay, playOpen, full, onFull, onMap, mapOpen = false, mapRef, xuRef, buildRef, today, onEvent }: TownHudProps) {
+export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, onPlay, playOpen, full, onFull, onMap, mapOpen = false, mapRef, xuRef, buildRef, today, onEvent, onBus }: TownHudProps) {
   const { level, balance, streak, tasks } = overview;
   const shown = useCountTo(balance);
   const moving = shown !== balance;
@@ -195,6 +197,14 @@ export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, 
                 ) : (
                   <p className="town-day-blurb">Hôm nay không có buổi gặp mặt nào. Ghế và radio thì ngày nào cũng có chuyện để nghe.</p>
                 )}
+              </div>
+            )}
+            {onBus && (
+              <div className="town-day town-day-bus">
+                <p className="town-day-blurb">Xe số 9 đi Westbay đang chờ ở bến xe.</p>
+                <button type="button" className="btn btn-soft btn-sm" onClick={onBus}>
+                  Ra bến xe
+                </button>
               </div>
             )}
             <ul className="town-task-list">

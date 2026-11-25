@@ -60,6 +60,7 @@ export interface TownStage3DProps extends TownStageProps {
  */
 export default function TownStage3D({
   flat = false,
+  world = TOWN_WORLD,
   state,
   onTalk,
   onLot,
@@ -81,6 +82,7 @@ export default function TownStage3D({
   lotLabels,
   startAt,
   label,
+  loading,
   className,
   children,
   ref,
@@ -151,7 +153,7 @@ export default function TownStage3D({
             },
             onFarWalk: (w) => cbRef.current.onFarWalk?.(w),
           },
-          TOWN_WORLD,
+          world,
           latest.current.startAt,
         );
       } catch {
@@ -397,7 +399,7 @@ export default function TownStage3D({
       engineRef.current = null;
       setReady(false);
     };
-  }, [generation, flat]);
+  }, [generation, flat, world]);
 
   useEffect(() => {
     flatRef.current = flat;
@@ -469,6 +471,9 @@ export default function TownStage3D({
       },
       meet: (placeId, ready) => (flatRef.current ? false : (engineRef.current?.meet(placeId, ready) ?? false)),
       listenFrom: (spot, who) => (flatRef.current ? false : (engineRef.current?.listenFrom(spot, who) ?? false)),
+      joinTalk: (host, who) => {
+        if (!flatRef.current) engineRef.current?.joinTalk(host, who);
+      },
       endListen: () => {
         if (!flatRef.current) engineRef.current?.endListen();
       },
@@ -483,10 +488,10 @@ export default function TownStage3D({
         const e = flatRef.current ? null : engineRef.current;
         if (!e) return false;
         // far away (the map's WARP_FAR, as a far talk): a dip to dark and the player is there, not a walk of ten seconds
-        const spot = TOWN_WORLD.activities?.[id];
+        const spot = world.activities?.[id];
         if (spot && talkIsFar(e.sim.player, { x: spot.stand.x + 0.5, y: spot.stand.y + 0.5 })) {
           const snap = snapshotOf(e, latest.current.state.marker);
-          const at = snap ? warpSpot({ kind: 'activity', id }, snap.residents.filter((r) => !r.inside), snap.player.heading, TOWN_WORLD) : null;
+          const at = snap ? warpSpot({ kind: 'activity', id }, snap.residents.filter((r) => !r.inside), snap.player.heading, world) : null;
           if (at && e.warpPlayer(at, at.heading, then)) return true;
         }
         return e.walkToActivity(id, then);
@@ -519,7 +524,7 @@ export default function TownStage3D({
         }
         const snap = snapshotOf(e, latest.current.state.marker);
         if (!snap) return false;
-        const spot = warpSpot(target, snap.residents.filter((r) => !r.inside), snap.player.heading, TOWN_WORLD);
+        const spot = warpSpot(target, snap.residents.filter((r) => !r.inside), snap.player.heading, world);
         return !!spot && e.warpPlayer(spot, spot.heading, then);
       },
       hurry: () => {
@@ -527,7 +532,7 @@ export default function TownStage3D({
         return !!e && e.hurry();
       },
     }),
-    [],
+    [world],
   );
 
   return (
@@ -546,7 +551,7 @@ export default function TownStage3D({
             <div className="town-loading" role="status">
               <p className="town-loading-text">
                 <Icon icon={LoaderCircle} size={18} className="icon-spin" />
-                Đang dựng thị trấn…
+                {loading ?? 'Đang dựng thị trấn…'}
               </p>
             </div>
           )}

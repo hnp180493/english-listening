@@ -147,7 +147,11 @@ describe('the things to use (data/townWorld WORLD_THINGS)', () => {
       for (const [id, spot] of Object.entries(WORLD_THINGS)) {
         expect(walkable(spot.stand, w), id).toBe(true);
         expect(bodyFits(spot.stand.x + 0.5, spot.stand.y + 0.5, BODY_RADIUS, w), id).toBe(true);
-        expect(Math.hypot(spot.stand.x + 0.5 - spot.box!.x, spot.stand.y + 0.5 - spot.box!.y), id).toBeLessThanOrEqual(1.01);
+        // (to the nearest point of the thing: the bus is two tiles long)
+        const b = spot.box!;
+        const dx = Math.max(0, Math.abs(spot.stand.x + 0.5 - b.x) - b.w / 2);
+        const dy = Math.max(0, Math.abs(spot.stand.y + 0.5 - b.y) - b.d / 2);
+        expect(Math.hypot(dx, dy), id).toBeLessThanOrEqual(0.75);
       }
     }
   });

@@ -1,6 +1,6 @@
 # Thành phố Westbay: bản thiết kế đề xuất
 
-Trạng thái (2026-11-25): **đã duyệt, làm theo thứ tự đợt 1 → 4.** Đợt 1 đã có phần đầu (ghế ngồi nghe, radio Bay FM, lịch tuần với năm buổi gặp mặt: docs/town.md §19); thành phố (đợt 2–4) chưa xây gì. Chủ app duyệt hoặc sửa rồi mới làm. Tên "Westbay" là tạm, đổi được.
+Trạng thái (2026-11-25): **đã duyệt, làm theo thứ tự đợt 1 → 4.** Đợt 1 đã có phần đầu (ghế ngồi nghe, radio Bay FM, lịch tuần với năm buổi gặp mặt: docs/town.md §19); đợt 2 đã xây phần chính ngày 2026-11-25 (bản đồ 3 khu, xe buýt số 9, 18 người, 79 cảnh nghe: docs/town.md §20, canon ở docs/city.md); của đợt 2 CHƯA có: hai ca làm việc, rủ bạn đi cùng, hẹn hò và đi chơi gia đình viết riêng cho thành phố. Đợt 3–4 chưa xây. Tên "Westbay" là tạm, đổi được.
 
 Mục tiêu, theo đúng lời chủ app:
 

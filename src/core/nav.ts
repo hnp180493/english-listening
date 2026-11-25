@@ -75,6 +75,8 @@ export interface Route {
  *              the param is dropped from the address when the conversation closes) | build=<placeId | 1> (opens the
  *              build panel, on that empty lot) | activity=<fish|farm|eggs|wardrobe|album> (opens that activity's panel;
  *              Ôn tập's done screens link back to activity=farm when opened with from=town). Place ids: data/town.ts. The character's tile is kept for the session.
+ *              at=city shows Westbay, the city (features/town/TownRoute; bus no. 9 sets it), from=city puts the player
+ *              at the town's bus station (back from Westbay).
  * - settings:  section=ai (scrolls to the "Trợ lý AI" card; anything else → top of the page)
  * - stats:     view=report (the "Báo cáo" view; anything else → the default "Tổng quan" view)
  * - review:    none

@@ -60,6 +60,9 @@ import { PLAYER_FEMALE, romanceAudioText, romanceVoice, type SceneCast } from '.
 import { STREET_TALKS } from '../data/streetTalks';
 import { CAFE_ORDERS } from '../data/townCafe';
 import { TOWN_CASES } from '../data/cases';
+import { CITY_SCENES } from '../data/city';
+import { cityCastVoice, cityLineText } from './town/cityAudio';
+import type { CityScene } from './town/cityTypes';
 import { DELIVERIES } from '../data/townDeliveries';
 import type { DeliveryOrder } from './town/deliveryTypes';
 import { caseLineId } from './town/cases';
@@ -141,6 +144,11 @@ export interface InventoryContent {
   deliveries?: readonly DeliveryOrder[];
   /** "Vụ án ở thị trấn" (data/cases): every testimony line in its witness's voice, connected + careful. */
   cases?: readonly TownCase[];
+  /**
+   * Westbay (data/city, docs/town.md §20): the lines a TOWN resident says in a city scene, connected only, in their own
+   * voice. The city's own people speak in the browser's voice and have no clips.
+   */
+  cityScenes?: readonly CityScene[];
   /** "Phụ quầy cà phê" (data/townCafe): every order in its customer's voice, connected + careful. */
   cafeOrders?: readonly CafeOrder[];
   /** "Hẹn hò, cưới, con": the courtship scenes and the children's (data/romance), each speaker in their own voice. */
@@ -167,6 +175,7 @@ export function defaultInventoryContent(): InventoryContent {
     streetTalks: STREET_TALKS,
     cafeOrders: CAFE_ORDERS,
     cases: TOWN_CASES,
+    cityScenes: CITY_SCENES,
     deliveries: DELIVERIES,
   };
 }
@@ -445,6 +454,17 @@ function addDeliveries(c: Collector, orders: readonly DeliveryOrder[]): void {
   for (const o of orders) c.add('town', o.id, 'main', 'connected', dictationAudio({ text: o.text, level: o.level }).connected, false, voice);
 }
 
+function addCityScenes(c: Collector, scenes: readonly CityScene[]): void {
+  // CityScenePanel → cityLinePlayback(line, level): a town resident's line in their own voice, connected (the careful
+  // version is read by the browser's voice: no clip)
+  for (const s of scenes) {
+    s.lines.forEach((line, i) => {
+      const voice = cityCastVoice(line.who);
+      if (voice) c.add('town', `${s.id}-${i + 1}`, 'main', 'connected', cityLineText(line, s.level), false, voice);
+    });
+  }
+}
+
 function addCases(c: Collector, cases: readonly TownCase[]): void {
   // CasePanel sayLine(placeId, line, level, careful): dictationAudio({ text, level }) in the witness's voice
   for (const cs of cases) {
@@ -534,6 +554,7 @@ export function buildAudioInventory(content: InventoryContent = defaultInventory
   if (content.streetTalks) addStreetTalks(c, content.streetTalks);
   if (content.cafeOrders) addCafe(c, content.cafeOrders);
   if (content.cases) addCases(c, content.cases);
+  if (content.cityScenes) addCityScenes(c, content.cityScenes);
   // (the "cảnh nghe" of data/scenes are not here: they are heard for fun, in the browser's voice only: docs/town.md §19)
   if (content.deliveries) addDeliveries(c, content.deliveries);
   return c.result();

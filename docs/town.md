@@ -2458,3 +2458,109 @@ Not done, not checked:
 - the weather is not drawn; the well, the ducks, the cat, the lighthouse, the boats are still only scenery; nothing
   can be picked up;
 - the pay and the daily allowances are guesses.
+
+## 20. Westbay: the city next door (2026-11-25)
+
+The owner: "hiện tại đang ở quy mô thị trấn quá ít tiện nghi/event, dân cư, mở rộng thêm khu bên cạnh dạng như thị xã
+thành phố có nhiều event và nhân vật khác, nhân vật cũ vẫn xài giọng gemini, nhân vật mới có thể xài giọng trình duyệt,
+nội dung giao tiếp có thể dài hơn và chuyên sâu hơn… nhớ đảm bảo context các nhân vật có thể quen nhau từ trước, đừng
+xây dựng mọi thứ một cách hời hợt". The design he approved is `docs/city-proposal.md`; this is its step 2, built. Who
+everybody is and who knows whom is `docs/city.md` (the canon: every line agrees with it).
+
+**What it is.** A second map for the same 3D stage, reached by bus no. 9 from Sam's bus station. Eighteen people live
+there, each tied to somebody of the town by a detail the town's own lines already said (Sam's cousin who drives a
+taxi, Leo's sister, Ben's dad who opened the shop thirty years ago, the Italian place of Emma's birthday, the sister
+who never read Daniel's pages…). The learner walks up to somebody and LISTENS: a scene is played as sound only, then
+its questions, then the words (the steps of §19's "cảnh nghe", `scenes/SceneFlow.tsx`), but longer and between two or
+three people:
+
+| What | How many | Shape |
+|---|---|---|
+| Episodes of the six main people (Rico, Nora, Frank, Gianna, Iris, Claire) | 18 (3 each) | 12–18 lines, 2–3 speakers, 3 questions (gist, a detail, why / what next) |
+| Short talks of the twelve people known | 24 (2 each) | 6–9 lines, 1–2 questions |
+| A town resident met in Westbay | 13 (1 each) | 6–10 lines with somebody of the city, 1–2 questions |
+| Overheard from a bench in the city | 14 | two people of the city, 4–6 lines, a gist |
+| On bus no. 9 | 10 (5 each way) | the bus's loudspeaker and two passengers, a gist and a detail |
+
+**The city is met one person at a time** (`CityScene.needs`, `docs/city.md` §4b): off the bus only Rico has something
+to say; he sends the learner to the florist's, she to her neighbours, and so on. The second episode of each main
+person brings up the town resident of their story (Sam on the phone to his mum, Leo holding his niece, Ben finding
+the supermarket's letter, Emma shown her grandmother's handwriting, Zoe getting Iris's notes, Daniel leaving the
+envelope). A scene heard comes back after 2, 7 and 21 days (`CITY_RELISTEN_DAYS`).
+
+**Town residents in the city** (`core/town/city.ts` `CITY_VISITS`, `visitorsNow`): they come up on their own
+weekdays (Sarah's Monday meeting, Ben at his dad's on Tuesday, Mia's Thursday karaoke, Zoe and Max at the Lumen on
+Friday, Leo at his sister's on Saturday…), whoever a story needs is there on any day (an open, unheard episode in
+which they speak: the story never waits for a weekday), and the one the learner is going out with or married to comes
+along. They are `TownWorld.guests`: residents of the sim without a place of their own (a `WorldPlace` of no size:
+nothing drawn, nothing blocking), standing about near whoever they came to see (`CITY_VISIT_SPOTS`), in their own
+look, with their own scene. The learner's children old enough to walk follow them here as in the town.
+
+**Voices** (`core/town/cityAudio.ts`). The people of the city and the voices only heard: the BROWSER's voice, always
+(`sceneAudio.ts`: never a clip, never a paid request). A town resident in a city scene: their own Gemini voice for the
+connected line, as in their own episodes (the inventory's `cityScenes`: 103 clips, 5,484 characters to generate,
+`npm run audio:generate`; until then the browser's voice of their sex). Their careful version is read by the browser
+(no clip for it: half the clips). Honest about it on the page ("Westbay để làm gì?"): a browser voice reads word by
+word and reduces little, so the city trains following a long talk; connected speech is trained by Chép chính tả and
+the town's own episodes.
+
+**The map** (`data/cityWorld.ts`): 48 × 48 tiles, three districts (Ga & bến xe, Chợ cũ, Phố nghệ thuật), three
+streets running east–west and three north–south, the terminal plaza, the market square with its fountain, Station
+Park, the seafront promenade; the bay along the near edges (`coast`: the town's sea and mountains draw round it), a
+skyline of blocks along the far ones (scenery kind `block`: `h` storeys, four looks; `taxi`: a parked car). Every door
+is on a +y face and nothing tall stands on the south side of a street (it would hide the street). The town's
+"decorations" (street lamps, flower beds, the fountain, strings of lights, flags) are simply there
+(`CITY_DECOR_ON`). Benches (12), Gianna's radio (Bay FM, the same segments) and the bus are things to use
+(`CITY_THINGS`). Looks: `city/cityLooks.ts`; the 18 places' models: `city/cityPlaces3d.ts`; both register with the
+town's (`registerLooks`, `registerRecipes`) when the city's page loads, so they stay out of the town's chunk.
+
+**The roads out** (owner, the same day, on the first picture: "bị bao quanh bởi núi và biển, đường đâu mà xe bus
+chạy"). The city first wore the town's range unchanged: mountains all along the far sides, the sea along the near ones,
+and a waterfall pouring into Station Park. Now a world says how its range is cut (`TownWorld.range`, `three/scene/range.ts`
+`RangeShape`; left out = the town's `TOWN_RANGE`): the city has no falls and three passes that carry ROADS: a level
+cutting right through the range, climbing gently from the map's edge (`ROAD_CLIMB`), with the road drawn on it
+(`backdrop.ts`). Station Avenue runs on west through it (the no. 9's road to the town), Station Road and Bay Road north.
+`range.test.ts`: each pass is where a street reaches the edge, its floor is level across the road's width, the range
+stands beside it. Seen in a picture of the whole city.
+
+**The page** (`features/town/city/CityPage.tsx`; route `#/town?at=city`, `TownRoute.tsx`: two pages on the town's
+route, the city in its own chunk). The stage with `world={…}` (`TownStage3D` takes its map as a prop), one button for
+what is beside the player ("Nghe chuyện của Rico", "Nói chuyện với Tess", "Gặp Nora trước đã", "Ngồi xuống nghe",
+"Lên xe số 9 về thị trấn"; with nobody near: "Tới gặp …" the next person with something new), a sheet for what is
+heard, and "Người quen" (who has been met, their tie, how much of their story is heard; somebody not met shows only
+their place). A scene with somebody of the city is staged in front of their own place (`talkAt` 'outside'), with a
+town resident where they stand ('here'); whoever else speaks and is in the world comes and stands with them
+(`engine3d.joinTalk`, `sim.talkAside`). No build panel, no shop, no map: the city adds no menu. Without 3D: the same
+scenes from a list.
+
+**The bus** (`thing:bus`, `BUS_THING`): at the town's bus station once it is built (stand T(56, 52)), and on the
+city's terminal plaza. Its panel is a ride (`data/scenes/rides.ts`, a "cảnh nghe" of kind `ride`, 2 paid a day) with
+"Đi luôn, không nghe"; getting off navigates (`?at=city`, back with `?from=city`: the player stands at the bus
+station). `?listen=thing:bus` opens it.
+
+**Rules and data** (`core/town/city.ts`, `cityStore.ts`; synced key `town-city`, merger `mergeCity`): per scene when
+it was first heard, the most questions right, how often, when last; the first arrival. Pay: 2 xu a question right the
+first time (an episode up to 6), 1 on a re-listen that is due, nothing before it is due (and that listen does not move
+the next one); +10 friendship in the TOWN with each town resident who speaks in a scene heard for the first time (the
+two places feed each other). Xu and friendship go to `town-progress`. Xu are a game score, never a measure.
+
+**Checked.** Unit tests: the rules (`city.test.ts`), the merge laws, the content (`data/city/city.test.ts`: shape,
+canon ties, needs without circles, every line decodes and is SAPI-safe, no copied sentence, Vietnamese without
+English words, answers spread), the map (`three/scene/colliders.test.ts` "the city": every door and spot is open
+ground, nothing shares a tile, a way from the bus to everybody, and keys walking ANYWHERE stop only at something
+drawn: the lesson of the town's unseen walls applied from the first day). Looked at in pictures from
+`scripts/town-shot.mjs` on the software renderer: the terminal plaza on arrival, the whole city from above, Rico's
+first episode staged with its panel, the bus's panel in the town.
+
+**Not done, not checked** (said plainly):
+- nobody has HEARD a scene (the headless browser is mute) or watched people walk in; nobody has played it by hand;
+- the ~900 English lines and their Vietnamese were written by models and read by nobody; the owner should read at
+  least the six second episodes (they carry the old residents' voices);
+- the 103 clips of the town residents' lines are not generated;
+- of the proposal's step 2, NOT built: the two work shifts (Rico's taxi dispatch, Nora's flower orders), asking a
+  friend along, dates and family outings written for the city (the partner comes along and has their one scene, no
+  more), drawn portraits for the city's people (they have 3D portraits);
+- the city has no weather drawn, no night-only life, no map or minimap; passers-by are the town's;
+- a missed scene is not a review card; pay and friendship numbers are guesses;
+- the mountains round the bay are the town's range, cut for the city's roads (see "The roads out" above); the town's own
+  range has its two passes but no road drawn through them.

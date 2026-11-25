@@ -1671,11 +1671,15 @@ export class TownSim {
     // colliders.ts TREE_R. Until 2026-11-25 a tree beside another shut its whole tile, unseen: "nhìn thoáng mà kẹt")
     this.world = walkWorld(this.base, walk, projectColliders(state.extraDecor));
     if (this.world !== was) this.makeRoom();
-    this.world.places.forEach((p, index) => {
+    // (a guest: somebody here without a place of their own, TownWorld.guests: always here, never a lodger)
+    const places = this.world.places;
+    const everyone = this.world.guests?.length ? [...places, ...this.world.guests] : places;
+    everyone.forEach((p, index) => {
+      const guest = index >= places.length;
       const has = this.residents.has(p.id);
-      const here = this.life || this.built.has(p.id);
+      const here = guest || this.life || this.built.has(p.id);
       if (here && !has) {
-        const lodger = !this.built.has(p.id);
+        const lodger = !guest && !this.built.has(p.id);
         const home = lodger ? this.yardSpot(index) : p.spot;
         const r: Resident = {
           ...makeActor(p.id, 'resident', home, RESIDENT_SPEED * (0.9 + this.rng() * 0.2), personStride(p.id)),
@@ -1705,7 +1709,7 @@ export class TownSim {
         this.residents.delete(p.id);
       } else if (has) {
         const r = this.residents.get(p.id)!;
-        const lodger = !this.built.has(p.id);
+        const lodger = !guest && !this.built.has(p.id);
         if (r.lodger !== lodger) {
           // their house was built: they move in (and the other way, a reset: back to the boarding house)
           r.lodger = lodger;

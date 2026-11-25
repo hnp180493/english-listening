@@ -10,7 +10,7 @@
 import { BufferGeometry, Color, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, type Material } from 'three';
 import type { TownWorld } from '../../../../data/townWorld';
 import { hash2, valueNoise } from './coords';
-import { FALLS_OUT, FALLS_TOP, FALLS_Z, mountainHeight, RANGE_DEPTH, smooth } from './range';
+import { CUT_BANK, FALLS_OUT, FALLS_TOP, FALLS_Z, mountainHeight, RANGE_DEPTH, ROAD_CLIMB, smooth, TOWN_RANGE } from './range';
 import type { Materials } from './materials';
 import { C } from './palette3d';
 import { POND_BED, WATER_LEVEL } from './terrain';
@@ -124,7 +124,10 @@ export function buildBackdrop(world: TownWorld, mats: Materials): Backdrop {
     group.add(m);
     return m;
   };
-  const heightAt = (x: number, z: number) => mountainHeight(x, z, S);
+  const shape = world.range ?? TOWN_RANGE;
+  const heightAt = (x: number, z: number) => mountainHeight(x, z, S, shape);
+  /** On a road's cutting through the range (a world whose passes carry roads): no pines there. */
+  const onCut = (x: number, z: number) => shape.roads && ((z < 0 && x >= 0 && shape.north.some((at) => Math.abs(x - at) < CUT_BANK - 1.5)) || (x < 0 && z >= 0 && shape.west.some((at) => Math.abs(z - at) < CUT_BANK - 1.5)));
   const R = RANGE_DEPTH;
 
   // ── the mountains: an L round the two far sides, finer near the island ──
@@ -151,8 +154,9 @@ export function buildBackdrop(world: TownWorld, mats: Materials): Backdrop {
       const z = west ? along : -out;
       const h = heightAt(x, z);
       if (h < 0.3 || h > 6.2 || slopeAt(x, z) > 1.5) continue;
-      // not in the falls' ravine
-      if (west && Math.abs(z - FALLS_Z) < 2.4) continue;
+      // not in the falls' ravine, not on a road
+      if (shape.falls && west && Math.abs(z - FALLS_Z) < 2.4) continue;
+      if (onCut(x, z)) continue;
       n++;
       const s = 0.7 + hash2(i, 4, 71) * 0.6;
       const c = deep.clone().lerp(light, hash2(i, 5, 71) * 0.8);
@@ -220,8 +224,52 @@ export function buildBackdrop(world: TownWorld, mats: Materials): Backdrop {
     far(WATER_LEVEL, waterFar, mats.water, 2);
   }
 
+  // ── the roads out: each street that reaches a far edge runs on through its cutting, over the range and away ──
+  if (shape.roads) {
+    const pos: number[] = [];
+    const cols: number[] = [];
+    const road = new Color('#cdb996');
+    const edge = new Color('#b9a582');
+    const HALF = 1;
+    const STEP = 0.75;
+    const strip = (at: number, west: boolean) => {
+      for (let d = 0; d < R - 2; d += STEP) {
+        const y0 = Math.max(0, d * ROAD_CLIMB) + 0.03;
+        const y1 = Math.max(0, (d + STEP) * ROAD_CLIMB) + 0.03;
+        // (x, z) of the four corners: out along −x (west) or −z (north)
+        const q = west
+          ? [
+              [-d, y0, at - HALF],
+              [-d, y0, at + HALF],
+              [-d - STEP, y1, at + HALF],
+              [-d - STEP, y1, at - HALF],
+            ]
+          : [
+              [at + HALF, y0, -d],
+              [at - HALF, y0, -d],
+              [at - HALF, y1, -d - STEP],
+              [at + HALF, y1, -d - STEP],
+            ];
+        for (const v of [q[0], q[2], q[1], q[0], q[3], q[2]]) pos.push(v[0], v[1], v[2]); // (wound to face up)
+        // a darker band every few steps: the road reads as a road from far off
+        const c = Math.floor(d / STEP) % 6 === 0 ? edge : road;
+        for (let k = 0; k < 6; k++) cols.push(c.r, c.g, c.b);
+      }
+    };
+    for (const at of shape.west) strip(at, true);
+    for (const at of shape.north) strip(at, false);
+    if (pos.length) {
+      const g = new BufferGeometry();
+      g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+      g.setAttribute('color', new Float32BufferAttribute(cols, 3));
+      g.computeVertexNormals();
+      const m = add(g, mats.std, 1);
+      if (m) m.receiveShadow = true;
+    }
+  }
+
   // ── the falls: over the cliff at row 41 into the pool, and the pool and the stream on to the island's edge ──
-  {
+  if (shape.falls) {
     const pos: number[] = [];
     const cols: number[] = [];
     const flow: number[] = [];
