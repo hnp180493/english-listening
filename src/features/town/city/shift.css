@@ -1,0 +1,61 @@
+/* "Ca làm việc" in Westbay (ShiftPanel.tsx): what the café's sheet (../activities/cafe.css) does not have. Tokens only. */
+
+.shift-wait {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* one row of tiles per thing to set */
+.shift-slot {
+  display: grid;
+  gap: var(--space-1);
+}
+.shift-slot-label {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.shift-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.town-cafe-tile.shift-tile {
+  align-content: center;
+  min-height: 44px;
+  padding: var(--space-1) var(--space-2);
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.town-cafe-tile.shift-tile.is-on {
+  font-weight: 600;
+}
+
+/* after a miss: what each row should have been */
+.shift-fix {
+  display: grid;
+  gap: 2px;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+}
+.shift-fix .is-ok {
+  color: var(--text-muted);
+}
+.shift-fix .is-bad {
+  color: var(--bad);
+  font-weight: 600;
+}
+.shift-fix-label {
+  font-weight: 600;
+}
+.shift-fix-was {
+  margin-left: var(--space-1);
+  color: var(--text-muted);
+  font-weight: 400;
+}

@@ -6,7 +6,7 @@
 // learner on to the florist's, she to her neighbours, and so on. A scene heard comes back for a re-listen after 2, 7
 // and 21 days (owner: "học xong không ôn lại cũng như không"), as the town's episodes do.
 
-import type { CityScene } from './cityTypes';
+import type { CityEvent, CityScene, CitySeason } from './cityTypes';
 
 // ───────────────────────── stored (version 1) ─────────────────────────
 //
@@ -35,7 +35,7 @@ export function emptyTownCity(): TownCity {
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-const SCENE_ID = /^c[tv]-[a-z]{2,12}-[1-9]$/;
+const SCENE_ID = /^c[tvxs]-[a-z]{2,12}-[1-9]$/;
 const time = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
 const count = (v: unknown, max: number): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(max, Math.floor(v))) : 0);
 
@@ -119,7 +119,7 @@ export function sceneNow(scenes: readonly CityScene[], at: string, city: TownCit
 
 /** Whose scene an id is (`ct-nora-2` → 'nora'), for "meet … first". */
 export function sceneOwner(id: string): string {
-  return /^c[tv]-([a-z]+)-\d$/.exec(id)?.[1] ?? '';
+  return /^c[tvxs]-([a-z]+)-\d$/.exec(id)?.[1] ?? '';
 }
 
 /**
@@ -167,6 +167,84 @@ export function hearScene(city: TownCity, scene: CityScene, result: CityResult, 
   const counts = first || paysAgain;
   const heard: CityHeard = was ? { at: was.at, best: Math.max(was.best, right), times: counts ? was.times + 1 : was.times, last: counts ? now : was.last } : { at: now, best: right, times: 1, last: now };
   return { city: { ...city, heard: { ...city.heard, [scene.id]: heard } }, pay: { xu, bond, first } };
+}
+
+// ───────────────────────── outings, and coming up with a friend ─────────────────────────
+
+/** Friendship (town-progress) with the partner for an outing, once a day for each outing. */
+export const CITY_OUTING_BOND = 15;
+/** A town resident comes up on the no. 9 with the learner from this many hearts. */
+export const CITY_INVITE_HEARTS = 3;
+
+/**
+ * The outing `host` has for the learner today (a date, or with a child along a family outing where the host has
+ * one): the host's outings of that kind take turns by the day. Null: this host has none of that kind.
+ */
+export function outingToday(outings: readonly CityScene[], host: string, family: boolean, dayNumber: number): CityScene | null {
+  const own = outings.filter((s) => s.at === host).sort((a, b) => a.n - b.n);
+  const kind = family && own.some((s) => s.kind === 'family') ? 'family' : 'date';
+  const pool = own.filter((s) => s.kind === kind);
+  return pool.length === 0 ? null : pool[((dayNumber % pool.length) + pool.length) % pool.length];
+}
+
+/**
+ * The scenes somebody has when these town residents came up WITH the learner (their partner, a friend asked along):
+ * a resident's second visit is theirs only then.
+ */
+export function scenesWith(scenes: readonly CityScene[], came: ReadonlySet<string>): CityScene[] {
+  return scenes.filter((s) => !(s.kind === 'visit' && s.n > 1 && !came.has(s.at)));
+}
+
+// ───────────────────────── seasons: a chapter a day ─────────────────────────
+
+/** The local day of a time, YYYY-MM-DD. */
+export function cityDay(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export type SeasonNow =
+  /** A chapter to hear today. */
+  | { kind: 'open'; season: CitySeason; chapter: CityScene }
+  /** The chapter before was heard today: the next one opens tomorrow. */
+  | { kind: 'tomorrow'; season: CitySeason; chapter: CityScene }
+  /** Its first chapter waits for a scene to be heard (`needs`: that scene's id). */
+  | { kind: 'locked'; season: CitySeason; needs: string }
+  | { kind: 'done'; season: CitySeason };
+
+/**
+ * Where a season stands: its first chapter not heard is open once what the season needs is heard and the chapter
+ * before it was heard on an EARLIER local day (one chapter a real day: the wait is the point, as with the town's
+ * cases, docs/town.md §17).
+ */
+export function seasonNow(season: CitySeason, city: TownCity, now: number): SeasonNow {
+  const missing = season.needs.find((id) => !heardOf(city, id));
+  const i = season.chapters.findIndex((c) => !heardOf(city, c.id));
+  if (i < 0) return { kind: 'done', season };
+  if (missing && i === 0) return { kind: 'locked', season, needs: missing };
+  const chapter = season.chapters[i];
+  if (i === 0) return { kind: 'open', season, chapter };
+  const before = heardOf(city, season.chapters[i - 1].id)!;
+  return cityDay(before.at) < cityDay(now) ? { kind: 'open', season, chapter } : { kind: 'tomorrow', season, chapter };
+}
+
+/** Today's chapters to hear, of every season. */
+export function chaptersToday(seasons: readonly CitySeason[], city: TownCity, now: number): { season: CitySeason; chapter: CityScene }[] {
+  const out: { season: CitySeason; chapter: CityScene }[] = [];
+  for (const s of seasons) {
+    const n = seasonNow(s, city, now);
+    if (n.kind === 'open') out.push({ season: s, chapter: n.chapter });
+  }
+  return out;
+}
+
+// ───────────────────────── the city's week and its festivals ─────────────────────────
+
+/** What is on in the city today: the weekday's get-together and a festival of the month, the festival first. */
+export function cityEventsOn(events: readonly CityEvent[], weekday: number, month: number): CityEvent[] {
+  const fest = events.filter((e) => e.months?.includes(month));
+  const day = events.filter((e) => e.weekday === weekday && !e.months);
+  return [...fest, ...day];
 }
 
 // ───────────────────────── who of the town is in Westbay ─────────────────────────

@@ -271,6 +271,10 @@ const page: Record<string, string> = {
   'Đang lên xe số 9…': 'Getting on the no. 9…',
   'Xe số 9 đi Westbay đang chờ ở bến xe.': 'Bus no. 9 to Westbay is waiting at the bus station.',
   'Ra bến xe': 'To the bus station',
+  'Chuyện dài ở Westbay': 'Long story in Westbay',
+  'Rủ đi cùng': 'Bring a friend',
+  'Tới nghe': 'Go listen',
+  '{}: chương hôm nay ở chỗ {}.': '{0}: today\'s chapter is at {1}.',
 };
 
 export default page;

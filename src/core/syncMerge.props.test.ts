@@ -18,6 +18,7 @@ import {
   mergeCafe,
   mergeCases,
   mergeCity,
+  mergeShifts,
   mergeValue,
 } from './syncMerge';
 import { parseDrillStore, rollDaily } from '../features/drill/drillStore';
@@ -257,6 +258,25 @@ describe('merger laws', () => {
       first: pick<unknown>([0, T0, T0 + 5, -3, "x"]),
       heard: Object.fromEntries(
         ['ct-rico-1', 'ct-nora-2', 'cv-square-1', 'Bad Id', '__proto__'].filter(() => maybe(0.6)).map((id) => [id, pick<unknown>([{ at: pick([T0, T0 + 1]), best: ri(4), times: 1 + ri(3), last: pick([T0 + 1, T0 + 9]) }, { at: 0 }, 'x'])]),
+      ),
+    };
+  });
+  // town-shifts (Westbay's "Ca làm việc", core/town/shift): per shift best and last run's misses, per-order counts, days
+  checkLaws('town shifts', mergeShifts, () => {
+    if (maybe(0.05)) return pick<unknown>([null, 'junk', [], { days: 7 }]);
+    const shiftIds = ['taxi', 'flowers', 'Bad Id', '__proto__'];
+    return {
+      version: 1,
+      best: Object.fromEntries(shiftIds.filter(() => maybe()).map((id) => [id, pick<unknown>([{ score: pick([120, 300, 300]), at: pick([T0, T0 + 1, T0 + 2]) }, { score: 'x' }, null])])),
+      last: Object.fromEntries(
+        shiftIds.filter(() => maybe()).map((id) => [id, pick<unknown>([{ at: pick([T0, T0 + 1]), missed: ['sh-taxi-1', 'sh-taxi-3', 'sh-flowers-2', 'bad', 'sh-taxi-12'].filter(() => maybe(0.4)) }, { at: 0, missed: [] }, 'x'])]),
+      ),
+      orders: Object.fromEntries(['sh-taxi-1', 'sh-flowers-10', 'Bad Id', '__proto__'].filter(() => maybe()).map((id) => [id, { n: ri(5), ok: ri(5) }])),
+      days: Object.fromEntries(
+        townDays
+          .slice(ri(10), 75)
+          .filter(() => maybe(0.2))
+          .map((d) => [d, Object.fromEntries([...townDevices, 'NOT A DEVICE'].filter(() => maybe(0.5)).map((dev) => [dev, Object.fromEntries(shiftIds.filter(() => maybe()).map((id) => [id, { runs: ri(3), xu: ri(16) }]))]))]),
       ),
     };
   });

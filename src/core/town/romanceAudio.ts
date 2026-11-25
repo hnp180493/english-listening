@@ -14,15 +14,12 @@
 import { suitorOf } from '../../data/romance';
 import type { SpeechMode } from '../playback';
 import type { ChatLine, PlayerGender } from './romanceTypes';
-import { CAST_VOICES, type CastVoice } from './voices';
+import { CAST_VOICES, KID_VOICES, type CastVoice } from './voices';
+
+export { KID_VOICES };
 
 /** The learner's character as a woman (a man is CAST_VOICES.player). */
 export const PLAYER_FEMALE: CastVoice = { voice: 'Callirrhoe', gender: 'female' };
-/** The children: a small boy's and a small girl's voice. */
-export const KID_VOICES: Readonly<Record<'boy' | 'girl', CastVoice>> = {
-  boy: { voice: 'Achird', gender: 'male', accent: "small child's high, playful voice" },
-  girl: { voice: 'Autonoe', gender: 'female', accent: "small child's high, playful voice" },
-};
 
 /** Who is in the scene: the one courted / the spouse (place id), and the child's sex in a child's scene. */
 export interface SceneCast {

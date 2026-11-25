@@ -3,10 +3,10 @@
 
 import { useSyncExternalStore } from 'react';
 import { KEYS, onAppWrite, saveJSON, STORAGE_PREFIX } from '../storage';
-import { CITY_TIE_BOND, emptyTownCity, hearScene, mergeTownCity, parseTownCity, type CityPay, type CityResult, type TownCity } from './city';
+import { CITY_OUTING_BOND, CITY_TIE_BOND, emptyTownCity, hearScene, mergeTownCity, parseTownCity, type CityPay, type CityResult, type TownCity } from './city';
 import type { CityScene } from './cityTypes';
 import { addFriendPoints } from './friendship';
-import { addEarned } from './progress';
+import { addEarned, townDay, updateDaily } from './progress';
 import { commitTown, loadTownProgress, townDevice } from './store';
 import { TOWN_PLACES } from '../../data/town';
 
@@ -102,6 +102,41 @@ export interface CityEnd extends CityPay {
 }
 
 const done = new WeakMap<CityResult, CityEnd>();
+
+/** The outings gone on today (their ids), from the day's list of things heard (town-progress `heard`). */
+export function outingsToday(now: number = Date.now()): string[] {
+  const bucket = loadTownProgress().daily[townDay(now)] ?? {};
+  const out = new Set<string>();
+  for (const c of Object.values(bucket)) for (const id of c.heard ?? []) if (id.startsWith('cx-')) out.add(id);
+  return [...out];
+}
+
+/**
+ * An outing with `partner` (a town place id) was heard to its end: written down, xu for what was understood the
+ * first time, and the partner's friendship once a day for this outing.
+ */
+export function finishOuting(scene: CityScene, result: CityResult, partner: string, now: number = Date.now()): CityEnd {
+  const again = done.get(result);
+  if (again) return again;
+  const heard = hearScene(loadTownCity(), scene, result, new Set<string>(), now);
+  write(heard.city);
+  const device = townDevice();
+  const day = townDay(now);
+  let progress = loadTownProgress();
+  const before = progress;
+  const gained: Record<string, number> = {};
+  if (heard.pay.xu > 0) progress = addEarned(progress, device, heard.pay.xu);
+  if (!outingsToday(now).includes(scene.id)) {
+    progress = updateDaily(progress, day, device, (d) => ({ ...d, heard: [...(d.heard ?? []), scene.id] }), true);
+    const w = addFriendPoints(progress, partner, CITY_OUTING_BOND, device);
+    progress = w.progress;
+    if (w.points > 0) gained[partner] = w.points;
+  }
+  if (progress !== before) commitTown(progress, now);
+  const end: CityEnd = { ...heard.pay, gained };
+  done.set(result, end);
+  return end;
+}
 
 /**
  * A scene was heard to its end and its questions answered: written down, its xu paid, the friendship of the town

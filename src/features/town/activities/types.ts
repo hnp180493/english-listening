@@ -9,8 +9,10 @@ import type { SceneSpot } from '../../../data/romance/places';
 /**
  * 'listen' is the panel of a thing used in the world (a bench, the radio) or of today's get-together (docs/town.md
  * §19, scenes/ListenPanel): it is not in ACTIVITIES, so not in the HUD's menu. Which one comes in `focus`.
+ * 'season' is a chapter of one of Westbay's long stories played in the town (docs/town.md §21, city/SeasonPanel):
+ * `focus` is the chapter's id.
  */
-export type ActivityId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | 'gifts' | 'journal' | 'character' | 'love' | 'cafe' | 'case' | 'delivery' | 'listen';
+export type ActivityId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | 'gifts' | 'journal' | 'character' | 'love' | 'cafe' | 'case' | 'delivery' | 'listen' | 'season';
 
 /** The activities with a spot in the world (data/townWorld ActivitySpotId): the player walks there first. */
 export const SPOT_ACTIVITIES = ['fish', 'farm', 'eggs', 'wardrobe', 'album'] as const;
@@ -68,6 +70,8 @@ export interface ActivityPanelProps {
   onListen?: (who: readonly string[] | null) => void;
   /** Who is speaking now in a "cảnh nghe" (a place id; null = nobody): the stage shows it over their head. */
   onSpeaking?: (who: string | null) => void;
-  /** Bus no. 9 sets off (docs/town.md §20): the page goes to Westbay. */
-  onTravel?: () => void;
+  /** Bus no. 9 sets off (docs/town.md §20): the page goes to Westbay, with the friend asked along (a place id), if any. */
+  onTravel?: (withId?: string) => void;
+  /** Who may be asked along on the bus: friends from CITY_INVITE_HEARTS hearts (place id and name). */
+  companions?: readonly { id: string; name: string }[];
 }

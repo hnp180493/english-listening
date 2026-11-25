@@ -60,8 +60,8 @@ import { PLAYER_FEMALE, romanceAudioText, romanceVoice, type SceneCast } from '.
 import { STREET_TALKS } from '../data/streetTalks';
 import { CAFE_ORDERS } from '../data/townCafe';
 import { TOWN_CASES } from '../data/cases';
-import { CITY_SCENES } from '../data/city';
-import { cityCastVoice, cityLineText } from './town/cityAudio';
+import { CITY_CHAPTERS, CITY_OUTINGS, CITY_SCENES } from '../data/city';
+import { cityCastVoice, cityLineText, outingVoice } from './town/cityAudio';
 import type { CityScene } from './town/cityTypes';
 import { DELIVERIES } from '../data/townDeliveries';
 import type { DeliveryOrder } from './town/deliveryTypes';
@@ -149,6 +149,11 @@ export interface InventoryContent {
    * voice. The city's own people speak in the browser's voice and have no clips.
    */
   cityScenes?: readonly CityScene[];
+  /**
+   * Westbay's outings (data/city/outings): the partner's lines in the voice of every resident who can be courted
+   * (`partners`, place ids), the child's in both children's voices; connected only.
+   */
+  cityOutings?: { scenes: readonly CityScene[]; partners: readonly string[] };
   /** "Phụ quầy cà phê" (data/townCafe): every order in its customer's voice, connected + careful. */
   cafeOrders?: readonly CafeOrder[];
   /** "Hẹn hò, cưới, con": the courtship scenes and the children's (data/romance), each speaker in their own voice. */
@@ -175,7 +180,9 @@ export function defaultInventoryContent(): InventoryContent {
     streetTalks: STREET_TALKS,
     cafeOrders: CAFE_ORDERS,
     cases: TOWN_CASES,
-    cityScenes: CITY_SCENES,
+    // (and the chapters of the long stories; outings and get-togethers are in the browser's voice)
+    cityScenes: [...CITY_SCENES, ...CITY_CHAPTERS],
+    cityOutings: { scenes: CITY_OUTINGS, partners: SUITORS.map((s) => s.placeId) },
     deliveries: DELIVERIES,
   };
 }
@@ -465,6 +472,20 @@ function addCityScenes(c: Collector, scenes: readonly CityScene[]): void {
   }
 }
 
+function addCityOutings(c: Collector, { scenes, partners }: NonNullable<InventoryContent['cityOutings']>): void {
+  // CityScenePanel → cityLinePlayback(line, level, false, { partner, kid }): the partner in their voice, the child in a
+  // child's; the host and anybody else of the city are the browser's
+  for (const s of scenes) {
+    s.lines.forEach((line, i) => {
+      const casts = line.who === 'partner' ? partners.map((partner) => ({ partner })) : line.who === 'kid' ? (['boy', 'girl'] as const).map((kid) => ({ kid })) : [];
+      for (const cast of casts) {
+        const voice = outingVoice(line.who as 'partner' | 'kid', cast);
+        if (voice) c.add('town', `${s.id}-${i + 1}`, 'main', 'connected', cityLineText(line, s.level), false, voice);
+      }
+    });
+  }
+}
+
 function addCases(c: Collector, cases: readonly TownCase[]): void {
   // CasePanel sayLine(placeId, line, level, careful): dictationAudio({ text, level }) in the witness's voice
   for (const cs of cases) {
@@ -555,6 +576,7 @@ export function buildAudioInventory(content: InventoryContent = defaultInventory
   if (content.cafeOrders) addCafe(c, content.cafeOrders);
   if (content.cases) addCases(c, content.cases);
   if (content.cityScenes) addCityScenes(c, content.cityScenes);
+  if (content.cityOutings) addCityOutings(c, content.cityOutings);
   // (the "cảnh nghe" of data/scenes are not here: they are heard for fun, in the browser's voice only: docs/town.md §19)
   if (content.deliveries) addDeliveries(c, content.deliveries);
   return c.result();

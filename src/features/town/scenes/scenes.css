@@ -123,3 +123,13 @@
   flex-wrap: wrap;
   gap: var(--space-1);
 }
+
+/* asking a friend along on bus no. 9 (docs/town.md §20) */
+.town-ls-with {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}

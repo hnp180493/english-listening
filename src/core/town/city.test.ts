@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CITY_AGAIN_XU, CITY_RELISTEN_DAYS, CITY_VISITS, CITY_XU, emptyTownCity, hearScene, mergeTownCity, nextToMeet, parseTownCity, relistenAt, sceneNow, sceneOpen, sceneOwner, visitorsNow, type TownCity } from './city';
-import type { CityScene } from './cityTypes';
+import { CITY_AGAIN_XU, CITY_RELISTEN_DAYS, CITY_VISITS, CITY_XU, cityDay, cityEventsOn, emptyTownCity, hearScene, mergeTownCity, nextToMeet, outingToday, parseTownCity, relistenAt, sceneNow, sceneOpen, sceneOwner, scenesWith, seasonNow, chaptersToday, visitorsNow, type TownCity } from './city';
+import type { CityEvent, CityScene, CitySeason } from './cityTypes';
 
 const DAY = 86_400_000;
 const T0 = Date.UTC(2026, 10, 25, 5);
@@ -135,5 +135,61 @@ describe('city: who of the town is up there', () => {
     expect(visitorsNow(SCENES, city, 1, TOWN)).toEqual(['square', 'station']);
     city = heard(city, 'ct-nora-2', 3, T0).city;
     expect(visitorsNow(SCENES, city, 1, TOWN)).toEqual(['station']);
+  });
+});
+
+describe('city: outings, coming up together, the long stories, the week', () => {
+  const outing = (id: string, at: string, n: number, kind: 'date' | 'family'): CityScene => ({ ...scene(id, at, n, 'chat', [at, 'partner']), kind });
+  const OUTINGS = [outing('cx-gianna-1', 'gianna', 1, 'date'), outing('cx-gianna-2', 'gianna', 2, 'date'), outing('cx-poppy-1', 'poppy', 1, 'family')];
+
+  it("a host's outings take turns by the day; a family outing only with a child along", () => {
+    expect(outingToday(OUTINGS, 'gianna', false, 10)?.id).toBe('cx-gianna-1');
+    expect(outingToday(OUTINGS, 'gianna', false, 11)?.id).toBe('cx-gianna-2');
+    // Gianna has no family outing: with a child along it is still a date there
+    expect(outingToday(OUTINGS, 'gianna', true, 11)?.id).toBe('cx-gianna-2');
+    expect(outingToday(OUTINGS, 'poppy', true, 3)?.id).toBe('cx-poppy-1');
+    expect(outingToday(OUTINGS, 'poppy', false, 3)).toBeNull();
+    expect(outingToday(OUTINGS, 'rico', true, 3)).toBeNull();
+  });
+
+  it("a resident's second visit is theirs only when they came up with the learner", () => {
+    const list = [...SCENES, scene('cv-shop-2', 'shop', 2, 'visit', ['shop', 'frank'], ['cv-shop-1'])];
+    expect(scenesWith(list, new Set()).some((s) => s.id === 'cv-shop-2')).toBe(false);
+    expect(scenesWith(list, new Set(['shop'])).some((s) => s.id === 'cv-shop-2')).toBe(true);
+    expect(scenesWith(list, new Set()).length).toBe(SCENES.length);
+  });
+
+  const chapter = (id: string, at: string, n: number, town = false): CityScene => ({ ...scene(id, at, n, 'episode', [at, 'square']), kind: 'chapter', ...(town ? { where: 'town' as const } : {}) });
+  const SEASON: CitySeason = { id: 'home', title: 'Về hay ở', blurb: 'Chuyện của Leo và Nora.', needs: ['ct-nora-2'], chapters: [chapter('cs-home-1', 'square', 1, true), chapter('cs-home-2', 'nora', 2), chapter('cs-home-3', 'square', 3, true)] };
+
+  it('a long story waits for what it grows out of, then gives one chapter a real day', () => {
+    let city = emptyTownCity();
+    expect(seasonNow(SEASON, city, T0)).toMatchObject({ kind: 'locked', needs: 'ct-nora-2' });
+    for (const id of ['ct-rico-1', 'ct-nora-1', 'ct-nora-2']) city = heard(city, id, 3, T0).city;
+    expect(seasonNow(SEASON, city, T0)).toMatchObject({ kind: 'open', chapter: { id: 'cs-home-1' } });
+    expect(chaptersToday([SEASON], city, T0).map((c) => c.chapter.id)).toEqual(['cs-home-1']);
+    city = hearScene(city, SEASON.chapters[0], { right: 2, asked: 3 }, TOWN, T0).city;
+    // heard today: the next one is for tomorrow
+    expect(seasonNow(SEASON, city, T0 + 3_600_000)).toMatchObject({ kind: 'tomorrow', chapter: { id: 'cs-home-2' } });
+    expect(chaptersToday([SEASON], city, T0 + 3_600_000)).toEqual([]);
+    expect(seasonNow(SEASON, city, T0 + DAY)).toMatchObject({ kind: 'open', chapter: { id: 'cs-home-2' } });
+    city = hearScene(city, SEASON.chapters[1], { right: 3, asked: 3 }, TOWN, T0 + DAY).city;
+    city = hearScene(city, SEASON.chapters[2], { right: 3, asked: 3 }, TOWN, T0 + 2 * DAY).city;
+    expect(seasonNow(SEASON, city, T0 + 9 * DAY)).toMatchObject({ kind: 'done' });
+    // a chapter is stored like any scene, and pays like one
+    expect(parseTownCity(JSON.parse(JSON.stringify(city))).heard['cs-home-3']).toBeDefined();
+    expect(sceneOwner('cs-home-2')).toBe('home');
+  });
+
+  it("what is on today: the weekday's get-together, and a festival of the month first", () => {
+    const EVENTS: CityEvent[] = [
+      { id: 'karaoke', weekday: 4, name: 'Karaoke', blurb: '', host: 'bo' },
+      { id: 'ferry', weekday: 0, name: 'Phà', blurb: '', host: 'odile' },
+      { id: 'fair', months: [9, 10, 11], name: 'Hội', blurb: '', host: 'fay' },
+    ];
+    expect(cityEventsOn(EVENTS, 4, 6).map((e) => e.id)).toEqual(['karaoke']);
+    expect(cityEventsOn(EVENTS, 4, 11).map((e) => e.id)).toEqual(['fair', 'karaoke']);
+    expect(cityEventsOn(EVENTS, 2, 3)).toEqual([]);
+    expect(cityDay(new Date(2026, 10, 25, 23, 59).getTime())).toBe('2026-11-25');
   });
 });

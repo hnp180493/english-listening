@@ -5,6 +5,7 @@ import PageHeader from '../../components/PageHeader';
 import ShortcutsHelp from '../../components/ShortcutsHelp';
 import { prefersReducedMotion } from '../../core/motion';
 import { hrefFor, navigate, parseHash } from '../../core/nav';
+import { CITY_INVITE_HEARTS } from '../../core/town/city';
 import { knowsFact, lineProgress, typedTotals } from '../../core/town/progress';
 import {
   buyTownItem,
@@ -218,7 +219,7 @@ function FlatTown({ places, suggested, onTalk }: { places: readonly TownPlaceVie
  * counters over it, the conversation, the build panel, the activities.
  */
 /** What ?listen= may name: a thing to use, or a get-together. */
-const LISTEN_LINK = /^(thing:(bench-[0-9]{1,2}|radio|bus)|event:[a-z]{2,12})$/;
+const LISTEN_LINK = /^(thing:(bench-[0-9]{1,2}|radio|bus)|event:[a-z]{2,12}|season:cs-[a-z]{2,12}-[1-9])$/;
 
 export default function TownPage() {
   const theme = useTownTheme();
@@ -285,7 +286,7 @@ export default function TownPage() {
   const [listenLink] = useState<string | null>(() => (LISTEN_LINK.test(params.listen ?? '') && (params.listen !== BUS_THING || overview.places.some((p) => p.place.id === 'station' && p.built)) ? (params.listen ?? null) : null));
   // ?activity=<id> (e.g. Ôn tập's "Về nông trại") opens that panel once the town is drawn
   // ?listen=thing:radio | thing:bench-3 | event:games opens that scene's panel (a link to a thing or to a get-together)
-  const [activity, setActivity] = useState<ActivityId | null>(() => ACTIVITIES.find((a) => a.id === params.activity)?.id ?? (listenLink ? 'listen' : null));
+  const [activity, setActivity] = useState<ActivityId | null>(() => ACTIVITIES.find((a) => a.id === params.activity)?.id ?? (listenLink ? (listenLink.startsWith('season:') ? 'season' : 'listen') : null));
   /** The Sổ tay opens at this resident's page (their hearts in a conversation's header, the map card); null: the list. */
   const [journalFor, setJournalFor] = useState<string | null>(null);
   /** What the "listen" panel is about: a thing used in the world ('thing:bench-3', 'thing:radio') or 'event:<id>'. */
@@ -628,8 +629,14 @@ export default function TownPage() {
     },
     [openActivity],
   );
+  // who may be asked along on the no. 9: friends from CITY_INVITE_HEARTS hearts (the partner comes along anyway)
+  const partnerNow = partnerOf(life);
+  const busCompanions = useMemo(
+    () => overview.places.filter((p) => p.friend.hearts >= CITY_INVITE_HEARTS && p.place.id !== partnerNow).map((p) => ({ id: p.place.id, name: p.place.resident })),
+    [overview.places, partnerNow],
+  );
   /** Bus no. 9 sets off for Westbay (docs/town.md §20): the route's other page (TownRoute). */
-  const toCity = useCallback(() => navigate('town', { at: 'city' }), []);
+  const toCity = useCallback((withId?: string) => navigate('town', { at: 'city', with: withId }), []);
   /** A "cảnh nghe" at a thing: the player sits down on it, the two who are overheard come and talk nearby. */
   const [listenSpeaking, setListenSpeaking] = useState<string | null>(null);
   const listenThing = useRef<string | null>(null);
@@ -651,6 +658,29 @@ export default function TownPage() {
     (eventId: string) => {
       setListenAt('event:' + eventId);
       openActivity('listen', 'hud');
+    },
+    [openActivity],
+  );
+  // today's chapter of a long story of Westbay that is played here in the town (docs/town.md §21): the stories are the
+  // city's data, loaded only for somebody who has been there
+  const [townStory, setTownStory] = useState<{ id: string; text: string } | null>(null);
+  useEffect(() => {
+    let gone = false;
+    void Promise.all([import('../../core/town/cityStore'), import('../../core/town/city'), import('../../data/city/seasons')]).then(([store, rules, data]) => {
+      const city = store.loadTownCity();
+      if (gone || !city.first) return;
+      const ch = rules.chaptersToday(data.CITY_SEASONS, city, Date.now()).find((c) => c.chapter.where === 'town');
+      setTownStory(ch ? { id: ch.chapter.id, text: tl`${ch.season.title}: chương hôm nay ở chỗ ${overviewRef.current.places.find((p) => p.place.id === ch.chapter.at)?.place.resident ?? ''}.` } : null);
+    });
+    return () => {
+      gone = true;
+    };
+    // when the page opens, and again when a panel closes (the chapter may just have been heard)
+  }, [activity]);
+  const openStory = useCallback(
+    (id: string) => {
+      setListenAt('season:' + id);
+      openActivity('season', 'hud');
     },
     [openActivity],
   );
@@ -1045,6 +1075,7 @@ export default function TownPage() {
           onEvent={(id) => {
             if (townReady && !talk) openEvent(id);
           }}
+          story={townStory && townReady && !talk ? { text: townStory.text, onGo: () => openStory(townStory.id) } : undefined}
           onBus={
             overview.places.some((p) => p.place.id === 'station' && p.built)
               ? () => {
@@ -1138,7 +1169,7 @@ export default function TownPage() {
             onReward={onReward}
             sound={ui.sound}
             onFish={onFish}
-            focus={shownActivity === 'listen' ? listenAt : journalFor}
+            focus={shownActivity === 'listen' ? listenAt : shownActivity === 'season' ? (listenAt?.replace(/^season:/, '') ?? null) : journalFor}
             onTalk={(id) => {
               closeActivity();
               goTalk(id);
@@ -1149,6 +1180,7 @@ export default function TownPage() {
             onListen={onListen}
             onSpeaking={setListenSpeaking}
             onTravel={toCity}
+            companions={busCompanions}
           />
         )}
         {shownGift && <GiftSheet placeId={shownGift} onClose={closeGift} onGiven={(r, v) => onGiven(r, v, shownGift)} onShop={giftToShop} />}

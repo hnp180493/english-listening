@@ -71,7 +71,7 @@ export const SCENE_VOICES: Readonly<Record<string, SceneVoice>> = {
   marcus: { name: 'Marcus · Bay FM', gender: 'male' },
   // Westbay (docs/city.md): heard, never met
   dot: { name: 'Dot', gender: 'female' },
-  tannoy: { name: 'Loa nhà ga', gender: 'female' },
+  tannoy: { name: 'Loa phóng thanh', gender: 'female' },
   bus9: { name: 'Loa xe buýt', gender: 'female' },
   rider1: { name: 'Hành khách', gender: 'male' },
   rider2: { name: 'Hành khách', gender: 'female' },

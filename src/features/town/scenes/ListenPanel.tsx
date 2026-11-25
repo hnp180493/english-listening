@@ -26,8 +26,8 @@ export interface ListenPanelProps extends ActivityPanelProps {
   where?: 'town' | 'city';
   /** What is overheard from a bench here (the city's own scenes; default: the town's). */
   overheard?: readonly ListenScene[];
-  /** The bus sets off (the ride was heard, or skipped): the page goes to the other place. */
-  onTravel?: () => void;
+  /** The bus sets off (the ride was heard, or skipped): the page goes to the other place (with the friend asked along). */
+  onTravel?: (withId?: string) => void;
 }
 
 /** The scene this panel plays, and whose get-together it is (a place id), if any. */
@@ -57,10 +57,27 @@ function say(line: SceneLine, level: number, careful: boolean): Promise<void> {
   return speak(p.text, p.options);
 }
 
-export default function ListenPanel({ onClose, onReward, sound, focus, onScene, onSceneEnd, onListen, onSpeaking, where = 'town', overheard = OVERHEARD_SCENES, onTravel }: ListenPanelProps) {
+export default function ListenPanel({ onClose, onReward, sound, focus, onScene, onSceneEnd, onListen, onSpeaking, where = 'town', overheard = OVERHEARD_SCENES, onTravel, companions }: ListenPanelProps) {
   // the scene is chosen once, when the panel opens (what was paid meanwhile must not change it under the learner)
   const [{ scene, host }] = useState(() => pickScene(focus, Date.now(), where, overheard));
   const ride = scene?.kind === 'ride';
+  // a friend asked along to Westbay (from the town only): they ride with the learner and are up there for the day
+  const [withId, setWithId] = useState('');
+  const travel = useCallback(() => onTravel?.(withId || undefined), [onTravel, withId]);
+  const askAlong =
+    where === 'town' && companions && companions.length > 0 ? (
+      <label className="town-ls-with">
+        Rủ đi cùng
+        <select className="select" value={withId} onChange={(e) => setWithId(e.target.value)}>
+          <option value="">Đi một mình</option>
+          {companions.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    ) : null;
 
   // a get-together happens at its host's place: the stage takes the player there (as a shift at the café does)
   const staged = useRef(false);
@@ -105,7 +122,7 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
         <p className="town-build-hint">{focus && thingKind(focus) === 'bus' ? tl`Xe số 9 đang chờ ở bến. Lên xe là tới ${there}.` : 'Lúc này chưa có gì để nghe ở đây. Ghé lại sau nhé.'}</p>
         <div className="town-talk-foot">
           {focus && thingKind(focus) === 'bus' && onTravel ? (
-            <button type="button" className="btn btn-primary" onClick={onTravel} autoFocus>
+            <button type="button" className="btn btn-primary" onClick={travel} autoFocus>
               {tl`Đi ${there}`}
               <Icon icon={ArrowRight} size={16} />
             </button>
@@ -123,7 +140,9 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
   // overheard from whichever bench the learner sat down on: who is talking, not where the scene was written for
   const intro = scene.kind === 'overheard' && who.length === 2 ? tl`${speakerName(who[0])} và ${speakerName(who[1])} đang nói chuyện ngay gần đó.` : scene.scene;
   return (
-    <SceneFlow
+    <>
+      {ride && askAlong}
+      <SceneFlow
       scene={{ title: scene.title, lines: scene.lines, questions: scene.detail ? [scene.gist, scene.detail] : [scene.gist] }}
       intro={intro}
       nameOf={speakerName}
@@ -131,16 +150,17 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
       say={sayLine}
       onDone={done}
       onSpeaking={onSpeaking}
-      onClose={ride && onTravel ? onTravel : onClose}
+      onClose={ride && onTravel ? travel : onClose}
       sound={sound}
       closeLabel={ride ? tl`Xuống xe ở ${there}` : undefined}
       readyExtra={
         ride && onTravel ? (
-          <button type="button" className="btn btn-ghost" onClick={onTravel}>
+          <button type="button" className="btn btn-ghost" onClick={travel}>
             Đi luôn, không nghe
           </button>
         ) : undefined
       }
-    />
+      />
+    </>
   );
 }

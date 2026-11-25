@@ -21,7 +21,7 @@ export const MAP_ART = {
 } as const;
 
 /** The icon of each activity on the map (as in the HUD's "Chơi" menu). */
-export const MAP_ACTIVITY_ICONS: Readonly<Record<ActivityId, LucideIcon>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee, case: Search, delivery: Package, listen: Ear };
+export const MAP_ACTIVITY_ICONS: Readonly<Record<ActivityId, LucideIcon>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee, case: Search, delivery: Package, listen: Ear, season: BookOpen };
 
 /** A resident's marker colour on the minimap ring (null: no ring). */
 export function markerColor(marker: Marker | null): string | null {

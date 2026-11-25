@@ -154,6 +154,7 @@ const rules: Record<string, string> = {
   'Loa nhà ga': 'Station speaker',
   'Loa xe buýt': 'Bus speaker',
   'Hành khách': 'Passenger',
+  'Loa phóng thanh': 'Loudspeaker',
 };
 
 export default rules;

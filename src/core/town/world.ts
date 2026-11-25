@@ -133,7 +133,7 @@ export function rideNow<T extends ListenScene>(list: readonly T[], to: 'city' | 
 export function sceneKindOf(id: string): ListenScene['kind'] | null {
   if (id.startsWith('oh-') || id.startsWith('co-')) return 'overheard';
   if (id.startsWith('fm-')) return 'radio';
-  if (id.startsWith('ev-')) return 'event';
+  if (id.startsWith('ev-') || id.startsWith('ce-')) return 'event';
   if (id.startsWith('rd-')) return 'ride';
   return null;
 }

@@ -18,6 +18,9 @@ const DISTRICTS: readonly { id: CityDistrict; name: string }[] = [
   { id: 'station', name: 'Ga & bến xe' },
   { id: 'market', name: 'Chợ cũ' },
   { id: 'arts', name: 'Phố nghệ thuật' },
+  { id: 'office', name: 'Khu văn phòng' },
+  { id: 'campus', name: 'Đại học & bệnh viện' },
+  { id: 'harbour', name: 'Bến cảng' },
 ];
 
 const nameOf = (id: string): string => cityPerson(id)?.name ?? townPlace(id)?.resident ?? '';

@@ -2564,3 +2564,76 @@ first episode staged with its panel, the bus's panel in the town.
 - a missed scene is not a review card; pay and friendship numbers are guesses;
 - the mountains round the bay are the town's range, cut for the city's roads (see "The roads out" above); the town's own
   range has its two passes but no road drawn through them.
+
+## 21. Westbay grows: six districts, work, outings, long stories, a week (2026-11-25)
+
+The owner, after §20 was pushed and he was told what was still missing of the proposal: "không làm cho xong hết đi".
+This is the rest of docs/city-proposal.md (its steps 2 to 4). The canon of everybody and every story is
+`docs/city.md` (§7 the later districts, §8 the six long stories, §9 the week and the festivals).
+
+**The map** (`data/cityWorld.ts`): 72 × 72 now; the first three districts keep their coordinates. New: **Khu văn
+phòng** (north-east: Meridian's head office, the Loom design studio, FreshWay's office), **Đại học & bệnh viện**
+(east: Westbay Hospital on the avenue, the phonetics lab, the library and the pharmacy on Arts Street's east end, a
+campus quad), **Bến cảng** (the peninsula in the south-east: the electronics market, the Bay FM stage, the big wheel,
+the ferry terminal, the night market on the harbour square). The bay is an inlet in the south-west now. Two more
+streets north–south (College Road, East Road, a third pass in the range for College Road) and two on the peninsula
+(Quay Street, Pier Road). 37 places, 18 benches. The map tests of §20 cover it (every door and spot open, nothing
+shares a tile, a way from the bus to everybody, keys walking anywhere stop only at something drawn).
+
+**People** (`core/town/cityPeople.ts`): 37. Twelve main people with three episodes each (the six of §20 and Priya =
+Sarah's old desk-mate, Vivian = Lily's boss, Dr Osei = Kim's mentor, Professor Adeyemi = Daniel's tutor, Jun = Max's
+first boss, Marcus = the voice of Bay FM and Tom's pen-friend), twenty-five people known with two short talks each.
+Professor Adeyemi is the one person who talks about what the learner is doing here (how English is really said), and
+he promises nothing: the ear is trained by hours. Yuki is a learner like the listener.
+
+**Ca làm việc** (work shifts; `core/town/shift.ts`, `shiftStore.ts`, `shiftTypes.ts`, `data/city/shifts/`,
+`city/ShiftPanel.tsx`; synced key `town-shifts`, merger `mergeShifts`): the café game's cousin, ONE engine and panel,
+a shift is data. The learner hears a request in the browser's voice and sets two or three things right before the
+patience runs out; ten requests a shift (levels 1,1,1,2,2,2,2,3,3,3), three misses end it; points (10 × level, speed,
++5 heard once, a combo), a best score, xu = score / 20 capped at 16 a day for each shift; missed requests come back
+and are shown decoded at the end. Five shifts, 40 requests each: `taxi` at Rico's (pick-up, drop-off, when),
+`flowers` at Nora's (flower, colour, how many), `desk` at Hana's (who the message is for, what, when), `kitchen` at
+Gianna's (dish, change, table), `pharmacy` at Nell's (how much, how often, when: a pharmacist's instructions). The
+content test checks that every request SAYS its answer and that an easy one never names a wrong option. Offered
+beside the person ("Vào ca") once their first scene has been heard.
+
+**Outings** (`data/city/outings.ts`, kinds 'date' / 'family', ids `cx-<host>-<n>`): with the one the learner is going
+out with or married to (they come up on the bus with the learner, always), beside a host who has one: dinner at
+Gianna's, two tickets from Wren at the Lumen, the seafront with Jonah at dusk; with a child along, the bakery, the
+coffee cart, the comics stall, the fish stall. The partner is `who: 'partner'`, the child `'kid'`: their lines suit
+anybody (a test forbids he / she / wife / son…), their name and face come at run time. Their voice is their own
+Gemini voice, as in the courtship's scenes (§15): each partner line has a clip in the voice of every resident who can
+be courted (11), each child's line in both children's voices (441 clips; `core/town/cityAudio.ts outingVoice`, the
+inventory's `cityOutings`). Until the owner had asked "vẫn đảm bảo rule người cũ giọng gemini, người mới thì giọng
+trình duyệt đúng không?", they were read by the browser: that broke the rule and was fixed the same day. Once a day each: +15 friendship with the partner, 2 xu a question right the first
+time (`cityStore.finishOuting`, the day's `heard` list of town-progress). A second button beside the host: "Hẹn hò ở
+đây" / "Cả nhà ghé đây".
+
+**Asking a friend along** (`CITY_INVITE_HEARTS` 3): the town's bus panel has "Rủ đi cùng" (a plain select of the
+friends with three hearts or more); they are in Westbay for that visit (`?with=<place id>`) and have a SECOND scene
+there (`cv-<id>-2`, `city.ts scenesWith`: theirs only when they came up with the learner): their favourite place.
+
+**The long stories** ("mùa truyện"; `CitySeason`, `data/city/seasons.ts`, `city.ts seasonNow` / `chaptersToday`):
+six stories of six chapters, ONE CHAPTER A REAL DAY (the next opens the local day after the one before was heard),
+played where it happens: in the city at somebody's place (the person's button reads "Chương hôm nay: …", a 'story'
+marker over them) or in the TOWN at a resident's place (`where: 'town'`: the town's "Việc hôm nay" has "Tới nghe",
+activity `season`, `city/SeasonPanel.tsx`, staged like a get-together; `?listen=season:<chapter id>`). A season
+opens when the episodes it grows out of are heard. Chapters are stored and paid like episodes (`town-city`).
+
+**The week and the festivals** (`CityEvent`, `data/city/events.ts`, `city.ts cityEventsOn`): a get-together every
+weekday (Monday at Meridian, the professor's open talk, Jun's scam class, karaoke at Bo's, short films at the Lumen,
+the night market with Marcus on stage, the ferry round the bay) and a festival every season of the year by the real
+month. Heard as the town's get-togethers (kind 'event', `ce-<event>-<n>`, the browser's voice for everybody, one paid
+a day). The stage takes the player to the host's place and gathers whoever speaks (`joinTalk`).
+
+**"Hôm nay"** (HUD, `city/CityToday.tsx`): what is on, today's chapter of each story under way, who of the town is up.
+
+**Voices** (checked by `core/town/cityAudio.test.ts` for every line the city plays): a town resident is heard in their
+own Gemini voice wherever they speak in the city (episodes, talks, visits, the long stories' chapters, an outing as
+the partner) and the learner's child in a child's Gemini voice; somebody of the city, a passenger, a loudspeaker, a
+shift's caller: the browser's voice, always. Two exceptions, both the browser's voice on purpose: the city's
+get-togethers and festivals ("cảnh nghe", as the town's own: owner, "nghe cho vui … bỏ ra đi khỏi tốn token"), and
+the careful version ("Rõ từng từ") of a town resident's line in the city (half the clips). Clips to generate: the
+owner runs `npm run audio:generate`.
+
+**Not done, not checked**: see AGENTS.md §9 (kept there, one list).

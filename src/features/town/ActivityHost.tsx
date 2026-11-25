@@ -18,7 +18,7 @@ export interface ActivityHostProps extends ActivityPanelProps {
  * build panel: a side sheet on a wide stage, a bottom sheet on a phone, the town still living around it. The host
  * gives the frame (title, ✕, Esc, focus); the panel (activities/registry.ts PANELS, loaded on first use) the rest.
  */
-export default function ActivityHost({ id, onClose, onReward, sound, onFish, focus, onTalk, onOpen, onScene, onSceneEnd, onListen, onSpeaking, onTravel }: ActivityHostProps) {
+export default function ActivityHost({ id, onClose, onReward, sound, onFish, focus, onTalk, onOpen, onScene, onSceneEnd, onListen, onSpeaking, onTravel, companions }: ActivityHostProps) {
   const titleId = useId();
   const boxRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function ActivityHost({ id, onClose, onReward, sound, onFish, foc
     >
       <header className="town-build-head">
         <h2 id={titleId} className="town-build-title">
-          {info?.name ?? (id === 'listen' ? listenTitle(focus) : id)}
+          {info?.name ?? (id === 'listen' ? listenTitle(focus) : id === 'season' ? 'Chuyện dài ở Westbay' : id)}
         </h2>
         <button type="button" className="btn btn-ghost btn-sm btn-icon" onClick={onClose} aria-label="Đóng" title="Đóng (Esc)">
           <Icon icon={X} size={18} />
@@ -58,7 +58,7 @@ export default function ActivityHost({ id, onClose, onReward, sound, onFish, foc
           }
         >
           <FishStageContext.Provider value={id === 'fish' ? (onFish ?? null) : null}>
-            <Panel onClose={onClose} onReward={onReward} sound={sound} focus={focus} onTalk={onTalk} onOpen={onOpen} onScene={onScene} onSceneEnd={onSceneEnd} onListen={onListen} onSpeaking={onSpeaking} onTravel={onTravel} />
+            <Panel onClose={onClose} onReward={onReward} sound={sound} focus={focus} onTalk={onTalk} onOpen={onOpen} onScene={onScene} onSceneEnd={onSceneEnd} onListen={onListen} onSpeaking={onSpeaking} onTravel={onTravel} companions={companions} />
           </FishStageContext.Provider>
         </Suspense>
       </div>

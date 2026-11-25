@@ -4,10 +4,10 @@
 // people in the browser's voice, a town resident in their own) and writes down what was heard.
 
 import { useCallback, useState } from 'react';
-import { CITY_AGAIN_XU, CITY_TIE_BOND, CITY_XU, sceneNow, sceneOpen } from '../../../core/town/city';
-import { cityLinePlayback } from '../../../core/town/cityAudio';
+import { CITY_AGAIN_XU, CITY_OUTING_BOND, CITY_TIE_BOND, CITY_XU, sceneNow, sceneOpen } from '../../../core/town/city';
+import { cityLinePlayback, type OutingCast } from '../../../core/town/cityAudio';
 import { cityPerson } from '../../../core/town/cityPeople';
-import { finishCityScene, loadTownCity } from '../../../core/town/cityStore';
+import { finishCityScene, finishOuting, loadTownCity } from '../../../core/town/cityStore';
 import type { CityScene } from '../../../core/town/cityTypes';
 import type { SceneLine } from '../../../core/town/sceneTypes';
 import { speak } from '../../../core/tts';
@@ -26,6 +26,10 @@ export interface CityScenePanelProps {
   onReward: (r: { label: string; xu?: number }) => void;
   onSpeaking: (who: string | null) => void;
   onClose: () => void;
+  /** A line over the scene before it is heard (a chapter of a long story: its title and number). */
+  kicker?: string;
+  /** An outing: who the partner is (a town place id, their name and sex) and the child along (name, sex). */
+  outing?: { partner: { id: string; name: string; gender: 'male' | 'female' }; kid?: { name: string; gender: 'male' | 'female' } };
 }
 
 const speakerFace = (who: string) => (speakerHasFace(who) ? <Portrait placeId={who as PlaceId} size={44} name={speakerName(who)} /> : null);
@@ -38,17 +42,34 @@ function openOwners(): Set<string> {
   return out;
 }
 
-export default function CityScenePanel({ scene, again, sound, onReward, onSpeaking, onClose }: CityScenePanelProps) {
+export default function CityScenePanel({ scene, again, sound, onReward, onSpeaking, onClose, outing, kicker }: CityScenePanelProps) {
   const [before] = useState(openOwners);
+  const partnerId = outing?.partner.id;
+  const kidSex = outing?.kid ? (outing.kid.gender === 'male' ? 'boy' : 'girl') : undefined;
   const say = useCallback(
     (line: SceneLine, careful: boolean) => {
-      const p = cityLinePlayback(line, scene.level, careful);
+      const cast: OutingCast = { ...(partnerId ? { partner: partnerId } : {}), ...(kidSex ? { kid: kidSex } : {}) };
+      const p = cityLinePlayback(line, scene.level, careful, cast);
       return speak(p.text, p.options);
     },
-    [scene.level],
+    [scene.level, partnerId, kidSex],
   );
+  const partnerName = outing?.partner.name;
+  const kidName = outing?.kid?.name;
+  const nameOf = useCallback((who: string) => (who === 'partner' ? (partnerName ?? '') : who === 'kid' ? (kidName ?? 'Bé') : speakerName(who)), [partnerName, kidName]);
+  const faceOf = useCallback((who: string) => (who === 'partner' && partnerId ? <Portrait placeId={partnerId as PlaceId} size={44} /> : speakerFace(who)), [partnerId]);
+  // who speaks is shown in the world by their own id (the partner stands there as themself)
+  const speakingAs = useCallback((who: string | null) => onSpeaking(who === 'partner' ? (partnerId ?? null) : who === 'kid' ? null : who), [onSpeaking, partnerId]);
   const done = useCallback(
     (r: FlowResult): FlowEnd => {
+      if (partnerId) {
+        const e = finishOuting(scene, r, partnerId);
+        if (e.xu > 0) onReward({ label: 'Một buổi đi chơi ở Westbay', xu: e.xu });
+        const notes: string[] = [];
+        if (e.gained[partnerId]) notes.push(tl`${partnerName ?? ''} vui lắm: thân thiết +${CITY_OUTING_BOND}`);
+        else notes.push('Hôm nay hai bạn đã tới đây rồi; mai lại có buổi khác.');
+        return { xu: e.xu, notes };
+      }
       const due = sceneNow(CITY_SCENES, scene.at, loadTownCity(), Date.now());
       const e = finishCityScene(scene, r);
       if (e.xu > 0) onReward({ label: scene.kind === 'episode' ? 'Nghe hiểu một chuyện ở Westbay' : 'Nghe hiểu một cuộc trò chuyện', xu: e.xu });
@@ -63,15 +84,15 @@ export default function CityScenePanel({ scene, again, sound, onReward, onSpeaki
       if (e.first && next?.kind === 'new') notes.push(tl`${speakerName(scene.at)} còn chuyện muốn kể tiếp.`);
       return { xu: e.xu, notes };
     },
-    [scene, onReward, before],
+    [scene, onReward, before, partnerId, partnerName],
   );
   const person = cityPerson(scene.at);
   const pay = again ? CITY_AGAIN_XU : CITY_XU;
   const intro = again ? tl`${scene.scene} (Nghe lại: mỗi câu trả lời đúng ${pay} xu nếu đã tới hạn.)` : scene.scene;
   return (
     <>
-      {person && scene.kind === 'episode' && !again && <p className="city-ep-kicker">{tl`Chuyện của ${person.name} · phần ${scene.n}`}</p>}
-      <SceneFlow scene={scene} intro={intro} nameOf={speakerName} face={speakerFace} say={say} onDone={done} onSpeaking={onSpeaking} onClose={onClose} sound={sound} />
+      {kicker ? <p className="city-ep-kicker">{kicker}</p> : person && scene.kind === 'episode' && !again && <p className="city-ep-kicker">{tl`Chuyện của ${person.name} · phần ${scene.n}`}</p>}
+      <SceneFlow scene={scene} intro={outing ? scene.scene : intro} nameOf={nameOf} face={faceOf} say={say} onDone={done} onSpeaking={speakingAs} onClose={onClose} sound={sound} />
     </>
   );
 }

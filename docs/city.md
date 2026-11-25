@@ -212,3 +212,278 @@ Written into the scenes of `src/data/city/` and `src/data/scenes/rides.ts`; late
   the shoebox. Kit asked Claire onto the show to talk about three books ("put me down in pencil").
 - **Bo**: twelve years of the bar, has never sung in it, wants a live-music night. **Dana** books the big room for
   seven every Thursday; Mia works from home and Thursday is her office day; she always takes the 10:15 back.
+
+## 7. The later districts (the office district, the university and the hospital, the harbour)
+
+Opened after the first three (`data/cityWorld.ts`: the city is 72 × 72 now). Six more main people with three episodes
+each, thirteen more people known with two short talks each. The same rules: every one is tied to a town resident by
+something the town's lines already said, episode 2 of a main person brings that resident up in their own voice.
+
+### Priya, operations manager at Meridian's head office [office = Sarah]
+- Sarah in the town: eight years at the same company, "up to the city for meetings". The company is **Meridian**; its
+  head office is on Market Street's east end. The town has its small branch office, where Sarah works.
+- Priya and Sarah shared a desk in their first year. Four years ago the operations job at head office was offered to
+  Sarah first; she said no and Priya took it. They have never talked about it properly.
+- Fast, funny, three phones, never finishes her coffee. Fond of Sarah and a little afraid of what Sarah thinks.
+- Episodes:
+  1. The learner at the head office's door; Priya on her way out, Hana at the information desk keeping her diary.
+     She learns they know Sarah: "Sarah! She was the clever one. I was the loud one."
+  2. **Sarah is up for the Monday meeting.** Two old desk-mates. The job Sarah turned down: Priya has always wondered
+     if Sarah regrets it. Sarah: she liked her window, and her evenings. Neither is quite telling the whole truth.
+  3. Priya and Hana at the end of the day. A new post is opening; Priya means to offer it to Sarah, and knows the
+     answer already. She is the tired one.
+
+### Vivian, creative director of the Loom design studio [park = Lily]
+- Lily in the town has a new job in the city and "stress at work". Loom is that job; Vivian is her boss.
+- Hard to please, never unkind, sees everything. Was told at twenty-three that she would never make it.
+- Episodes:
+  1. Vivian outside the studio with a poster proof and Dev (who came to fix the printer). Three things wrong with
+     it in ten seconds, and one thing right.
+  2. **Lily is at work.** A review of Lily's first big piece. Vivian takes it apart; Lily holds her ground on one
+     point and wins it. "I'm hard on the ones who can do it."
+  3. Vivian and Priya over lunch (they are old friends). The teacher who told Vivian she had no eye. She keeps his
+     letter in a drawer. She is going to tell Lily the piece goes to print unchanged.
+
+### Dr Osei, Westbay Hospital [clinic = Kim]
+- Kim in the town: "My first year here, I almost quit." Kim trained at Westbay Hospital under Dr Osei; in her first
+  year at the town's clinic she rang him at three in the morning ready to give up. He stayed on the phone till five.
+- Calm, dry, forty years a doctor, never left the wards for an office.
+- Episodes:
+  1. Dr Osei between rounds, on the bench outside, with Bridget chasing him about his own lunch. He finds out the
+     learner knows Kim: "Kim? Best hands I ever taught. Worst handwriting."
+  2. **Kim is up for her Saturday course.** The night she rang him. What he actually said (she remembers it
+     differently). He wants her to teach here one day a week.
+  3. Dr Osei and Bridget. Why he never took the office upstairs. The patient he still thinks about.
+
+### Professor Adeyemi, phonetics lab at the university [school = Daniel]
+- Daniel was his student. Adeyemi has spent his life on how English is really SAID: linking, weak forms, the sounds
+  that vanish. He is the one person in the city who talks about what the learner is doing in this app, and he is
+  honest: nobody is lazy, it is rhythm; and the ear is trained by hours, not by talent. He never promises anything.
+- Episodes:
+  1. A five-minute lecture on the steps to Yuki and the learner: "want to" becomes "wanna" and nobody decided it.
+     (Short, clear sentences; an example or two said the reduced way.)
+  2. **Daniel visits.** The student who wrote too well to finish anything. Twelve years. "A chapter is finished when
+     somebody else has read it." Daniel says his sister has it now.
+  3. Adeyemi and Yuki. She understood nothing in a seminar and wants to go home. He tells her how long it took him
+     to follow a film, and what he did every day. No promise; a method.
+
+### Jun, repair stall at the electronics market on the harbour [phone = Max]
+- Max in the town is Australian, repairs phones, and his mum wants him back in Brisbane. Jun gave Max his first job
+  when he arrived from Brisbane, "for one summer".
+- Mends anything with a battery, hates waste, teaches a free class on phone scams for older people on Wednesday
+  evenings (it began because of Max's nan, who in the town's own words "lost heaps of money to one of these"; Max does not know that is why).
+- Episodes:
+  1. Jun at the stall with a phone in pieces; Gus the harbour guard waiting for his radio. Jun asks if Max still
+     overcharges for screens.
+  2. **Max visits.** His mum has rung again about Brisbane. Jun: "I told you one summer. I never said which one."
+     Max's worry is not Brisbane; it is that he has nothing to show for the years here.
+  3. Jun and Mei after the scam class. The woman who nearly sent her savings to "her bank". Mei is his oldest
+     student and his best.
+
+### Marcus, presenter of Bay FM [board = Tom]
+- The voice the learner has heard on the radio since the town. He broadcasts the Saturday night market show from
+  the open-air stage on the harbour.
+- Tom "moved every year as a kid" and hates speaking in public. Marcus is the one friend who kept writing through
+  every move; they have met only a handful of times. Marcus keeps the letters in a shoebox under his desk and reads
+  one before every show (Kit knows; Tom must not).
+- Warm, quick, a little vain about his voice, shy without a microphone.
+- Episodes:
+  1. Marcus off air, with Kit packing cables. He sounds different without the microphone and knows it. He asks
+     after Tom before he asks the learner's name.
+  2. **Tom is up for Sunday's show.** Two friends who mostly wrote. Tom has to speak at the town's fair and cannot.
+     Marcus: "Read it like a letter to me."
+  3. Marcus and Kit. The shoebox. He will come down and present Tom's fair himself, and say nothing about why.
+
+### The thirteen more people known (two short talks each)
+
+| Who | What | Ties |
+|---|---|---|
+| **Mr Whitlock** | director of Meridian, reads his paper at the kiosk every morning | has signed Sarah's forms for eight years and never once got her town's name right |
+| **Hana** | the head office's information desk | knows every caller by voice, Sarah's too; keeps Priya's diary and Priya's secrets |
+| **Colin** | FreshWay's area manager | stacked shelves for Frank at fifteen; the one who keeps ringing about the shop; not a villain, he thinks he is doing Frank a favour |
+| **Dev** | computer technician | Max's online gaming friend of years; forty minutes apart and they have never met |
+| **Bridget** | head nurse | trained under Grace in London; still folds a sheet the way Grace made her |
+| **Nell** | pharmacist | fills the prescriptions the town's clinic sends up; explains every dose twice ("twice a day, with food") |
+| **Yuki** | exchange student | struggling to follow fast English, like the learner; goes to Daniel's conversation club when she can |
+| **Mr Finch** | librarian | still has Daniel's student library card in a drawer; whispers even outdoors |
+| **Captain Odile** | ferry captain | Theo's boss; has crossed the bay eleven thousand times and counts them |
+| **Gus** | harbour guard | night shifts; knows all of Jun's regulars; listens to Bay FM all night |
+| **Mei** | dumpling stall at the night market | the oldest student of Jun's scam class |
+| **Sol** | lantern stall at the night market | makes the lanterns Leo buys for the town's festival |
+| **Fay** | sells tickets for the big wheel | afraid of heights; Zoe shot a scene of her film in one of the cabins |
+
+### What opens what (added to §4b)
+
+- `ct-priya-1` needs `ct-gianna-1`; `ct-vivian-1` needs `ct-priya-1`; `ct-osei-1` needs `ct-rico-2`; `ct-adeyemi-1`
+  needs `ct-claire-1`; `ct-jun-1` needs `ct-frank-1`; `ct-marcus-1` needs `ct-kit-1`. A person's episode n needs
+  their episode n − 1.
+- Short talks (first of each; the second needs the first): whitlock, hana and dev need `ct-priya-1`; colin needs
+  `ct-frank-2`; bridget and nell need `ct-osei-1`; yuki and finch need `ct-adeyemi-1`; odile and gus need
+  `ct-jun-1`; mei, sol and fay need `ct-marcus-1`.
+
+## 8. The six long stories ("mùa truyện")
+
+Each is six chapters, ONE CHAPTER A REAL DAY (`core/town/city.ts` `seasonNow`), played where it happens: in the city
+at somebody's place, or in the town at a resident's (`where: 'town'`). A chapter is a scene like an episode (12–18
+lines, 2–3 speakers, three questions), id `cs-<season>-<n>`. A season opens when the episodes it grows out of have
+been heard. Nothing here has a right answer: people decide, and live with it.
+
+### `manuscript` — Bản thảo (Daniel, Claire, Professor Adeyemi). Needs `ct-claire-3`, `ct-adeyemi-2`.
+1. city, at `claire`: Daniel has come up for her verdict. It is good. Chapter three is a mess. He hears only the second half.
+2. town, at `school`: Daniel after his evening class, with Grace (who stays behind to help stack chairs). He is rewriting and hating it.
+3. city, at `adeyemi`: the old tutor and the editor meet for the first time. What Daniel was like at twenty.
+4. town, at `school`: the conversation club. Daniel reads one page aloud, the first time anybody has heard it. Tom and Mia are there.
+5. city, at `claire`: the second draft comes up on the no. 9 in Sam's hands. Claire and Kit. Harbour Press will print three hundred copies.
+6. town, at `school`: the first copy. Claire has come down. Daniel signs one for the learner and cannot think what to write.
+
+### `home` — Về hay ở (Leo, Nora, Theo, Maya). Needs `ct-nora-3`.
+1. town, at `square`: Leo planning the lantern festival. He mentions the flat above the bakery as if it were nothing.
+2. city, at `nora`: Nora and Poppy. She tells Poppy to let the flat go to the teachers. It costs her.
+3. town, at `square`: Leo and Grace. Leaving London after forty years: home is who needs you on a Tuesday.
+4. city, at `theo`: Theo and Leo by the pram. Theo asks him to be the uncle who comes on Saturdays, properly, every week.
+5. town, at `square`: the lantern festival. Nora, Theo and Maya have come down. Sol's lanterns. Maya's first lantern.
+6. city, at `nora`: a Saturday. Nobody moved. Leo is teaching Theo a board game and losing on purpose, badly.
+
+### `shop` — Tiệm tạp hoá và siêu thị (Ben, Frank, Colin). Needs `ct-frank-3`, `ct-colin-1`.
+1. town, at `shop`: the FreshWay letter has come to Ben himself this time. He reads it to the learner twice.
+2. city, at `colin`: Colin explains his "favour": head office will open a store in the town next year whatever happens.
+3. city, at `frank`: Frank and Hal. Frank is furious, then frightened, then quiet.
+4. town, at `shop`: Ben, Emma and Tom. What the shop is to the town. An idea: the Saturday market, and orders taken up on the no. 9.
+5. city, at `colin`: Frank faces the boy who ate the crisps. Colin admits it was never his decision; he can delay it a year.
+6. town, at `shop`: a Saturday. Frank's comics stall stands beside the shop door. Nothing is settled; it is still theirs.
+
+### `film` — Phim của Zoe (Zoe, Iris, Wren, Max, Fay). Needs `ct-iris-3`, `ct-fay-1`.
+1. town, at `cinema`: Zoe recutting the ending at the back of her own cinema; Max is fixing the sound. (Friends: see §2.)
+2. city, at `wren`: Wren and Fay. The night Zoe filmed in a cabin of the big wheel, and Fay kept her eyes shut.
+3. city, at `iris`: Zoe brings the new cut. Twenty seconds shorter. Iris: "Now it is yours."
+4. town, at `cinema`: the day before. Zoe cannot eat. Sam is putting on a late bus so the town can come.
+5. city, at `iris`: Friday, nine o'clock. The lights go down. What is heard is the audience.
+6. town, at `cinema`: the week after: the film shown at home. What Zoe wants to make next.
+
+### `nights` — Năm đầu của Kim (Kim, Dr Osei, Bridget, Grace). Needs `ct-osei-3`, `ct-bridget-1`.
+1. town, at `clinic`: Kim weighing the offer to teach one day a week. Who would mind the clinic?
+2. city, at `bridget`: Bridget and Grace (her Wednesday at the hospital). Two generations of nurses; London nights.
+3. city, at `osei`: Dr Osei shows Kim the teaching room. Her first question from a student is one she cannot answer.
+4. town, at `home`: Grace tells Kim about the night in 1979 she nearly walked out, and who stopped her.
+5. city, at `osei`: Kim's first class. She tells them about ringing him at three in the morning.
+6. town, at `clinic`: Thursdays are Westbay now. Grace sits at the clinic's front desk on Thursdays, "only till you find someone".
+
+### `offer` — Lời mời của Priya (Sarah, Priya, Mr Whitlock, Hana). Needs `ct-priya-3`, `ct-whitlock-1`.
+1. city, at `priya`: Priya drafting the offer. Hana: "Ask her properly this time."
+2. town, at `office`: Sarah has had the call. What she gave up four years ago, and what she kept.
+3. city, at `whitlock`: Mr Whitlock and Priya. Why Sarah was his first choice. He still gets the town's name wrong.
+4. town, at `office`: Sarah and Lily on the morning before the bus. Lily says take it. Sarah: "And who would I be up there?"
+5. city, at `priya`: Sarah brings her answer in person: a third way. The town's branch becomes a real office; two days a week she comes up.
+6. city, at `hana`: a Monday. Two desks have been pushed together again. Hana pretends not to have done it.
+
+## 9. The city's week, and its festivals
+
+Heard as the town's get-togethers are (`ListenScene` kind 'event', ids `ce-<event>-<n>`, two scenes each, 8–12
+lines, three or four people, a gist and a detail; EVERYBODY in the browser's voice, town residents too: these are for
+pleasure). The host is where it happens. Town residents who are up that day take part.
+
+| Day | id | What | Host | Who else |
+|---|---|---|---|---|
+| Monday | `monday` | the Monday meeting spills onto the pavement at Meridian | hana | Priya, Mr Whitlock, Sarah |
+| Tuesday | `lecture` | Professor Adeyemi's open talk on the library steps | adeyemi | Yuki, Mr Finch, Ben |
+| Wednesday | `scamclass` | Jun's class on phone scams | jun | Mei, Gus, Grace |
+| Thursday | `karaoke` | karaoke night at Bo's | bo | Dana, Mia, Jonah |
+| Friday | `shorts` | short films at the Lumen | wren | Iris, Zoe, Max |
+| Saturday | `nightmarket` | the night market, Marcus on the stage | marcus | Mei, Sol, Leo |
+| Sunday | `ferry` | the ferry round the bay | odile | Theo, Fay, Tom |
+
+Festivals, on every day of their months: spring (March–May) `blossom` the flower festival, host nora; summer
+(June–August) `filmweek` the short film week, host iris; autumn (September–November) `fair` the harbour fair and the
+fun run, host fay (Tom, Kim, Lily, Marcus calling the race); winter (December–February) `lanterns` the lantern
+festival, host sol (Leo, Nora).
+
+## 10. More facts the scenes added (now canon)
+
+From the second visits, the outings, the later districts' episodes and talks. Later lines keep to them.
+
+- **Sam**: at eight he got lost at stand four of the bus terminal; a driver let him ride up front till they found his
+  mum. Rico, twelve, was meant to be holding his other hand.
+- **Leo**: Amira's corner of the square used to be the seed stall where their mum sent him for sunflower seeds. He buys
+  two hundred lanterns a year from Sol and fetches them in three slow trips; Sol taught him to make Maya's.
+- **Ben**: his first comic, "Captain Biscuit" no. 1, is in a blue box on Frank's stall, the one thing not for sale.
+- **Emma**: her grandma's café, behind a yellow door, is a key cutter's now, across from Tess's cart. Her one tip to
+  Tess for the lemon cake: eggs at room temperature.
+- **Zoe**: at fifteen she saved for one book at Harbour Press and read it on the floor; Claire remembers. She filmed
+  the wheel scene in cabin seven, eleven turns for one sunset, on her phone.
+- **Daniel**: writes on Wednesday afternoons in booth three at Bo's before it opens; chapter one's last page was a
+  napkin Bo kept. He was Adeyemi's student fifteen years ago (a forty-page essay on weak forms; ten were asked for).
+  Mr Finch has kept his library card twenty years; he owes one book about commas.
+- **Mia**: buys one sunflower from Nora every Thursday. **Tom**: loves Pete's lost property and reads the logbook.
+- **Grace**: grew up in a fishing village. Taught Bridget "corners like envelopes" in London thirty years ago; still
+  runs a finger along the beds on her Wednesdays.
+- **Sarah**: cried into her soup at Gianna's window table in her first week with the company. Rings head office every
+  Friday at 4:10. Tells Priya she takes the 4:40; she takes the 5:40 after an hour on the seafront.
+- **Lily**: her team leader (a man) is the boss she complains of in the town; Vivian is above him. Her first big
+  piece is three posters for the harbour night market, lettered by hand.
+- **Max**: six years here. Plays online with Dev every Sunday night (six years, never met). Took his nan's radio
+  apart at nine.
+- **Kim**: what Dr Osei said at three in the morning was to make toast; they talked about toast for an hour. On
+  Saturdays after her course she sits in row six of the Lumen and falls asleep at minute twenty. Nell cannot read her
+  writing; since a "fifteen" heard as "fifty" Kim reads every number digit by digit.
+- **Priya**: never finishes a coffee; still has the stapler she and Sarah shared (Sarah says it was hers). The new
+  post is "head of the branch offices", three days a week from the town.
+- **Vivian**: twenty-six years in the job; the teacher who wrote "You have no eye" was Mr Hale; the letter is in her
+  desk drawer, top left.
+- **Dr Osei**: offered the office upstairs three times. The patient he thinks of: a girl of nine with a broken arm on
+  his first night, now the red-haired midwife on ward six.
+- **Professor Adeyemi**: came at twenty and could not follow a film for two years. His method: the same five minutes
+  of radio every day, three times (listening, with the words, without).
+- **Jun**: taught Max to charge thirty for a battery (Max charges forty). Forty-one people came to the scam class
+  this year. **Mei**, eighty-one, caught a false grandson with a question about his birthday dinner; she will teach
+  the first ten minutes next term.
+- **Marcus**: Tom's first letter came when they were nine (four lines and a drawing of a bus). Has never been down to
+  the town. Will present Tom's fair himself and not say why.
+- **Mr Whitlock**: his father ran the paper kiosk thirty years; he calls Sarah's town after stops of the no. 9.
+  **Hana**: knows everybody by voice. **Colin**: twelve stores; Frank once told him to polish his shoes and he still
+  does. **Yuki**: logs her hours of listening (212 since September). **Captain Odile**: crossing no. 11,012; never
+  cancelled one in thirty years. **Gus**: twelve-hour nights; notes on the fridge with his wife for twenty years.
+  **Fay**: the wheel was her grandad's; a ride is twelve minutes.
+- Gianna puts diners' phones in a basket until dessert. Poppy and Dot sell gingerbread bears with raisin noses.
+
+## 11. What the week, the festivals and the long stories added (now canon)
+
+- **Mr Whitlock** has called Sarah's town 37 wrong names (Hana keeps the list at the back of Priya's diary); even the
+  card in his wallet says "Old Bridge". He once ordered 400 chairs for the branch instead of 40.
+- **Jun's class**: he plays a scam caller called "Ken"; Grace caught him out. Mei's rule: "if it's urgent, it's lying".
+- **Karaoke**: Mia's song is number 42; Bo pretends the machine plays nothing else. One Thursday Jonah played along
+  unseen at the back and left before she turned round. She still has not heard his unfinished song.
+- **Leo** orders sixty red and gold lanterns from Sol a year, and secretly had a sunflower lantern made for Nora's sign.
+  Maya's first word is a family bet (Nora: "mama", Theo: "boat", Hal: "fish").
+- **Captain Odile** will not ride the big wheel; **Fay** has sold its tickets nine years and never ridden it.
+- **The autumn fun run**: two hundred runners; Lily's dog Pip got loose and crossed the line first, Lily second.
+- **Zoe's film** (the long story `film`): the sunset is the minute-seven scene, cabin seven, the eleventh turn; the
+  credits thank "Fay, who kept count". Zoe cut twenty more seconds herself; that cut is the one shown. The Friday
+  screening at the Lumen: 204 people. Sam got a late bus (11:30) for the town. A week later in the town: 46 people in
+  40 seats, Grace brought her own chair. Zoe does not know what she will make next. Max has not decided about Brisbane.
+- **Kim teaches** on Thursdays at nine, room 204 of the hospital (twelve chairs, a squeaky board). In her first class
+  she told the toast story and wrote her number on the board "for three in the morning". Dr Osei was making toast that
+  night too. **Grace**: in 1979, after losing a young patient, she put her coat on to leave; an old man in bed eleven
+  kept her doing a crossword until six. She minds Kim's front desk on Thursdays "only till you find someone".
+- **Sarah** said no four years ago because her dad was ill that year (he is well, grows tomatoes). Two weeks into the
+  job, eight years ago, she moved the flooded town office into a café without losing a day. Her answer is a third way:
+  the town's branch becomes a real office, she goes up two days a week. The board gave six months. The two desks at
+  head office are pushed together again, the stapler between them.
+
+## 12. What the other three long stories added (now canon)
+
+- **`manuscript`**: Claire's verdict on the first chapters: two is very good, three is a mess (the detective, a woman,
+  vanishes for twenty pages of rain). Daniel keeps one page of it, page ninety, "the umbrella page", and reads it aloud
+  at the Thursday club (Mia skipped karaoke to be there). Claire went alone to Professor Adeyemi to ask whether to print
+  her brother's book. Sam carried the second draft up on the no. 9. Harbour Press prints three hundred copies in the
+  spring; forty sell at first, nine of them to strangers. Daniel signs the learner's copy "For the one who listened".
+- **`home`**: the flat above the bakery went to two young teachers. Leo had rung Poppy about it in secret; Nora knows,
+  and let it go anyway. Grace: "Home is who needs you on a Tuesday." Leo now goes up every Saturday: he sets up the
+  town's market at seven, catches the no. 9, and Tom runs the market after eight. At the lantern festival in the town
+  Nora, Theo and Maya came down; Mei minded Sol's stall so he could see his lanterns lit. Theo's ferry nights run ten to
+  six.
+- **`shop`**: a FreshWay Local opens in the town next spring, two streets from Ben's; head office chose the town, never
+  Colin. Colin's "favour" was to buy Ben's shop and keep its name, its bell and Ben as manager; he can put the town last
+  on his list for about a year. Frank painted the shop's sign himself. Emma and Tom's plan: people in the city order
+  the town's goods at Frank's stall, Ben packs them, they go up on the first no. 9 (seven orders the first week).
+  Frank's stall stands by Ben's door on Saturdays. Hal lost a third of his customers to the station supermarket's fish
+  counter.

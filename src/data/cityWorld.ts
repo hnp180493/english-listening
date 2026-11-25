@@ -2,26 +2,36 @@
 // bên cạnh dạng như thị xã thành phố có nhiều event và nhân vật khác"). A second map for the same 3D stage
 // (features/town/three: the engine takes its world as a parameter), reached by bus no. 9 from Sam's stop.
 //
-// 48 × 48 tiles, laid out like the town's map (data/townWorld.ts): x runs to the lower right of the screen, y to the
+// 72 × 72 tiles, laid out like the town's map (data/townWorld.ts): x runs to the lower right of the screen, y to the
 // lower left, the viewer sees the +x and +y faces. So every door is on a +y face (the north side of a street) and
 // nothing tall stands on the SOUTH side of a street, where it would hide the street behind it; the tall blocks of the
-// skyline stand along the far edges (north and west). The near edges (south and east) are the bay.
+// skyline stand along the far edges (north and west). The bay is an inlet in the south-west; the harbour is the
+// peninsula east of it; the sea lies past the near edges.
 //
-// Three districts (docs/city-proposal.md §3, "đợt 2"):
+// Six districts (docs/city-proposal.md §3). The first three opened first and keep their coordinates:
 //   - Ga & bến xe (west): the terminal plaza where bus no. 9 stops, Central Station, the taxi rank;
-//   - Chợ cũ (north-east): Market Street's shops and the market square;
-//   - Phố nghệ thuật (south-east): Arts Street with the Lumen cinema, the bookshop, Bay FM, the karaoke bar.
-// Between them the Station Avenue; along the bay the seafront promenade.
+//   - Chợ cũ (north, middle): Market Street's shops and the market square;
+//   - Phố nghệ thuật (south, middle): Arts Street with the Lumen cinema, the bookshop, Bay FM, the karaoke bar;
+//   - Khu văn phòng (north-east): the head office, the design studio, FreshWay's office;
+//   - Đại học & bệnh viện (east): Westbay Hospital on the avenue, the campus on Arts Street's east end;
+//   - Bến cảng (the peninsula, south-east): the electronics market, the ferry, the night market, the big wheel.
+// Three streets run east–west (Market Street, Station Avenue, Arts Street) and four north–south (Station Road, Bay
+// Road, College Road, East Road), with the seafront promenade along the bay and two more streets on the peninsula.
 //
-// The people (data/city/people.ts) live here as "places" (one person per place, as in the town): six with a building
-// of their own and a story, twelve with a stall, a booth or just a pitch on the pavement.
+// The people (core/town/cityPeople.ts) live here as "places" (one person per place, as in the town): the main people
+// with a building of their own and a story, the people known with a stall, a booth or just a pitch on the pavement.
 
 import type { ActivitySpot, DecorationId, DecorSpot, PlaceId, Seat, ThingId, Tile, TownWorld, WorldLife, WorldPlace, WorldProp, WorldScenery } from './townWorld';
 
-export const CITY_SIZE = 48;
+export const CITY_SIZE = 72;
 
-/** The eighteen people of Westbay's first three districts, by the id of their place. */
-export const CITY_PLACE_IDS = ['rico', 'nora', 'frank', 'gianna', 'iris', 'claire', 'okafor', 'pete', 'tess', 'hal', 'amira', 'poppy', 'jonah', 'theo', 'bo', 'dana', 'wren', 'kit'] as const;
+/** The people of Westbay, by the id of their place: the first eighteen (three districts), then the later districts'. */
+export const CITY_PLACE_IDS = [
+  'rico', 'nora', 'frank', 'gianna', 'iris', 'claire', 'okafor', 'pete', 'tess', 'hal', 'amira', 'poppy', 'jonah', 'theo', 'bo', 'dana', 'wren', 'kit',
+  'priya', 'vivian', 'whitlock', 'hana', 'colin', 'dev',
+  'osei', 'adeyemi', 'bridget', 'nell', 'yuki', 'finch',
+  'jun', 'marcus', 'odile', 'gus', 'mei', 'sol', 'fay',
+] as const;
 export type CityPlaceId = (typeof CITY_PLACE_IDS)[number];
 
 export const isCityPlace = (id: string): id is CityPlaceId => (CITY_PLACE_IDS as readonly string[]).includes(id);
@@ -30,33 +40,44 @@ const T = (x: number, y: number): Tile => ({ x, y });
 
 // ───────────────────────── the ground ─────────────────────────
 
-/** '.' grass, '=' street, 'o' paved square, ':' sand, '~' the bay, 'T' / 't' a tree, 'p' a palm on the sand, 'F' the fountain. */
+/** '.' grass, '=' street, 'o' paved square, ':' sand, '~' water, 'T' / 't' a tree, 'p' a palm on the sand, 'F' the fountain. */
 function buildRows(): string[] {
   const S = CITY_SIZE;
   const g: string[][] = Array.from({ length: S }, () => Array.from({ length: S }, () => '.'));
   const fill = (x0: number, y0: number, x1: number, y1: number, ch: string) => {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (x >= 0 && y >= 0 && x < S && y < S) g[y][x] = ch;
   };
-  // the bay along the near edges: water, a strip of sand before it
-  fill(0, 44, S - 1, S - 1, '~');
-  fill(46, 0, S - 1, S - 1, '~');
-  fill(0, 42, 45, 43, ':');
-  fill(44, 0, 45, 43, ':');
-  // the streets: three running east–west, two north–south, a lane through the market square, the promenade
-  fill(0, 24, 43, 25, '='); // Station Avenue
-  fill(14, 12, 43, 13, '='); // Market Street
-  fill(14, 36, 43, 37, '='); // Arts Street
+  // the water: the bay (an inlet in the south-west) and the map's two near rims; sand along every shore
+  fill(0, 44, 35, S - 1, '~');
+  fill(0, 70, S - 1, S - 1, '~');
+  fill(70, 0, S - 1, S - 1, '~');
+  fill(0, 42, 35, 43, ':'); // the seafront
+  fill(36, 44, 37, 69, ':'); // the peninsula's beach on the bay
+  fill(38, 68, 69, 69, ':'); // its south shore
+  fill(68, 0, 69, 69, ':'); // the east shore
+  // the streets: three running east–west, four north–south, a lane through the market square, the promenade, and
+  // the peninsula's two
+  fill(0, 24, 67, 25, '='); // Station Avenue
+  fill(14, 12, 67, 13, '='); // Market Street
+  fill(14, 36, 67, 37, '='); // Arts Street
   fill(14, 0, 15, 41, '='); // Station Road
-  fill(42, 0, 43, 41, '='); // Bay Road
+  fill(42, 0, 43, 67, '='); // Bay Road
+  fill(54, 0, 55, 67, '='); // College Road
+  fill(66, 12, 67, 67, '='); // East Road
   fill(30, 14, 31, 41, '='); // Fountain Lane
-  fill(4, 40, 43, 41, '='); // the seafront promenade
+  fill(4, 40, 67, 41, '='); // the seafront promenade
   fill(8, 31, 9, 39, '='); // the path through Station Park, down to the promenade
+  fill(38, 54, 67, 55, '='); // Quay Street
+  fill(38, 66, 67, 67, '='); // Pier Road
   // the squares
   fill(3, 19, 13, 23, 'o'); // the terminal plaza, in front of the station
   fill(3, 26, 13, 30, 'o'); // the bus bay
   fill(24, 14, 37, 19, 'o'); // the market square
+  fill(56, 27, 63, 31, 'o'); // the campus quad
+  fill(44, 56, 53, 61, 'o'); // the harbour square (the night market)
   g[17][30] = 'F';
-  // trees: the avenue's south side, the two little gardens south of the market square, Station Park, the seafront
+  // trees: the avenue's south side, the two little gardens south of the market square, Station Park, the seafront,
+  // then the office park, the hospital garden, the campus and the peninsula
   const trees: [number, number, string][] = [];
   for (let x = 17; x <= 41; x += 3) if (x !== 29 && x !== 32) trees.push([x, 27, 'T']);
   for (const [x, y] of [
@@ -67,16 +88,23 @@ function buildRows(): string[] {
     [17, 39], [22, 38], [27, 39], [34, 38], [39, 39],
     [3, 3], [6, 5], [9, 2], [11, 6], [4, 9], [8, 10], [12, 11], [2, 12],
     [17, 2], [22, 6], [29, 7], [38, 7], [40, 4],
+    // the office park, the hospital garden
+    [46, 15], [48, 17], [51, 15], [52, 18], [47, 19], [57, 15], [60, 16], [63, 15], [65, 17], [53, 8], [51, 4],
+    // the campus
+    [46, 27], [49, 29], [52, 27], [47, 30], [51, 31], [65, 28], [65, 33], [63, 33], [57, 33],
+    // along the promenade's east end and the peninsula
+    [46, 38], [50, 39], [58, 38], [62, 39], [65, 38], [40, 43], [47, 42], [52, 43], [59, 42], [64, 43],
+    [39, 46], [40, 50], [39, 58], [40, 62], [46, 46], [50, 47], [58, 46], [62, 46], [65, 47], [57, 58], [60, 60], [63, 57], [65, 62], [58, 62], [62, 63],
   ] as [number, number][]) trees.push([x, y, 'T']);
-  for (const [x, y] of [[20, 29], [26, 31], [36, 29], [5, 11], [10, 8]] as [number, number][]) trees.push([x, y, 't']);
+  for (const [x, y] of [[20, 29], [26, 31], [36, 29], [5, 11], [10, 8], [64, 30], [50, 44], [61, 44]] as [number, number][]) trees.push([x, y, 't']);
   for (const [x, y, ch] of trees) if (g[y][x] === '.') g[y][x] = ch;
-  for (const [x, y] of [[6, 42], [13, 43], [19, 42], [26, 43], [33, 42], [39, 43], [44, 38], [45, 30], [44, 21], [45, 9], [44, 3]] as [number, number][]) if (g[y][x] === ':') g[y][x] = 'p';
+  for (const [x, y] of [[6, 42], [13, 43], [19, 42], [26, 43], [33, 42], [36, 48], [37, 56], [36, 64], [44, 69], [56, 68], [69, 20], [68, 40], [69, 58]] as [number, number][]) if (g[y][x] === ':') g[y][x] = 'p';
   return g.map((r) => r.join(''));
 }
 
 export const CITY_ROWS: readonly string[] = buildRows();
 
-// ───────────────────────── the eighteen places ─────────────────────────
+// ───────────────────────── the places ─────────────────────────
 
 const place = (id: CityPlaceId, name: string, resident: string, at: [number, number, number, number], door: [number, number], spot: [number, number]): WorldPlace => ({
   // a city place's id is not one of the town's thirteen: the stage only needs it to be a string that names a place
@@ -92,7 +120,7 @@ const place = (id: CityPlaceId, name: string, resident: string, at: [number, num
   spot: T(spot[0], spot[1]),
 });
 
-/** Names repeat data/city/people.ts (the ids are the contract between the two files). */
+/** Names repeat core/town/cityPeople.ts (the ids are the contract between the two files). */
 export const CITY_PLACES: readonly WorldPlace[] = [
   // Ga & bến xe
   place('okafor', 'Ga trung tâm', 'Mrs Okafor', [4, 14, 7, 5], [7, 19], [8, 19]),
@@ -115,13 +143,35 @@ export const CITY_PLACES: readonly WorldPlace[] = [
   place('wren', 'Quầy vé', 'Wren', [28, 35, 1, 1], [28, 36], [29, 36]),
   place('claire', 'Nhà sách Harbour Press', 'Claire', [33, 34, 3, 2], [34, 36], [35, 36]),
   place('kit', 'Đài Bay FM', 'Kit', [38, 33, 3, 3], [39, 36], [40, 36]),
+  // Khu văn phòng: Market Street's east end, and the avenue's
+  place('priya', 'Trụ sở Meridian', 'Priya', [45, 7, 6, 5], [47, 12], [48, 12]),
+  place('whitlock', 'Sạp báo', 'Mr Whitlock', [52, 11, 1, 1], [52, 12], [53, 12]),
+  place('vivian', 'Xưởng thiết kế Loom', 'Vivian', [57, 9, 4, 3], [58, 12], [59, 12]),
+  place('hana', 'Quầy thông tin', 'Hana', [62, 11, 1, 1], [62, 12], [63, 12]),
+  place('colin', 'Văn phòng FreshWay', 'Colin', [45, 20, 4, 4], [46, 24], [47, 24]),
+  place('dev', 'Phòng máy', 'Dev', [50, 22, 2, 2], [50, 24], [51, 24]),
+  // Đại học & bệnh viện
+  place('osei', 'Bệnh viện Westbay', 'Dr Osei', [57, 18, 7, 6], [60, 24], [61, 24]),
+  place('bridget', 'Trạm điều dưỡng', 'Bridget', [64, 23, 1, 1], [64, 24], [65, 24]),
+  place('adeyemi', 'Phòng thí nghiệm ngữ âm', 'Prof Adeyemi', [45, 32, 4, 4], [46, 36], [47, 36]),
+  place('finch', 'Thư viện', 'Mr Finch', [50, 33, 3, 3], [51, 36], [52, 36]),
+  place('yuki', 'Bàn học ngoài sân', 'Yuki', [56, 35, 1, 1], [56, 36], [57, 36]),
+  place('nell', 'Nhà thuốc', 'Nell', [59, 34, 2, 2], [59, 36], [60, 36]),
+  // Bến cảng: the peninsula
+  place('jun', 'Sạp sửa đồ điện tử', 'Jun', [45, 51, 3, 3], [46, 54], [47, 54]),
+  place('marcus', 'Sân khấu Bay FM', 'Marcus', [57, 51, 4, 3], [58, 54], [59, 54]),
+  place('fay', 'Vòng đu quay', 'Fay', [61, 50, 3, 4], [62, 54], [63, 54]),
+  place('odile', 'Bến phà', 'Captain Odile', [45, 62, 5, 4], [47, 66], [48, 66]),
+  place('gus', 'Chòi gác cảng', 'Gus', [52, 65, 1, 1], [52, 66], [53, 66]),
+  place('mei', 'Sạp há cảo', 'Mei', [57, 65, 2, 1], [57, 66], [58, 66]),
+  place('sol', 'Sạp lồng đèn', 'Sol', [60, 65, 2, 1], [60, 66], [61, 66]),
 ];
 
 // ───────────────────────── fixed things ─────────────────────────
 
 const bench = (x: number, y: number, dir: 'e' | 's' | 'w'): WorldProp => ({ kind: 'bench', tiles: [T(x, y)], dir });
 
-/** The benches (each two seats, each a thing to sit and listen from, as in the town). */
+/** The benches (each two seats, each a thing to sit and listen from, as in the town). New ones go at the END: a bench's number is its place in this list. */
 const BENCHES: readonly WorldProp[] = [
   bench(3, 21, 'e'), // the terminal plaza
   bench(13, 27, 'w'), // the bus bay
@@ -135,6 +185,12 @@ const BENCHES: readonly WorldProp[] = [
   bench(24, 39, 's'),
   bench(36, 39, 's'),
   bench(32, 35, 's'), // Arts Street, by the bookshop
+  bench(49, 18, 's'), // the office park
+  bench(59, 28, 's'), // the campus quad
+  bench(48, 39, 's'), // the promenade's east end
+  bench(60, 39, 's'),
+  bench(46, 60, 's'), // the harbour square
+  bench(51, 57, 's'),
 ];
 
 export const CITY_PROPS: readonly WorldProp[] = [
@@ -144,10 +200,12 @@ export const CITY_PROPS: readonly WorldProp[] = [
   { kind: 'board', tiles: [T(10, 20)] },
   // Gianna's table on the pavement, beside her wall: Bay FM plays on it
   { kind: 'terrace', tiles: [T(36, 11)] },
-  // the market's stalls
+  // the market's stalls, and the night market's on the harbour square
   { kind: 'market', tiles: [T(29, 15)], v: 0 },
   { kind: 'market', tiles: [T(36, 15)], v: 1 },
   { kind: 'market', tiles: [T(25, 18)], v: 1 },
+  { kind: 'market', tiles: [T(48, 57)], v: 0 },
+  { kind: 'market', tiles: [T(50, 59)], v: 1 },
   // planters by the florist's and along the square
   { kind: 'planter', tiles: [T(21, 11)] },
   { kind: 'planter', tiles: [T(17, 11)] },
@@ -155,15 +213,21 @@ export const CITY_PROPS: readonly WorldProp[] = [
   { kind: 'planter', tiles: [T(37, 20)] },
   { kind: 'planter', tiles: [T(23, 35)] },
   { kind: 'planter', tiles: [T(36, 35)] },
+  { kind: 'planter', tiles: [T(51, 11)] },
+  { kind: 'planter', tiles: [T(56, 23)] },
   // lanterns along the seafront and on the squares
   { kind: 'lantern', tiles: [T(7, 39)] },
   { kind: 'lantern', tiles: [T(18, 39)] },
   { kind: 'lantern', tiles: [T(29, 39)] },
   { kind: 'lantern', tiles: [T(41, 39)] },
   { kind: 'lantern', tiles: [T(2, 26)] },
+  { kind: 'lantern', tiles: [T(53, 39)] },
+  { kind: 'lantern', tiles: [T(45, 56)] },
+  { kind: 'lantern', tiles: [T(53, 61)] },
   // where the streets lead
   { kind: 'signpost', tiles: [T(13, 25)] },
   { kind: 'signpost', tiles: [T(32, 23)] },
+  { kind: 'signpost', tiles: [T(44, 39)] },
   ...BENCHES,
 ];
 
@@ -192,20 +256,30 @@ export const CITY_SCENERY: readonly WorldScenery[] = [
   block(0, 13, 3, 5, 5, 1),
   block(5, 0, 4, 2, 4, 2),
   block(10, 0, 3, 4, 5, 0),
+  // the office district's towers, behind the head office and the studio
+  block(45, 1, 4, 5, 8, 1),
+  block(50, 0, 3, 3, 6, 3),
+  block(56, 1, 5, 6, 9, 0),
+  block(62, 1, 4, 7, 7, 2),
   // the taxi waits at the rank
   { kind: 'taxi', tiles: [T(20, 23), T(21, 23)], dir: 'x' },
   // the seafront: umbrellas on the sand, a jetty and boats on the bay
   { kind: 'umbrella', tiles: [T(10, 42)] },
   { kind: 'umbrella', tiles: [T(16, 43)] },
   { kind: 'umbrella', tiles: [T(23, 42)] },
-  { kind: 'umbrella', tiles: [T(36, 42)] },
+  { kind: 'umbrella', tiles: [T(34, 43)] },
+  { kind: 'umbrella', tiles: [T(36, 52)] },
   { kind: 'jetty', tiles: [], at: T(30, 43), dir: 'y', len: 3 },
   { kind: 'boat', tiles: [], at: { x: 28.4, y: 45.6 }, dir: 'x' },
   { kind: 'boat', tiles: [], at: { x: 33.2, y: 46.2 }, dir: 'y' },
-  { kind: 'boat', tiles: [], at: { x: 46.8, y: 28.5 }, dir: 'y' },
+  { kind: 'boat', tiles: [], at: { x: 24.5, y: 52.5 }, dir: 'x' },
+  { kind: 'boat', tiles: [], at: { x: 31.5, y: 60.5 }, dir: 'y' },
   { kind: 'duck', tiles: [], at: { x: 20.5, y: 45.2 } },
+  { kind: 'duck', tiles: [], at: { x: 33.5, y: 55.5 } },
   { kind: 'hedge', tiles: [T(16, 28), T(17, 28), T(18, 28)], dir: 'x' },
   { kind: 'hedge', tiles: [T(38, 28), T(39, 28), T(40, 28)], dir: 'x' },
+  { kind: 'hedge', tiles: [T(56, 26), T(57, 26), T(58, 26)], dir: 'x' },
+  { kind: 'hedge', tiles: [T(61, 26), T(62, 26), T(63, 26)], dir: 'x' },
 ];
 
 // ───────────────────────── things to use ─────────────────────────
@@ -252,6 +326,10 @@ export const CITY_LIFE: WorldLife = {
     [T(20, 41), T(21, 40)],
     [T(39, 13), T(40, 12)],
     [T(22, 25), T(23, 24)],
+    [T(58, 30), T(59, 29)],
+    [T(46, 58), T(47, 57)],
+    [T(50, 13), T(51, 12)],
+    [T(62, 37), T(63, 36)],
   ],
   tend: [
     { at: T(21, 12), oct: NE },
@@ -263,10 +341,12 @@ export const CITY_LIFE: WorldLife = {
     { at: T(29, 16), oct: NE },
     { at: T(36, 16), oct: NE },
     { at: T(25, 19), oct: NE },
+    { at: T(48, 58), oct: NE },
+    { at: T(50, 60), oct: NE },
   ],
   jog: [T(8, 32), T(8, 39), T(20, 40), T(31, 40), T(31, 26), T(14, 25)],
-  ends: [T(0, 24), T(14, 0), T(42, 0)],
-  via: [T(30, 18), T(8, 22), T(27, 37), T(20, 40), T(22, 13), T(36, 24)],
+  ends: [T(0, 24), T(14, 0), T(42, 0), T(54, 0)],
+  via: [T(30, 18), T(8, 22), T(27, 37), T(20, 40), T(22, 13), T(36, 24), T(55, 30), T(49, 25), T(54, 60), T(60, 40)],
   // nobody lodges in the city (every place stands); the type wants a door and a yard all the same
   inn: { door: T(7, 19), yard: [T(6, 21), T(9, 22)] },
 };
@@ -282,17 +362,23 @@ const loose = (x: number, y: number): DecorSpot => ({ x, y, solid: false });
  * street lamps along every street, flower beds, the fountain of the market square, strings of lights over it, flags.
  */
 export const CITY_DECORATIONS: Readonly<Record<DecorationId, readonly DecorSpot[]>> = {
-  lamps1: [lamp(16, 23, 'right'), lamp(24, 23, 'right'), lamp(33, 23, 'right'), lamp(41, 23, 'right'), lamp(2, 23, 'right'), lamp(12, 31, 'left')],
-  lamps2: [lamp(16, 11, 'right'), lamp(24, 11, 'right'), lamp(32, 11, 'right'), lamp(41, 11, 'right'), lamp(16, 35, 'right'), lamp(29, 35, 'left'), lamp(37, 35, 'right'), lamp(13, 16, 'left'), lamp(13, 33, 'left'), lamp(41, 30, 'left')],
-  flowers: [solid(23, 20), solid(38, 20), solid(16, 26), solid(41, 26), solid(6, 32)],
+  lamps1: [
+    lamp(16, 23, 'right'), lamp(24, 23, 'right'), lamp(33, 23, 'right'), lamp(41, 23, 'right'), lamp(2, 23, 'right'), lamp(12, 31, 'left'),
+    lamp(49, 23, 'right'), lamp(56, 22, 'right'), lamp(44, 53, 'right'), lamp(56, 53, 'right'), lamp(51, 65, 'right'), lamp(63, 65, 'right'),
+  ],
+  lamps2: [
+    lamp(16, 11, 'right'), lamp(24, 11, 'right'), lamp(32, 11, 'right'), lamp(41, 11, 'right'), lamp(16, 35, 'right'), lamp(29, 35, 'left'), lamp(37, 35, 'right'), lamp(13, 16, 'left'),
+    lamp(13, 33, 'left'), lamp(41, 30, 'left'), lamp(53, 11, 'right'), lamp(61, 11, 'right'), lamp(49, 35, 'right'), lamp(58, 35, 'right'), lamp(65, 35, 'right'),
+  ],
+  flowers: [solid(23, 20), solid(38, 20), solid(16, 26), solid(41, 26), solid(6, 32), solid(53, 15), solid(64, 27), solid(41, 57)],
   benches: [],
-  blossom: [solid(26, 20), solid(34, 20), solid(10, 35), solid(4, 36), solid(22, 30), solid(38, 30)],
-  lights: [solid(26, 14), solid(37, 19)],
+  blossom: [solid(26, 20), solid(34, 20), solid(10, 35), solid(4, 36), solid(22, 30), solid(38, 30), solid(50, 28), solid(60, 33), solid(64, 59)],
+  lights: [solid(26, 14), solid(37, 19), solid(44, 56), solid(53, 60)],
   lilies: [],
   stall: [solid(32, 15)],
   fountain: [solid(30, 17)],
-  balloons: [loose(27.4, 36.5), loose(19.6, 12.5)],
-  flags: [solid(3, 19), solid(13, 30), solid(23, 33), solid(37, 13)],
+  balloons: [loose(27.4, 36.5), loose(19.6, 12.5), loose(63.5, 54.6)],
+  flags: [solid(3, 19), solid(13, 30), solid(23, 33), solid(37, 13), solid(56, 32), solid(44, 62)],
   cat: [loose(34.5, 17.5)],
 };
 
@@ -314,8 +400,9 @@ export const CITY_WORLD: TownWorld = {
   scenery: CITY_SCENERY,
   coast: true,
   // the roads out (owner, 2026-11-25: "bị bao quanh bởi núi và biển, đường đâu mà xe bus chạy"): Station Avenue runs on
-  // west through a cutting in the range (the way to the town: the no. 9's road), Station Road and Bay Road north
-  range: { north: [15, 43], west: [25], falls: false, roads: true },
+  // west through a cutting in the range (the way to the town: the no. 9's road), Station Road, Bay Road and College
+  // Road north
+  range: { north: [15, 43, 55], west: [25], falls: false, roads: true },
   plaza: { x: 30.5, y: 17.5, r: 3.4 },
   start: CITY_ARRIVE,
 };

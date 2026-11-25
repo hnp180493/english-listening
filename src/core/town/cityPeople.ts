@@ -29,6 +29,28 @@ export const CITY_PEOPLE: readonly CityPerson[] = [
   { id: 'kit', name: 'Kit', gender: 'male', tier: 'known', district: 'arts', role: 'Kỹ thuật viên đài Bay FM', tie: 'Làm chương trình với Marcus, người bạn viết thư của Tom.', town: ['board'] },
   { id: 'bo', name: 'Bo', gender: 'male', tier: 'known', district: 'arts', role: 'Chủ quán karaoke', tie: 'Tối thứ Năm nào Mia và đồng nghiệp cũng hát ở quán anh.', town: ['friend'] },
   { id: 'dana', name: 'Dana', gender: 'female', tier: 'known', district: 'arts', role: 'Đồng nghiệp của Mia', tie: 'Làm cùng chỗ với Mia, người rủ cả nhóm đi karaoke.', town: ['friend'] },
+  // ── Khu văn phòng ──
+  { id: 'priya', name: 'Priya', gender: 'female', tier: 'main', district: 'office', role: 'Quản lý vận hành, trụ sở Meridian', tie: 'Ngồi chung bàn với Sarah năm đầu đi làm, rồi nhận cái ghế trên thành phố mà Sarah từ chối.', town: ['office'] },
+  { id: 'vivian', name: 'Vivian', gender: 'female', tier: 'main', district: 'office', role: 'Giám đốc sáng tạo, xưởng thiết kế Loom', tie: 'Sếp của Lily, và là lý do Lily hay căng thẳng. Khó tính nhưng công bằng.', town: ['park'] },
+  { id: 'whitlock', name: 'Mr Whitlock', gender: 'male', tier: 'known', district: 'office', role: 'Giám đốc Meridian', tie: 'Ký giấy tờ cho Sarah tám năm nay, sáng nào cũng đứng đọc báo ở sạp trước trụ sở.', town: ['office'] },
+  { id: 'hana', name: 'Hana', gender: 'female', tier: 'known', district: 'office', role: 'Lễ tân trụ sở', tie: 'Nhớ giọng từng người gọi tới, kể cả Sarah gọi từ văn phòng thị trấn.', town: ['office'] },
+  { id: 'colin', name: 'Colin', gender: 'male', tier: 'known', district: 'office', role: 'Quản lý vùng của FreshWay', tie: 'Năm mười lăm tuổi từng xếp hàng thuê cho tiệm của Frank, giờ là người cứ gọi hỏi mua tiệm.', town: ['shop'] },
+  { id: 'dev', name: 'Dev', gender: 'male', tier: 'known', district: 'office', role: 'Kỹ thuật viên máy tính', tie: 'Bạn chơi game trên mạng của Max, cách nhau bốn mươi phút xe buýt mà chưa gặp lần nào.', town: ['phone'] },
+  // ── Đại học & bệnh viện ──
+  { id: 'osei', name: 'Dr Osei', gender: 'male', tier: 'main', district: 'campus', role: 'Bác sĩ, bệnh viện Westbay', tie: 'Người hướng dẫn Kim. Năm đầu cô suýt bỏ nghề, ba giờ sáng gọi cho ông.', town: ['clinic'] },
+  { id: 'bridget', name: 'Bridget', gender: 'female', tier: 'known', district: 'campus', role: 'Điều dưỡng trưởng', tie: 'Học trò cũ của Grace từ hồi bà còn làm y tá ở London.', town: ['home'] },
+  { id: 'adeyemi', name: 'Prof Adeyemi', gender: 'male', tier: 'main', district: 'campus', role: 'Giáo sư ngữ âm', tie: 'Thầy cũ của Daniel. Cả đời nghiên cứu chuyện tiếng Anh thật ra được nói thế nào.', town: ['school'] },
+  { id: 'finch', name: 'Mr Finch', gender: 'male', tier: 'known', district: 'campus', role: 'Thủ thư', tie: 'Còn giữ thẻ thư viện của Daniel từ hồi anh là sinh viên.', town: ['school'] },
+  { id: 'yuki', name: 'Yuki', gender: 'female', tier: 'known', district: 'campus', role: 'Du học sinh', tie: 'Cũng đang vật lộn với việc nghe tiếng Anh nói nhanh, như bạn.', town: ['school'] },
+  { id: 'nell', name: 'Nell', gender: 'female', tier: 'known', district: 'campus', role: 'Dược sĩ', tie: 'Bốc thuốc theo đơn của phòng khám Kim gửi lên.', town: ['clinic'] },
+  // ── Bến cảng ──
+  { id: 'jun', name: 'Jun', gender: 'male', tier: 'main', district: 'harbour', role: 'Thợ sửa đồ điện tử', tie: 'Người cho Max việc làm đầu tiên khi anh mới từ Brisbane sang.', town: ['phone'] },
+  { id: 'marcus', name: 'Marcus', gender: 'male', tier: 'main', district: 'harbour', role: 'Người dẫn chương trình Bay FM', tie: 'Giọng bạn đã nghe trên radio. Bạn viết thư của Tom từ hồi hai người còn nhỏ.', town: ['board'] },
+  { id: 'odile', name: 'Captain Odile', gender: 'female', tier: 'known', district: 'harbour', role: 'Thuyền trưởng phà', tie: 'Sếp của Theo ở bến phà.', town: ['square'] },
+  { id: 'gus', name: 'Gus', gender: 'male', tier: 'known', district: 'harbour', role: 'Gác cảng', tie: 'Trực đêm ở cảng, biết mặt mọi khách quen của Jun.', town: ['phone'] },
+  { id: 'mei', name: 'Mei', gender: 'female', tier: 'known', district: 'harbour', role: 'Bán há cảo ở chợ đêm', tie: 'Học trò lớn tuổi nhất trong lớp chống lừa đảo qua điện thoại của Jun.', town: ['phone'] },
+  { id: 'sol', name: 'Sol', gender: 'male', tier: 'known', district: 'harbour', role: 'Bán lồng đèn ở chợ đêm', tie: 'Lồng đèn ở lễ hội của Leo dưới thị trấn là mua của anh.', town: ['square'] },
+  { id: 'fay', name: 'Fay', gender: 'female', tier: 'known', district: 'harbour', role: 'Bán vé vòng đu quay', tie: 'Bán vé vòng đu quay mà sợ độ cao. Zoe từng quay một cảnh phim ở đây.', town: ['cinema'] },
 ];
 
 const BY_ID: Readonly<Record<string, CityPerson>> = Object.fromEntries(CITY_PEOPLE.map((p) => [p.id, p]));

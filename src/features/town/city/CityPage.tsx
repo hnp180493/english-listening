@@ -8,21 +8,24 @@
 // "Người quen" (who has been met, who waits). No build panel, no shop, no map: the city adds no menu.
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BusFront, CircleHelp, Ear, Footprints, Maximize2, MessageCircle, Minimize2, Users, Volume2, VolumeX, X } from 'lucide-react';
+import { BookOpen, Briefcase, BusFront, CalendarDays, CircleHelp, Ear, Footprints, Heart, Maximize2, MessageCircle, Minimize2, Users, Volume2, VolumeX, X } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import PageHeader from '../../../components/PageHeader';
 import ShortcutsHelp from '../../../components/ShortcutsHelp';
-import { navigate } from '../../../core/nav';
-import { nextToMeet, sceneNow, sceneOwner, visitorsNow, type SceneNow } from '../../../core/town/city';
+import { navigate, parseHash } from '../../../core/nav';
+import { chaptersToday, CITY_INVITE_HEARTS, cityEventsOn, nextToMeet, outingToday, sceneNow, sceneOwner, scenesWith, visitorsNow, type SceneNow } from '../../../core/town/city';
 import { CITY_PEOPLE, cityPerson } from '../../../core/town/cityPeople';
 import { arriveInCity, loadTownCity, useTownCity } from '../../../core/town/cityStore';
-import type { CityScene } from '../../../core/town/cityTypes';
+import type { CityEvent, CityScene } from '../../../core/town/cityTypes';
 import { balance } from '../../../core/town/economy';
-import { partnerOf } from '../../../core/town/life';
+import { friendHearts } from '../../../core/town/friendship';
+import { kidsOf, partnerOf } from '../../../core/town/life';
 import { useTownLife } from '../../../core/town/lifeStore';
 import { useTownProgress } from '../../../core/town/store';
-import { townToday } from '../../../core/town/worldStore';
-import { CITY_OVERHEARD, CITY_SCENES } from '../../../data/city';
+import { CAST_VOICES } from '../../../core/town/voices';
+import { scenesHeard, townToday } from '../../../core/town/worldStore';
+import { CITY_EVENTS, CITY_OUTINGS, CITY_OVERHEARD, CITY_SCENES, CITY_SEASONS } from '../../../data/city';
+import { CITY_SHIFTS } from '../../../data/city/shifts';
 import { CITY_DECOR_ON, CITY_PLACE_IDS, cityWorldWith } from '../../../data/cityWorld';
 import { TOWN_PLACES, townPlace } from '../../../data/town';
 import { thingKind, type ActivitySpotId, type PlaceId } from '../../../data/townWorld';
@@ -38,6 +41,7 @@ import { narrowStage, useFullStage, useStageInsets, useTownTheme } from '../stag
 import TownStage3D from '../three/TownStage3D';
 import { wantsFlat, webglAvailable } from '../three/webgl';
 import { setTownUi, useTownUi } from '../townUi';
+import { eventToday } from './cityEvents';
 import './cityLooks';
 import './cityPlaces3d';
 import '../town.css';
@@ -45,6 +49,9 @@ import './city.css';
 
 const CityScenePanel = lazy(() => import('./CityScenePanel'));
 const CityPeople = lazy(() => import('./CityPeople'));
+const CityToday = lazy(() => import('./CityToday'));
+const CityEventPanel = lazy(() => import('./CityEventPanel'));
+const ShiftPanel = lazy(() => import('./ShiftPanel'));
 
 const TOWN_IDS: ReadonlySet<string> = new Set(TOWN_PLACES.map((p) => p.id));
 const TOAST_MS = 4200;
@@ -52,7 +59,13 @@ const TOAST_MS = 4200;
 /** Somebody's name: of the city, or a town resident up here. */
 const nameOf = (id: string): string => cityPerson(id)?.name ?? townPlace(id)?.resident ?? '';
 
-type Sheet = { kind: 'scene'; key: number; at: string; scene: CityScene; again: boolean } | { kind: 'thing'; key: number; id: ActivitySpotId } | { kind: 'people'; key: number };
+type Sheet =
+  | { kind: 'scene'; key: number; at: string; scene: CityScene; again: boolean; outing?: boolean; kicker?: string }
+  | { kind: 'thing'; key: number; id: ActivitySpotId }
+  | { kind: 'people'; key: number }
+  | { kind: 'today'; key: number }
+  | { kind: 'shift'; key: number; id: string }
+  | { kind: 'event'; key: number; event: CityEvent };
 
 /** What the one button offers beside somebody. */
 function talkPrompt(id: string, now: SceneNow): string {
@@ -89,8 +102,18 @@ export default function CityPage() {
   // who of the town is up here: today's visitors, whoever a story needs, and the one the learner is with (they come
   // along). Worked out when the page opens and again when a scene heard opens a story that needs somebody new.
   const partner = partnerOf(life);
-  const [visitors, setVisitors] = useState<string[]>(() => visitorsNow(CITY_SCENES, loadTownCity(), today.weekday, TOWN_IDS));
-  const guests = useMemo(() => [...new Set([...visitors, ...(partner && TOWN_IDS.has(partner) ? [partner] : [])])].sort(), [visitors, partner]);
+  // a friend asked along on the bus (?with=<place id>, the town's bus panel): from CITY_INVITE_HEARTS hearts
+  const [params] = useState(() => parseHash(window.location.hash).params);
+  const asked = params.with && TOWN_IDS.has(params.with) && friendHearts(progress, params.with) >= CITY_INVITE_HEARTS ? params.with : null;
+  // who came up WITH the learner: their second scene up here is theirs only then (city.ts scenesWith)
+  const cameKey = [partner, asked].filter((x): x is string => !!x && TOWN_IDS.has(x)).sort().join(',');
+  const came = useMemo(() => new Set(cameKey ? cameKey.split(',') : []), [cameKey]);
+  const scenes = useMemo(() => scenesWith(CITY_SCENES, came), [came]);
+  // today's chapters of the long stories (docs/town.md §21): those played in the city, by whose place they are at
+  const chapters = useMemo(() => chaptersToday(CITY_SEASONS, city, now), [city, now]);
+  const chapterAt = useCallback((id: string) => chapters.find((c) => c.chapter.where !== 'town' && c.chapter.at === id) ?? null, [chapters]);
+  const [visitors, setVisitors] = useState<string[]>(() => visitorsNow([...scenes, ...chaptersToday(CITY_SEASONS, loadTownCity(), now).map((c) => c.chapter).filter((c) => c.where !== 'town')], loadTownCity(), today.weekday, TOWN_IDS));
+  const guests = useMemo(() => [...new Set([...visitors, ...came])].sort(), [visitors, came]);
   const guestKey = guests.join(',');
   // (the same object for the same guests: the stage is made again only when somebody new has come)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,20 +123,21 @@ export default function CityPage() {
   }, [world]);
 
   const here = useCallback((at: string) => !!cityPerson(at) || guests.includes(at), [guests]);
-  const suggested = useMemo(() => nextToMeet(CITY_SCENES, city, here), [city, here]);
+  const suggested = useMemo(() => nextToMeet(scenes, city, here), [scenes, city, here]);
 
   const state = useMemo<StageState>(() => {
     const marker: Record<string, Marker> = {};
     const lit: Record<string, number> = {};
     for (const id of [...CITY_PLACE_IDS, ...guests]) {
-      const s = sceneNow(CITY_SCENES, id, city, now);
-      if (s?.kind === 'new') marker[id] = s.scene.kind === 'episode' ? 'story' : 'new';
+      const s = sceneNow(scenes, id, city, now);
+      if (chapterAt(id)) marker[id] = 'story';
+      else if (s?.kind === 'new') marker[id] = s.scene.kind === 'episode' ? 'story' : 'new';
       else if (s?.kind === 'again') marker[id] = 'relisten';
-      const own = CITY_SCENES.filter((x) => x.at === id);
+      const own = scenes.filter((x) => x.at === id);
       lit[id] = own.length ? own.filter((x) => Object.hasOwn(city.heard, x.id)).length / own.length : 0;
     }
     return { built: [...CITY_PLACE_IDS, ...guests, 'station'], decorations: CITY_DECOR_ON, lit, marker, theme, ...player };
-  }, [city, guests, now, theme, player]);
+  }, [scenes, city, guests, now, theme, player, chapterAt]);
 
   // ── sound, toast ──
   const sfx = useCallback((name: Parameters<typeof playSfx>[0]) => playSfx(name, ui.sound), [ui.sound]);
@@ -140,7 +164,7 @@ export default function CityPage() {
   // ── a scene with somebody ──
   const closeSheet = useCallback(() => {
     setSheet((s) => {
-      if (s?.kind === 'scene') {
+      if (s?.kind === 'scene' || s?.kind === 'event') {
         stage.current?.endListen();
         stage.current?.endTalk();
       }
@@ -150,16 +174,18 @@ export default function CityPage() {
     setSpeaking(null);
     // a scene heard may have opened a story that needs somebody of the town up here
     setVisitors((old) => {
-      const next = visitorsNow(CITY_SCENES, loadTownCity(), today.weekday, TOWN_IDS);
+      const next = visitorsNow([...scenes, ...chaptersToday(CITY_SEASONS, loadTownCity(), Date.now()).map((c) => c.chapter).filter((c) => c.where !== 'town')], loadTownCity(), today.weekday, TOWN_IDS);
       return next.join(',') === old.join(',') ? old : next;
     });
     stage.current?.focus();
-  }, [today.weekday]);
+  }, [today.weekday, scenes]);
 
   const startScene = useCallback(
     (id: string) => {
       if (sheet) return;
-      const s = sceneNow(CITY_SCENES, id, loadTownCity(), Date.now());
+      // today's chapter of a long story at this person's place comes before anything else they have
+      const ch = chaptersToday(CITY_SEASONS, loadTownCity(), Date.now()).find((c) => c.chapter.where !== 'town' && c.chapter.at === id);
+      const s: SceneNow | null = ch ? { kind: 'new', scene: ch.chapter } : sceneNow(scenes, id, loadTownCity(), Date.now());
       if (!s) return;
       if (s.kind === 'locked') {
         const owner = sceneOwner(s.needs);
@@ -169,7 +195,7 @@ export default function CityPage() {
       }
       const key = ++keys.current;
       setWelcome(false);
-      setSheet({ kind: 'scene', key, at: id, scene: s.scene, again: s.kind !== 'new' });
+      setSheet({ kind: 'scene', key, at: id, scene: s.scene, again: s.kind !== 'new', ...(ch ? { kicker: tl`${ch.season.title} · chương ${ch.chapter.n}/${ch.season.chapters.length}` } : {}) });
       const others = [...new Set(s.scene.lines.map((l) => l.who))].filter((w) => w !== id && here(w)) as PlaceId[];
       const inPlace = () => {
         stage.current?.joinTalk(id as PlaceId, others);
@@ -179,7 +205,30 @@ export default function CityPage() {
       const staged = stage.current?.talkAt(id as PlaceId, cityPerson(id) ? { kind: 'outside', at: id as PlaceId } : { kind: 'here' }, {}, inPlace);
       if (!staged) setArrived(key);
     },
-    [sheet, here],
+    [sheet, here, scenes],
+  );
+
+  // an outing with the one the learner is with (docs/town.md §20): at the host's place, the partner beside them
+  const kid = kidsOf(life)[0]?.kid ?? null;
+  const outingsDone = useMemo(() => {
+    const out = new Set<string>();
+    for (const c of Object.values(progress.daily[today.day] ?? {})) for (const id of c.heard ?? []) if (id.startsWith('cx-')) out.add(id);
+    return out;
+  }, [progress, today.day]);
+  const startOuting = useCallback(
+    (host: string, scene: CityScene) => {
+      if (sheet || !partner) return;
+      const key = ++keys.current;
+      setWelcome(false);
+      setSheet({ kind: 'scene', key, at: host, scene, again: false, outing: true });
+      const inPlace = () => {
+        stage.current?.joinTalk(host as PlaceId, [partner as PlaceId]);
+        setArrived(key);
+      };
+      const staged = stage.current?.talkAt(host as PlaceId, { kind: 'outside', at: host as PlaceId }, {}, inPlace);
+      if (!staged) setArrived(key);
+    },
+    [sheet, partner],
   );
 
   const openThing = useCallback(
@@ -192,22 +241,51 @@ export default function CityPage() {
   );
   const toTown = useCallback(() => navigate('town', { from: 'city' }), []);
 
+  // what is on today (docs/town.md §21): the weekday's get-together, a festival of the month
+  const heardToday = useMemo(() => scenesHeard(progress, today.day), [progress, today.day]);
+  const eventsToday = useMemo(() => cityEventsOn(CITY_EVENTS, today.weekday, new Date(now).getMonth() + 1).map((event) => ({ event, done: eventToday(event, today.day, heardToday).done })), [today.weekday, today.day, now, heardToday]);
+  const openEvent = useCallback(
+    (event: CityEvent) => {
+      const key = ++keys.current;
+      setWelcome(false);
+      setSheet({ kind: 'event', key, event });
+      const host = event.host as PlaceId;
+      const who = eventToday(event, today.day, []).who.filter((w) => w !== event.host) as PlaceId[];
+      const inPlace = () => {
+        stage.current?.joinTalk(host, who);
+        setArrived(key);
+      };
+      if (!stage.current?.talkAt(host, { kind: 'outside', at: host }, {}, inPlace)) setArrived(key);
+    },
+    [today.day],
+  );
+  // a shift at somebody's place, once they have been met
+  const shiftAt = useCallback((id: string) => (Object.hasOwn(city.heard, `ct-${id}-1`) ? (CITY_SHIFTS.find((s) => s.at === id) ?? null) : null), [city]);
+
   // ── the one button ──
   const nearId = near?.kind === 'resident' ? near.placeId : null;
-  const nearNow = nearId ? sceneNow(CITY_SCENES, nearId, city, now) : null;
+  const nearNow = nearId ? sceneNow(scenes, nearId, city, now) : null;
   const nearThing = near?.kind === 'activity' ? near.id : null;
   const prompt = nearThing
     ? { icon: thingKind(nearThing) === 'bus' ? BusFront : Ear, text: thingKind(nearThing) === 'bus' ? 'Lên xe số 9 về thị trấn' : (thingPrompt(nearThing) ?? ''), run: () => openThing(nearThing) }
     : nearId && nearNow
-      ? { icon: MessageCircle, text: talkPrompt(nearId, nearNow), run: () => startScene(nearId) }
+      ? chapterAt(nearId)
+        ? { icon: BookOpen, text: tl`Chương hôm nay: ${chapterAt(nearId)!.season.title}`, run: () => startScene(nearId) }
+        : { icon: MessageCircle, text: talkPrompt(nearId, nearNow), run: () => startScene(nearId) }
       : suggested
         ? { icon: Footprints, text: tl`Tới gặp ${nameOf(suggested.at)}`, run: () => void stage.current?.walkTo(suggested.at as PlaceId, () => startScene(suggested.at)) }
         : null;
+  // beside a host with the partner along: today's outing there, once a day
+  const dayNumber = Number(today.day.replaceAll('-', ''));
+  const outingHere = nearId && partner && came.has(partner) && cityPerson(nearId) ? outingToday(CITY_OUTINGS, nearId, !!kid, dayNumber) : null;
+  const nearOuting = outingHere && !outingsDone.has(outingHere.id) ? outingHere : null;
+  const nearShift = nearId ? shiftAt(nearId) : null;
   const promptRun = prompt?.run;
   const onIdleAct = useCallback(() => promptRun?.(), [promptRun]);
 
   const shownSheet = ready || flat ? sheet : null;
   const sceneUp = shownSheet?.kind === 'scene' && (arrived === shownSheet.key || flat) ? shownSheet : null;
+  const eventUp = shownSheet?.kind === 'event' && (arrived === shownSheet.key || flat) ? shownSheet : null;
   const stageBox = useCallback(() => stage.current?.box() ?? null, []);
   const full = useFullStage(stageBox, !!shownSheet);
   const insets = useStageInsets(stageBox, `${shownSheet?.key ?? '-'}|${sceneUp ? 's' : '-'}|${full.full ? 'f' : '-'}|${prompt ? 'p' : '-'}|${welcome ? 'w' : '-'}`);
@@ -275,7 +353,7 @@ export default function CityPage() {
               <p className="town-flat-note">Trình duyệt này không vẽ được thành phố 3D. Bạn vẫn nghe được chuyện của từng người:</p>
               <ul className="city-flat-list">
                 {[...CITY_PEOPLE.map((p) => p.id), ...guests].map((id) => {
-                  const s = sceneNow(CITY_SCENES, id, city, now);
+                  const s = sceneNow(scenes, id, city, now);
                   // (somebody whose talk still waits for another is not offered: the list would be a wall of "meet … first")
                   return s && s.kind !== 'locked' ? (
                     <li key={id}>
@@ -285,6 +363,13 @@ export default function CityPage() {
                     </li>
                   ) : null;
                 })}
+                {CITY_SHIFTS.filter((s) => shiftAt(s.at)).map((s) => (
+                  <li key={s.id}>
+                    <button type="button" className="btn btn-ghost" onClick={() => setSheet({ kind: 'shift', key: ++keys.current, id: s.id })}>
+                      {tl`Vào ca: ${s.name}`}
+                    </button>
+                  </li>
+                ))}
               </ul>
               <button type="button" className="btn btn-ghost" onClick={toTown}>
                 Về thị trấn
@@ -324,6 +409,16 @@ export default function CityPage() {
               </span>
             </div>
             <div className="town-hud-btns">
+              <button
+                type="button"
+                className={'town-pill town-hud-btn' + (shownSheet?.kind === 'today' ? ' is-on' : '')}
+                onClick={() => (sheet?.kind === 'today' ? closeSheet() : !sheet && setSheet({ kind: 'today', key: ++keys.current }))}
+                aria-expanded={shownSheet?.kind === 'today'}
+              >
+                <Icon icon={CalendarDays} size={17} />
+                <span className="town-hud-label">Hôm nay</span>
+                {(eventsToday.some((e) => !e.done) || chapters.length > 0) && <span className="town-hud-dot" aria-hidden="true" />}
+              </button>
               <button
                 type="button"
                 className={'town-pill town-hud-btn' + (shownSheet?.kind === 'people' ? ' is-on' : '')}
@@ -370,6 +465,18 @@ export default function CityPage() {
               <Icon icon={prompt.icon} size={18} />
               {prompt.text}
             </button>
+            {nearShift && (
+              <button type="button" className="btn btn-lg town-prompt-gift" onClick={() => !sheet && setSheet({ kind: 'shift', key: ++keys.current, id: nearShift.id })} aria-label={tl`Vào ca: ${nearShift.name}`}>
+                <Icon icon={Briefcase} size={18} />
+                <span className="town-prompt-gift-label">Vào ca</span>
+              </button>
+            )}
+            {nearOuting && nearId && (
+              <button type="button" className="btn btn-lg town-prompt-gift" onClick={() => startOuting(nearId, nearOuting)} aria-label={nearOuting.kind === 'family' ? 'Cả nhà ghé đây' : 'Hẹn hò ở đây'}>
+                <Icon icon={Heart} size={18} />
+                <span className="town-prompt-gift-label">{nearOuting.kind === 'family' ? 'Cả nhà ghé đây' : 'Hẹn hò ở đây'}</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -380,13 +487,61 @@ export default function CityPage() {
         {sceneUp && (
           <CitySheet title={`${nameOf(sceneUp.at)} · ${cityPerson(sceneUp.at)?.role ?? 'lên Westbay'}`} onClose={closeSheet} talk>
             <Suspense fallback={<p className="town-build-hint">Đang mở…</p>}>
-              <CityScenePanel key={sceneUp.key} scene={sceneUp.scene} again={sceneUp.again} sound={ui.sound} onReward={onReward} onSpeaking={setSpeaking} onClose={closeSheet} />
+              <CityScenePanel key={sceneUp.key} scene={sceneUp.scene} again={sceneUp.again} sound={ui.sound} onReward={onReward}
+                onSpeaking={setSpeaking}
+                onClose={closeSheet}
+                kicker={sceneUp.kicker}
+                outing={
+                  sceneUp.outing && partner
+                    ? {
+                        partner: { id: partner, name: nameOf(partner), gender: CAST_VOICES[partner]?.gender ?? 'female' },
+                        ...(kid && sceneUp.scene.kind === 'family' ? { kid: { name: kid.name, gender: kid.gender === 'boy' ? ('male' as const) : ('female' as const) } } : {}),
+                      }
+                    : undefined
+                }
+              />
             </Suspense>
           </CitySheet>
         )}
         {shownSheet?.kind === 'thing' && (
           <CitySheet title={thingKind(shownSheet.id) === 'bus' ? 'Xe buýt số 9' : listenTitle(shownSheet.id)} onClose={closeSheet}>
             <ListenPanel key={shownSheet.key} where="city" overheard={CITY_OVERHEARD} focus={shownSheet.id} sound={ui.sound} onClose={closeSheet} onReward={onReward} onListen={onListen} onSpeaking={setSpeaking} onTravel={toTown} />
+          </CitySheet>
+        )}
+        {eventUp && (
+          <CitySheet title={eventUp.event.name} onClose={closeSheet} talk>
+            <Suspense fallback={<p className="town-build-hint">Đang mở…</p>}>
+              <CityEventPanel key={eventUp.key} event={eventUp.event} sound={ui.sound} onReward={onReward} onSpeaking={setSpeaking} onClose={closeSheet} />
+            </Suspense>
+          </CitySheet>
+        )}
+        {shownSheet?.kind === 'shift' && (
+          <CitySheet title={CITY_SHIFTS.find((s) => s.id === shownSheet.id)?.name ?? 'Ca làm việc'} onClose={closeSheet}>
+            <Suspense fallback={<p className="town-build-hint">Đang mở…</p>}>
+              <ShiftPanel key={shownSheet.key} shiftId={shownSheet.id} sound={ui.sound} onReward={onReward} onClose={closeSheet} />
+            </Suspense>
+          </CitySheet>
+        )}
+        {shownSheet?.kind === 'today' && (
+          <CitySheet title={tl`Hôm nay ở Westbay · ${weekday}`} onClose={closeSheet}>
+            <Suspense fallback={<p className="town-build-hint">Đang mở…</p>}>
+              <CityToday
+                city={city}
+                now={now}
+                events={eventsToday}
+                seasons={CITY_SEASONS}
+                guests={guests}
+                onEvent={(ev) => {
+                  closeSheet();
+                  openEvent(ev);
+                }}
+                onChapter={(ch) => {
+                  closeSheet();
+                  stage.current?.walkTo(ch.at as PlaceId, () => startScene(ch.at));
+                }}
+                onTown={(ch) => navigate('town', { from: 'city', listen: `season:${ch.id}` })}
+              />
+            </Suspense>
           </CitySheet>
         )}
         {shownSheet?.kind === 'people' && (

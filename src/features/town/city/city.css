@@ -107,3 +107,34 @@
   flex-wrap: wrap;
   gap: var(--space-2, 8px);
 }
+
+/* ── "Hôm nay" ── */
+.city-today {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.city-today-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.city-today-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.city-today-done {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.city-today-blurb {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}

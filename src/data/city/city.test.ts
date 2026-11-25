@@ -14,13 +14,14 @@ import { RIDE_SCENES } from '../scenes/rides';
 import { SENTENCES } from '../sentences';
 import { TOWN_PLACES } from '../town';
 import { TOWN_STORIES } from '../townStories';
-import { CITY_CHATS, CITY_EPISODES, CITY_OVERHEARD, CITY_SCENES, CITY_VISITS_SCENES } from './index';
+import { CITY_CHAPTERS, CITY_CHATS, CITY_EPISODES, CITY_EVENT_SCENES, CITY_EVENTS, CITY_OUTINGS, CITY_OVERHEARD, CITY_SCENES, CITY_SEASONS, CITY_VISITS_SCENES } from './index';
+import { OUTING_ROLES } from '../../core/town/cityTypes';
 
 const TOWN_IDS = new Set<string>(TOWN_PLACES.map((p) => p.id));
 const MAINS = CITY_PEOPLE.filter((p) => p.tier === 'main');
 const KNOWN = CITY_PEOPLE.filter((p) => p.tier === 'known');
 const wordCount = (s: string): number => s.split(/\s+/).filter((w) => /[a-z]/i.test(w)).length;
-const knownSpeaker = (w: string): boolean => !!cityPerson(w) || TOWN_IDS.has(w) || Object.hasOwn(SCENE_VOICES, w);
+const knownSpeaker = (w: string): boolean => !!cityPerson(w) || TOWN_IDS.has(w) || Object.hasOwn(SCENE_VOICES, w) || (OUTING_ROLES as readonly string[]).includes(w);
 
 function tokens(s: string): string[] {
   return s
@@ -81,14 +82,14 @@ interface AnyScene {
   questions: readonly SceneQuestion[];
 }
 const asAny = (s: ListenScene): AnyScene => ({ id: s.id, title: s.title, scene: s.scene, level: s.level, lines: s.lines, questions: s.detail ? [s.gist, s.detail] : [s.gist] });
-const all: AnyScene[] = [...CITY_SCENES, ...CITY_OVERHEARD.map(asAny), ...RIDE_SCENES.map(asAny)];
+const all: AnyScene[] = [...CITY_SCENES, ...CITY_OUTINGS, ...CITY_CHAPTERS, ...CITY_OVERHEARD.map(asAny), ...CITY_EVENT_SCENES.map(asAny), ...RIDE_SCENES.map(asAny)];
 const lines = all.flatMap((s) => s.lines.map((l, i) => ({ id: `${s.id}#${i + 1}`, line: l })));
 
 describe('Westbay: shape', () => {
   it('every person of the city has a place on the map and the other way round', () => {
     expect(CITY_PEOPLE.map((p) => p.id).sort()).toEqual([...CITY_PLACE_IDS].sort());
-    expect(MAINS.length).toBe(6);
-    expect(KNOWN.length).toBe(12);
+    expect(MAINS.length).toBe(12);
+    expect(KNOWN.length).toBe(25);
     for (const p of CITY_PEOPLE) for (const t of p.town) expect(TOWN_IDS.has(t), `${p.id}: ${t}`).toBe(true);
   });
 
@@ -142,8 +143,8 @@ describe('Westbay: shape', () => {
     }
   });
 
-  it('visits: every town resident is met in Westbay once, with somebody of the city, 6–10 lines', () => {
-    for (const id of TOWN_IDS) expect(CITY_VISITS_SCENES.filter((s) => s.at === id).length, id).toBe(1);
+  it('visits: every town resident is met in Westbay twice (the second when they came up with the learner), with somebody of the city, 6–10 lines', () => {
+    for (const id of TOWN_IDS) expect(CITY_VISITS_SCENES.filter((s) => s.at === id).length, id).toBe(2);
     for (const s of CITY_VISITS_SCENES) {
       expect(s.kind, s.id).toBe('visit');
       expect(s.lines.length, s.id).toBeGreaterThanOrEqual(6);
@@ -152,6 +153,82 @@ describe('Westbay: shape', () => {
       expect(s.lines.some((l) => !!cityPerson(l.who)), `${s.id}: somebody of the city is there`).toBe(true);
       expect(s.questions.length, s.id).toBeGreaterThanOrEqual(1);
       expect(s.questions.length, s.id).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('outings: dates and family outings hosted by somebody of the city; the partner speaks, in words anybody could say', () => {
+    expect(CITY_OUTINGS.filter((s) => s.kind === 'date').length).toBeGreaterThanOrEqual(5);
+    expect(CITY_OUTINGS.filter((s) => s.kind === 'family').length).toBeGreaterThanOrEqual(3);
+    for (const s of CITY_OUTINGS) {
+      expect(s.id, s.id).toBe(`cx-${s.at}-${s.n}`);
+      expect(!!cityPerson(s.at), `${s.id}: hosted by somebody of the city`).toBe(true);
+      expect(s.needs ?? [], s.id).toEqual([]);
+      expect(s.lines.length, s.id).toBeGreaterThanOrEqual(8);
+      expect(s.lines.length, s.id).toBeLessThanOrEqual(14);
+      const who = new Set(s.lines.map((l) => l.who));
+      expect(who.has(s.at), `${s.id}: the host speaks`).toBe(true);
+      expect(s.lines.filter((l) => l.who === 'partner').length, `${s.id}: the partner speaks`).toBeGreaterThanOrEqual(3);
+      if (s.kind === 'family') expect(s.lines.filter((l) => l.who === 'kid').length, `${s.id}: the child speaks`).toBeGreaterThanOrEqual(2);
+      else expect(who.has('kid'), `${s.id}: no child on a date`).toBe(false);
+      for (const w of who) expect(TOWN_IDS.has(w), `${s.id}: ${w} (no town resident by name: the partner is 'partner')`).toBe(false);
+      // nothing in the partner's or the child's lines fixes who they are
+      for (const l of s.lines) if (l.who === 'partner' || l.who === 'kid') expect(l.text, `${s.id}: ${l.text}`).not.toMatch(/\b(he|she|his|her|him|husband|wife|boyfriend|girlfriend|son|daughter|boy|girl|mum|mom|dad|mummy|daddy)\b/i);
+      expect(s.questions.length, s.id).toBeGreaterThanOrEqual(1);
+      expect(s.questions.length, s.id).toBeLessThanOrEqual(2);
+    }
+    const ids = CITY_OUTINGS.map((s) => `${s.at}:${s.n}`);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('the long stories: six chapters each, in the city at somebody of the city, in the town at a resident; they open from scenes that exist', () => {
+    const ids = new Set(CITY_SCENES.map((s) => s.id));
+    expect(CITY_SEASONS.length).toBe(6);
+    expect(new Set(CITY_SEASONS.map((s) => s.id)).size).toBe(6);
+    for (const season of CITY_SEASONS) {
+      expect(season.id, season.id).toMatch(/^[a-z]{2,12}$/);
+      expect(season.chapters.length, season.id).toBe(6);
+      expect(season.needs.length, season.id).toBeGreaterThanOrEqual(1);
+      for (const n of season.needs) expect(ids.has(n), `${season.id} needs ${n}`).toBe(true);
+      expect(VIET_MARK.test(season.title) && VIET_MARK.test(season.blurb), season.id).toBe(true);
+      expect(season.chapters.some((c) => c.where === 'town'), `${season.id}: a chapter in the town`).toBe(true);
+      expect(season.chapters.some((c) => c.where !== 'town'), `${season.id}: a chapter in the city`).toBe(true);
+      season.chapters.forEach((ch, i) => {
+        expect(ch.id, ch.id).toBe(`cs-${season.id}-${i + 1}`);
+        expect(ch.kind, ch.id).toBe('chapter');
+        expect(ch.n, ch.id).toBe(i + 1);
+        expect(ch.needs ?? [], ch.id).toEqual([]);
+        if (ch.where === 'town') expect(TOWN_IDS.has(ch.at), `${ch.id}: in the town at ${ch.at}`).toBe(true);
+        else expect(!!cityPerson(ch.at), `${ch.id}: in the city at ${ch.at}`).toBe(true);
+        expect(ch.lines.length, ch.id).toBeGreaterThanOrEqual(12);
+        expect(ch.lines.length, ch.id).toBeLessThanOrEqual(18);
+        const who = new Set(ch.lines.map((l) => l.who));
+        expect(who.size, ch.id).toBeGreaterThanOrEqual(2);
+        expect(who.size, ch.id).toBeLessThanOrEqual(4);
+        expect(who.has(ch.at), `${ch.id}: ${ch.at} speaks`).toBe(true);
+        expect(ch.questions.length, ch.id).toBe(3);
+      });
+    }
+  });
+
+  it("the city's week: a get-together every weekday and a festival every month, two scenes each, the host among the speakers", () => {
+    for (let d = 0; d < 7; d++) expect(CITY_EVENTS.filter((e) => e.weekday === d && !e.months).length, `weekday ${d}`).toBe(1);
+    for (let m = 1; m <= 12; m++) expect(CITY_EVENTS.filter((e) => e.months?.includes(m)).length, `month ${m}`).toBe(1);
+    for (const e of CITY_EVENTS) {
+      expect(!!cityPerson(e.host), `${e.id}: hosted by somebody of the city`).toBe(true);
+      expect(CITY_EVENT_SCENES.filter((s) => s.event === e.id).length, e.id).toBeGreaterThanOrEqual(2);
+    }
+    for (const s of CITY_EVENT_SCENES) {
+      const ev = CITY_EVENTS.find((e) => e.id === s.event);
+      expect(ev, s.id).toBeDefined();
+      expect(s.id.startsWith(`ce-${s.event}-`), s.id).toBe(true);
+      expect(s.kind, s.id).toBe('event');
+      expect(s.lines.length, s.id).toBeGreaterThanOrEqual(8);
+      expect(s.lines.length, s.id).toBeLessThanOrEqual(12);
+      const who = new Set(s.lines.map((l) => l.who));
+      expect(who.size, s.id).toBeGreaterThanOrEqual(3);
+      expect(who.size, s.id).toBeLessThanOrEqual(4);
+      expect(who.has(ev!.host), `${s.id}: the host ${ev!.host}`).toBe(true);
+      expect(s.detail, s.id).toBeDefined();
     }
   });
 
@@ -291,6 +368,9 @@ describe('Westbay: Vietnamese and questions', () => {
       ['episodes', [...CITY_EPISODES]],
       ['chats', [...CITY_CHATS]],
       ['visits', [...CITY_VISITS_SCENES]],
+      ['outings', [...CITY_OUTINGS]],
+      ['chapters', [...CITY_CHAPTERS]],
+      ['events', CITY_EVENT_SCENES.map(asAny)],
       ['overheard', CITY_OVERHEARD.map(asAny)],
       ['rides', RIDE_SCENES.map(asAny)],
     ];

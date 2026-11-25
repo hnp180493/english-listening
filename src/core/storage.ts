@@ -91,6 +91,7 @@ export const KEYS = {
   townCases: 'town-cases', // "Thị trấn": the mystery's solved chapters (synced), see core/town/cases.ts
   townCafe: 'town-cafe', // "Thị trấn": the café game's best score, skill, days (synced), see core/town/cafe.ts
   townCity: 'town-city', // "Thị trấn": Westbay, the city: the scenes heard there (synced), see core/town/city.ts
+  townShifts: 'town-shifts', // "Thị trấn": Westbay's work shifts (taxi rank, flower stall): best scores, missed requests, days (synced), see core/town/shift.ts
   townLife: 'town-life', // "Thị trấn": the learner's own character, courtship, marriage, children (synced), see core/town/life.ts
   tombstones: 'tombstones', // deleted custom sentences / media items (synced, pruned after a while), see core/syncMarkers.ts
   reset: 'reset', // "Xóa dữ liệu" / restore / "Xóa lịch sử" marker (synced): older data elsewhere is dropped, see core/syncMarkers.ts

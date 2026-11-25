@@ -35,6 +35,12 @@ export const CAST_VOICES: Readonly<Record<string, CastVoice>> = {
   board: { voice: 'Umbriel', gender: 'male' }, // Tom
 };
 
+/** The learner's children: a small boy's and a small girl's voice (courtship scenes, the city's family outings). */
+export const KID_VOICES: Readonly<Record<'boy' | 'girl', CastVoice>> = {
+  boy: { voice: 'Achird', gender: 'male', accent: "small child's high, playful voice" },
+  girl: { voice: 'Autonoe', gender: 'female', accent: "small child's high, playful voice" },
+};
+
 /** The voice of whoever says a line of an episode set at `placeId`. */
 export function voiceOf(who: StorySpeaker, placeId: string): CastVoice {
   const key = who === 'you' ? 'player' : who === 'them' ? placeId : who;
