@@ -767,8 +767,12 @@ Fullscreen API itself, so the real full screen was not seen). An installed app (
 "Thu nhỏ") puts the stage over the whole window: the Fullscreen API on the stage's own box when the browser has it (it hides the browser's bars), and
 always a fixed overlay through CSS (`.town-stage.is-full`; the page under it does not scroll), which is all an
 iPhone gets. The HUD, the conversation, the build panel and the popover of "Việc hôm nay" are all inside the stage,
-so they work there. Esc leaves (the browser's own Esc for the API; ours for the overlay, but only when no panel is
-open: Esc closes the conversation or the build panel first); focus stays on the button. While full screen is on,
+so they work there. Esc never leaves (owner, 2026-11-26: "esc là để tắt các action, còn muốn tắt full màn hình thì
+nhấn f11"): it closes a talk or a panel only; F11 or the button leaves. In the browser's real full screen Esc is held
+for the page with the Keyboard Lock API (`navigator.keyboard.lock(['Escape'])`, Chrome and Edge; holding Esc still
+leaves, as the browser says); Firefox and Safari have no such API and still leave on Esc. Checked in headless Edge
+with the overlay only (it refuses the real full screen): Esc closed the people sheet and stayed, F11 left. The real
+full screen with the lock was not tried; focus stays on the button. While full screen is on,
 everything outside the stage (nav, page header, "Thị trấn này để làm gì?", the skip link) is `inert`
 (`inertOutside.ts`, tested), so Tab and a screen reader's cursor stay in the town; focus moves to the canvas when it
 was outside. The overlay keeps its HUD, prompt, panels and toast clear of a phone's notch, status bar and home

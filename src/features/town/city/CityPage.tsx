@@ -471,7 +471,7 @@ export default function CityPage() {
   const sceneUp = shownSheet?.kind === 'scene' && (arrived === shownSheet.key || flat) ? shownSheet : null;
   const eventUp = shownSheet?.kind === 'event' && (arrived === shownSheet.key || flat) ? shownSheet : null;
   const stageBox = useCallback(() => stage.current?.box() ?? null, []);
-  const full = useFullStage(stageBox, !!shownSheet);
+  const full = useFullStage(stageBox);
   const insets = useStageInsets(stageBox, `${shownSheet?.key ?? '-'}|${sceneUp ? 's' : '-'}|${full.full ? 'f' : '-'}|${prompt ? 'p' : '-'}|${welcome ? 'w' : '-'}`);
   const [narrow] = useState(narrowStage);
   const showPrompt = (ready || flat) && !sheet && !map && !!prompt;
@@ -624,7 +624,7 @@ export default function CityPage() {
                 className="town-pill town-hud-btn town-hud-icon"
                 onClick={full.toggle}
                 aria-label={full.full ? (getLang() === 'en' ? 'Exit full screen' : 'Thu nhỏ') : 'Toàn màn hình'}
-                title={full.full ? 'Thu nhỏ (Esc)' : 'Toàn màn hình'}
+                title={full.full ? 'Thu nhỏ (F11)' : 'Toàn màn hình'}
               >
                 <Icon icon={full.full ? Minimize2 : Maximize2} size={17} />
               </button>

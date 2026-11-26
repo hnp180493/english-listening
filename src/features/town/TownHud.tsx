@@ -275,7 +275,7 @@ export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, 
             onClick={onFull}
             // 'Thu nhỏ' is "Zoom out" on the map: here it leaves full screen
             aria-label={full ? (getLang() === 'en' ? 'Exit full screen' : 'Thu nhỏ') : 'Toàn màn hình'}
-            title={full ? 'Thu nhỏ (Esc)' : 'Toàn màn hình'}
+            title={full ? 'Thu nhỏ (F11)' : 'Toàn màn hình'}
           >
             <Icon icon={full ? Minimize2 : Maximize2} size={17} />
           </button>

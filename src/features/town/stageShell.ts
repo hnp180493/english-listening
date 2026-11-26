@@ -37,6 +37,17 @@ export function phoneScreen(): boolean {
   }
 }
 
+/** Keep Esc for the page in the browser's real full screen (Keyboard Lock API, Chromium only); a no-op elsewhere. */
+function lockEsc(on: boolean): void {
+  const kb = (navigator as Navigator & { keyboard?: { lock?: (keys: string[]) => Promise<void>; unlock?: () => void } }).keyboard;
+  try {
+    if (on) kb?.lock?.(['Escape'])?.catch(() => undefined);
+    else kb?.unlock?.();
+  } catch {
+    // not allowed here (an iframe, a policy): Esc stays the browser's
+  }
+}
+
 /**
  * Full screen was chosen: kept for this session only (a visit of another page and back keeps it, a reload does not).
  * Null until the learner chooses: a phone starts in full screen (owner, 2026-11-24, on a OnePlus: "giao diện điện
@@ -47,9 +58,12 @@ let fullChosen: boolean | null = null;
 /**
  * "Toàn màn hình": the stage covers the whole window. The Fullscreen API when the browser has it for an element
  * (it also hides the browser's bars), and in any case a fixed overlay through CSS (`is-full`), which is all an
- * iPhone gets. Esc leaves (the browser's own Esc, or ours for the overlay when no panel is open).
+ * iPhone gets. Esc is the game's (owner, 2026-11-26: "esc là để tắt các action, còn muốn tắt full màn hình thì nhấn
+ * f11"): it closes a talk or a panel and never leaves; F11 or the HUD's button leaves. The browser would leave its
+ * real full screen on Esc by itself, so Esc is held for the page with the Keyboard Lock API (Chrome, Edge: holding Esc
+ * still leaves, the browser says so); a browser without it (Firefox, Safari) still leaves on Esc.
  */
-export function useFullStage(box: () => HTMLElement | null, panelOpen: boolean): { full: boolean; toggle: () => void } {
+export function useFullStage(box: () => HTMLElement | null): { full: boolean; toggle: () => void } {
   const [full, setFull] = useState(() => fullChosen ?? phoneScreen());
   const viaApi = useRef(false);
 
@@ -61,13 +75,16 @@ export function useFullStage(box: () => HTMLElement | null, panelOpen: boolean):
       if (on) {
         if (el && typeof el.requestFullscreen === 'function' && document.fullscreenEnabled && !document.fullscreenElement) {
           viaApi.current = true;
-          el.requestFullscreen().catch(() => {
-            // refused (no user gesture, a policy): the overlay alone does the job
-            viaApi.current = false;
-          });
+          el.requestFullscreen()
+            .then(() => lockEsc(true))
+            .catch(() => {
+              // refused (no user gesture, a policy): the overlay alone does the job
+              viaApi.current = false;
+            });
         }
       } else if (document.fullscreenElement) {
         viaApi.current = false;
+        lockEsc(false);
         document.exitFullscreen().catch(() => undefined);
       }
     },
@@ -84,9 +101,11 @@ export function useFullStage(box: () => HTMLElement | null, panelOpen: boolean):
     const onTap = () => {
       if (document.fullscreenElement) return;
       viaApi.current = true;
-      el.requestFullscreen().catch(() => {
-        viaApi.current = false;
-      });
+      el.requestFullscreen()
+        .then(() => lockEsc(true))
+        .catch(() => {
+          viaApi.current = false;
+        });
     };
     el.addEventListener('pointerup', onTap, { once: true });
     return () => el.removeEventListener('pointerup', onTap);
@@ -96,6 +115,7 @@ export function useFullStage(box: () => HTMLElement | null, panelOpen: boolean):
   useEffect(() => {
     const onChange = () => {
       if (document.fullscreenElement) return;
+      lockEsc(false);
       if (viaApi.current) {
         viaApi.current = false;
         fullChosen = false;
@@ -106,16 +126,12 @@ export function useFullStage(box: () => HTMLElement | null, panelOpen: boolean):
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
 
-  // Esc closes a panel first; with none open it leaves full screen
-  const panelRef = useRef(panelOpen);
-  useEffect(() => {
-    panelRef.current = panelOpen;
-  }, [panelOpen]);
+  // F11 leaves full screen (Esc never does: it closes a talk or a panel, the game's own keys handle it)
   useEffect(() => {
     if (!full) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented || panelRef.current) return;
-      if (e.target instanceof HTMLElement && e.target.closest('[data-popover], [role="dialog"]')) return;
+      if (e.key !== 'F11' || e.defaultPrevented || e.repeat) return;
+      // ours, not the browser's own F11 full screen on top
       e.preventDefault();
       set(false);
     };
@@ -140,6 +156,7 @@ export function useFullStage(box: () => HTMLElement | null, panelOpen: boolean):
   // leaving the page leaves full screen (the overlay is gone with the stage)
   useEffect(
     () => () => {
+      lockEsc(false);
       if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined);
     },
     [],

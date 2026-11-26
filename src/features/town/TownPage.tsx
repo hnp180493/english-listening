@@ -986,7 +986,7 @@ export default function TownPage() {
   // Leo's first words are about walking up to people: not on the page without the world
   const showWelcome = townReady && !flat && !ui.welcomed && !hasPlayed && !talk && !build && !activity && !map;
   const stageBox = useCallback(() => stage.current?.box() ?? null, []);
-  const fullStage = useFullStage(stageBox, !!shownTalk || !!shownBuild || !!shownActivity || !!map);
+  const fullStage = useFullStage(stageBox);
   // a phone: a conversation makes the stage as tall as the screen between its bars (town.css .is-talking) and brings
   // it up under the top bar, so the room or the two in town get a real strip above the panel, not a sliver
   const talkShownKey = shownTalk?.key ?? null;

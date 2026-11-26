@@ -185,7 +185,7 @@ const page: Record<string, string> = {
   'Âm thanh trò chơi: đang bật': 'Game sounds: on',
   'Âm thanh trò chơi: đang tắt': 'Game sounds: off',
   'Toàn màn hình': 'Full screen',
-  'Thu nhỏ (Esc)': 'Exit full screen (Esc)',
+  'Thu nhỏ (F11)': 'Exit full screen (F11)',
   'Máy này chưa vẽ được thị trấn 3D': 'This device can’t draw the 3D town',
   'Trình duyệt chưa bật tăng tốc đồ họa (WebGL 2) nên không hiện được thị trấn. Trò chuyện, nghe chuyện, xây nhà và các trò chơi vẫn dùng như thường: chọn một người dưới đây, hoặc dùng các nút ở góc trên.': 'This browser doesn’t have graphics acceleration (WebGL 2) turned on, so the town can’t be shown. Chats, stories, building and the games all still work: pick someone below, or use the buttons at the top.',
   'Người dân': 'Residents',
