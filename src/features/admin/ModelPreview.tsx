@@ -16,7 +16,9 @@ import { canvasOf, charStudio, paint } from '../town/three/offscreen';
 import { createPerson } from '../town/three/chars/person';
 import { wearVrm } from '../town/three/chars/vrmBody';
 import type { CharAction } from '../town/three/contracts';
-import { VRM_IDS, vrmOf } from '../../data/townVrm';
+import { VRM_IDS, vrmFor } from '../../data/townVrm';
+import { passerLook, profileLook } from '../town/three/chars/looks';
+import type { CharacterLook } from '../town/three/contracts';
 
 const BASE = '/.assets-try/';
 
@@ -177,13 +179,27 @@ async function drawAction(c: HTMLCanvasElement, a: (typeof ACTIONS)[number], w: 
 const BASES = ['AvatarSample_A', 'AvatarSample_B', 'AvatarSample_C', 'HairSample_Female', 'HairSample_Male', 'Sakurada_Fumiriya', 'Sendagaya_Shibu', 'Darkness_Shibu', 'Sendagaya_Shino', 'Victoria_Rubin', 'Vita', 'Vivi'] as const;
 const SHOW_BASES = typeof window !== 'undefined' && window.location.hash.includes('bases');
 
+/** People without a file of their own, for the sheet: the learner as made, passers-by, children. */
+const OTHERS: Record<string, CharacterLook> = {
+  player: castLook('player'),
+  'player-f': profileLook({ gender: 'female', skin: '#b47a52', hair: 'long', hairColor: '#3b2a22' }),
+  'player-m': profileLook({ gender: 'male', skin: '#f1cba9', hair: 'spiky', hairColor: '#d36f4c' }),
+  passer1: passerLook(3),
+  passer2: passerLook(10),
+  passer3: passerLook(17),
+  passer4: passerLook(24),
+  passer5: passerLook(31),
+  kid1: passerLook(5, true),
+  kid2: passerLook(12, true),
+};
+const CAST_IDS: readonly string[] = [...VRM_IDS, ...Object.keys(OTHERS)];
+
 /** `…?cast` in the address: every resident in the avatar baked for them (public/vrm), body and face. */
 const SHOW_CAST = typeof window !== 'undefined' && window.location.hash.includes('cast');
 
 async function drawResident(id: string, c: HTMLCanvasElement, w: number, h: number, face: boolean): Promise<void> {
-  const who = vrmOf(id, import.meta.env.BASE_URL);
-  if (!who) return;
-  const ch = createPerson(id);
+  const ch = OTHERS[id] ? createPerson(id, OTHERS[id]) : createPerson(id);
+  const who = vrmFor(id, ch.look, import.meta.env.BASE_URL);
   await wearVrm(ch, who.url, who);
   ch.setHeading(Math.PI / 2, true);
   for (let t = 0; t < 0.6; t += 1 / 60) ch.update(1 / 60, 0);
@@ -255,11 +271,11 @@ export default function ModelPreview() {
           if (c[4]) await draw(row.vroid, c[4], W, H, false);
           if (c[5]) await draw(row.vroid, c[5], F, F, true);
         }
-        for (let i = 0; SHOW_CAST && i < VRM_IDS.length && !live.gone; i++) {
+        for (let i = 0; SHOW_CAST && i < CAST_IDS.length && !live.gone; i++) {
           const body = cast.current[i * 2];
           const face = cast.current[i * 2 + 1];
-          if (body) await drawResident(VRM_IDS[i], body, 150, 250, false);
-          if (face) await drawResident(VRM_IDS[i], face, 170, 170, true);
+          if (body) await drawResident(CAST_IDS[i], body, 150, 250, false);
+          if (face) await drawResident(CAST_IDS[i], face, 170, 170, true);
         }
         for (let i = 0; SHOW_BASES && i < BASES.length && !live.gone; i++) {
           const body = bases.current[i * 2];
@@ -290,7 +306,7 @@ export default function ModelPreview() {
       <p className="adm-scene">Bản thử, chưa có gì vào game. Mỗi hàng một người: bây giờ, Quaternius Modular (2022, CC0), VRoid (anime, mẫu của pixiv).</p>
       {SHOW_CAST && (
         <ul className="adm-faces">
-          {VRM_IDS.map((id, i) => (
+          {CAST_IDS.map((id, i) => (
             <li key={id} className="adm-model">
               <div className="adm-look-pair">
                 <canvas ref={(el) => void (cast.current[i * 2] = el)} className="adm-pic" style={{ width: 150, height: 250 }} />

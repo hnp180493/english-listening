@@ -2738,39 +2738,63 @@ which he chose: "làm tiếp VRoid nhưng có setting cho chọn model trở l�
 **What is built.** All 13 residents of the town are shown as a VRoid avatar; the learner can pick the bodies built
 in code again.
 
-- **The files**: `public/vrm/<placeId>.vrm`, 2.0–2.9 MB each, 30 MB together, baked by `scripts/vrm-bake.py`
+- **The files**: `public/vrm/<placeId>.vrm` and seven `base-*.vrm`, about 2 MB each, 41 MB together, baked by `scripts/vrm-bake.py`
   (Python 3 + Pillow, run by hand) from pixiv's free VRoid sample avatars after `scripts/vrm-recipes.json` (which
   sample, the resident's hair, skin and clothes colours, taken from the code-built cast). The bake recolours the
   textures by material class (skin: a per-channel multiply; hair, brows, clothes: a luminance-preserving recolour),
-  shrinks them (512 px, the face 1024, WebP), drops the morph targets no kept expression uses and the morphed
+  shrinks them (256 px, the face 512, WebP: an avatar's textures weigh on the graphics card, and fourteen are on at
+  once), drops the morph targets no kept expression uses and the morphed
   normals, and repacks the file: 221 MB of samples became 30 MB. The samples themselves are NOT in git
   (`.assets-try/vroid`, fetched from github.com/madjin/vrm-samples, a mirror): nine declare CC0 in their own meta
   (HairSample_Female / _Male, Sakurada_Fumiriya, Sendagaya_Shibu / _Shino, Darkness_Shibu, Victoria_Rubin, Vita,
   Vivi); AvatarSample_A, B, C are "not CC0" but their VRoid Hub pages, read on 2026-11-26, allow corporate and
   individual commercial use, redistribution and alterations, attribution not required. `fem_vroid` / `masc_vroid`
   of that mirror have no clear licence and are not used.
-- **Who is who** (`data/townVrm.ts`, the recipes): Leo and Sam = AvatarSample_C; Emma = Vivi; Mia =
-  HairSample_Female (its cat ears are part of the hair); Grace = Sendagaya_Shino with grey hair and glasses; Ben and
-  Daniel = Sakurada_Fumiriya; Sarah = Darkness_Shibu; Kim = Sendagaya_Shibu; Zoe = AvatarSample_B; Max and Tom =
-  HairSample_Male; Lily = Victoria_Rubin. Twelve samples, three of them men: the six men share three faces. Every
-  face is a young anime face: Grace is not an old lady, Ben has no beard and is not bald, and nobody looks like their
-  drawn portrait (those stay in every panel).
-- **On the head, in code** (`vrmBody.ts wear`): glasses (Grace, Daniel), sunglasses (Tom), a cap (Sam), placed by
-  the eye bones; `tall` per resident.
-- **The engine**: `chars/vrmPeople.ts` (`dressWhenNear`, asked each frame for residents: an avatar is fetched only
-  for somebody within 16 tiles of the middle of the view, one file at a time; `dressInVrm` at once in a room,
-  `roomStage.ts`) and `chars/vrmBody.ts` (`wearVrm`; lazy, with `@pixiv/three-vrm` and three's glTF loader in the
-  chunk `vrm`, about 220 kB). A file that fails to load leaves the code body (so does the portable build opened
-  from disk, which cannot fetch).
+- **Who is who**, picked from each resident's DRAWN PORTRAIT (public/portraits; owner, the same day, on the first
+  bake, which took its colours from the code-built cast: "diện mạo gì mà không map avatar vậy?"): the hair style
+  and the clothes of the portrait pick the sample, the recipe gives its hair, skin, eye and clothes colours. Leo
+  (orange hoodie) and Tom (red hoodie) = HairSample_Male; Daniel (mustard sweater, maroon tie) and Sam (navy uniform,
+  gold tie) = Sakurada_Fumiriya, a shirt, vest and tie; Ben and Max = AvatarSample_C, a jacket; Emma =
+  Vivi (a green apron dress); Mia = HairSample_Female (black twin tails; its cat ears are part of the hair and stay);
+  Grace = AvatarSample_A (a bob and a cardigan) in grey; Sarah = Sendagaya_Shibu (a bob, a vest over a shirt); Kim =
+  Victoria_Rubin (a long side ponytail) in white; Zoe = AvatarSample_B; Lily = Sendagaya_Shino (long hair). Ten
+  samples, three of them men: the six men share three faces. Every face is a young anime face: Grace is not an old
+  lady, Ben has no beard, Emma no ponytail, Zoe no bun.
+- **On the head, in code** (`vrmBody.ts wear`, `VrmExtra`), what the portrait has and no sample does: round glasses
+  (Grace, Daniel), a bun (Grace), a uniform's peaked cap with a gold band and badge (Sam), sunglasses pushed up into
+  the hair (Tom), a crown of flowers (Lily). Placed by the eye bones and by the face mesh's own front (glasses sit
+  on the nose); `tall` per resident.
+- **The bake's lessons** (`scripts/vrm-bake.py`): dark cloth recoloured by luminance alone stays black (Sam's navy
+  uniform did), so clothes get a floor (`lift`, picked from how dark the image is) and hair one that grows with the
+  target's lightness (grey and blond on a sample's black hair); and a sample may tint a pale texture through the
+  material's colour (the older samples' black hair), so a recoloured material's `_Color` and `baseColorFactor` go
+  to white. `VRM_VERSION` is 3.
+- **Everybody else** (owner, the same day: "sửa hết toàn bộ nhân vật luôn đi chứ"): the learner, passers-by,
+  children, the people of a room and Westbay's 37 have no file of their own. Seven TINTABLE bases
+  (`public/vrm/base-<name>.vrm`: three men, a jacket, a hoodie, a shirt and tie; four women, a bob, long hair, a
+  ponytail, a bob with buns) are baked with white hair and clothes and one light skin (`BASE_SKIN`); `vrmFor(id,
+  look)` picks the base from the code-built look (who it reads as, the hair style, a tie or a collar; the same
+  person always the same base) and `vrmBody.ts paint` multiplies each material by the look's skin, hair, top and
+  bottom colours. Glasses, sunglasses and a cap carry over; a bald look hides the hair; a child stands lower (its
+  head keeps its size: a larger one throws the hair's spring bones about). The wardrobe's outfit colour repaints
+  the top (`setOutfit`); hats do not show.
+- **The engine**: `chars/vrmPeople.ts`: `dressWhenNear` is asked each frame for everybody (residents, passers-by,
+  children): an avatar is fetched only for somebody within 15 tiles of the middle of the view, one file at a time,
+  and at most `MAX` 14 are worn at once: when a nearer one wants theirs the farthest takes theirs off
+  (`Worn.undress`, the code body shows again). `dressInVrm` (kept on whatever the count) for the learner and for the
+  people of a room (`roomStage.ts`). `chars/vrmBody.ts` (`wearVrm`) is lazy, with `@pixiv/three-vrm` and three's
+  glTF loader in the chunk `vrm`, about 220 kB. A file that fails to load leaves the code body (so does the portable
+  build opened from disk, which cannot fetch).
 - **No animation files.** The hidden code body keeps its Animator; its pose is copied onto the VRM's humanoid bones
   each frame, so walk, run, sit, talk, wave, yes / no, cheer and the head's look carry over, with the face as
   expressions (blink, happy, the mouth while talking). Bridged: the arms (the code body rests arms down, a VRM in a
   T), the legs (a VRM's are about three times as long: the swing is cut to `STRIDE` 0.62 and sitting is posed for
   its own legs), VRM 0.x looking down −z.
 - **Cost**: `slim()` drops the outline pass and merges skinned meshes that share a material (a sample's 90–130
-  draw calls become about 23). With 11 avatars on the stage the software renderer counted 423 draw calls and 1.03 M
-  triangles (the town alone: about 100 and 0.5 M).
-- Night: a VRM's colours are multiplied towards `NIGHT` with the scene's night amount. The name tag sits over its
+  draw calls become about 23). On the software renderer: the plaza with 10 avatars worn of 21 people, 249 draw calls
+  and 0.77 M triangles; Westbay's terminal with 7 worn of 50, 254 and 1.31 M (the town alone: about 100 and 0.5 M).
+- Night: a VRM's colours are multiplied towards `NIGHT` with the scene's night amount (a light blue-grey: the first
+  value turned dark clothes into a silhouette on the owner's screen). The name tag sits over its
   head (`headTop`). It stands `TALLER` 1.4 × the code body.
 - **The way back**: `townUi.people` `'anime' | 'classic'` (device-local, default anime), Cài đặt → Hiển thị → "Nhân
   vật trong thị trấn". It applies when the town is opened.
@@ -2781,8 +2805,8 @@ in code again.
   faces; 13 new pieces of street furniture, `scene/furniture.ts`, proposed and not in the town).
 
 **Not done, not known.** Things held in the hand (cup, can, rod, book), hats and outfit colours do not show on an
-avatar. The player, the passers-by, the children, the 37 people of Westbay, portraits and thumbnails are untouched:
-the learner is a round code-built figure among tall anime ones. A tall slim figure among round trees and low benches
+avatar. Portraits and thumbnails are untouched, and so are pets. Past the nearest fourteen, people are still the
+round code-built figures (a crowd in Westbay is mixed). A tall slim figure among round trees and low benches
 is a clash of styles nobody has judged in motion. Seen only as pictures from `scripts/town-shot.mjs` (the software
 renderer): the sheet of all 13, eleven of them on the plaza by day, one at night, the action sheet; a seated avatar
 on a real bench and a room were not looked at. The feet slide a little by design of `STRIDE`. Nobody has watched it

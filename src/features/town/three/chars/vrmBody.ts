@@ -22,7 +22,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, type VRM, type VRMHumanBoneName } from '@pixiv/three-vrm';
 import { BODY, C, J, LEG_REACH, type EyeState, type MouthState } from './anim';
+import { nightTint } from './materials';
 import type { Character3DPlus } from './person';
+import { BASE_SKIN, type VrmWear } from '../../../../data/townVrm';
 import type { VrmExtra } from '../../../../data/townVrm';
 
 /** The share of the code body's leg swing a VRM takes (its legs are about three times as long for the same pace). */
@@ -73,7 +75,7 @@ const MOUTH: Readonly<Record<MouthState, { aa: number; oh: number; relaxed: numb
 };
 
 /** The night's colour on a VRM (its toon materials take little from the scene's dimmed lights). */
-const NIGHT = new Color('#7d86b8');
+const NIGHT = new Color('#a9b0d8');
 
 const _q = new Quaternion();
 const _euler = new Euler();
@@ -89,11 +91,16 @@ interface Tinted {
   shade: Color | null;
 }
 
+/** What `wearVrm` hands back: take the avatar off again (the code-built body shows as before). */
+export interface Worn {
+  undress(): void;
+}
+
 /**
  * Show `ch` as the VRM at `url` from now on. Resolves once it stands there; rejects when the file cannot be read
  * (the code-built body simply stays).
  */
-export async function wearVrm(ch: Character3DPlus, url: string, opts: { tall?: number; extras?: readonly VrmExtra[] } = {}, gone: () => boolean = () => false): Promise<void> {
+export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<VrmWear> = {}, gone: () => boolean = () => false): Promise<Worn | null> {
   const loader = new GLTFLoader();
   loader.register((parser) => new VRMLoaderPlugin(parser));
   const gltf = await loader.loadAsync(url);
@@ -102,13 +109,21 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: { tall?: n
   // (the person left the stage while the file was coming)
   if (gone()) {
     VRMUtils.deepDispose(gltf.scene);
-    return;
+    return null;
   }
   VRMUtils.removeUnnecessaryVertices(gltf.scene);
   VRMUtils.combineSkeletons(gltf.scene);
   VRMUtils.rotateVRM0(vrm);
   const old = vrm.meta.metaVersion === '0';
   slim(vrm.scene);
+  const tops = opts.tint ? paint(vrm.scene, opts.tint) : [];
+  if (opts.bald)
+    vrm.scene.traverse((o) => {
+      const m = o as Mesh;
+      if (m.isMesh && /_HAIR/.test((m.material as Material).name ?? '')) m.visible = false;
+    });
+  // a child: the head larger for the body (the samples are grown-ups)
+  if (opts.head) vrm.humanoid.getRawBoneNode('head')?.scale.setScalar(opts.head);
   const tinted: Tinted[] = [];
   vrm.scene.traverse((o) => {
     o.frustumCulled = false;
@@ -163,15 +178,15 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: { tall?: n
   // glasses, a cap: built in code on the head (the samples have none)
   const worn: Mesh[] = [];
   if (head && opts.extras?.length) {
-    if (eyeL && eyeR && headAt) {
+    if (headAt) {
       // the head's own frame: a VRM 0.x looks down -z in it
       const frame = new Group();
       frame.rotation.y = old ? Math.PI : 0;
       head.add(frame);
-      // (the positions were read with the scene turned to +z, as the frame sees them)
-      const mid = eyeL.clone().add(eyeR).multiplyScalar(0.5).sub(headAt);
-      const gap = Math.max(0.02, Math.abs(eyeL.x - eyeR.x));
-      for (const e of opts.extras) worn.push(...wear(frame, e, mid, gap, box.max.y - headAt.y));
+      // between the eyes, and eye to eye (a sample without eye bones: where the samples have them)
+      const mid = eyeL && eyeR ? eyeL.clone().add(eyeR).multiplyScalar(0.5).sub(headAt) : new Vector3(0, 0.063, 0.03);
+      const gap = eyeL && eyeR ? Math.max(0.02, Math.abs(eyeL.x - eyeR.x)) : 0.041;
+      for (const e of opts.extras) worn.push(...wear(frame, e, mid, gap, box.max.y - headAt.y, faceFront(vrm.scene, headAt)));
     }
   }
 
@@ -181,6 +196,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: { tall?: n
     else node.quaternion.copy(q);
   };
 
+  const before = { update: ch.update, headTop: ch.headTop, setNight: ch.setNight, setOutfit: ch.setOutfit, dispose: ch.dispose };
   const update = ch.update.bind(ch);
   ch.update = (dt: number, speed: number) => {
     update(dt, speed);
@@ -245,30 +261,106 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: { tall?: n
   ch.headTop = (target: Vector3) => {
     if (!head) return headTop(target);
     head.getWorldPosition(target);
-    target.y += tall * 0.14 * s;
+    target.y += tall * 0.14 * s * (opts.head ?? 1);
     return target;
   };
 
+  let night = 0;
   const setNight = ch.setNight.bind(ch);
   ch.setNight = (amount: number) => {
     setNight(amount);
     const k = MathUtils.clamp(amount, 0, 1);
+    night = k;
     for (const t of tinted) {
       if (t.color && t.m.color) t.m.color.copy(t.color).lerp(_c.copy(t.color).multiply(NIGHT), k);
       if (t.shade && t.m.shadeColorFactor) t.m.shadeColorFactor.copy(t.shade).lerp(_c.copy(t.shade).multiply(NIGHT), k);
     }
   };
 
-  const dispose = ch.dispose.bind(ch);
-  ch.dispose = () => {
+  // an outfit colour picked in the wardrobe: the top takes it (a tintable avatar only)
+  const setOutfit = ch.setOutfit.bind(ch);
+  ch.setOutfit = (color: string | null) => {
+    setOutfit(color);
+    if (!opts.tint || tops.length === 0) return;
+    _c.set(color ?? opts.tint.top);
+    for (const top of tops) {
+      const entry = tinted.find((x) => x.m === top.m);
+      if (!entry) continue;
+      if (entry.color) entry.color.copy(top.color).multiply(_c);
+      if (entry.shade && top.shade) entry.shade.copy(top.shade).multiply(_c);
+    }
+    ch.setNight(night);
+  };
+
+  let off = false;
+  const strip = (): void => {
+    if (off) return;
+    off = true;
     ch.root.remove(holder);
     for (const m of worn) {
       m.geometry.dispose();
       (m.material as Material).dispose();
     }
     VRMUtils.deepDispose(vrm.scene);
+  };
+  const dispose = ch.dispose.bind(ch);
+  ch.dispose = () => {
+    strip();
     dispose();
   };
+  // (the scene's night as it is now)
+  ch.setNight(nightTint());
+  return {
+    undress() {
+      if (off) return;
+      strip();
+      ch.update = before.update;
+      ch.headTop = before.headTop;
+      ch.setNight = before.setNight;
+      ch.setOutfit = before.setOutfit;
+      ch.dispose = before.dispose;
+      if (pivot) pivot.visible = true;
+    },
+  };
+}
+
+interface TopPaint {
+  m: Tinted['m'];
+  color: Color;
+  shade: Color | null;
+}
+
+/**
+ * A tintable avatar (scripts/vrm-bake.py bakes its hair and clothes white and its skin to BASE_SKIN) in somebody's
+ * own colours: each material's colour is multiplied by the look's. Returns the top's materials as they were before
+ * their colour (the wardrobe repaints them).
+ */
+function paint(scene: Object3D, tint: NonNullable<VrmWear['tint']>): TopPaint[] {
+  const seen = new Set<Material>();
+  const tops: TopPaint[] = [];
+  const skin = new Color(tint.skin);
+  const ref = new Color(BASE_SKIN);
+  skin.setRGB(Math.min(1.15, skin.r / ref.r), Math.min(1.15, skin.g / ref.g), Math.min(1.15, skin.b / ref.b));
+  const hair = new Color(tint.hair);
+  const brow = hair.clone().multiplyScalar(0.75);
+  const top = new Color(tint.top);
+  const bottom = new Color(tint.bottom);
+  scene.traverse((o) => {
+    const mesh = o as Mesh;
+    if (!mesh.isMesh) return;
+    for (const m of (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) as Tinted['m'][]) {
+      if (seen.has(m)) continue;
+      seen.add(m);
+      const n = m.name ?? '';
+      const isTop = /Tops|Onepiece/i.test(n);
+      const c = n.endsWith('_SKIN') ? skin : /_HAIR/.test(n) ? hair : /FaceBrow/.test(n) ? brow : isTop ? top : /Bottoms|AccessoryNeck/i.test(n) ? bottom : null;
+      if (!c) continue;
+      if (isTop && m.color?.isColor) tops.push({ m, color: m.color.clone(), shade: m.shadeColorFactor?.isColor ? m.shadeColorFactor.clone() : null });
+      m.color?.multiply(c);
+      m.shadeColorFactor?.multiply(c);
+    }
+  });
+  return tops;
 }
 
 /**
@@ -324,7 +416,25 @@ const FRAME = '#4a3328';
 const DARK = '#1d1b22';
 
 /** One thing on the head, in the head's frame (+z = the way the face looks). `mid` = between the eyes, `gap` = eye to eye. */
-function wear(frame: Group, extra: VrmExtra, mid: Vector3, gap: number, crown: number): Mesh[] {
+/**
+ * How far in front of the head bone the face reaches (its nose), in the VRM's units: from the face mesh's own box.
+ * Null when there is no mesh called a face.
+ */
+function faceFront(scene: Object3D, headAt: Vector3): number | null {
+  let far = 0;
+  scene.traverse((o) => {
+    const m = o as SkinnedMesh;
+    if (!m.isSkinnedMesh || !/face/i.test(m.name)) return;
+    const g = m.geometry;
+    if (!g.boundingBox) g.computeBoundingBox();
+    const b = g.boundingBox;
+    // (the mesh's own space looks down -z or +z; the face is the far side from the head bone either way)
+    if (b) far = Math.max(far, Math.abs(b.min.z), Math.abs(b.max.z));
+  });
+  return far > 0 ? far - Math.abs(headAt.z) : null;
+}
+
+function wear(frame: Group, extra: VrmExtra, mid: Vector3, gap: number, crown: number, nose: number | null): Mesh[] {
   const out: Mesh[] = [];
   const add = (geo: BufferGeometry, color: string, x: number, y: number, z: number, o: { rx?: number; sy?: number; sz?: number; glass?: boolean } = {}): void => {
     const mat = new MeshStandardMaterial({ color, roughness: o.glass ? 0.25 : 0.9, metalness: 0, transparent: !!o.glass, opacity: o.glass ? 0.82 : 1 });
@@ -338,7 +448,8 @@ function wear(frame: Group, extra: VrmExtra, mid: Vector3, gap: number, crown: n
   };
   // measured on the samples (their eye bones sit 0.04 apart, deep in the head): the face's surface is about 2.3 gaps
   // in front of the head bone, the eyes as drawn about 0.8 of a gap either side, the skull about 2.4 gaps across
-  const front = Math.abs(mid.z) + gap * 1.7;
+  // glasses rest on the nose: a little behind its tip
+  const front = nose !== null ? nose - gap * 0.2 : Math.abs(mid.z) + gap * 1.9;
   const y = mid.y + gap * 0.05;
   if (extra === 'glasses' || extra === 'sunglasses') {
     const r = gap * 0.66;
@@ -350,6 +461,42 @@ function wear(frame: Group, extra: VrmExtra, mid: Vector3, gap: number, crown: n
       add(new BoxGeometry(r * 0.1, r * 0.1, gap * 2.2), col, k * gap * 1.62, y, front - gap * 1.1);
     }
     add(new BoxGeometry(gap * 0.36, r * 0.1, r * 0.1), col, 0, y + r * 0.15, front);
+  } else if (extra === 'shades-up') {
+    // sunglasses pushed up into the hair
+    const r = gap * 0.6;
+    const yy = crown * 0.93;
+    const zz = front * 0.5;
+    for (const k of [-1, 1]) {
+      add(new CylinderGeometry(r, r, r * 0.1, 20), '#16151b', k * gap * 0.8, yy, zz, { rx: Math.PI / 2 - 0.75, glass: true });
+      add(new TorusGeometry(r, r * 0.12, 6, 20), DARK, k * gap * 0.8, yy, zz, { rx: -0.75 });
+    }
+    add(new BoxGeometry(gap * 0.4, r * 0.12, r * 0.12), DARK, 0, yy + r * 0.1, zz);
+  } else if (extra === 'flowers') {
+    // a crown of little flowers round the hair
+    const ring = gap * 2.9;
+    const yy = crown * 0.62;
+    const cols = ['#f7a8c0', '#fbd3df', '#f48fb1', '#fff1f5'];
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      // (the front half only: the back is under the hair)
+      if (Math.cos(a) < -0.35) continue;
+      add(new SphereGeometry(gap * 0.5, 8, 6), cols[i % cols.length], Math.sin(a) * ring, yy + Math.cos(a) * gap * 0.25, Math.cos(a) * ring * 0.92 - gap * 0.35);
+    }
+  } else if (extra.startsWith('bun:')) {
+    // hair done up in a bun, behind the crown
+    const color = extra.slice(4);
+    add(new SphereGeometry(gap * 1.6, 14, 10), color, 0, crown * 1.04, -gap * 1.1, { sy: 0.88 });
+    add(new TorusGeometry(gap * 1.0, gap * 0.24, 6, 14), color, 0, crown * 0.86, -gap * 1.05, { rx: Math.PI / 2 - 0.35 });
+  } else if (extra.startsWith('peaked:')) {
+    // a uniform's peaked cap: a band round the head, a crown wider than the band, a visor, a badge
+    const color = extra.slice(7);
+    const r = gap * 2.85;
+    const base = crown * 0.52;
+    add(new CylinderGeometry(r, r, r * 0.36, 24), color, 0, base + r * 0.18, -gap * 0.3);
+    add(new CylinderGeometry(r * 1.22, r * 1.02, r * 0.42, 24), color, 0, base + r * 0.56, -gap * 0.3);
+    add(new CylinderGeometry(r * 1.02, r * 1.02, r * 0.07, 24), '#d6a740', 0, base + r * 0.34, -gap * 0.3);
+    add(new CylinderGeometry(r * 0.86, r * 0.86, r * 0.05, 24, 1, false, -Math.PI / 2, Math.PI), '#15171f', 0, base + r * 0.04, r * 0.55, { sz: 1.25 });
+    add(new SphereGeometry(r * 0.16, 10, 8), '#e2b743', 0, base + r * 0.56, r * 0.98, { sz: 0.5 });
   } else if (extra.startsWith('cap:')) {
     const color = extra.slice(4);
     const r = gap * 2.55;

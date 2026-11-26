@@ -43,8 +43,8 @@ KEEP_NAMES = {"surprised"}
 # Materials whose images may stay up to 1024 px (faces are seen up close).
 FACE_KEYS = ("EyeIris", "Face_00_SKIN", "FaceMouth", "FaceEyeline", "FaceEyelash",
              "EyeHighlight", "EyeWhite", "EyeExtra", "FaceBrow")
-MAX_SIDE = 512
-MAX_SIDE_FACE = 1024
+MAX_SIDE = 256
+MAX_SIDE_FACE = 512
 
 # Texture slots that carry colour (may be recoloured); every other slot
 # (normal maps, matcap, rim, emission, outline width...) must never be.
@@ -151,16 +151,25 @@ def recolour_multiply(img, factors):
     return Image.merge("RGBA", chans + [a])
 
 
-def recolour_luma(img, target, keep=0.0):
-    """Luminance-preserving recolour towards `target`; `keep` = share of the original kept."""
+def recolour_luma(img, target, keep=0.0, lift=0.0):
+    """Luminance-preserving recolour towards `target`; `keep` = share of the original kept.
+
+    `lift` (0..1) is a floor under the darkest pixels: black cloth recoloured to blue has to come out blue, not
+    black (the first bake left a navy uniform black). "auto" picks it from how dark the image is.
+    """
     rgba = img.convert("RGBA")
     r, g, b, a = rgba.split()
     lum = rgba.convert("L")
-    lref = hist_percentile(lum.histogram(mask=opaque_mask(a)), 0.85) or 255
+    hist = lum.histogram(mask=opaque_mask(a))
+    lref = hist_percentile(hist, 0.85) or 255
     lref = max(lref, 1)
+    if lift == "auto":
+        med = hist_percentile(hist, 0.5) or 0
+        # mostly dark cloth: a strong floor; mixed (a white shirt under a dark vest): a milder one
+        lift = 0.62 if lref < 90 else (0.5 if med < 70 else (0.3 if med < 130 else 0.12))
     chans = []
     for t in target:
-        table = [min(255, int(round(t * min(l / lref, 1.35)))) for l in range(256)]
+        table = [min(255, int(round(t * (lift + (1.0 - lift) * min(l / lref, 1.35))))) for l in range(256)]
         chans.append(lum.point(table))
     out = Image.merge("RGBA", chans + [a])
     if keep > 0:
@@ -174,9 +183,9 @@ def encode_webp(img):
     alpha = rgba.getchannel("A")
     buf = io.BytesIO()
     if alpha.getextrema()[0] < 255:
-        rgba.save(buf, "WEBP", quality=84, method=6, exact=True)
+        rgba.save(buf, "WEBP", quality=84, method=4, exact=True)
     else:
-        rgba.convert("RGB").save(buf, "WEBP", quality=84, method=6)
+        rgba.convert("RGB").save(buf, "WEBP", quality=84, method=4)
     return buf.getvalue()
 
 
@@ -213,13 +222,15 @@ def material_class(name, recipe):
         return ("hair", None)
     if "FaceBrow" in name:
         return ("brow", None)
+    if "EyeIris" in name and recipe.get("eyes"):
+        return ("eyes", None)
     for kw in recipe.get("clothes", {}):
         if kw.lower() in name.lower():
             return ("clothes", kw)
     return None
 
 
-CLASS_PRIORITY = {"skin": 0, "hair": 1, "brow": 1, "clothes": 2}
+CLASS_PRIORITY = {"skin": 0, "hair": 1, "brow": 1, "eyes": 1, "clothes": 2}
 
 
 def plan_images(gltf, recipe):
@@ -425,6 +436,9 @@ def bake(rid, recipe):
         factors = tuple(t / b for t, b in zip(skin_target, base))
 
     hair = hex_rgb(recipe["hair"])
+    # A light colour on a sample's dark hair needs a floor, or grey and blond come out black at the roots: the
+    # lighter the target, the higher (black stays black).
+    hair_lift = min(0.62, (0.299 * hair[0] + 0.587 * hair[1] + 0.114 * hair[2]) / 255.0 * 0.78)
     brow = tuple(int(round(c * 0.75)) for c in hair)
     new_images = {}
     for ii, im in enumerate(gltf.get("images", [])):
@@ -443,11 +457,13 @@ def bake(rid, recipe):
             if cls == "skin":
                 img = recolour_multiply(img, factors)
             elif cls == "hair":
-                img = recolour_luma(img, hair)
+                img = recolour_luma(img, hair, lift=hair_lift)
             elif cls == "brow":
-                img = recolour_luma(img, brow)
+                img = recolour_luma(img, brow, lift=hair_lift * 0.5)
+            elif cls == "eyes":
+                img = recolour_luma(img, hex_rgb(recipe["eyes"]), keep=0.3, lift=0.2)
             elif cls == "clothes":
-                img = recolour_luma(img, hex_rgb(recipe["clothes"][kw]), keep=0.2)
+                img = recolour_luma(img, hex_rgb(recipe["clothes"][kw]), keep=0.12, lift="auto")
         new_images[ii] = encode_webp(img)
         im["mimeType"] = "image/webp"
 
@@ -455,12 +471,24 @@ def bake(rid, recipe):
     props = gltf["extensions"]["VRM"].get("materialProperties", [])
     for p in props:
         cls = material_class(p.get("name", ""), recipe)
-        if not cls or cls[0] == "brow":
+        if not cls or cls[0] in ("brow", "eyes"):
             continue
         vec = p.setdefault("vectorProperties", {})
         old = vec.get("_ShadeColor", [1, 1, 1, 1])
         alpha = old[3] if len(old) > 3 else 1
         vec["_ShadeColor"] = (SHADE_SKIN if cls[0] == "skin" else SHADE_OTHER) + [alpha]
+        # The colour is in the texture now: a sample that tinted a pale texture through the material's colour
+        # (black hair on a grey texture) would darken the new colour again.
+        col = vec.get("_Color", [1, 1, 1, 1])
+        vec["_Color"] = [1.0, 1.0, 1.0, col[3] if len(col) > 3 else 1]
+
+    for mat in gltf.get("materials", []):
+        cls = material_class(mat.get("name", ""), recipe)
+        if not cls:
+            continue
+        pbr = mat.setdefault("pbrMetallicRoughness", {})
+        f = pbr.get("baseColorFactor", [1, 1, 1, 1])
+        pbr["baseColorFactor"] = [1.0, 1.0, 1.0, f[3] if len(f) > 3 else 1]
 
     kept, dropped, groups_dropped = prune_morphs(gltf)
     new_bin = rebuild(gltf, binary, new_images)

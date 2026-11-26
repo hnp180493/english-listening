@@ -1,45 +1,97 @@
-// The light half of the VRoid people (./vrmBody.ts is the heavy one, loaded only when needed): whether somebody is
-// to be shown as their avatar, and the lazy hand-over. Avatars come one after another (a file is a few MB and takes
-// a moment to read: thirteen at once would stall the town), and only for somebody near enough to be seen
-// (`dressWhenNear`, asked every frame by the engine). A file that does not load leaves the code-built body as it is.
+// The light half of the VRoid people (./vrmBody.ts is the heavy one, loaded only when needed): who is shown as an
+// avatar right now, and the lazy hand-over. Everybody has an avatar (data/townVrm.ts `vrmFor`), but a town or a city
+// full of them is far too much to draw, so at most MAX wear theirs at once: the nearest to the middle of the view
+// (`dressWhenNear`, asked every frame by the engine for everybody), the far ones go back to the body built in code.
+// Avatars come one after another (a file is a couple of MB and takes a moment to read). A file that does not load
+// leaves the code-built body as it is.
 
-import { vrmOf } from '../../../../data/townVrm';
+import { vrmFor } from '../../../../data/townVrm';
 import { getTownUi } from '../../townUi';
 import type { Character3D } from '../contracts';
 import type { Character3DPlus } from './person';
+import type { Worn } from './vrmBody';
 
 /** Tiles from the middle of the view within which somebody gets their avatar. */
-const NEAR = 16;
+const NEAR = 15;
+/** How many avatars are worn at once (about 25,000 triangles and 23 draw calls each, twice with their shadows). */
+const MAX = 14;
 
-const asked = new WeakSet<Character3D>();
+interface Entry {
+  worn: Worn | null;
+  /** Squared distance from the middle of the view, as last told. */
+  d2: number;
+  /** Always dressed (the learner, somebody in a room): never taken off for somebody nearer. */
+  keep: boolean;
+  gone: boolean;
+}
+
+const people = new Map<Character3D, Entry>();
+const failed = new WeakSet<Character3D>();
 let queue: Promise<void> = Promise.resolve();
 
-/** Dress `ch` in its avatar when it has one and the learner wants avatars. Never throws; never blocks. */
-export function dressInVrm(ch: Character3D): void {
-  if (asked.has(ch)) return;
-  asked.add(ch);
-  if (getTownUi().people !== 'anime') return;
-  const who = vrmOf(ch.id, import.meta.env.BASE_URL);
-  if (!who || !(ch as Partial<Character3DPlus>).animator) return;
-  let gone = false;
+function start(ch: Character3D, d2: number, keep: boolean): void {
+  const plus = ch as Partial<Character3DPlus>;
+  if (!plus.animator || !plus.look) return;
+  const who = vrmFor(ch.id, plus.look, import.meta.env.BASE_URL);
+  const e: Entry = { worn: null, d2, keep, gone: false };
+  people.set(ch, e);
   const dispose = ch.dispose.bind(ch);
   ch.dispose = () => {
-    gone = true;
+    e.gone = true;
+    people.delete(ch);
     dispose();
   };
   queue = queue
     .then(async () => {
-      if (gone) return;
+      if (e.gone) return;
       const { wearVrm } = await import('./vrmBody');
-      await wearVrm(ch as Character3DPlus, who.url, who, () => gone);
+      e.worn = await wearVrm(ch as Character3DPlus, who.url, who, () => e.gone);
+      // (taken off again while its file was coming)
+      if (e.gone) e.worn?.undress();
     })
-    .catch((e: unknown) => {
-      console.warn('[town] avatar not loaded, the usual body stays:', ch.id, e);
+    .catch((err: unknown) => {
+      people.delete(ch);
+      failed.add(ch);
+      console.warn('[town] avatar not loaded, the usual body stays:', ch.id, err);
     });
 }
 
-/** The same, once `ch` is within sight of the middle of the view (dx, dz in tiles). Cheap to call every frame. */
+/** Dress `ch` in its avatar now and keep it on (the learner, the people of a room). Never throws; never blocks. */
+export function dressInVrm(ch: Character3D): void {
+  if (people.has(ch) || failed.has(ch) || getTownUi().people !== 'anime') return;
+  start(ch, 0, true);
+}
+
+/**
+ * The same for somebody out in the world, once they are within sight of the middle of the view (dx, dz in tiles):
+ * with MAX worn already, the farthest gives theirs up when this one is clearly nearer. Cheap to call every frame.
+ */
 export function dressWhenNear(ch: Character3D, dx: number, dz: number): void {
-  if (asked.has(ch)) return;
-  if (dx * dx + dz * dz < NEAR * NEAR) dressInVrm(ch);
+  const d2 = dx * dx + dz * dz;
+  const mine = people.get(ch);
+  if (mine) {
+    mine.d2 = d2;
+    return;
+  }
+  if (d2 > NEAR * NEAR || failed.has(ch) || getTownUi().people !== 'anime') return;
+  if (people.size >= MAX) {
+    let far: Character3D | null = null;
+    let farD = d2 * 1.6 + 4;
+    for (const [other, e] of people) {
+      if (!e.keep && e.d2 > farD) {
+        far = other;
+        farD = e.d2;
+      }
+    }
+    if (!far) return;
+    const e = people.get(far);
+    if (e) {
+      e.gone = true;
+      e.worn?.undress();
+      people.delete(far);
+      // (its own dispose wrapper stays: harmless, it only clears an entry that is not there)
+      e.gone = true;
+    }
+  }
+  start(ch, d2, false);
 }

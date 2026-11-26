@@ -21,7 +21,7 @@ import { paletteFor, type TownPalette } from '../../engine/palette';
 import { Particles } from '../../engine/particles';
 import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
 import { createCharacter, createPet, passerLook, type Character3DPlus } from '../characters';
-import { dressWhenNear } from '../chars/vrmPeople';
+import { dressInVrm, dressWhenNear } from '../chars/vrmPeople';
 import type { CharAction, Character3D, Pet3D } from '../contracts';
 import { cameraPosition, fitDistance, followLead, followStiffness, FOLLOW_W, followPoint, FOV, groundHalfExtent, HOLD_RUN, holdDirection, insetShift, keyDirection, PITCH, restDistance, YAW0, yawAfter, zoomAfter } from './cameraRig';
 import { angleDiff, headingOf, octantHeading, towardViewer, type P3 } from './coords';
@@ -2646,9 +2646,10 @@ export class TownEngine3D {
       return;
     }
     p.ch.root.position.set(p.rx, this.town.lift(p.rx, p.rz), p.rz);
-    // a resident with a VRoid avatar wears it once they are near the middle of the view (chars/vrmPeople.ts: the
-    // learner's own choice; one file at a time)
-    if (a.kind === 'resident') dressWhenNear(p.ch, p.rx - this.target.x, p.rz - this.target.z);
+    // everybody wears a VRoid avatar once they are near the middle of the view, the nearest few at a time
+    // (chars/vrmPeople.ts: the learner's own choice; one file at a time); the learner's own is put on at once
+    if (a.kind === 'player') dressInVrm(p.ch);
+    else dressWhenNear(p.ch, p.rx - this.target.x, p.rz - this.target.z);
     // the legs walk at the sim's own pace (the feet are planted where the body goes: chars/anim.ts)
     const pace = a.moving ? a.v : 0;
     p.speed = pace;
@@ -2902,6 +2903,7 @@ export class TownEngine3D {
         kid.ch.setAction(action);
       }
       kid.ch.root.position.set(kid.x, this.town.lift(kid.x, kid.y), kid.y);
+      dressWhenNear(kid.ch, kid.x - this.target.x, kid.y - this.target.z);
       kid.ch.setHeading(kid.heading, this.still);
       kid.ch.update(this.still ? 0 : dt, kid.walking && dt > 0 ? step / dt : 0);
     });

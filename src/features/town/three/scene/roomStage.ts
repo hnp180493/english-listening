@@ -125,6 +125,7 @@ export class RoomStage {
     // (who has a VRoid avatar wears it indoors too: chars/vrmPeople.ts)
     dressInVrm(host.ch);
     const guest = this.add('player', createCharacter('player') as Character3DPlus, room.guest);
+    dressInVrm(guest.ch);
     cast.dress(guest.ch);
     void host;
     if (cast.visitor) {
@@ -142,6 +143,7 @@ export class RoomStage {
     room.extras.slice(0, 3).forEach((a, i) => {
       const look = passerLook(41 + i * 13 + room.id.charCodeAt(0) * 3 + room.id.length * 7, child);
       const p = this.add(`extra${i}`, createCharacter(`extra${i}`, look) as Character3DPlus, a);
+      dressInVrm(p.ch);
       p.nextAt = 0.4 + this.rng() * 2;
       this.extras.push(p);
     });
