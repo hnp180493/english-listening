@@ -4,6 +4,8 @@
 // is meant to ship in the page (row level security protects the data), but it stays out of the source like every key.
 // Without both values the whole feature is hidden and the app behaves exactly as before.
 
+import { ADMIN } from '../admin';
+
 export interface CloudConfig {
   /** https://<project>.supabase.co (no trailing slash) */
   url: string;
@@ -49,6 +51,8 @@ export function parseCloudConfig(raw: { url?: unknown; key?: unknown; webAppUrl?
 let cached: CloudConfig | null | undefined;
 
 export function cloudConfig(): CloudConfig | null {
+  // the admin sandbox is never synced: nothing of it reaches the account, nothing of the account reaches it
+  if (ADMIN) return null;
   if (cached === undefined) {
     let env: Record<string, unknown> = {};
     try {

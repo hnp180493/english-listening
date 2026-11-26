@@ -6,7 +6,9 @@
 // for a day or for another scene to be heard first.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Play, Square, Volume2 } from 'lucide-react';
+import { Check, LogOut, Map as MapIcon, Play, RotateCcw, Square, Volume2 } from 'lucide-react';
+import { ADMIN, clearAdminSandbox, setAdmin } from '../../core/admin';
+import { hrefFor } from '../../core/nav';
 import { Icon } from '../../components/Icon';
 import PageHeader from '../../components/PageHeader';
 import { cityLinePlayback } from '../../core/town/cityAudio';
@@ -65,7 +67,8 @@ function groups(): { id: string; name: string; items: Item[] }[] {
 
 const SHIFT_GROUP = 'shifts';
 
-export default function AdminPage() {
+/** The old reading view: every scene's lines, folded under the admin's controls. */
+function ContentReview() {
   const all = useMemo(() => groups(), []);
   const [groupId, setGroupId] = useState(all[0].id);
   const [shiftId, setShiftId] = useState(CITY_SHIFTS[0]?.id ?? '');
@@ -119,7 +122,7 @@ export default function AdminPage() {
 
   return (
     <div className="stack-lg adm-page">
-      <PageHeader title="Duyệt nội dung" subtitle={tl`Mọi cảnh nghe của thị trấn và Westbay (${total} cảnh) và mọi yêu cầu của ca làm việc. Chỉ để xem và nghe: không tính xu, không lưu gì.`} />
+      <p className="adm-scene">{tl`Mọi cảnh nghe của thị trấn và Westbay (${total} cảnh) và mọi yêu cầu của ca làm việc, để đọc và nghe. Không tính xu, không lưu gì.`}</p>
 
       <div className="adm-bar">
         <label className="adm-field">
@@ -225,12 +228,12 @@ export default function AdminPage() {
               <p className="adm-scene">{tl`${item.scene} · mức ${item.level} · ${item.lines.length} câu`}</p>
               <div className="adm-actions">
                 {playing === null ? (
-                  <button type="button" className="btn btn-primary" onClick={() => void playAll(item)}>
+                  <button type="button" className="btn btn-soft" onClick={() => void playAll(item)}>
                     <Icon icon={Play} size={16} />
                     Nghe cả đoạn
                   </button>
                 ) : (
-                  <button type="button" className="btn btn-primary" onClick={stop}>
+                  <button type="button" className="btn btn-soft" onClick={stop}>
                     <Icon icon={Square} size={16} />
                     Dừng
                   </button>
@@ -284,4 +287,61 @@ export default function AdminPage() {
 function sayOrder(text: string, level: number, say: string | undefined, gender: 'male' | 'female'): Promise<void> {
   const p = sceneLinePlayback({ who: '', text, ...(say ? { say } : {}) }, level);
   return speak(p.text, { ...p.options, voice: { voice: gender === 'male' ? 'shift-m' : 'shift-f', gender } });
+}
+
+/** Go somewhere and load the app again (the storage prefix is fixed when the app loads: core/admin.ts). */
+function reloadTo(hash: string): void {
+  window.location.hash = hash;
+  window.location.reload();
+}
+
+/**
+ * The admin's page (#/duyet-k7q2m9x4, reached by its address only). Turns the admin mode on and off: the game played on
+ * a sandbox of its own with everything open (core/admin.ts, ./seed.ts), never synced, the learner's progress untouched.
+ * Under it, folded, every scene's lines to read.
+ */
+export default function AdminPage() {
+  return (
+    <div className="stack-lg adm-page">
+      <PageHeader title="Chế độ admin" subtitle={ADMIN ? 'Đang bật: bạn đang chơi trên dữ liệu thử.' : 'Chơi game với mọi thứ đã mở sẵn để duyệt.'} />
+      <section className="card stack-md">
+        {ADMIN ? (
+          <>
+            <p className="adm-scene">Mọi nhà đã xây, mọi đồ đã mua, 99.999 xu, ai cũng đầy tim. Ở Westbay mọi cảnh đều mở, chương truyện mở liền không phải chờ ngày, người thị trấn lên đủ, ca làm việc nào cũng vào được. Dữ liệu thử này riêng, không đồng bộ lên tài khoản; tiến độ thật của bạn vẫn nguyên.</p>
+            <div className="adm-actions">
+              <a className="btn btn-primary" href={hrefFor('town')}>
+                <Icon icon={MapIcon} size={16} />
+                Vào thị trấn
+              </a>
+              <a className="btn btn-ghost" href={hrefFor('town', { at: 'city' })}>
+                Lên Westbay
+              </a>
+              <button type="button" className="btn btn-ghost" onClick={() => { clearAdminSandbox(); reloadTo(hrefFor('town')); }}>
+                <Icon icon={RotateCcw} size={16} />
+                Làm lại từ đầu
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={() => { setAdmin(false); reloadTo(hrefFor('home')); }}>
+                <Icon icon={LogOut} size={16} />
+                Tắt chế độ admin
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="adm-scene">Bật lên thì app chạy trên một bộ dữ liệu thử riêng: mọi nhà đã xây, 99.999 xu, ai cũng đầy tim, Westbay mở hết, không phải chờ ngày. Không đồng bộ lên tài khoản và không đụng tới tiến độ thật. Tắt đi là về lại dữ liệu thật.</p>
+            <div className="adm-actions">
+              <button type="button" className="btn btn-primary" onClick={() => { setAdmin(true); reloadTo(hrefFor('town')); }}>
+                <Icon icon={Play} size={16} />
+                Bật chế độ admin và vào thị trấn
+              </button>
+            </div>
+          </>
+        )}
+      </section>
+      <details className="how">
+        <summary>Đọc toàn bộ lời thoại</summary>
+        <ContentReview />
+      </details>
+    </div>
+  );
 }

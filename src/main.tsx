@@ -4,6 +4,7 @@ import './fonts.css';
 import './index.css';
 import { preloadAudioManifest } from './core/audioManifest';
 import { initCloudSync } from './core/cloud/cloudController';
+import { seedAdmin } from './features/admin/seed';
 import { reloadReview } from './core/review/api';
 import { getSettings, reloadSettings } from './core/settings';
 import { reloadStats } from './core/stats';
@@ -33,6 +34,8 @@ async function boot() {
   } catch {
     // sync is optional; the app works on local data
   }
+  // the admin sandbox (core/admin.ts): everything open the first time it starts
+  safely('admin', seedAdmin);
   // Settings/stats were read at import time; pick up whatever the sync wrote.
   safely('settings', reloadSettings);
   safely('stats', reloadStats);

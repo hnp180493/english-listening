@@ -95,7 +95,7 @@ public/         icons, manifest, sw.js (service worker, never caches cross-origi
 | `#/stats` | Tiến độ | overview; `?view=report` = Báo cáo tiến bộ (4 tuần / 3 tháng / Tất cả, charts, checkup trend, "Nhận xét", AI coach) |
 | `#/listening` | Nhật ký nghe | log real listening (quick add / stopwatch), milestones (10…1000 h), listenGoal |
 | `#/checkup` | (hidden) | Kiểm tra định kỳ: 10 dictation sentences + 4 passages, 6 parallel forms A–F, every 14 days; score = 0.6 × dictation% + 0.4 × comprehension%; audio = connected version, results record `audioMode: 'connected'` (older results = 'standard', compared with a caveat) |
-| `#/duyet-k7q2m9x4` | (hidden, hard to guess) | Duyệt nội dung: every listening scene of the town and Westbay and every work-shift request, to read and hear; reads only (docs/town.md §22) |
+| `#/duyet-k7q2m9x4` | (hidden, hard to guess) | Chế độ admin: turns on a sandbox with everything open (`core/admin.ts`, storage prefix `nghe-noi-am-admin:`, account sync off, the city's waits lifted), the real data untouched; below it, folded, every scene's lines to read (docs/town.md §22) |
 | `#/settings` | Cài đặt | voice/theme/goals, Phím tắt (`?section=keys`), Trợ lý AI, Tài khoản (Google sign-in and sync, only in builds with `VITE_SUPABASE_*`), Dữ liệu (backup file, restore, Xóa lịch sử, Xóa dữ liệu) |
 
 ## 6. Rules you must follow

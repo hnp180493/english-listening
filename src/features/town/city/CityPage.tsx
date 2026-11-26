@@ -12,6 +12,7 @@ import { BookOpen, Briefcase, BusFront, CalendarDays, CircleHelp, Ear, Footprint
 import { Icon } from '../../../components/Icon';
 import PageHeader from '../../../components/PageHeader';
 import ShortcutsHelp from '../../../components/ShortcutsHelp';
+import { ADMIN } from '../../../core/admin';
 import { navigate, parseHash } from '../../../core/nav';
 import { chaptersToday, CITY_INVITE_HEARTS, cityEventsOn, nextToMeet, outingToday, sceneNow, sceneOwner, scenesWith, visitorsNow, type SceneNow } from '../../../core/town/city';
 import { CITY_PEOPLE, cityPerson } from '../../../core/town/cityPeople';
@@ -260,7 +261,7 @@ export default function CityPage() {
     [today.day],
   );
   // a shift at somebody's place, once they have been met
-  const shiftAt = useCallback((id: string) => (Object.hasOwn(city.heard, `ct-${id}-1`) ? (CITY_SHIFTS.find((s) => s.at === id) ?? null) : null), [city]);
+  const shiftAt = useCallback((id: string) => (ADMIN || Object.hasOwn(city.heard, `ct-${id}-1`) ? (CITY_SHIFTS.find((s) => s.at === id) ?? null) : null), [city]);
 
   // ── the one button ──
   const nearId = near?.kind === 'resident' ? near.placeId : null;

@@ -2660,3 +2660,15 @@ radio) and every work-shift request: each line with who says it, the English, th
 the game uses, the questions with the right answer marked, "Nghe cả đoạn". It reads only: no coins, nothing written,
 nothing waits for a day. Not in it yet: the town residents' own episodes and arcs, quick chats, street talks, the café's
 orders, the cases (they have their own panels in the town).
+
+**Chế độ admin** (the same day, on the page above: "cái quái gì đây, tao muốn chơi game mà"). The page at its hidden
+address now turns an admin mode on and off (`core/admin.ts`): the app reloads onto a SANDBOX of its own (every stored
+key under `nghe-noi-am-admin:` instead of the learner's; a device-local flag), seeded the first time
+(`features/admin/seed.ts`: every place built, every decoration bought, 99,999 coins, every resident at full hearts,
+the city met). Account sync is off in it (`cloud/config.ts` returns no config), so nothing of the sandbox reaches the
+account and the real progress is neither read nor written. While it is on, the city lifts its waits (`city.ts`:
+every scene open, a story's next chapter at once, every town resident up, every shift open). A banner says so on
+every page. "Làm lại từ đầu" throws the sandbox away; "Tắt chế độ admin" returns to the real data. The reading view
+of every line is folded under it. Tried in the dev server: turned on (25 things bought, 99,109 coins after the
+purchases, 10 hearts each, all 55 city entries open with no "meet … first", 5 shifts), the real town-progress byte for
+byte unchanged, turned off. Not tried: the deployed site, a signed-in account in admin mode (sync is off by design).

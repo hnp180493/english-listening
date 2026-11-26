@@ -8,6 +8,7 @@ import { applyLang, useLang, withDictionary } from './i18n/load';
 import AppNav from './components/AppNav';
 import PageBoundary from './components/PageBoundary';
 import SyncBanner from './components/SyncBanner';
+import { ADMIN } from './core/admin';
 import VoiceNotice from './components/VoiceNotice';
 import { lazyPage } from './components/lazyPage';
 import { focusPageHeading, shouldFocusHeading } from './components/shellFocus';
@@ -45,6 +46,9 @@ function renewFailedPages() {
 const goTo = (t: RouteId) => navigate(t);
 
 // Route → page. Keep this mapping complete: every RouteId renders its page.
+/** The admin's page (core/admin.ts), reached by its address only. */
+const ADMIN_ROUTE = 'duyet-k7q2m9x4';
+
 function Page({ id }: { id: RouteId }) {
   switch (id) {
     case 'home':
@@ -248,6 +252,11 @@ export default function App() {
       <main ref={mainRef} className="shell-main" tabIndex={-1} aria-label={tr(ROUTES.find((r) => r.id === route.id)?.label ?? '')}>
         <div className="shell-content">
           <SyncBanner />
+          {ADMIN && (
+            <p className="shell-admin" role="note">
+              Chế độ admin: đang chơi trên dữ liệu thử, không đồng bộ, tiến độ thật không bị đụng tới. <a href={hrefFor(ADMIN_ROUTE)}>Tắt</a>
+            </p>
+          )}
           <VoiceNotice />
           {/* Suspense sits inside the boundary: a chunk that fails to load shows the boundary's card. */}
           <PageBoundary key={route.id} resetKey={routeKey} onError={renewFailedPages}>

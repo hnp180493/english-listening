@@ -6,6 +6,7 @@
 // learner on to the florist's, she to her neighbours, and so on. A scene heard comes back for a re-listen after 2, 7
 // and 21 days (owner: "học xong không ôn lại cũng như không"), as the town's episodes do.
 
+import { ADMIN } from '../admin';
 import type { CityEvent, CityScene, CitySeason } from './cityTypes';
 
 // ───────────────────────── stored (version 1) ─────────────────────────
@@ -76,6 +77,8 @@ const heardOf = (city: TownCity, id: string): CityHeard | undefined => (Object.h
 
 /** Everything it needs has been heard. */
 export function sceneOpen(scene: Pick<CityScene, 'needs'>, city: TownCity): boolean {
+  // (the admin sandbox, core/admin.ts: nothing waits)
+  if (ADMIN) return true;
   return (scene.needs ?? []).every((id) => !!heardOf(city, id));
 }
 
@@ -221,6 +224,8 @@ export function seasonNow(season: CitySeason, city: TownCity, now: number): Seas
   const missing = season.needs.find((id) => !heardOf(city, id));
   const i = season.chapters.findIndex((c) => !heardOf(city, c.id));
   if (i < 0) return { kind: 'done', season };
+  // (the admin sandbox: the next chapter at once, whatever it grows out of)
+  if (ADMIN) return { kind: 'open', season, chapter: season.chapters[i] };
   if (missing && i === 0) return { kind: 'locked', season, needs: missing };
   const chapter = season.chapters[i];
   if (i === 0) return { kind: 'open', season, chapter };
@@ -270,6 +275,8 @@ export const CITY_VISITS: Readonly<Record<number, readonly string[]>> = {
  * scene that is open and not heard yet: the story never waits for a weekday).
  */
 export function visitorsNow(scenes: readonly CityScene[], city: TownCity, weekday: number, townIds: ReadonlySet<string>): string[] {
+  // (the admin sandbox: everybody of the town is up)
+  if (ADMIN) return [...townIds].sort();
   const out = new Set<string>(CITY_VISITS[((weekday % 7) + 7) % 7] ?? []);
   for (const s of scenes) {
     // (a visit is the resident's own scene: it happens on the days they come, it does not bring them)

@@ -27,6 +27,18 @@ const admin: Record<string, string> = {
   'Nghe cả đoạn': 'Hear it all',
   'Câu hỏi': 'Questions',
   'Loại cảnh': 'Kind of scene',
+  'Mọi cảnh nghe của thị trấn và Westbay ({} cảnh) và mọi yêu cầu của ca làm việc, để đọc và nghe. Không tính xu, không lưu gì.': 'Every listening scene of the town and Westbay ({0} scenes) and every work-shift request, to read and hear. No coins, nothing saved.',
+  'Chế độ admin': 'Admin mode',
+  'Đang bật: bạn đang chơi trên dữ liệu thử.': 'On: you are playing on test data.',
+  'Chơi game với mọi thứ đã mở sẵn để duyệt.': 'Play the game with everything already open, to review it.',
+  'Mọi nhà đã xây, mọi đồ đã mua, 99.999 xu, ai cũng đầy tim. Ở Westbay mọi cảnh đều mở, chương truyện mở liền không phải chờ ngày, người thị trấn lên đủ, ca làm việc nào cũng vào được. Dữ liệu thử này riêng, không đồng bộ lên tài khoản; tiến độ thật của bạn vẫn nguyên.': 'Every place built, every decoration bought, 99,999 coins, everyone at full hearts. In Westbay every scene is open, a story\'s next chapter opens at once without waiting a day, all the town\'s residents are up, and every work shift is open. This test data is separate and never synced to your account; your real progress stays as it is.',
+  'Vào thị trấn': 'Go to the town',
+  'Lên Westbay': 'Go up to Westbay',
+  'Làm lại từ đầu': 'Start over',
+  'Tắt chế độ admin': 'Turn admin mode off',
+  'Bật lên thì app chạy trên một bộ dữ liệu thử riêng: mọi nhà đã xây, 99.999 xu, ai cũng đầy tim, Westbay mở hết, không phải chờ ngày. Không đồng bộ lên tài khoản và không đụng tới tiến độ thật. Tắt đi là về lại dữ liệu thật.': 'When it is on, the app runs on separate test data: every place built, 99,999 coins, everyone at full hearts, all of Westbay open, no waiting for days. Nothing is synced to your account and your real progress is not touched. Turning it off brings your real data back.',
+  'Bật chế độ admin và vào thị trấn': 'Turn on admin mode and go to the town',
+  'Đọc toàn bộ lời thoại': 'Read every line',
 };
 
 export default admin;

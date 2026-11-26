@@ -73,6 +73,7 @@ const shell: Record<string, string> = {
   'Bộ phím chung đang tắt.': 'The shared keys are off.',
   'Đổi phím': 'Change keys',
   'Đọc và nghe mọi cảnh của thị trấn và Westbay': 'Read and hear every scene of the town and Westbay',
+  'Chế độ admin: đang chơi trên dữ liệu thử, không đồng bộ, tiến độ thật không bị đụng tới.': 'Admin mode: playing on test data, not synced; your real progress is not touched.',
 };
 
 export default shell;

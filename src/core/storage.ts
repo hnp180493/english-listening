@@ -1,7 +1,10 @@
 // localStorage wrapper. Every read/write is guarded: storage can be missing or throw
 // (private mode, blocked site data). The app must keep working without it.
 
-const PREFIX = 'nghe-noi-am:';
+import { ADMIN, ADMIN_PREFIX } from './admin';
+
+// (the admin mode plays a sandbox of its own: core/admin.ts)
+const PREFIX = ADMIN ? ADMIN_PREFIX : 'nghe-noi-am:';
 /** Every key this app writes starts with this prefix (used by backup export/import). */
 export const STORAGE_PREFIX = PREFIX;
 
