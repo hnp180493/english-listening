@@ -18,6 +18,9 @@ export const MAP_ART = {
   meRim: '#ffffff',
   /** Residents on the minimap and the ring of a picked thing. */
   dotRim: '#ffffff',
+  /** The way to the quest followed (engine/draw/guide.ts: the same gold as on the ground). */
+  guide: '#ffc83d',
+  guideRim: '#3d2a00',
 } as const;
 
 /** The icon of each activity on the map (as in the HUD's "Chơi" menu). */

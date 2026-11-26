@@ -5,14 +5,15 @@
 
 import { ACESFilmicToneMapping, BufferGeometry, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, PCFShadowMap, PerspectiveCamera, Raycaster, RingGeometry, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer, type Object3D } from 'three';
 import { prefersReducedMotion } from '../../../../core/motion';
-import { collidersIn, walkable } from '../../../../core/town/map';
+import { collidersIn, findPath, nearestWalkable, walkable } from '../../../../core/town/map';
 import { lootItem } from '../../../../data/townGame';
 import { TOWN_WORLD, type ActivitySpotId, type PlaceId, type Tile, type TownWorld } from '../../../../data/townWorld';
 import { ACTIVITIES } from '../../activities/types';
 import { thingName } from '../../scenes/things';
 import { cameraDt, springStep } from '../../engine/spring';
 import { drawChatDots, drawEmote, drawFloat, drawParticles, drawSky, drawTag, drawTalkBubble, drawVignette, EMOTE_SECONDS, FLOAT_SECONDS, placeTags, tagSize, type EmoteKind, type TagBox } from '../../engine/draw/overlay';
-import type { ActKind, BurstKind, EngineCallbacks, Near, SafeInsets, StageTarget } from '../../engine/stage';
+import type { ActKind, BurstKind, EngineCallbacks, Near, SafeInsets, StageTarget, TravelTarget } from '../../engine/stage';
+import { drawEdgeArrow, drawTargetArrow, drawWay, edgeArrow, metres, wayDots } from '../../engine/draw/guide';
 import { paletteFor, type TownPalette } from '../../engine/palette';
 import { Particles } from '../../engine/particles';
 import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
@@ -313,6 +314,11 @@ export class TownEngine3D {
   // shell's asks
   private focus: PlaceId | null = null;
   private hint: PlaceId | null = null;
+  /** The quest followed (setGuide), its way (tile-grid points, found twice a second) and how long that is (tiles). */
+  private guide: TravelTarget | null = null;
+  private guideWay: { x: number; y: number }[] = [];
+  private guideLen: number | null = null;
+  private guideNext = 0;
   private full = false;
   private overview = false;
   private speaking: string | null = null;
@@ -1364,6 +1370,94 @@ export class TownEngine3D {
   setHint(placeId: PlaceId | null): void {
     this.hint = placeId;
     this.sim.setHint(placeId);
+  }
+
+  /** The quest being followed (StageProps.guide): its way on the ground and its arrows. */
+  setGuide(target: TravelTarget | null): void {
+    this.guide = target;
+    this.guideWay = [];
+    this.guideLen = null;
+    this.guideNext = 0;
+  }
+
+  /** How far the quest followed is along the way there (tiles); null = none, or no way to it. */
+  guideDistance(): number | null {
+    return this.guide ? this.guideLen : null;
+  }
+
+  /** The way to the quest followed, from where the player stands now (the maps draw it); null = none, or right there. */
+  guideWayNow(): { x: number; y: number }[] | null {
+    if (!this.guide || this.guideWay.length < 2 || (this.guideLen ?? 0) < 1.6) return null;
+    const p = this.sim.player;
+    return [{ x: p.x, y: p.y }, ...this.guideWay.slice(1)];
+  }
+
+  /** Where the quest followed is now: a resident where they stand, a place at its door, a spot, a tile. */
+  private guidePoint(): { x: number; y: number } | null {
+    const g = this.guide;
+    if (!g) return null;
+    if (g.kind === 'tile') return { x: g.x, y: g.y };
+    if (g.kind === 'activity') {
+      const a = this.world.activities?.[g.id];
+      return a ? { x: a.stand.x + 0.5, y: a.stand.y + 0.5 } : null;
+    }
+    if (g.kind === 'resident') {
+      const r = this.sim.residents.get(g.id);
+      if (r && !r.hidden) return { x: r.x, y: r.y };
+    }
+    const p = this.world.places.find((q) => q.id === g.id) ?? this.world.guests?.find((q) => q.id === g.id);
+    return p ? { x: p.door.x + 0.5, y: p.door.y + 0.5 } : null;
+  }
+
+  /** The way to the quest followed, found again twice a second (people walk, so do the player and the target). */
+  private updateGuide(): void {
+    if (!this.guide || this.t < this.guideNext) return;
+    this.guideNext = this.t + 0.5;
+    const to = this.guidePoint();
+    const p = this.sim.player;
+    if (!to) {
+      this.guideWay = [];
+      this.guideLen = null;
+      return;
+    }
+    const goal = nearestWalkable({ x: Math.floor(to.x), y: Math.floor(to.y) }, this.sim.world, p.tile);
+    const tiles = goal ? findPath(p.tile, goal, this.sim.world) : [];
+    const way = [{ x: p.x, y: p.y }, ...tiles.map((t) => ({ x: t.x + 0.5, y: t.y + 0.5 })), to];
+    // no way found (or none needed): straight there
+    if (tiles.length === 0) way.splice(1, way.length - 2);
+    let len = 0;
+    for (let i = 1; i < way.length; i++) len += Math.hypot(way[i].x - way[i - 1].x, way[i].y - way[i - 1].y);
+    this.guideWay = way;
+    this.guideLen = len;
+  }
+
+  /** The way on the ground, the arrow over the target or at the stage's edge (drawOverlay, not in a talk). */
+  private drawGuide(ctx: CanvasRenderingContext2D, area: { x0: number; y0: number; x1: number; y1: number }): void {
+    this.updateGuide();
+    const to = this.guidePoint();
+    if (!this.guide || !to || this.busy()) return;
+    const p = this.sim.player;
+    const len = this.guideLen ?? Math.hypot(to.x - p.x, to.y - p.y);
+    // close enough: the target is right there (its own tag and the "Nói chuyện" button take over)
+    if (len < 1.6) return;
+    // the way from where the player stands now (the first point follows them between two finds)
+    const way = this.guideWay.length > 1 ? [{ x: p.x, y: p.y }, ...this.guideWay.slice(1)] : [{ x: p.x, y: p.y }, to];
+    const step = 0.5;
+    const dots = wayDots(way, step, this.still ? step / 2 : (this.t * 1.1) % step, 48).map((d, i, all) => {
+      const s = this.project(d.x, this.town.lift(d.x, d.y) + 0.04, d.y);
+      // fade in past the player's feet, out towards the far end of what is drawn
+      const fade = Math.min(1, (i + 1) / 3, (all.length - i) / 6);
+      return { x: s.x, y: s.y, fade };
+    });
+    drawWay(ctx, dots);
+    const g = this.guide;
+    const r = g.kind === 'resident' ? this.sim.residents.get(g.id) : undefined;
+    const top = r && !r.hidden ? this.headAt(r.id, r) : this.project(to.x, this.town.lift(to.x, to.y) + 1.4, to.y);
+    const me = this.project(p.x, this.town.lift(p.x, p.y) + 0.6, p.y);
+    const edge = edgeArrow(me, top, area);
+    if (edge) drawEdgeArrow(ctx, edge, metres(len), this.font, this.pal.tagBg, this.pal.tagText);
+    // over the head (a resident's name tag sits there too: just above it), never under the stage's top buttons
+    else drawTargetArrow(ctx, { x: top.x, y: Math.max(area.y0 + 30, top.y - (r ? 8 : 0)) }, this.t, this.still);
   }
 
   setSpeaking(who: string | null): void {
@@ -2909,6 +3003,8 @@ export class TownEngine3D {
       drawTalkBubble(ctx, pal, at.x, Math.max(this.safe.top + 44, at.y + 2), this.t, this.still);
     }
     if (!this.focus) {
+      // the quest followed: under the name tags
+      this.drawGuide(ctx, { x0: this.safe.left + 6, y0: this.safe.top + 4, x1: w - Math.max(this.safe.right, this.inset.right) - 6, y1: h - Math.max(this.safe.bottom, this.inset.bottom) - 4 });
       const tags: { box: TagBox; draw: (b: TagBox) => void }[] = [];
       const add = (x: number, y: number, text: string, o: Omit<Parameters<typeof drawTag>[5], 't' | 'still' | 'font'>, alt?: number) => {
         if (x < -30 || x > w + 30 || y < -10 || y > h + 60) return;

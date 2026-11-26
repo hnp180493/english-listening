@@ -47,6 +47,8 @@ import TownStage3D from '../three/TownStage3D';
 import { wantsFlat, webglAvailable } from '../three/webgl';
 import { setTownUi, useTownUi } from '../townUi';
 import { eventToday } from './cityEvents';
+import QuestTracker from '../QuestTracker';
+import { cityQuests, followed, type Quest } from '../quests';
 import './cityLooks';
 import './cityPlaces3d';
 import '../town.css';
@@ -340,6 +342,50 @@ export default function CityPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // ── the quests (../quests.ts): the one followed at the top, its way on the ground, the one button goes there ──
+  const [questPick, setQuestPick] = useState<string | null>(null);
+  const quests = useMemo(
+    () =>
+      cityQuests({
+        suggested,
+        chapters,
+        open: [...CITY_PLACE_IDS, ...guests].flatMap((id) => {
+          const s = sceneNow(scenes, id, city, now);
+          return s && (s.kind === 'new' || s.kind === 'again') ? [{ at: id, scene: s.scene, again: s.kind === 'again' }] : [];
+        }),
+        events: eventsToday,
+        shifts: CITY_SHIFTS.filter((s) => shiftAt(s.at)),
+        nameOf,
+      }),
+    [suggested, chapters, guests, scenes, city, now, eventsToday, shiftAt],
+  );
+  const quest = followed(quests, questPick);
+  const goQuest = (q: Quest) => {
+    setQuestPick(q.id);
+    const [kind, key] = [q.id.slice(0, q.id.indexOf(':')), q.id.slice(q.id.indexOf(':') + 1)];
+    if (kind === 'season') {
+      const c = chapters.find((x) => `${x.season.id}:${x.chapter.n}` === key);
+      if (!c) return;
+      if (c.chapter.where === 'town') navigate('town', { from: 'city', listen: `season:${c.chapter.id}` });
+      else void stage.current?.walkTo(c.chapter.at as PlaceId, () => startScene(c.chapter.at));
+      return;
+    }
+    if (kind === 'event') {
+      const ev = eventsToday.find((x) => x.event.id === key);
+      if (ev) openEvent(ev.event);
+      return;
+    }
+    if (kind === 'shift') {
+      const sh = CITY_SHIFTS.find((x) => x.id === key);
+      if (sh) void stage.current?.walkTo(sh.at as PlaceId, () => setSheet({ kind: 'shift', key: ++keys.current, id: sh.id }));
+      return;
+    }
+    if (q.target?.kind === 'resident') {
+      const at = q.target.id;
+      void stage.current?.walkTo(at, () => startScene(at));
+    }
+  };
+
   // ── the one button ──
   const nearId = near?.kind === 'resident' ? near.placeId : null;
   const nearNow = nearId ? sceneNow(scenes, nearId, city, now) : null;
@@ -350,9 +396,11 @@ export default function CityPage() {
       ? chapterAt(nearId)
         ? { icon: BookOpen, text: tl`Chương hôm nay: ${chapterAt(nearId)!.season.title}`, run: () => startScene(nearId) }
         : { icon: MessageCircle, text: talkPrompt(nearId, nearNow), run: () => startScene(nearId) }
-      : suggested
-        ? { icon: Footprints, text: tl`Tới gặp ${nameOf(suggested.at)}`, run: () => void stage.current?.walkTo(suggested.at as PlaceId, () => startScene(suggested.at)) }
-        : null;
+      : quest?.target?.kind === 'resident'
+        ? { icon: Footprints, text: tl`Tới gặp ${nameOf(quest.target.id)}`, run: () => goQuest(quest) }
+        : suggested
+          ? { icon: Footprints, text: tl`Tới gặp ${nameOf(suggested.at)}`, run: () => void stage.current?.walkTo(suggested.at as PlaceId, () => startScene(suggested.at)) }
+          : null;
   // beside a host with the partner along: today's outing there, once a day
   const dayNumber = Number(today.day.replaceAll('-', ''));
   const outingHere = nearId && partner && came.has(partner) && cityPerson(nearId) ? outingToday(CITY_OUTINGS, nearId, !!kid, dayNumber) : null;
@@ -419,6 +467,7 @@ export default function CityPage() {
         inset={insets.panel}
         safe={insets.safe}
         hint={!sheet && suggested ? (suggested.at as PlaceId) : null}
+        guide={!sheet ? (quest?.target ?? null) : null}
         full={full.full}
         paused={!ready || !!sheet || !!map}
         className={[sceneUp ? 'is-talking' : shownSheet ? 'is-building' : '', full.full ? 'is-full' : ''].filter(Boolean).join(' ') || undefined}
@@ -471,6 +520,7 @@ export default function CityPage() {
           </ul>
         )}
 
+        {!flat && ready && !sheet && !welcome && !map && <QuestTracker quests={quests} current={quest} stage={stage} onPick={goQuest} />}
         <div className="town-hud">
           <div className="town-level is-new" role="img" aria-label={tl`Westbay, ${weekday}`}>
             <span className="town-level-title">

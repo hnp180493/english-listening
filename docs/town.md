@@ -415,6 +415,17 @@ talk outside stands its two side by side on the screen only from the default vie
   (`setHint` in `sim.ts`, within the sim's first second; tested): easy to find, though the camera no longer goes to
   them.
 
+**Quests to follow** (2026-11-26, owner: "có hướng dẫn làm nhiệm vụ như GTA 6 không?", then "minimap cũng cần highlight
+đoạn đường đi"): `quests.ts` turns what there is to do into quests (the town: every resident's next episode, a re-listen
+that is due first, the suggested one on top; Westbay: today's chapters of the long stories, the suggested scene, the
+week's get-togethers, everybody with a scene open, the shifts open; a city scene is never named by its title).
+`QuestTracker` shows the one followed under the level (what, where, how far: `metres`, a tile ≈ 2 m) and opens the
+list; a quest picked there is followed and walked to, and the main button goes to it. The stage (`StageProps.guide`,
+`engine3d.setGuide`) finds the way there twice a second (`findPath`) and draws it: gold dots on the ground, a bouncing
+arrow over the target, an arrow at the stage's edge with the distance while it is off the screen
+(`engine/draw/guide.ts`); `MapSnapshot.guide` gives the same way to the minimap (a gold line, the end on its rim when it
+is further) and the full map (an SVG line). Checked in headless Edge only (city and town, 1280×800 and 412×892).
+
 **Moving about** (the player's control, `TownSim.steer / move` in `engine/sim.ts`, tested; rebuilt 2026-11-21 after the
 owner found the keys "delayed or not going where I want" and the character moving unnaturally). Direct control, like a
 cosy game:

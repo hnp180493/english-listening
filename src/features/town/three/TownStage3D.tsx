@@ -2,7 +2,7 @@ import { LoaderCircle } from 'lucide-react';
 import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Icon } from '../../../components/Icon';
 import { TOWN_WORLD, type PlaceId } from '../../../data/townWorld';
-import type { MapResident, MapSnapshot, Marker, SafeInsets, TownStageHandle, TownStageProps } from '../engine/stage';
+import type { MapResident, MapSnapshot, Marker, SafeInsets, TownStageHandle, TownStageProps, TravelTarget } from '../engine/stage';
 import { warpSpot } from '../map/mapGeo';
 import type { TalkSetting } from '../engine/staging';
 import { talkIsFar, TownEngine3D } from './scene/engine3d';
@@ -27,7 +27,7 @@ function snapshotOf(e: TownEngine3D | null, marker: Readonly<Record<string, Mark
   const residents: MapResident[] = [];
   for (const r of e.sim.residents.values()) residents.push({ id: r.place.id, x: r.x, y: r.y, marker: marker[r.place.id] ?? null, inside: r.hidden });
   const view = e.mapView();
-  return { player: { x: p.x, y: p.y, heading: p.yaw ?? (p.oct * Math.PI) / 4 }, residents, goal: e.sim.goal, cameraYaw: view.yaw, away: view.away };
+  return { player: { x: p.x, y: p.y, heading: p.yaw ?? (p.oct * Math.PI) / 4 }, residents, goal: e.sim.goal, cameraYaw: view.yaw, away: view.away, guide: e.guideWayNow() };
 }
 
 const LAYER = { position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' } as const;
@@ -77,6 +77,7 @@ export default function TownStage3D({
   paused = false,
   safe,
   hint = null,
+  guide = null,
   full = false,
   overview = false,
   lotLabels,
@@ -114,6 +115,7 @@ export default function TownStage3D({
     visitorIn,
     safe: { top: safeTop, right: safeRight, bottom: safeBottom, left: safeLeft } as SafeInsets,
     hint,
+    guide,
     full,
     /** The talk staged now (made again with the engine: there at once), and its ready not yet run. */
     talk: null as { placeId: PlaceId; setting: TalkSetting; visitor: PlaceId | null; ready: (() => void) | null } | null,
@@ -176,6 +178,7 @@ export default function TownStage3D({
         e.setVisitorIn(l.visitorIn);
         e.setSafe(l.safe);
         e.setHint(l.hint);
+        e.setGuide(l.guide);
         e.setFull(l.full);
         const fit = () => e.resize(box.clientWidth, box.clientHeight);
         fit();
@@ -450,6 +453,14 @@ export default function TownStage3D({
     engineRef.current?.setHint(hint);
   }, [hint]);
 
+  // (a target object made again each render is the same quest: compared by what it points at)
+  const guideKey = guide ? JSON.stringify(guide) : '';
+  useEffect(() => {
+    const g = guideKey ? (JSON.parse(guideKey) as TravelTarget) : null;
+    latest.current.guide = g;
+    engineRef.current?.setGuide(g);
+  }, [guideKey]);
+
   useEffect(() => {
     latest.current.full = full;
     engineRef.current?.setFull(full);
@@ -513,6 +524,7 @@ export default function TownStage3D({
       fishing: (phase, tier) => {
         if (!flatRef.current) engineRef.current?.fishing(phase, tier);
       },
+      guideDistance: () => (flatRef.current ? null : (engineRef.current?.guideDistance() ?? null)),
       travelTo: (target, mode, then) => {
         const e = flatRef.current ? null : engineRef.current;
         if (!e) return false;

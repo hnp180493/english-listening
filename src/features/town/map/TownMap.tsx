@@ -14,7 +14,7 @@ import { hitMap, hitShapes } from './mapHit';
 import { placeLabels, type LabelCandidate, type Rect } from './mapLabels';
 import { arrowRotation, clampView, MAP_READABLE, MAP_TILT, MAP_YAW0, openView, panBy, scaleLimits, toBox, zoomAt, type Box, type MapView } from './mapView';
 import { MarkerBadge, PlayerArrow } from './mapArt';
-import { MAP_ACTIVITY_ICONS } from './mapArtData';
+import { MAP_ACTIVITY_ICONS, MAP_ART } from './mapArtData';
 import FriendHearts from '../friends/FriendHearts';
 import './map.css';
 import { tl, tr } from '../../../i18n';
@@ -75,6 +75,8 @@ export default function TownMap({ stage, start, places: placeViews, world = TOWN
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const meRef = useRef<HTMLSpanElement>(null);
   const goalRef = useRef<HTMLSpanElement>(null);
+  const routeRef = useRef<SVGPolylineElement>(null);
+  const routeRimRef = useRef<SVGPolylineElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   /** The stage's latest read (the live loop); `seen`: the one the words on the page were made from (the last pick). */
   const snap = useRef<MapSnapshot | null>(start);
@@ -188,6 +190,9 @@ export default function TownMap({ stage, start, places: placeViews, world = TOWN
           g.hidden = false;
         } else g.hidden = true;
       }
+      // the way to the quest followed (owner, 2026-11-26: like GTA's map)
+      const pts = now.guide && now.guide.length > 1 ? now.guide.map((q) => toBox(v, b, q.x, q.y)).map((q) => `${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' ') : '';
+      for (const el of [routeRef.current, routeRimRef.current]) if (el && el.getAttribute('points') !== pts) el.setAttribute('points', pts);
       const layer = layerRef.current;
       for (const r of now.residents) {
         const el = layer?.querySelector<HTMLButtonElement>(`.town-map-who[data-id="${r.id}"]`);
@@ -487,6 +492,10 @@ export default function TownMap({ stage, start, places: placeViews, world = TOWN
               </button>
             );
           })}
+          <svg className="town-map-route" width={box.w} height={box.h} aria-hidden="true">
+            <polyline ref={routeRimRef} className="town-map-route-rim" stroke={MAP_ART.guideRim} points="" />
+            <polyline ref={routeRef} className="town-map-route-line" stroke={MAP_ART.guide} points="" />
+          </svg>
           <span ref={goalRef} className="town-map-goal" hidden aria-hidden="true" />
           {picked?.kind === 'tile' && view && <span className="town-map-pin" style={pinStyle(view, box, picked)} aria-hidden="true" />}
           {places.map((p) => {

@@ -18,6 +18,11 @@ function same(a: MapSnapshot | null, b: MapSnapshot): boolean {
   const near = (x: number, y: number) => Math.abs(x - y) < 0.004;
   if (!near(a.player.x, b.player.x) || !near(a.player.y, b.player.y) || !near(a.player.heading, b.player.heading)) return false;
   if (a.residents.length !== b.residents.length) return false;
+  // the quest's way: found again twice a second, a new one draws again
+  if ((a.guide?.length ?? 0) !== (b.guide?.length ?? 0)) return false;
+  const ga = a.guide?.[a.guide.length - 1];
+  const gb = b.guide?.[b.guide.length - 1];
+  if (ga && gb && (!near(ga.x, gb.x) || !near(ga.y, gb.y))) return false;
   for (let i = 0; i < a.residents.length; i++) {
     const p = a.residents[i];
     const q = b.residents[i];
@@ -76,6 +81,37 @@ export default function MiniMap({ stage, state, hint, theme, onOpen, world = TOW
       const v = miniView(s.player, MAP_YAW0, rim, MINI_RADIUS);
       const p = palRef.current;
       drawMap(ctx, sceneRef.current, v, box, dpr, p, { mini: { rim } });
+      // the way to the quest followed, like a satnav's (owner, 2026-11-26: "minimap cũng cần highlight đoạn đường đi"),
+      // inside the round; its end on the rim when it is further than the map shows
+      if (s.guide && s.guide.length > 1) {
+        const pts = s.guide.map((q) => toBox(v, box, q.x, q.y));
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(rim, rim, rim - 2, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.lineJoin = ctx.lineCap = 'round';
+        for (const [width, color] of [
+          [6, MAP_ART.guideRim],
+          [3.4, MAP_ART.guide],
+        ] as const) {
+          ctx.beginPath();
+          pts.forEach((q, i) => (i === 0 ? ctx.moveTo(q.x, q.y) : ctx.lineTo(q.x, q.y)));
+          ctx.lineWidth = width;
+          ctx.strokeStyle = color;
+          ctx.stroke();
+        }
+        ctx.restore();
+        const end = pts[pts.length - 1];
+        const d = Math.hypot(end.x - rim, end.y - rim);
+        const at = d > rim - 9 ? { x: rim + ((end.x - rim) * (rim - 9)) / d, y: rim + ((end.y - rim) * (rim - 9)) / d } : end;
+        ctx.beginPath();
+        ctx.arc(at.x, at.y, 5.5, 0, Math.PI * 2);
+        ctx.fillStyle = MAP_ART.guide;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = MAP_ART.guideRim;
+        ctx.stroke();
+      }
       // the residents: dots in their house's colour, a ring in their marker's for the suggested one and a re-listen
       // that is due (mapCard.ts mapBadges), nobody else
       for (const r of s.residents) {

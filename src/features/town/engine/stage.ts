@@ -45,6 +45,8 @@ export interface MapSnapshot {
   cameraYaw: number;
   /** A room is on the stage instead of the town (a talk indoors), or a dip to dark is under way. */
   away: boolean;
+  /** The way to the quest followed (StageProps.guide), from the player to it (tile-grid points); null = none. */
+  guide: readonly { x: number; y: number }[] | null;
 }
 
 /** Somewhere the map sends the player: a place's door, a resident, an activity's spot, a tile of the ground. */
@@ -132,6 +134,8 @@ export interface TownStageHandle {
    * where they are). `then` runs on arrival. False = no world, or no way there.
    */
   travelTo: (target: TravelTarget, mode: TravelMode, then?: () => void) => boolean;
+  /** How far the quest being followed (`guide`) is from the player, along the way there (tiles); null = none or no way. */
+  guideDistance: () => number | null;
   /**
    * "Đến ngay" during a click walk (onFarWalk): a short dip to dark and the player is where the walk ends (a talk
    * walked to: both are in place, or in the room), and what the walk was for happens. False = no walk under way.
@@ -187,6 +191,12 @@ export interface TownStageProps {
   safe?: SafeInsets;
   /** The resident the page suggests next: always named (the camera never frames them: it follows the player). */
   hint?: PlaceId | null;
+  /**
+   * The quest being followed (features/town/quests): a dotted way on the ground from the player to it, a bouncing
+   * arrow over it, an arrow at the stage's edge while it is off the screen (owner, 2026-11-26: "hướng dẫn làm nhiệm vụ
+   * như GTA"). Null = none.
+   */
+  guide?: TravelTarget | null;
   /** The stage covers the window: on a big screen the camera shows the whole built town. */
   full?: boolean;
   /** A short text kept over an empty lot, by place id (e.g. its price: "20 xu"). Without it a lot shows its name under the pointer only. */

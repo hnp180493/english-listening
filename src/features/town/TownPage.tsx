@@ -68,6 +68,8 @@ import { lockText, pointsText, type GiftReactionView } from './friends/friendMod
 import { useCanGift } from './friends/useCanGift';
 import { useGreeting } from './friends/useGreeting';
 import { getTownUi, setTownUi, useTownUi } from './townUi';
+import QuestTracker from './QuestTracker';
+import { followed, townQuests } from './quests';
 import './town.css';
 import { tl, tr } from '../../i18n';
 
@@ -346,6 +348,12 @@ export default function TownPage() {
   const state = useMemo(() => ({ ...stageStateOf(overview, theme), look, extraDecor, farm, body, playerName: profile?.name, kids }), [overview, theme, look, extraDecor, farm, body, profile?.name, kids]);
   const lotLabels = useMemo(() => lotLabelsOf(overview), [overview]);
   const suggested = useMemo(() => suggestedPlace(overview.places), [overview.places]);
+  // the quests (quests.ts): the one followed shows at the top with its way on the ground; the main button goes there
+  const [questPick, setQuestPick] = useState<string | null>(null);
+  const quests = useMemo(() => townQuests(overview.places, suggested?.place.id ?? null), [overview.places, suggested]);
+  const quest = followed(quests, questPick);
+  const questTarget = quest?.target ?? null;
+  const lead = (questTarget?.kind === 'resident' ? overview.places.find((p) => p.place.id === questTarget.id) : undefined) ?? suggested;
 
   // ───────────────────────── a conversation ─────────────────────────
 
@@ -899,8 +907,8 @@ export default function TownPage() {
         ? { icon: MessageCircle, text: talkPrompt(nearShown ?? nearPlace, true), build: false, id: nearPlace.place.id, person: true }
         : near?.kind === 'lot' && nearPlace && !nearPlace.built
           ? { icon: Hammer, text: tl`Xây ${nearPlace.place.name} · ${xu(nearPlace.cost)}`, build: true, id: nearPlace.place.id }
-          : suggested
-            ? { icon: Footprints, text: talkPrompt(suggested, false), build: false, id: suggested.place.id }
+          : lead
+            ? { icon: Footprints, text: talkPrompt(lead, false), build: false, id: lead.place.id }
             : null;
   const promptId = prompt?.id;
   const promptBuilds = prompt?.build ?? false;
@@ -915,8 +923,8 @@ export default function TownPage() {
     else goTalk(promptId, false, promptPerson ? 'person' : 'place');
   }, [promptId, promptBuilds, promptActivity, promptPerson, promptSpot, openActivity, openSpot, openBuild, goTalk]);
   const onIdleAct = useCallback(() => {
-    if (suggested) goTalk(suggested.place.id);
-  }, [suggested, goTalk]);
+    if (lead) goTalk(lead.place.id);
+  }, [lead, goTalk]);
 
   const hasPlayed = overview.totals.understood > 0 || overview.playedToday || overview.earned > 0;
   // Until the town's first frame is drawn it is on hold: no conversation or build panel over an empty sky (a link to
@@ -1027,7 +1035,8 @@ export default function TownPage() {
         visitorIn={visitorIn}
         inset={insets.panel}
         safe={insets.safe}
-        hint={!talk && suggested ? (suggested.place.id as PlaceId) : null}
+        hint={!talk && lead ? (lead.place.id as PlaceId) : null}
+        guide={!talk && !build && !activity ? questTarget : null}
         full={fullStage.full}
         paused={(!!talk && arrived === talk.key) || !townReady || !!shownActivity || !!map}
         lotLabels={lotLabels}
@@ -1054,6 +1063,17 @@ export default function TownPage() {
           </ul>
         )}
 
+        {!flat && townReady && !talk && !build && !activity && !map && !showWelcome && (
+          <QuestTracker
+            quests={quests}
+            current={quest}
+            stage={stage}
+            onPick={(q) => {
+              setQuestPick(q.id);
+              if (q.target?.kind === 'resident') goTalk(q.target.id);
+            }}
+          />
+        )}
         <TownHud
           overview={overview}
           sound={ui.sound}

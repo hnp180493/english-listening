@@ -276,6 +276,18 @@ const page: Record<string, string> = {
   'Tới nghe': 'Go listen',
   '{}: chương hôm nay ở chỗ {}.': '{0}: today\'s chapter is at {1}.',
   'Bản đồ nhỏ': 'Minimap',
+  'Truyện': 'Story',
+  '{} · Tập {}: {}': '{0} · Episode {1}: {2}',
+  'Truyện dài': 'Long story',
+  '{} · Chương {}': '{0} · Chapter {1}',
+  'Ở thị trấn, chỗ {}: về bằng xe số 9': 'In the town, at {0}\'s: back on bus no. 9',
+  'Tới chỗ {}': 'Go to {0}',
+  'Làm quen': 'Meet',
+  'Nghe chuyện của {} · Tập {}': 'Hear {0}\'s story · Episode {1}',
+  'Sự kiện': 'Event',
+  'Ca làm': 'Shift',
+  'Nhiệm vụ: {}. {}': 'Quest: {0}. {1}',
+  'Nhiệm vụ': 'Quests',
 };
 
 export default page;

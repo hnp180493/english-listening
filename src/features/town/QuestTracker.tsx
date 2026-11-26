@@ -1,0 +1,83 @@
+// The quest followed, at the top of the stage under the level (owner, 2026-11-26: "hướng dẫn làm nhiệm vụ như GTA"):
+// what to do, where, how far (the stage's way there: StageHandle.guideDistance); a tap opens every quest, and a quest
+// picked there is followed and walked to. The stage draws the way and the arrows (StageProps.guide).
+
+import { useEffect, useState, type RefObject } from 'react';
+import { ChevronDown, Navigation } from 'lucide-react';
+import { Icon } from '../../components/Icon';
+import { metres } from './engine/draw/guide';
+import type { TownStageHandle } from './engine/stage';
+import type { Quest } from './quests';
+import { tl } from '../../i18n';
+
+export interface QuestTrackerProps {
+  quests: readonly Quest[];
+  /** The one followed (quests.ts followed). */
+  current: Quest | null;
+  stage: RefObject<TownStageHandle | null>;
+  /** Follow this one and go there. */
+  onPick: (q: Quest) => void;
+}
+
+export default function QuestTracker({ quests, current, stage, onPick }: QuestTrackerProps) {
+  const [open, setOpen] = useState(false);
+  const [far, setFar] = useState<number | null>(null);
+  // how far, read from the stage a few times a second (the way is found there)
+  const hasTarget = !!current?.target;
+  useEffect(() => {
+    if (!hasTarget) return;
+    const read = () => setFar(stage.current?.guideDistance() ?? null);
+    const first = window.setTimeout(read, 0);
+    const id = window.setInterval(read, 400);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
+  }, [hasTarget, current?.id, stage]);
+  if (!current) return null;
+  const shownFar = hasTarget ? far : null;
+  return (
+    <div className={'town-quest' + (open ? ' is-open' : '')}>
+      <button type="button" className="town-quest-card" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={tl`Nhiệm vụ: ${current.title}. ${current.step}`}>
+        <span className="town-quest-icon" aria-hidden="true">
+          <Icon icon={Navigation} size={15} />
+        </span>
+        <span className="town-quest-text">
+          <span className="town-quest-title">{current.title}</span>
+          <span className="town-quest-step">
+            {current.step}
+            {shownFar !== null && shownFar >= 1.6 && <span className="town-quest-far tabular"> · {metres(shownFar)}</span>}
+          </span>
+        </span>
+        {quests.length > 1 && (
+          <span className="town-quest-more" aria-hidden="true">
+            <Icon icon={ChevronDown} size={16} />
+          </span>
+        )}
+      </button>
+      {open && (
+        <ul className="town-quest-list" aria-label="Nhiệm vụ">
+          {quests.map((q) => (
+            <li key={q.id}>
+              <button
+                type="button"
+                className={'town-quest-row' + (q.id === current.id ? ' is-on' : '')}
+                aria-current={q.id === current.id ? 'true' : undefined}
+                onClick={() => {
+                  setOpen(false);
+                  onPick(q);
+                }}
+              >
+                <span className="town-quest-tag">{q.tag}</span>
+                <span className="town-quest-text">
+                  <span className="town-quest-title">{q.title}</span>
+                  <span className="town-quest-step">{q.step}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

@@ -64,6 +64,25 @@
 .town-map-pin {
   z-index: 1;
 }
+/* the way to the quest followed: the ground's gold (game art: its colours from MAP_ART in TownMap.tsx) */
+.town-map-route {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 1;
+  overflow: visible;
+  pointer-events: none;
+}
+.town-map-route polyline {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.town-map-route-rim {
+  stroke-width: 7;
+}
+.town-map-route-line {
+  stroke-width: 4;
+}
 .town-map-label,
 .town-map-act {
   z-index: 2;
