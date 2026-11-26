@@ -17,7 +17,8 @@ export type RouteId =
   | 'stats'
   | 'listening'
   | 'checkup'
-  | 'settings';
+  | 'settings'
+  | 'duyet-k7q2m9x4';
 
 export type RouteGroup = 'learn' | 'practice' | 'track';
 
@@ -47,6 +48,8 @@ export const ROUTES: readonly RouteInfo[] = [
   // Reached from Home / Nhật ký nghe / Báo cáo, never from the menu: a test is not something to open by habit.
   { id: 'checkup', label: 'Kiểm tra định kỳ', hint: 'Bài nghe 10 phút để đo tiến bộ', icon: '✔', group: 'track', nav: false },
   { id: 'settings', label: 'Cài đặt', hint: 'Giọng đọc, giao diện, sao lưu', icon: '⚙', group: 'track' },
+  // the owner's review of every scene (features/admin): reached by its address only
+  { id: 'duyet-k7q2m9x4', label: 'Duyệt nội dung', hint: 'Đọc và nghe mọi cảnh của thị trấn và Westbay', icon: '🔎', group: 'track', nav: false },
 ];
 
 /** The routes the navigation lists (sidebar, drawer): every route without `nav: false`, in ROUTES order. */

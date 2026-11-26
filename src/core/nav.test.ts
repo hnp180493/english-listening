@@ -43,7 +43,9 @@ describe('listening log and checkup routes', () => {
     expect(ROUTES.find((r) => r.id === 'checkup')).toMatchObject({ label: 'Kiểm tra định kỳ', nav: false });
     expect(NAV_ROUTES.some((r) => r.id === 'checkup')).toBe(false);
     expect(isNavRoute('checkup')).toBe(false);
-    expect(NAV_ROUTES.length).toBe(ROUTES.length - 1);
+    // (and the owner's content review, #/duyet-k7q2m9x4, reached by its address only)
+    expect(NAV_ROUTES.length).toBe(ROUTES.length - 2);
+    expect(isNavRoute('duyet-k7q2m9x4')).toBe(false);
   });
 
   it('lists Thị trấn right after Video thật in the practice group; talk / build params travel as they are', () => {

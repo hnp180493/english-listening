@@ -1,4 +1,5 @@
 import {
+  SearchCheck,
   BookOpen,
   Clapperboard,
   ClipboardCheck,
@@ -33,6 +34,7 @@ export const ROUTE_ICON: Record<RouteId, LucideIcon> = {
   listening: Headphones,
   checkup: ClipboardCheck,
   settings: Settings,
+  'duyet-k7q2m9x4': SearchCheck,
 };
 
 /** CSS color of a module's tint (token --mod-<route> in src/index.css). */

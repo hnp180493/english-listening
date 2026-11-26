@@ -25,6 +25,10 @@ export interface Shared {
   holeFloor: IUniform<number[]>;
 }
 
+/** The water's colour at the shoreline and out in the middle (terrain.ts paints between them; the shader reads it back). */
+export const WATER_SHALLOW = new Color(C.waterShallow);
+export const WATER_DEEP = new Color(C.waterDeep);
+
 export interface Materials {
   shared: Shared;
   /** Every merged thing: colours in the vertices. */
@@ -40,6 +44,8 @@ export interface Materials {
   /** Trees, bushes, tufts and flowers (instanced): sway with the wind. */
   sway: MeshStandardMaterial;
   water: MeshStandardMaterial;
+  /** The fish under the lakes' surface: each swims a circle round its instance's place (aSwim: radius, speed, phase). */
+  fish: MeshStandardMaterial;
   /** Soft additive halos round lamps at night and fireflies. */
   halo: MeshBasicMaterial;
   /** Set the night amount (0..1) everywhere it shows. */
@@ -110,11 +116,20 @@ function addSway(shader: WebGLProgramParametersWithUniforms, shared: Shared): vo
     );
 }
 
-/** Ripples on the water: the surface moves a little and catches bright lines of light. */
+/**
+ * The water (owner, 2026-11-26: "sao biển/nước xấu vậy", next to pictures of a cosier game's ponds). How deep a point
+ * is comes from its vertex colour: the terrain paints the water from WATER_SHALLOW at the shoreline to WATER_DEEP a
+ * couple of tiles out (terrain.ts waterAt), so the shader can read the depth back off the colour without an attribute
+ * of its own. From it: clear water at the shore (the sandy bed, the fish and the pebbles show through) going deeper
+ * and more opaque out in the middle; a soft bright rim where the water meets the land, with small waves lapping in;
+ * and a slow web of light over the surface (caustics), never the lattice of round dots it had before.
+ */
 function addWater(shader: WebGLProgramParametersWithUniforms, shared: Shared): void {
   shader.uniforms.uTime = shared.time;
   shader.uniforms.uSway = shared.sway;
   shader.uniforms.uNight = shared.night;
+  shader.uniforms.uShallow = { value: WATER_SHALLOW };
+  shader.uniforms.uDeep = { value: WATER_DEEP };
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uSway;\nvarying vec3 vWorld;')
     .replace(
@@ -125,15 +140,29 @@ function addWater(shader: WebGLProgramParametersWithUniforms, shared: Shared): v
     )
     .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uSway;\nuniform float uNight;\nvarying vec3 vWorld;')
+    .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uSway;\nuniform float uNight;\nuniform vec3 uShallow;\nuniform vec3 uDeep;\nvarying vec3 vWorld;')
     .replace(
       '#include <color_fragment>',
       `#include <color_fragment>
+      // how deep: read back off the colour the terrain painted (shallow at the shore, deep out in the middle)
+      vec3 dd = uDeep - uShallow;
+      float depth = clamp(dot(diffuseColor.rgb - uShallow, dd) / max(dot(dd, dd), 1e-5), 0.0, 1.0);
       float tt = uTime * uSway;
-      float r1 = sin(vWorld.x * 5.0 + vWorld.z * 2.0 + tt * 1.6);
-      float r2 = sin(vWorld.z * 6.0 - vWorld.x * 1.5 - tt * 1.2);
-      float lines = smoothstep(0.86, 0.99, r1 * 0.5 + r2 * 0.5 + 0.12 * sin(tt * 0.7 + vWorld.x));
-      diffuseColor.rgb += lines * mix(vec3(0.55, 0.62, 0.62), vec3(0.18, 0.2, 0.32), uNight);`,
+      vec3 glint = mix(vec3(1.0, 0.99, 0.94), vec3(0.42, 0.47, 0.72), uNight);
+      // a slow web of light: warped crossing waves, bright only where they cancel out (thin lines, no dots)
+      vec2 q = vWorld.xz * 1.25;
+      q += 0.5 * vec2(sin(q.y * 1.3 + tt * 0.45), sin(q.x * 1.1 - tt * 0.38));
+      float web = abs(sin(q.x * 2.2 + tt * 0.32) + sin(q.y * 2.0 - tt * 0.27) + sin((q.x + q.y) * 1.35 + tt * 0.22));
+      float caustic = pow(clamp(1.0 - web * 0.6, 0.0, 1.0), 6.0);
+      diffuseColor.rgb += caustic * glint * mix(0.26, 0.1, depth);
+      // the rim where the water meets the land, a little in and out, and small waves lapping towards it
+      float lap = 0.03 * sin(tt * 1.5 + vWorld.x * 0.8 + vWorld.z * 0.6);
+      float rim = 1.0 - smoothstep(0.02, 0.11, depth + lap);
+      float waves = smoothstep(0.72, 1.0, sin(depth * 26.0 - tt * 2.0 + sin(vWorld.x * 0.7 + vWorld.z * 0.5) * 1.5)) * (1.0 - smoothstep(0.08, 0.3, depth));
+      float foam = max(rim, waves * 0.5);
+      diffuseColor.rgb = mix(diffuseColor.rgb, glint, foam * 0.88);
+      // clear at the shore, deeper out
+      diffuseColor.a = clamp(mix(0.34, 0.86, smoothstep(0.0, 0.9, depth)) + foam * 0.5, 0.0, 1.0);`,
     );
 }
 
@@ -170,11 +199,32 @@ export function makeMaterials(): Materials {
     addHoles(s, shared);
   };
   sway.customProgramCacheKey = () => 'town-sway';
-  const water = new MeshStandardMaterial({ vertexColors: true, roughness: 0.18, metalness: 0.0, transparent: true, opacity: 0.82, depthWrite: false });
+  const water = new MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.0, transparent: true, opacity: 1, depthWrite: false });
   water.onBeforeCompile = (s) => addWater(s, shared);
   water.customProgramCacheKey = () => 'town-water';
+  const fish = new MeshStandardMaterial({ color: '#ffffff', roughness: 0.6, metalness: 0 });
+  fish.onBeforeCompile = (s) => {
+    s.uniforms.uTime = shared.time;
+    s.uniforms.uSway = shared.sway;
+    s.vertexShader = s.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uSway;\nattribute vec3 aSwim;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        float ang = uTime * aSwim.y * max(uSway, 0.15) + aSwim.z;
+        // the tail swishes
+        transformed.z += sin(uTime * 7.0 + aSwim.z * 3.0) * 0.35 * max(0.0, -transformed.x) * max(uSway, 0.15);
+        // nose along the circle's way round
+        float face = ang + 1.5707963 * sign(aSwim.y);
+        float fc = cos(face);
+        float fs = sin(face);
+        transformed = vec3(fc * transformed.x - fs * transformed.z, transformed.y, fs * transformed.x + fc * transformed.z);
+        transformed += vec3(cos(ang), 0.0, sin(ang)) * aSwim.x;`,
+      );
+  };
+  fish.customProgramCacheKey = () => 'town-fish';
   const halo = new MeshBasicMaterial({ color: '#ffcf7a', transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false, side: DoubleSide });
-  const all: Material[] = [std, hot, faded, bulb, sway, water, halo];
+  const all: Material[] = [std, hot, faded, bulb, sway, water, fish, halo];
   return {
     shared,
     std,
@@ -184,6 +234,7 @@ export function makeMaterials(): Materials {
     bulb,
     sway,
     water,
+    fish,
     halo,
     setNight: (k) => {
       night = k;

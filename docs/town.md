@@ -2637,3 +2637,26 @@ the careful version ("Rõ từng từ") of a town resident's line in the city (h
 owner runs `npm run audio:generate`.
 
 **Not done, not checked**: see AGENTS.md §9 (kept there, one list).
+
+
+## 22. The water, and a page to review everything (2026-11-26)
+
+**The water** (owner, with pictures of a cosier game's ponds: "sao biển/nước xấu vậy", then "tham khảo cozyverse luôn
+đi"; its qualities taken, nothing of it copied). The terrain paints the water from WATER_SHALLOW at the shoreline to
+WATER_DEEP two to three tiles out (`terrain.ts waterAt`); the shader reads the depth back off that colour
+(`materials.ts addWater`): clear turquoise at the shore (the sandy bed shows), deeper and more opaque in the middle, a
+soft bright rim where water meets land with small waves lapping in, a slow web of light instead of the round dots it
+had. Banks are sand under the water (the brown band is gone); pebbles lie along grass shores. On the lakes (water that
+does not reach the near edges: not the sea, not the city's bay): lily pads, some in flower, and up to 60 fish swimming
+circles under the surface (the fish material's own shader: nothing updated a frame). Seen only in pictures from the
+software renderer (the park lake, the big lake, the beach at night); the motion of the waves and the fish was not
+watched. Not done: drifting petals; the small ponds' shape (the rounded shore is tied to walking, §7).
+
+**Duyệt nội dung** (`#/duyet-k7q2m9x4`, `features/admin/AdminPage.tsx`; owner: "cho tao một tài khoản quyền admin đi để tao đi
+review toàn bộ"). The app has no accounts or server, so there is no admin to log in as: this page, reached by its
+address only, lists every listening scene of the town and of Westbay by kind (episodes, the long stories' chapters,
+talks, visits, outings with a choice of partner and child, get-togethers, festivals, overheard scenes, rides, the
+radio) and every work-shift request: each line with who says it, the English, the meaning, a play button in the voice
+the game uses, the questions with the right answer marked, "Nghe cả đoạn". It reads only: no coins, nothing written,
+nothing waits for a day. Not in it yet: the town residents' own episodes and arcs, quick chats, street talks, the café's
+orders, the cases (they have their own panels in the town).

@@ -3,10 +3,10 @@
 // patterned paving with its curb, the pond (sandy bed, earthen banks, an animated surface). Chunked so the camera
 // culls what it does not see.
 
-import { Color, CylinderGeometry, Group, InstancedMesh, Matrix4, Mesh, Object3D, type BufferGeometry } from 'three';
+import { Color, CylinderGeometry, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, Object3D, type BufferGeometry } from 'three';
 import { groundHeight, type TownWorld } from '../../../../data/townWorld';
 import { groundOf, hash2, valueNoise } from './coords';
-import type { Materials } from './materials';
+import { WATER_DEEP, WATER_SHALLOW, type Materials } from './materials';
 import { Merge, shadeColor, shapes } from './merge';
 import { C } from './palette3d';
 import { seaShore, ShoreField, smoothShore } from './shore';
@@ -278,13 +278,18 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
   const bed = new Merge();
   const water = new Merge();
   const beach = new Merge();
-  const deep = col(C.waterDeep);
-  const shallow = col(C.waterShallow);
+  const deep = WATER_DEEP;
+  const shallow = WATER_SHALLOW;
   const bedC = col(C.pondBed);
   const bank = col(C.sand);
-  const bankDark = col(C.earth);
-  /** The water's colour at a point: shallow at the shore, deep a tile or more out. */
-  const waterAt = (px: number, pz: number) => shallow.clone().lerp(deep, Math.min(1, Math.max(0, -shore.signed(px, pz, 1)) * 1.4));
+  // (sand under the water, not dark earth: the shallow water is clear now and showed a brown band all round)
+  const bankDark = col(C.pondBed).lerp(col(C.sandDeep), 0.5);
+  /** The water's colour at a point: shallow at the shore, deep two tiles or more out (the shader reads the depth back off it). */
+  const waterAt = (px: number, pz: number) => shallow.clone().lerp(deep, Math.min(1, Math.max(0, -shore.signed(px, pz, 2.5)) * 0.55));
+  // pebbles along the waterline where it meets grass (not on the beaches)
+  const pebbles = new Merge();
+  const pebbleCols = [col(C.stone), col('#f4efe6'), col(C.rock), col('#e6ddd0')];
+  let pebbleN = 0;
   // the open water: four by four cells a tile, coloured by the distance to the shore
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
@@ -389,6 +394,19 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
             bed.tri3([a[0], ta, a[1]], [a[0], mid, a[1]], [b[0], mid, b[1]], bank, bank, bank, nrm);
             bed.tri3([a[0], mid, a[1]], [b[0], POND_BED, b[1]], [b[0], mid, b[1]], bankDark, bankDark, bankDark, nrm);
             bed.tri3([a[0], mid, a[1]], [a[0], POND_BED, a[1]], [b[0], POND_BED, b[1]], bankDark, bankDark, bankDark, nrm);
+            // a pebble or two on the bank, half in the water (grass shores only; a beach has its sand)
+            if (g === 'grass' && pebbleN < 2400) {
+              for (let k = 0; k < 2; k++) {
+                const hsh = hash2(Math.round(a[0] * 37 + k * 13), Math.round(a[1] * 41), 61);
+                if (hsh > 0.62) continue;
+                const u = 0.2 + hsh * 0.9;
+                const px = a[0] + (b[0] - a[0]) * u - nx * (0.02 + hsh * 0.1);
+                const pz = a[1] + (b[1] - a[1]) * u - nz * (0.02 + hsh * 0.1);
+                const r = 0.045 + hsh * 0.06;
+                pebbles.add(shapes.blob(0.06, 1), pebbleCols[Math.floor(hsh * 97) % pebbleCols.length], { x: px, y: lift(px, pz) - r * 0.25, z: pz, s: [r / 0.06 * 1.25, r / 0.06 * 0.6, r / 0.06], ry: hsh * 6 }, { ao: false });
+                pebbleN++;
+              }
+            }
           }
         }
       }
@@ -413,6 +431,8 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
   }
   mesh(beach.build());
   mesh(bed.build(), { cast: false, receive: true });
+  mesh(pebbles.build(), { cast: false, receive: true });
+  buildPondLife(S, isWater, (x, z) => shore.signed(x, z, 3), group, mats, geos);
   const wm = mesh(water.build(), { cast: false, receive: true }, mats.water);
   if (wm) wm.renderOrder = 2;
 
@@ -425,4 +445,102 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
       });
     },
   };
+}
+
+/**
+ * Life on the lakes (owner, 2026-11-26, next to a cosier game's ponds: "sao biển/nước xấu vậy"): lily pads, a few in
+ * flower, floating a tile or so out from the shore, and fish swimming slow circles under the surface (FISH_MAX at most;
+ * the circling is the fish material's own, in its shader: nothing is updated a frame). Only on water that does not
+ * reach the map's edge (a lake, not the sea or the city's bay). Seen only: nothing here blocks or is clicked.
+ */
+const FISH_MAX = 60;
+function buildPondLife(S: number, isWater: (x: number, y: number) => boolean, signed: (x: number, z: number) => number, group: Group, mats: Materials, geos: BufferGeometry[]): void {
+  // the lakes: water tiles in a body that never touches the map's edge
+  const lake = new Uint8Array(S * S);
+  const seen = new Uint8Array(S * S);
+  for (let y0 = 0; y0 < S; y0++) {
+    for (let x0 = 0; x0 < S; x0++) {
+      if (seen[y0 * S + x0] || !isWater(x0, y0)) continue;
+      const body: number[] = [];
+      let edge = false;
+      const stack = [y0 * S + x0];
+      seen[y0 * S + x0] = 1;
+      while (stack.length) {
+        const i = stack.pop()!;
+        body.push(i);
+        const x = i % S;
+        const y = (i - x) / S;
+        // (the sea lies past the near edges: a lake may touch a far edge, under the mountains)
+        if (x === S - 1 || y === S - 1) edge = true;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= S || ny >= S || seen[ny * S + nx] || !isWater(nx, ny)) continue;
+          seen[ny * S + nx] = 1;
+          stack.push(ny * S + nx);
+        }
+      }
+      if (!edge) for (const i of body) lake[i] = 1;
+    }
+  }
+  const pads = new Merge();
+  const padA = new Color(C.leaf);
+  const padB = new Color(C.leafDeep);
+  const fish: { x: number; z: number; r: number; w: number; ph: number; c: Color }[] = [];
+  const fishCols = ['#f39a4a', '#f7f1e6', '#e0623f', '#9fb4c8', '#f2c45a'].map((h) => new Color(h));
+  const y = WATER_LEVEL;
+  for (let ty = 0; ty < S; ty++) {
+    for (let tx = 0; tx < S; tx++) {
+      if (!lake[ty * S + tx]) continue;
+      // two candidate spots a tile
+      for (let k = 0; k < 2; k++) {
+        const h = hash2(tx * 3 + k, ty * 5 + k, 71);
+        const px = tx + 0.2 + hash2(tx, ty + k, 72) * 0.6;
+        const pz = ty + 0.2 + hash2(tx + k, ty, 73) * 0.6;
+        const d = -signed(px, pz);
+        if (h < 0.16 && d > 0.35 && d < 1.8) {
+          // a pad: a flat disc with a notch, darker underneath; now and then a flower on it
+          const r = 0.12 + hash2(tx, ty, 74 + k) * 0.1;
+          const ry = hash2(tx, ty, 75 + k) * Math.PI * 2;
+          pads.add(shapes.cyl(r, r, 0.012, 14), padA.clone().lerp(padB, hash2(tx, ty, 76 + k)), { x: px, y: y + 0.016, z: pz, ry }, { ao: false });
+          pads.add(shapes.box(r * 0.95, 0.016, 0.04, 0.005, 1), C.waterShallow, { x: px + Math.cos(ry) * r * 0.48, y: y + 0.02, z: pz - Math.sin(ry) * r * 0.48, ry }, { ao: false });
+          if (hash2(tx, ty, 77 + k) < 0.3) {
+            pads.add(shapes.cone(0.05, 0.08, 6), '#f6a8c4', { x: px, y: y + 0.06, z: pz }, { ao: false });
+            pads.add(shapes.sphere(0.022, 6, 4), '#fbe7a6', { x: px, y: y + 0.075, z: pz }, { ao: false });
+          }
+        } else if (h > 0.8 && fish.length < FISH_MAX) {
+          const r = 0.35 + hash2(tx, ty, 78 + k) * 0.55;
+          if (d < r + 0.45) continue;
+          const dir = hash2(tx, ty, 79 + k) < 0.5 ? -1 : 1;
+          fish.push({ x: px, z: pz, r, w: dir * (0.25 + hash2(tx, ty, 80 + k) * 0.3), ph: hash2(tx, ty, 81 + k) * Math.PI * 2, c: fishCols[Math.floor(hash2(tx, ty, 82 + k) * fishCols.length)] });
+        }
+      }
+    }
+  }
+  const pg = pads.build();
+  if (pg) {
+    geos.push(pg);
+    const m = new Mesh(pg, mats.std);
+    m.receiveShadow = true;
+    group.add(m);
+  }
+  if (fish.length === 0) return;
+  // one small fish, nose along +x: a body, a tail fin
+  const body = new Merge();
+  body.add(shapes.sphere(0.065, 10, 8), '#ffffff', { s: [1.9, 0.7, 0.9] }, { ao: false });
+  body.add(shapes.cone(0.06, 0.09, 4), '#ffffff', { x: -0.14, rz: Math.PI / 2, s: [1, 1, 0.35] }, { ao: false });
+  const g = body.build();
+  if (!g) return;
+  g.setAttribute('aSwim', new InstancedBufferAttribute(new Float32Array(fish.flatMap((f) => [f.r, f.w, f.ph])), 3));
+  geos.push(g);
+  const inst = new InstancedMesh(g, mats.fish, fish.length);
+  const m4 = new Matrix4();
+  fish.forEach((f, i) => {
+    inst.setMatrixAt(i, m4.makeTranslation(f.x, y - 0.06, f.z));
+    inst.setColorAt(i, f.c);
+  });
+  // (the circling is in the shader: the instances' boxes do not know it)
+  inst.frustumCulled = false;
+  inst.renderOrder = 1;
+  group.add(inst);
 }

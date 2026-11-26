@@ -31,6 +31,7 @@ const PAGES = {
   listening: lazyPage(() => import('./features/listening/ListeningPage')),
   checkup: lazyPage(() => import('./features/checkup/CheckupPage')),
   settings: lazyPage(() => import('./features/settings/SettingsPage')),
+  'duyet-k7q2m9x4': lazyPage(withDictionary('town', () => import('./features/admin/AdminPage'))),
 } satisfies Record<Exclude<RouteId, 'home'>, unknown>;
 
 /**
@@ -98,6 +99,10 @@ function Page({ id }: { id: RouteId }) {
     }
     case 'settings': {
       const C = PAGES.settings.current;
+      return <C />;
+    }
+    case 'duyet-k7q2m9x4': {
+      const C = PAGES['duyet-k7q2m9x4'].current;
       return <C />;
     }
   }

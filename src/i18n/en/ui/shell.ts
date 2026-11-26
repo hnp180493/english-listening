@@ -72,6 +72,7 @@ const shell: Record<string, string> = {
   'Phím có Ctrl hoặc Esc dùng được cả khi đang gõ.': 'Keys with Ctrl, and Esc, work while you type.',
   'Bộ phím chung đang tắt.': 'The shared keys are off.',
   'Đổi phím': 'Change keys',
+  'Đọc và nghe mọi cảnh của thị trấn và Westbay': 'Read and hear every scene of the town and Westbay',
 };
 
 export default shell;
