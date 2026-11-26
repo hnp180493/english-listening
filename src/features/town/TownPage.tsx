@@ -1155,7 +1155,7 @@ export default function TownPage() {
 
         {shownBuild && <BuildSheet overview={overview} wanted={shownBuild.wanted} onBuy={onBuy} onClose={closeBuild} />}
         {!flat && townReady && !map && !showWelcome && <MiniMap stage={stage} state={state} hint={suggested ? suggested.place.id : null} theme={theme} onOpen={() => openMap('stage')} />}
-        {map && <Suspense fallback={null}><TownMap stage={stage} start={mapStart} overview={overview} state={state} hint={suggested ? (suggested.place.id as PlaceId) : null} theme={theme} leaving={map === 'leaving'} onClose={closeMap} onTravel={travel} onJournal={(id) => {
+        {map && <Suspense fallback={null}><TownMap stage={stage} start={mapStart} places={overview.places} state={state} hint={suggested ? (suggested.place.id as PlaceId) : null} theme={theme} leaving={map === 'leaving'} onClose={closeMap} onTravel={travel} onJournal={(id) => {
               closeMap();
               setJournalFor(id);
               openActivity('journal', 'hud');

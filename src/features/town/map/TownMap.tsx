@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { LocateFixed, Minus, Plus, X } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
-import type { TownOverview } from '../../../core/town/overview';
-import { TOWN_WORLD, type PlaceId } from '../../../data/townWorld';
+import type { PlaceView } from '../../../core/town/overview';
+import { TOWN_WORLD, type PlaceId, type TownWorld } from '../../../data/townWorld';
 import type { ActivitySpotId, ThingId } from '../../../data/townWorld';
 import { Portrait } from '../art';
 import { paletteFor, type TownTheme } from '../engine/palette';
@@ -30,7 +30,12 @@ export interface TownMapProps {
   stage: RefObject<TownStageHandle | null>;
   /** The stage as it was when the map opened (the camera's turn, where the player stands). */
   start: MapSnapshot | null;
-  overview: TownOverview;
+  /** The people and places of the map (the town's placeViews; Westbay's, made by its page). */
+  places: readonly PlaceView[];
+  /** The map shown: the town (default) or Westbay. */
+  world?: TownWorld;
+  /** Hearts of friendship on a resident's card (the town's; the city's people have none). Default true. */
+  friends?: boolean;
   state: StageState;
   /** The resident the main button suggests: their badge shows (and the re-listens due), nobody else's. */
   hint: PlaceId | null;
@@ -63,7 +68,7 @@ function textWidth(text: string, font: string): number {
  * player, the residents where they are now); pick a place, a resident, an activity or a patch of ground and its card
  * offers "Đi tới" (walk) and "Đến ngay" (a short dip to dark and you are there). Drag / wheel / pinch to look round.
  */
-export default function TownMap({ stage, start, overview, state, hint, theme, leaving = false, onClose, onTravel, onJournal }: TownMapProps) {
+export default function TownMap({ stage, start, places: placeViews, world = TOWN_WORLD, friends = true, state, hint, theme, leaving = false, onClose, onTravel, onJournal }: TownMapProps) {
   const titleId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -77,7 +82,7 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
   // the map never turns with the camera: it always lies the default way, like the minimap (the owner, 2026-11-23:
   // turning the 3D view must not turn the map)
   const yaw = MAP_YAW0;
-  const [opensAt] = useState(() => start?.player ?? TOWN_WORLD.start);
+  const [opensAt] = useState(() => start?.player ?? world.start);
   const [box, setBox] = useState<Box>({ w: 0, h: 0 });
   /** Where the learner has looked (null: as it opened); always shown within the limits of the box. */
   const [userView, setUserView] = useState<MapView | null>(null);
@@ -90,7 +95,7 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
       return false;
     }
   });
-  const size = TOWN_WORLD.size;
+  const size = world.size;
   const limits = useMemo(() => (box.w > 0 ? scaleLimits(box, size, yaw, MAP_TILT) : { min: 1, max: 60 }), [box, size, yaw]);
   const view = useMemo(
     () => (box.w < 1 ? null : userView ? clampView(userView, size, limits) : openView(box, size, yaw, MAP_TILT, opensAt)),
@@ -114,10 +119,10 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
   const sites = state.sites;
   const decorations = state.decorations;
   const scene = useMemo(
-    () => mapScene({ built: new Set(built), sites: sites ? new Set(sites) : null, decorations: new Set(decorations) }, TOWN_WORLD),
-    [built, sites, decorations],
+    () => mapScene({ built: new Set(built), sites: sites ? new Set(sites) : null, decorations: new Set(decorations) }, world),
+    [built, sites, decorations, world],
   );
-  const shapes = useMemo(() => hitShapes(TOWN_WORLD), []);
+  const shapes = useMemo(() => hitShapes(world), [world]);
   const badges = useMemo(() => mapBadges(state.marker, hint), [state.marker, hint]);
   const legend = useMemo(() => badgeLegend(badges, hint), [badges, hint]);
 
@@ -267,7 +272,7 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
     if (!v) return;
     const p = local(e);
     setSeen(snap.current);
-    setPicked(hitMap(v, boxRef.current, p.x, p.y, shapes, TOWN_WORLD));
+    setPicked(hitMap(v, boxRef.current, p.x, p.y, shapes, world));
   };
   const onPointerCancel = (e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId);
@@ -338,22 +343,23 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
       return 'system-ui, sans-serif';
     }
   }, []);
-  const card = picked ? cardFor(picked, overview.places, seen?.residents ?? [], TOWN_WORLD) : null;
+  const found = picked ? cardFor(picked, placeViews, seen?.residents ?? [], world) : null;
+  const card = found && !friends ? { ...found, friend: null } : found;
   const activitySpots = useMemo(() => {
     if (!view || box.w < 1) return [];
     // the activities' own spots; the things to use (every bench, the radio) are not places to travel to
-    const own = (Object.entries(TOWN_WORLD.activities ?? {}) as [ActivitySpotId, { look: { x: number; y: number } }][]).filter((e): e is [Exclude<ActivitySpotId, ThingId>, { look: { x: number; y: number } }] => !e[0].startsWith('thing:'));
+    const own = (Object.entries(world.activities ?? {}) as [ActivitySpotId, { look: { x: number; y: number } }][]).filter((e): e is [Exclude<ActivitySpotId, ThingId>, { look: { x: number; y: number } }] => !e[0].startsWith('thing:'));
     return own.map(([id, s]) => {
       const p = toBox(view, box, s.look.x, s.look.y, 0.5);
       return { id, x: p.x, y: p.y };
     });
-  }, [view, box]);
+  }, [view, box, world]);
   const labels = useMemo(() => {
     if (!view || box.w < 1) return [];
     const cands: (LabelCandidate & { kind: 'place' | 'district' | 'inn'; text: string; status?: 'built' | 'site' | 'lot' })[] = [];
-    const placeNames = new Set(overview.places.map((p) => p.place.name));
-    for (const p of overview.places) {
-      const wp = TOWN_WORLD.places.find((q) => q.id === p.place.id);
+    const placeNames = new Set(placeViews.map((p) => p.place.name));
+    for (const p of placeViews) {
+      const wp = world.places.find((q) => q.id === p.place.id);
       if (!wp) continue;
       const site = !p.built && (!state.sites || state.sites.includes(p.place.id));
       const status = p.built ? 'built' : site ? 'site' : 'lot';
@@ -373,7 +379,7 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
         sides: ['above', 'right', 'left', 'below'],
       });
     }
-    const inn = TOWN_WORLD.props.find((q) => q.kind === 'inn');
+    const inn = world.props.find((q) => q.kind === 'inn');
     if (inn && inn.tiles.length > 0) {
       const xs = inn.tiles.map((t) => t.x);
       const ys = inn.tiles.map((t) => t.y);
@@ -381,7 +387,7 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
       const innName = tr('Nhà trọ');
       cands.push({ id: 'inn', kind: 'inn', text: innName, x: at.x, y: at.y, w: Math.ceil(textWidth(innName, `600 13px ${font}`)) + 18, h: 24, priority: 60, sides: ['above', 'right', 'left'] });
     }
-    for (const d of TOWN_WORLD.districts ?? []) {
+    for (const d of world.districts ?? []) {
       if (placeNames.has(d.name)) continue;
       const at = toBox(view, box, d.x + d.w / 2, d.y + d.d / 2);
       const text = tr(d.name).toLocaleUpperCase('vi');
@@ -406,11 +412,11 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
     const placed = placeLabels(cands, box, blocked, { pad: 4 });
     const byId = new Map(cands.map((c) => [c.id, c]));
     return placed.map((p) => ({ ...p, cand: byId.get(p.id)! }));
-  }, [view, box, overview.places, state.sites, font, activitySpots]);
+  }, [view, box, placeViews, state.sites, font, activitySpots, world]);
 
 
-  const places = overview.places;
-  const main = picked ? mainMode(picked, seen?.player ?? TOWN_WORLD.start, seen?.residents ?? [], TOWN_WORLD) : 'walk';
+  const places = placeViews;
+  const main = picked ? mainMode(picked, seen?.player ?? world.start, seen?.residents ?? [], world) : 'walk';
   const travel = (mode: TravelMode) => {
     if (!picked || leaving) return;
     onTravel(picked, mode);
@@ -496,7 +502,7 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
                 hidden
                 className={'town-map-who' + (on ? ' is-on' : '') + (narrow ? ' is-small' : '') + (marker ? ' has-badge' : '')}
                 onClick={() => pick({ kind: 'resident', id })}
-                aria-label={residentLabel(p, r, TOWN_WORLD)}
+                aria-label={residentLabel(p, r, world)}
               >
                 <Portrait placeId={id} size={narrow ? 22 : 28} />
                 {marker && <MarkerBadge marker={marker} />}
@@ -557,7 +563,7 @@ export default function TownMap({ stage, start, overview, state, hint, theme, le
               {card.sub && <p className="town-map-card-sub">{card.sub}</p>}
               {card.wait && <p className="town-map-card-wait">{card.wait}</p>}
               {card.friend && card.portrait && (
-                <FriendHearts friend={card.friend} name={overview.places.find((p) => p.place.id === card.portrait)?.place.resident ?? card.title} onJournal={onJournal ? () => onJournal(card.portrait!) : undefined} />
+                <FriendHearts friend={card.friend} name={placeViews.find((p) => p.place.id === card.portrait)?.place.resident ?? card.title} onJournal={onJournal ? () => onJournal(card.portrait!) : undefined} />
               )}
             </div>
             <button type="button" className="btn btn-ghost btn-sm btn-icon" onClick={() => setPicked(null)} aria-label="Bỏ chọn" title="Bỏ chọn (Esc)">

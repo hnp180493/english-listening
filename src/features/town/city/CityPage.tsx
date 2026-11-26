@@ -28,6 +28,9 @@ import { scenesHeard, townToday } from '../../../core/town/worldStore';
 import { CITY_EVENTS, CITY_OUTINGS, CITY_OVERHEARD, CITY_SCENES, CITY_SEASONS } from '../../../data/city';
 import { CITY_SHIFTS } from '../../../data/city/shifts';
 import { CITY_DECOR_ON, CITY_PLACE_IDS, cityWorldWith } from '../../../data/cityWorld';
+import type { PlaceView } from '../../../core/town/overview';
+import type { MapSnapshot, TravelMode, TravelTarget } from '../engine/stage';
+import { prefersReducedMotion } from '../../../core/motion';
 import { TOWN_PLACES, townPlace } from '../../../data/town';
 import { thingKind, type ActivitySpotId, type PlaceId } from '../../../data/townWorld';
 import { getLang, tl } from '../../../i18n';
@@ -54,6 +57,8 @@ const CityPeople = lazy(() => import('./CityPeople'));
 const CityToday = lazy(() => import('./CityToday'));
 const CityEventPanel = lazy(() => import('./CityEventPanel'));
 const ShiftPanel = lazy(() => import('./ShiftPanel'));
+/** The full map (M, or the minimap): the town's, on Westbay's world. */
+const TownMap = lazy(() => import('../map/TownMap'));
 
 const TOWN_IDS: ReadonlySet<string> = new Set(TOWN_PLACES.map((p) => p.id));
 const TOAST_MS = 4200;
@@ -264,6 +269,77 @@ export default function CityPage() {
   // a shift at somebody's place, once they have been met
   const shiftAt = useCallback((id: string) => (ADMIN || Object.hasOwn(city.heard, `ct-${id}-1`) ? (CITY_SHIFTS.find((s) => s.at === id) ?? null) : null), [city]);
 
+  // ── the full map (owner, 2026-11-26: "sao đéo click minimap được?") ──
+  const [map, setMap] = useState<'open' | 'leaving' | null>(null);
+  const [mapStart, setMapStart] = useState<MapSnapshot | null>(null);
+  const mapTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(mapTimer.current), []);
+  /** The people of the map: everybody of the city at their place, and the town's residents who are up. */
+  const mapPlaces = useMemo<PlaceView[]>(
+    () =>
+      [...world.places, ...(world.guests ?? [])].map((wp) => ({
+        place: { id: wp.id, topic: '', name: wp.name, resident: wp.resident, cost: 0 },
+        built: true,
+        cost: 0,
+        affordable: false,
+        missing: 0,
+        stats: { total: 0, understood: 0, first: 0 },
+        hearts: 0,
+        friend: { placeId: wp.id, points: 0, hearts: 0, toNext: null, part: 0, title: '' },
+        lit: 0,
+        marker: 'heart' as const,
+        episode: null,
+        homeEpisode: null,
+        friendEpisode: null,
+      })),
+    [world],
+  );
+  const openMap = useCallback(() => {
+    if (flat || !ready || sheet) return;
+    setWelcome(false);
+    setMapStart(stage.current?.mapSnapshot() ?? null);
+    setMap('open');
+  }, [flat, ready, sheet]);
+  const closeMap = useCallback(() => {
+    window.clearTimeout(mapTimer.current);
+    setMap(null);
+    stage.current?.focus();
+  }, []);
+  /** "Đi tới": the map closes and the player walks there; "Đến ngay": a dip to dark and they are there. */
+  const travel = useCallback(
+    (target: TravelTarget, mode: TravelMode) => {
+      const s = stage.current;
+      if (!s) return;
+      window.clearTimeout(mapTimer.current);
+      const then = target.kind === 'activity' ? () => openThing(target.id) : target.kind === 'resident' ? () => startScene(target.id) : undefined;
+      const warped = mode === 'warp' && s.travelTo(target, 'warp', then);
+      if (!warped) s.travelTo(target, 'walk', then);
+      if (warped && !prefersReducedMotion()) {
+        setMap('leaving');
+        mapTimer.current = window.setTimeout(() => setMap(null), 320);
+      } else setMap(null);
+      s.focus();
+    },
+    [openThing, startScene],
+  );
+  // M opens the map (the map's own keys close it)
+  const mapKey = useRef(openMap);
+  useEffect(() => {
+    mapKey.current = openMap;
+  }, [openMap]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'KeyM' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const el = e.target instanceof HTMLElement ? e.target : null;
+      if (el && (el.isContentEditable || el.closest('input, textarea, select, [data-popover], [role="dialog"], dialog'))) return;
+      if (document.querySelector('[role="dialog"], dialog[open], [aria-modal="true"]')) return;
+      e.preventDefault();
+      mapKey.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // ── the one button ──
   const nearId = near?.kind === 'resident' ? near.placeId : null;
   const nearNow = nearId ? sceneNow(scenes, nearId, city, now) : null;
@@ -292,7 +368,7 @@ export default function CityPage() {
   const full = useFullStage(stageBox, !!shownSheet);
   const insets = useStageInsets(stageBox, `${shownSheet?.key ?? '-'}|${sceneUp ? 's' : '-'}|${full.full ? 'f' : '-'}|${prompt ? 'p' : '-'}|${welcome ? 'w' : '-'}`);
   const [narrow] = useState(narrowStage);
-  const showPrompt = (ready || flat) && !sheet && !!prompt;
+  const showPrompt = (ready || flat) && !sheet && !map && !!prompt;
 
   const onListen = useCallback((who: readonly string[] | null) => {
     const s = stage.current;
@@ -344,7 +420,7 @@ export default function CityPage() {
         safe={insets.safe}
         hint={!sheet && suggested ? (suggested.at as PlaceId) : null}
         full={full.full}
-        paused={!ready || !!sheet}
+        paused={!ready || !!sheet || !!map}
         className={[sceneUp ? 'is-talking' : shownSheet ? 'is-building' : '', full.full ? 'is-full' : ''].filter(Boolean).join(' ') || undefined}
         label={flat ? 'Westbay' : 'Thành phố Westbay nhìn từ trên cao. Dùng danh sách nút ngay sau đây để tới gặp từng người.'}
         loading="Đang dựng thành phố…"
@@ -447,7 +523,12 @@ export default function CityPage() {
         </div>
 
         {/* the minimap, as in the town (a picture only: the city has no full map) */}
-        {!flat && ready && !sheet && !welcome && <MiniMap stage={stage} state={state} hint={suggested ? suggested.at : null} theme={theme} world={world} />}
+        {!flat && ready && !sheet && !welcome && !map && <MiniMap stage={stage} state={state} hint={suggested ? suggested.at : null} theme={theme} world={world} onOpen={openMap} />}
+        {map && (
+          <Suspense fallback={null}>
+            <TownMap stage={stage} start={mapStart} places={mapPlaces} world={world} friends={false} state={state} hint={suggested ? (suggested.at as PlaceId) : null} theme={theme} leaving={map === 'leaving'} onClose={closeMap} onTravel={travel} />
+          </Suspense>
+        )}
         {welcome && ready && !sheet && (
           <div className="town-welcome" role="note">
             <span className="city-welcome-icon" aria-hidden="true">

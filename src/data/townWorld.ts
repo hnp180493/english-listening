@@ -229,7 +229,9 @@ export interface WorldScenery {
 
 /** A part of town: its name (the HUD's travel menu), the box it covers and a walkable tile to arrive at. */
 export interface WorldDistrict {
-  id: 'plaza' | 'market' | 'homes' | 'civic' | 'station' | 'park' | 'farm' | 'woods' | 'orchard' | 'meadow' | 'forest' | 'fields' | 'lake' | 'hills' | 'country' | 'beach' | 'harbor' | 'cape';
+  id: 'plaza' | 'market' | 'homes' | 'civic' | 'station' | 'park' | 'farm' | 'woods' | 'orchard' | 'meadow' | 'forest' | 'fields' | 'lake' | 'hills' | 'country' | 'beach' | 'harbor' | 'cape'
+    // Westbay's (data/cityWorld.ts)
+    | 'w-station' | 'w-market' | 'w-arts' | 'w-office' | 'w-campus' | 'w-harbour' | 'w-bay';
   /** Vietnamese name. */
   name: string;
   /** Tiles x..x+w-1, y..y+d-1 (rough; districts may overlap at their edges). */

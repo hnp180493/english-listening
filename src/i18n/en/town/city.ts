@@ -887,6 +887,7 @@ const city: Record<string, string> = {
   'Chòi gác cảng': 'Harbour watch hut',
   'Sạp há cảo': 'Dumpling stall',
   'Sạp lồng đèn': 'Lantern stall',
+  'Bờ vịnh': 'The bay shore',
 };
 
 export default city;

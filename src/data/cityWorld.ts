@@ -21,7 +21,7 @@
 // The people (core/town/cityPeople.ts) live here as "places" (one person per place, as in the town): the main people
 // with a building of their own and a story, the people known with a stall, a booth or just a pitch on the pavement.
 
-import type { ActivitySpot, DecorationId, DecorSpot, PlaceId, Seat, ThingId, Tile, TownWorld, WorldLife, WorldPlace, WorldProp, WorldScenery } from './townWorld';
+import type { ActivitySpot, DecorationId, DecorSpot, PlaceId, Seat, ThingId, Tile, TownWorld, WorldDistrict, WorldLife, WorldPlace, WorldProp, WorldScenery } from './townWorld';
 
 export const CITY_SIZE = 72;
 
@@ -385,6 +385,17 @@ export const CITY_DECORATIONS: Readonly<Record<DecorationId, readonly DecorSpot[
 /** What stands in the city of the decorations: all of it, always. */
 export const CITY_DECOR_ON: readonly DecorationId[] = ['lamps1', 'lamps2', 'flowers', 'blossom', 'lights', 'stall', 'fountain', 'balloons', 'flags', 'cat'];
 
+/** The six districts and the seafront: the map's labels, and "đang ở …" on a person's card. */
+export const CITY_DISTRICTS: readonly WorldDistrict[] = [
+  { id: 'w-station', name: 'Ga & bến xe', x: 0, y: 0, w: 14, d: 31, arrive: T(6, 27) },
+  { id: 'w-market', name: 'Chợ cũ', x: 14, y: 0, w: 30, d: 24, arrive: T(30, 20) },
+  { id: 'w-arts', name: 'Phố nghệ thuật', x: 14, y: 26, w: 30, d: 14, arrive: T(27, 37) },
+  { id: 'w-office', name: 'Khu văn phòng', x: 44, y: 0, w: 24, d: 24, arrive: T(49, 13) },
+  { id: 'w-campus', name: 'Đại học & bệnh viện', x: 44, y: 24, w: 24, d: 16, arrive: T(58, 30) },
+  { id: 'w-harbour', name: 'Bến cảng', x: 38, y: 44, w: 32, d: 26, arrive: T(48, 58) },
+  { id: 'w-bay', name: 'Bờ vịnh', x: 0, y: 31, w: 38, d: 13, arrive: T(20, 40) },
+];
+
 /** Where the bus puts the player down. */
 export const CITY_ARRIVE: Tile = T(6, 27);
 
@@ -398,6 +409,7 @@ export const CITY_WORLD: TownWorld = {
   activities: CITY_THINGS as TownWorld['activities'],
   life: CITY_LIFE,
   scenery: CITY_SCENERY,
+  districts: CITY_DISTRICTS,
   coast: true,
   // the roads out (owner, 2026-11-25: "bị bao quanh bởi núi và biển, đường đâu mà xe bus chạy"): Station Avenue runs on
   // west through a cutting in the range (the way to the town: the no. 9's road), Station Road, Bay Road and College
