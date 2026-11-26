@@ -364,7 +364,8 @@ export function drawMap(ctx: CanvasRenderingContext2D, scene: MapScene, v: MapVi
   if (scene.paths) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = ink(C.path);
+    // (Westbay's streets are asphalt: TownWorld.roads, three/scene/terrain.ts)
+    ctx.strokeStyle = ink(world.roads === 'asphalt' ? '#6a6e7c' : C.path);
     ctx.lineWidth = 0.84;
     ctx.stroke(scene.paths);
   }

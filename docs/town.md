@@ -426,6 +426,13 @@ arrow over the target, an arrow at the stage's edge with the distance while it i
 (`engine/draw/guide.ts`); `MapSnapshot.guide` gives the same way to the minimap (a gold line, the end on its rim when it
 is further) and the full map (an SVG line). Checked in headless Edge only (city and town, 1280×800 and 412×892).
 
+**More to look at** (2026-11-26, owner: "đồ hoạ cũng cần nâng cấp toàn diện hơn giờ hơi đơn điệu"; the people and the
+street furniture are another session's work, so left alone here): Westbay's streets are asphalt (`TownWorld.roads`,
+`three/scene/terrain.ts`: a dark top a little different tile by tile, no cobbles, a dashed yellow line down the middle
+of every two-lane street, zebra crossings by every junction; the full map and the minimap draw them grey), the town
+keeps its cobbled lanes; two small flocks of birds circle high over the view by day (`three/scene/birds.ts`, one
+instanced mesh, home before dark, still under reduced motion). Checked in headless Edge only.
+
 **The main story** (2026-11-26, owner: "thêm nhiệm vụ phong phú hấp dẫn hơn", "cốt truyện phải hay như GTA 6"):
 "Kèo lớn ở Westbay" (`data/city/seasonsMain.ts`, a season of its own with `free`: the next chapter opens as soon as
 the one before is heard). A briefcase left in Rico's taxi holds Mr Crane's phone; Jun opens it (a fake Heritage Fund

@@ -282,6 +282,8 @@ export interface TownWorld {
    * the falls, roads running on through the passes. Left out = the town's (TOWN_RANGE).
    */
   range?: { north: readonly number[]; west: readonly number[]; falls: boolean; roads: boolean };
+  /** What the streets ('=') are: cobbled lanes (the town, left out) or asphalt with road markings (Westbay). */
+  roads?: 'cobble' | 'asphalt';
   /** Bikes, scooters, cars and horses parked about, to ride (features/town/three/scene/vehicles3d.ts). Left out = none. */
   vehicles?: readonly WorldVehicle[];
   /** The centre of the round plaza, on the tile grid. */

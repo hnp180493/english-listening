@@ -16,6 +16,7 @@ import type { ActKind, BurstKind, EngineCallbacks, Near, SafeInsets, StageTarget
 import { drawEdgeArrow, drawTargetArrow, drawWay, edgeArrow, metres, wayDots } from '../../engine/draw/guide';
 import type { VehicleKind } from '../../../../data/townWorld';
 import { RIDES, vehicleGeometry } from './vehicles3d';
+import { Birds } from './birds';
 import { paletteFor, type TownPalette } from '../../engine/palette';
 import { Particles } from '../../engine/particles';
 import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
@@ -319,6 +320,8 @@ export class TownEngine3D {
   /** What can be ridden (TownWorld.vehicles): where each is parked (or, the one ridden, drawn now), its model. */
   private rides: { kind: VehicleKind; x: number; y: number; heading: number; mesh: Mesh }[] = [];
   private ridesMade = false;
+  /** Two flocks over the view by day (birds.ts). */
+  private birds: Birds | null = null;
   /** The one the player rides (an index of `rides`), -1 = on foot. */
   private riding = -1;
   /** The quest followed (setGuide), its way (tile-grid points, found twice a second) and how long that is (tiles). */
@@ -818,6 +821,8 @@ export class TownEngine3D {
       r.mesh.geometry.dispose();
     }
     this.rides = [];
+    this.birds?.dispose();
+    this.birds = null;
     lastPlayerTile.set(this.world.rows, { ...this.sim.player.tile });
     for (const p of this.people.values()) p.ch.dispose();
     this.people.clear();
@@ -2060,6 +2065,11 @@ export class TownEngine3D {
       this.updateNear();
       this.syncPeople(dt);
       this.updateRides();
+      if (!this.birds && this.ready) {
+        this.birds = new Birds(this.town.mats.std);
+        this.town.scene.add(this.birds.mesh);
+      }
+      this.birds?.update(this.t, this.target, this.night, this.still, dt);
       this.updatePet(dt);
       this.updateKids(dt);
     }

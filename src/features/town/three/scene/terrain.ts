@@ -162,6 +162,10 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
   const plazaB = col(C.plazaB);
   const plazaC = col(C.plazaC);
   const pathBase = col('#cdb996');
+  // Westbay's streets are asphalt with road markings (TownWorld.roads; owner, 2026-11-26: "đồ hoạ … giờ hơi đơn điệu"):
+  // the town keeps its cobbled lanes
+  const asphalt = world.roads === 'asphalt';
+  const asphaltBase = col('#5d6170');
   const P = world.plaza;
   for (let cz = 0; cz < S; cz += CHUNK) {
     for (let cx = 0; cx < S; cx += CHUNK) {
@@ -186,6 +190,11 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
                 else m.quadUp(x0, z0, x1, z1, 0, grassAt(x0, z0), grassAt(x1, z0), grassAt(x1, z1), grassAt(x0, z1));
               }
             }
+          } else if (g === 'path' && asphalt) {
+            // a city street: asphalt, a little lighter or darker tile by tile (no cobbles on it)
+            const c = asphaltBase.clone();
+            shadeColor(c, (hash2(x, y, 51) - 0.5) * 0.05);
+            m.quadUp(x, y, x + 1, y + 1, 0.004, c);
           } else if (g === 'path') {
             if (onHill) {
               for (let sy = 0; sy < 4; sy++) for (let sx = 0; sx < 4; sx++) m.quadField(x + sx / 4, y + sy / 4, x + (sx + 1) / 4, y + (sy + 1) / 4, 0.004, lift, pathBase);
@@ -219,7 +228,7 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
   const cobbleSpots: { x: number; z: number; s: number; r: number; c: number }[] = [];
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
-      if (ground(x, y) !== 'path') continue;
+      if (ground(x, y) !== 'path' || asphalt) continue;
       for (let sy = 0; sy < COBBLE_N; sy++) {
         for (let sx = 0; sx < COBBLE_N; sx++) {
           const h = hash2(x * COBBLE_N + sx, y * COBBLE_N + sy, 33);
@@ -259,6 +268,38 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
     inst.receiveShadow = true;
     inst.computeBoundingSphere();
     group.add(inst);
+  }
+
+  // ── road markings on asphalt: a dashed line down the middle of every two-lane street, zebra crossings by the
+  // junctions (a tile of a street that runs both ways is a junction) ──
+  if (asphalt) {
+    const isRoad = (x: number, y: number) => x >= 0 && y >= 0 && x < S && y < S && ground(x, y) === 'path';
+    // a two-lane street along x: this row and the next are road, the rows outside them are not
+    const alongX = (x: number, y: number) => isRoad(x, y) && isRoad(x, y + 1) && !isRoad(x, y - 1) && !isRoad(x, y + 2);
+    const alongY = (x: number, y: number) => isRoad(x, y) && isRoad(x + 1, y) && !isRoad(x - 1, y) && !isRoad(x + 2, y);
+    const junction = (x: number, y: number) => isRoad(x, y) && (isRoad(x, y - 1) || isRoad(x, y + 1)) && (isRoad(x - 1, y) || isRoad(x + 1, y)) && !alongX(x, y) && !alongX(x, y - 1) && !alongY(x, y) && !alongY(x - 1, y);
+    const paint = new Merge();
+    const white = '#f1eee4';
+    const yellow = '#f2c45a';
+    for (let y = 0; y < S; y++) {
+      for (let x = 0; x < S; x++) {
+        if (nearShore(x, y)) continue;
+        if (alongX(x, y)) {
+          const nearJ = junction(x - 1, y) || junction(x + 1, y) || junction(x - 1, y + 1) || junction(x + 1, y + 1);
+          if (nearJ) {
+            // the zebra: stripes along the street, across both lanes
+            for (let k = 0; k < 6; k++) paint.add(slab(), white, { x: x + 0.5, y: 0.009, z: y + 0.2 + k * 0.32, s: [0.7, 0.01, 0.16] }, { ao: false });
+          } else if (x % 2 === 0) paint.add(slab(), yellow, { x: x + 0.5, y: 0.009, z: y + 1, s: [0.62, 0.01, 0.07] }, { ao: false });
+        }
+        if (alongY(x, y)) {
+          const nearJ = junction(x, y - 1) || junction(x, y + 1) || junction(x + 1, y - 1) || junction(x + 1, y + 1);
+          if (nearJ) {
+            for (let k = 0; k < 6; k++) paint.add(slab(), white, { x: x + 0.2 + k * 0.32, y: 0.009, z: y + 0.5, s: [0.16, 0.01, 0.7] }, { ao: false });
+          } else if (y % 2 === 0) paint.add(slab(), yellow, { x: x + 1, y: 0.009, z: y + 0.5, s: [0.07, 0.01, 0.62] }, { ao: false });
+        }
+      }
+    }
+    mesh(paint.build());
   }
 
   // ── the plaza's curb: low rounded stones round its circle where it meets grass ──

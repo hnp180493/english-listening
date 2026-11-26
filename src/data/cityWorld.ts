@@ -418,6 +418,8 @@ const RAW_WORLD: TownWorld = {
   // Road north
   range: { north: [15, 43, 55], west: [25], falls: false, roads: true },
   plaza: { x: 30.5, y: 17.5, r: 3.4 },
+  // a city: asphalt streets with road markings (three/scene/terrain.ts)
+  roads: 'asphalt',
   start: RAW_ARRIVE,
 };
 
