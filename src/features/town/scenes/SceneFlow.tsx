@@ -4,11 +4,11 @@
 // Whoever uses it picks the scene, says how a line sounds and who speaks, and is told the result once.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowRight, Check, Play, Radio, RotateCcw, Turtle, Volume2, X } from 'lucide-react';
+import { ArrowRight, Check, MessageCircle, Play, Radio, RotateCcw, Turtle, Volume2, X } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import SpokenSentence from '../../../components/SpokenSentence';
 import { CAREFUL_LABEL } from '../../../core/playback';
-import type { SceneLine, SceneQuestion } from '../../../core/town/sceneTypes';
+import { YOU, type SceneLine, type SceneQuestion } from '../../../core/town/sceneTypes';
 import { stopSpeaking } from '../../../core/tts';
 import { Coin, SoundBars } from '../art';
 import type { PortraitMood } from '../portraitSheet';
@@ -159,6 +159,13 @@ export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onS
   const [step, setStep] = useState<'ready' | 'playing' | 'asking' | 'done'>('ready');
   const [speaking, setSpeaking] = useState<number | null>(null);
   const [lastWho, setLastWho] = useState<string | null>(null);
+  /**
+   * The learner's own line waiting to be said (sceneTypes YOU; the first time through only): the talk stops on it,
+   * it is shown with its meaning, and "Nói" (or Enter) says it and lets the other answer.
+   */
+  const [yourTurn, setYourTurn] = useState<number | null>(null);
+  const said = useRef<(() => void) | null>(null);
+  const heardOnce = useRef(false);
   const [big] = useState(bigFace);
   const [plays, setPlays] = useState(0);
   const questions = scene.questions;
@@ -186,21 +193,40 @@ export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onS
   const play = useCallback(async () => {
     const mine = ++token.current;
     stopSpeaking();
+    said.current?.();
+    setYourTurn(null);
     setPlays((n) => n + 1);
     setStep((s) => (s === 'ready' ? 'playing' : s));
+    // the first time through, the learner says their own lines (a talk they began); after that it plays straight on
+    const turns = !heardOnce.current;
     for (let i = 0; i < scene.lines.length; i++) {
       if (token.current !== mine) return;
+      const line = scene.lines[i];
+      if (turns && line.who === YOU) {
+        setSpeaking(null);
+        setYourTurn(i);
+        await new Promise<void>((done) => {
+          said.current = done;
+        });
+        said.current = null;
+        if (token.current !== mine) return;
+        setYourTurn(null);
+      }
       setSpeaking(i);
-      setLastWho(scene.lines[i].who);
-      await say(scene.lines[i], false);
+      if (line.who !== YOU) setLastWho(line.who);
+      await say(line, false);
     }
     if (token.current !== mine) return;
+    heardOnce.current = true;
     setSpeaking(null);
     setStep((s) => (s === 'playing' ? 'asking' : s));
   }, [scene, say]);
   const stop = useCallback(() => {
     token.current += 1;
     stopSpeaking();
+    said.current?.();
+    setYourTurn(null);
+    heardOnce.current = true;
     setSpeaking(null);
     setStep((s) => (s === 'playing' ? 'asking' : s));
   }, []);
@@ -230,6 +256,11 @@ export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onS
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (yourTurn !== null && e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) {
+        e.preventDefault();
+        said.current?.();
+        return;
+      }
       if (step === 'asking' && !answered && ['1', '2', '3'].includes(e.key)) {
         e.preventDefault();
         pick(Number(e.key) - 1);
@@ -244,10 +275,12 @@ export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onS
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [step, answered, asking, questions.length, pick, play, finish]);
+  }, [step, answered, asking, questions.length, pick, play, finish, yourTurn]);
 
-  const who = [...new Set(scene.lines.map((l) => l.who))];
-  const live = speaking !== null ? (scene.lines[speaking]?.who ?? null) : null;
+  // the people the learner talks with (not the learner: their lines are shown, not a face)
+  const who = [...new Set(scene.lines.map((l) => l.who))].filter((w) => w !== YOU);
+  const spoken = speaking !== null ? (scene.lines[speaking]?.who ?? null) : null;
+  const live = spoken === YOU ? null : spoken;
   // the big one: whoever speaks now, else whoever spoke last, else the one the learner came to, else the first
   // (owner, 2026-11-26: talked to Jun, Gus was the big face)
   const main = live ?? lastWho ?? (host && who.includes(host) ? host : (who[0] ?? ''));
@@ -348,12 +381,34 @@ export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onS
     <div className="town-ls">
       <p className="town-ep-scene">{intro}</p>
       {faces}
-      <p className="town-ls-hearing">
-        <SoundBars on={step === 'playing'} />
-        {step === 'playing' ? 'Đang nói… chỉ nghe thôi, chưa có chữ.' : 'Nghe hết một lượt rồi trả lời. Chưa có chữ để nhìn.'}
-      </p>
+      {yourTurn !== null ? (
+        <div className="town-ls-you" role="group" aria-label="Lượt bạn nói">
+          <span className="town-ls-you-who">{nameOf(YOU)}</span>
+          <p className="town-ls-you-en" lang="en">
+            {scene.lines[yourTurn].text}
+          </p>
+          <p className="town-ls-vi" data-vi>
+            {scene.lines[yourTurn].vi}
+          </p>
+        </div>
+      ) : (
+        <p className="town-ls-hearing">
+          <SoundBars on={step === 'playing'} />
+          {step === 'playing' ? (spoken === YOU ? 'Bạn đang nói…' : 'Đang nói… chỉ nghe thôi, chưa có chữ.') : 'Nghe hết một lượt rồi trả lời. Chưa có chữ để nhìn.'}
+        </p>
+      )}
       <div className="town-talk-foot">
-        {step === 'playing' ? (
+        {yourTurn !== null ? (
+          <>
+            <button type="button" className="btn btn-ghost" onClick={stop}>
+              Trả lời luôn
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => said.current?.()} autoFocus aria-keyshortcuts="Enter">
+              <Icon icon={MessageCircle} size={16} />
+              Nói câu này
+            </button>
+          </>
+        ) : step === 'playing' ? (
           <button type="button" className="btn btn-ghost" onClick={stop}>
             Trả lời luôn
           </button>

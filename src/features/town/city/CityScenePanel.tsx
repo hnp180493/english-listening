@@ -9,7 +9,8 @@ import { cityLinePlayback, type OutingCast } from '../../../core/town/cityAudio'
 import { cityPerson } from '../../../core/town/cityPeople';
 import { finishCityScene, finishOuting, loadTownCity } from '../../../core/town/cityStore';
 import type { CityScene } from '../../../core/town/cityTypes';
-import type { SceneLine } from '../../../core/town/sceneTypes';
+import { YOU, type SceneLine } from '../../../core/town/sceneTypes';
+import { useTownLife } from '../../../core/town/lifeStore';
 import { speak } from '../../../core/tts';
 import { CITY_SCENES } from '../../../data/city';
 import { tl } from '../../../i18n';
@@ -47,24 +48,28 @@ export default function CityScenePanel({ scene, again, sound, onReward, onSpeaki
   const [before] = useState(openOwners);
   const partnerId = outing?.partner.id;
   const kidSex = outing?.kid ? (outing.kid.gender === 'male' ? 'boy' : 'girl') : undefined;
+  // the learner's own lines (sceneTypes YOU): their character's name and sex
+  const me = useTownLife().profile;
+  const you = me?.gender;
+  const myName = me?.name;
   const say = useCallback(
     (line: SceneLine, careful: boolean) => {
-      const cast: OutingCast = { ...(partnerId ? { partner: partnerId } : {}), ...(kidSex ? { kid: kidSex } : {}) };
+      const cast: OutingCast = { ...(partnerId ? { partner: partnerId } : {}), ...(kidSex ? { kid: kidSex } : {}), ...(you ? { you } : {}) };
       const p = cityLinePlayback(line, scene.level, careful, cast);
       return speak(p.text, p.options);
     },
-    [scene.level, partnerId, kidSex],
+    [scene.level, partnerId, kidSex, you],
   );
   const partnerName = outing?.partner.name;
   const kidName = outing?.kid?.name;
-  const nameOf = useCallback((who: string) => (who === 'partner' ? (partnerName ?? '') : who === 'kid' ? (kidName ?? 'Bé') : speakerName(who)), [partnerName, kidName]);
+  const nameOf = useCallback((who: string) => (who === 'partner' ? (partnerName ?? '') : who === 'kid' ? (kidName ?? 'Bé') : who === YOU ? (myName ?? 'Bạn') : speakerName(who)), [partnerName, kidName, myName]);
   const faceOf = useCallback(
     (who: string, look: FaceLook) =>
       who === 'partner' && partnerId ? <Portrait placeId={partnerId as PlaceId} size={look.size} mood={look.mood} shape={look.card ? 'card' : 'round'} frame={look.card ? 'bust' : 'face'} /> : speakerFace(who, look),
     [partnerId],
   );
   // who speaks is shown in the world by their own id (the partner stands there as themself)
-  const speakingAs = useCallback((who: string | null) => onSpeaking(who === 'partner' ? (partnerId ?? null) : who === 'kid' ? null : who), [onSpeaking, partnerId]);
+  const speakingAs = useCallback((who: string | null) => onSpeaking(who === 'partner' ? (partnerId ?? null) : who === 'kid' ? null : who === YOU ? 'player' : who), [onSpeaking, partnerId]);
   const done = useCallback(
     (r: FlowResult): FlowEnd => {
       if (partnerId) {

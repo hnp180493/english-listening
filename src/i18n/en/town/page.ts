@@ -452,6 +452,8 @@ const page: Record<string, string> = {
   'Xe đang chạy.': 'Driving.',
   'Bật radio Bay FM trên xe': 'Turn on Bay FM in the vehicle',
   'Bay FM báo cho {}: {}.': 'Bay FM\'s forecast for {0}: {1}.',
+  'Lượt bạn nói': 'Your turn to speak',
+  'Nói câu này': 'Say it',
 };
 
 export default page;

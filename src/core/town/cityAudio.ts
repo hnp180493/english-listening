@@ -16,7 +16,7 @@
 
 import { dictationAudio } from '../../features/dictation/decodeCache';
 import type { SpeakOptions } from '../tts';
-import type { SceneLine } from './sceneTypes';
+import { YOU, type SceneLine } from './sceneTypes';
 import { sceneLinePlayback, type SceneLinePlayback } from './sceneAudio';
 import { CAST_VOICES, KID_VOICES, type CastVoice } from './voices';
 
@@ -34,6 +34,8 @@ export function cityLineText(line: Pick<SceneLine, 'text' | 'say'>, level: numbe
 export interface OutingCast {
   partner?: string;
   kid?: 'boy' | 'girl';
+  /** The learner's character's sex (their own lines, sceneTypes YOU). */
+  you?: 'male' | 'female';
 }
 
 /** The Gemini voice of an outing's role, or null (nobody in that role). */
@@ -44,6 +46,11 @@ export function outingVoice(who: 'partner' | 'kid', cast: OutingCast): CastVoice
 
 /** What to pass to speak() for a line of a city scene: `speak(p.text, p.options)`. */
 export function cityLinePlayback(line: Pick<SceneLine, 'who' | 'text' | 'say'>, level: number, careful = false, cast: OutingCast = {}): SceneLinePlayback {
+  // the learner's own line: the browser's voice of their character's sex, never a clip
+  if (line.who === YOU) {
+    const p = sceneLinePlayback(line, level, careful);
+    return { text: p.text, options: { ...p.options, voice: { voice: 'scene-you', gender: cast.you ?? 'male' }, browserOnly: true } };
+  }
   // the partner and the child of an outing: their own Gemini voice for "Nghe"; the careful version in the browser's
   // voice of their sex (as for every town resident in the city)
   if (line.who === 'partner' || line.who === 'kid') {

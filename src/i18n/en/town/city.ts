@@ -948,6 +948,9 @@ const city: Record<string, string> = {
   'Tóc vàng, áo khoác xanh lá, thắt cà vạt': 'Fair hair, green jacket, a tie',
   'Tránh đường nào': 'Street to avoid',
   'Station Avenue (đại lộ)': 'Station Avenue',
+  'Sân bến xe trước Ga trung tâm. Bạn vừa xuống xe số 9; một tài xế taxi vẫy bạn lại, bà bán vé ngó ra từ ô cửa.': 'The bus yard outside Central Station. You have just got off the number 9; a taxi driver waves you over, the ticket clerk looks out of her window.',
+  'Chợ đồ điện tử ở bến cảng. Bạn ghé sạp sửa đồ của Jun; một người mặc áo phản quang đứng chờ bên quầy.': 'The electronics market at the harbour. You stop at Jun\'s repair stall; a man in a high-visibility jacket waits by the counter.',
+  'Bạn gặp Leo ở quảng trường chợ, anh đang đẩy xe em bé, một người đàn ông đi bên cạnh.': 'You meet Leo on the market square, pushing a pram, a man walking beside him.',
 };
 
 export default city;

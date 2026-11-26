@@ -512,6 +512,18 @@ those talking (`engine3d goal`, within `ASIDE_FRAME` 4.5 tiles: `sim.asideNow`),
 followed the player and one of them could stand behind the panel. Seen in pictures from headless Edge (a bench at
 1400 × 900: the three left of the panel; 412 × 892; a café episode); not by hand, not on a real phone in full screen.
 
+**A talk you begin is a talk WITH you** (2026-11-27, owner: "tao chủ động nói chuyện, sao thành ra lại là nghe lén
+rồi?"): a city scene used to be overheard even when the learner had walked up to somebody: they talked to each other
+and a third person cut in. Now a line may be the learner's (`who: 'you'`, `sceneTypes YOU`): the first time through,
+the talk stops on it, `SceneFlow` shows it with its meaning ("Bạn", the character's name when made), and "Nói câu
+này" (or Enter) says it in the browser's voice of the character's sex (`cityAudio` `cast.you`, never a clip) and
+lets the other answer; a replay plays straight through. A third person is introduced before they speak. The
+questions stay on what the others said. Done as a sample of three for the owner to try: Rico's first episode,
+Jun's first (with Gus) and Leo's first visit (with Theo); the other city talks are still overheard. Content tests
+count the cast's lines without the learner's (`city.test.ts cast`); a learner's line is 2–12 words, only in a talk,
+never the last. Leo's changed lines have no Gemini clip until the owner runs `npm run audio:generate` (the browser's
+voice of his sex meanwhile). Checked in headless Edge (Jun: the turn, "Nói câu này", the next turn); not by hand.
+
 **Moving about** (the player's control, `TownSim.steer / move` in `engine/sim.ts`, tested; rebuilt 2026-11-21 after the
 owner found the keys "delayed or not going where I want" and the character moving unnaturally). Direct control, like a
 cosy game:

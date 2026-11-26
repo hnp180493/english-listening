@@ -5,6 +5,13 @@
 // The speakers are residents by place id (their own Gemini voices, core/town/voices.ts) or a voice of SCENE_VOICES
 // (people who are only heard, in the browser's voice: the radio's presenter).
 
+/**
+ * The learner's own lines in a talk they began (owner, 2026-11-26: "tao chủ động nói chuyện, sao thành ra lại là
+ * nghe lén rồi?"): shown with their meaning, said when the learner presses "Nói", in the browser's voice of their
+ * character's sex; never a question's answer.
+ */
+export const YOU = 'you';
+
 /** One line of a scene. */
 export interface SceneLine {
   /** Who says it: a place id (its resident) or a key of SCENE_VOICES. */

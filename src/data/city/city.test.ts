@@ -6,7 +6,7 @@ import { decode, speakableFor } from '../../core/decoder';
 import { LONE_APOSTROPHE, SAPI_MISREAD } from '../../core/decoder/sapiMisread';
 import { CITY_PEOPLE, cityPerson } from '../../core/town/cityPeople';
 import type { CityScene } from '../../core/town/cityTypes';
-import { SCENE_VOICES, type ListenScene, type SceneLine, type SceneQuestion } from '../../core/town/sceneTypes';
+import { SCENE_VOICES, YOU, type ListenScene, type SceneLine, type SceneQuestion } from '../../core/town/sceneTypes';
 import { BENCHMARK_FORMS } from '../benchmark';
 import { CITY_PLACE_IDS } from '../cityWorld';
 import { LISTEN_SCENES } from '../scenes';
@@ -22,6 +22,9 @@ const MAINS = CITY_PEOPLE.filter((p) => p.tier === 'main');
 const KNOWN = CITY_PEOPLE.filter((p) => p.tier === 'known');
 const wordCount = (s: string): number => s.split(/\s+/).filter((w) => /[a-z]/i.test(w)).length;
 const knownSpeaker = (w: string): boolean => !!cityPerson(w) || TOWN_IDS.has(w) || Object.hasOwn(SCENE_VOICES, w) || (OUTING_ROLES as readonly string[]).includes(w);
+
+/** What the people of a talk say (the learner's own lines, YOU, are not counted as theirs). */
+const cast = (s: { lines: readonly SceneLine[] }): SceneLine[] => s.lines.filter((l) => l.who !== YOU);
 
 function tokens(s: string): string[] {
   return s
@@ -110,9 +113,9 @@ describe('Westbay: shape', () => {
     for (const s of CITY_EPISODES) {
       expect(s.kind, s.id).toBe('episode');
       expect(cityPerson(s.at)?.tier, s.id).toBe('main');
-      expect(s.lines.length, s.id).toBeGreaterThanOrEqual(12);
-      expect(s.lines.length, s.id).toBeLessThanOrEqual(18);
-      const who = new Set(s.lines.map((l) => l.who));
+      expect(cast(s).length, s.id).toBeGreaterThanOrEqual(12);
+      expect(cast(s).length, s.id).toBeLessThanOrEqual(18);
+      const who = new Set(cast(s).map((l) => l.who));
       expect(who.size, s.id).toBeGreaterThanOrEqual(2);
       expect(who.size, s.id).toBeLessThanOrEqual(3);
       expect(who.has(s.at), `${s.id}: ${s.at} speaks`).toBe(true);
@@ -135,8 +138,8 @@ describe('Westbay: shape', () => {
     for (const s of CITY_CHATS) {
       expect(s.kind, s.id).toBe('chat');
       expect(cityPerson(s.at)?.tier, s.id).toBe('known');
-      expect(s.lines.length, s.id).toBeGreaterThanOrEqual(6);
-      expect(s.lines.length, s.id).toBeLessThanOrEqual(9);
+      expect(cast(s).length, s.id).toBeGreaterThanOrEqual(6);
+      expect(cast(s).length, s.id).toBeLessThanOrEqual(9);
       expect(s.lines.filter((l) => l.who === s.at).length, s.id).toBeGreaterThanOrEqual(4);
       expect(s.questions.length, s.id).toBeGreaterThanOrEqual(1);
       expect(s.questions.length, s.id).toBeLessThanOrEqual(2);
@@ -147,8 +150,8 @@ describe('Westbay: shape', () => {
     for (const id of TOWN_IDS) expect(CITY_VISITS_SCENES.filter((s) => s.at === id).length, id).toBe(2);
     for (const s of CITY_VISITS_SCENES) {
       expect(s.kind, s.id).toBe('visit');
-      expect(s.lines.length, s.id).toBeGreaterThanOrEqual(6);
-      expect(s.lines.length, s.id).toBeLessThanOrEqual(10);
+      expect(cast(s).length, s.id).toBeGreaterThanOrEqual(6);
+      expect(cast(s).length, s.id).toBeLessThanOrEqual(10);
       expect(s.lines.filter((l) => l.who === s.at).length, s.id).toBeGreaterThanOrEqual(3);
       expect(s.lines.some((l) => !!cityPerson(l.who)), `${s.id}: somebody of the city is there`).toBe(true);
       expect(s.questions.length, s.id).toBeGreaterThanOrEqual(1);
@@ -237,8 +240,17 @@ describe('Westbay: shape', () => {
     }
   });
 
-  it('everybody who speaks is known; the learner never speaks', () => {
-    for (const { id, line } of lines) expect(knownSpeaker(line.who), `${id}: ${line.who}`).toBe(true);
+  it('everybody who speaks is known; the learner speaks only in a talk they began, short lines, never the last word', () => {
+    const talks = new Set(CITY_SCENES.map((s) => s.id));
+    for (const { id, line } of lines) {
+      if (line.who === YOU) {
+        expect(talks.has(id.split('#')[0]), `${id}: the learner speaks only in an episode, a talk or a visit`).toBe(true);
+        const n = line.text.split(/\s+/).length;
+        expect(n, `${id}: ${line.text}`).toBeGreaterThanOrEqual(2);
+        expect(n, `${id}: ${line.text}`).toBeLessThanOrEqual(12);
+      } else expect(knownSpeaker(line.who), `${id}: ${line.who}`).toBe(true);
+    }
+    for (const s of CITY_SCENES) if (s.lines.length > 0) expect(s.lines[s.lines.length - 1].who, `${s.id}: somebody answers the learner`).not.toBe(YOU);
   });
 
   it('what a scene needs exists, is heard before it, and the first one is open: Rico, off the bus', () => {

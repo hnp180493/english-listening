@@ -176,3 +176,22 @@
   align-self: flex-end;
   padding-bottom: 2px;
 }
+
+/* the learner's own line in a talk they began (SceneFlow yourTurn): what they will say, and what it means */
+.town-ls-you {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+}
+.town-ls-you-who {
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.town-ls-you-en {
+  margin: 0;
+  font-weight: 600;
+}
