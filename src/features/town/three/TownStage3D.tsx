@@ -480,6 +480,7 @@ export default function TownStage3D({
         latest.current.talk = null;
         engineRef.current?.endTalk();
       },
+      enterOwnRoom: (room, door, out, ready) => (flatRef.current ? false : (engineRef.current?.enterOwnRoom(room, door, out, ready) ?? false)),
       meet: (placeId, ready) => (flatRef.current ? false : (engineRef.current?.meet(placeId, ready) ?? false)),
       listenFrom: (spot, who) => (flatRef.current ? false : (engineRef.current?.listenFrom(spot, who) ?? false)),
       joinTalk: (host, who) => {
@@ -488,6 +489,7 @@ export default function TownStage3D({
       endListen: () => {
         if (!flatRef.current) engineRef.current?.endListen();
       },
+      addExtra: (make) => (flatRef.current ? null : (engineRef.current?.addExtra(make) ?? null)),
       gather: (at, who) => {
         if (!flatRef.current) engineRef.current?.gather(at, who);
       },

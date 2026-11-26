@@ -253,6 +253,12 @@ export interface TownProgress {
   gifts: GiftState;
   // version 6: typed checks (./typing)
   typed: Record<string, TypedBucket>;
+  /**
+   * Fines paid to Westbay's police (docs/town.md §28), xu per browser: like `earned`, a browser only ever adds to its
+   * own bucket and copies merge by max, so a fine is never given back by a sync. Absent when there is none (an old
+   * value reads the same).
+   */
+  fines?: Record<string, number>;
 }
 
 /** Stage 1 is the finish, stages 2..5 come with the four re-listens (./episodes RELISTEN_DAYS); at 5 nothing is due. */
@@ -649,6 +655,8 @@ export function parseTownProgress(raw: unknown): TownProgress {
   out.choices = parseChoices(raw.choices);
   out.gifts = parseGifts(raw.gifts);
   out.typed = parseTyped(raw.typed);
+  const fines = parseEarned(raw.fines);
+  if (Object.keys(fines).length > 0) out.fines = fines;
   if (!newer) return out;
   out.version = version;
   return withExtras(out, parseExtras(raw));
@@ -657,7 +665,7 @@ export function parseTownProgress(raw: unknown): TownProgress {
 // ───────────────────────── fields of a newer build ─────────────────────────
 
 /** The fields this build knows: anything else at the top level of a newer build's value is carried as it is. */
-const KNOWN_FIELDS = new Set<string>(Object.keys(emptyTownProgress()));
+const KNOWN_FIELDS = new Set<string>([...Object.keys(emptyTownProgress()), 'fines']);
 
 /** The unknown top-level fields of a value written by a newer build (kept so this build never drops them). */
 function parseExtras(raw: Record<string, unknown>): Record<string, unknown> {
@@ -890,6 +898,11 @@ export function mergeTownProgress(a: TownProgress, b: TownProgress): TownProgres
   out.choices = mergeChoices(a.choices, b.choices);
   out.gifts = { bought: mergeIdDeviceCounts(a.gifts.bought, b.gifts.bought, MAX_GIFT_KINDS), given: mergeIdDeviceCounts(a.gifts.given, b.gifts.given, MAX_GIFT_KINDS) };
   out.typed = mergeTyped(a.typed, b.typed);
+  const fines: Record<string, number> = {};
+  for (const dev of [...new Set([...Object.keys(a.fines ?? {}), ...Object.keys(b.fines ?? {})])].sort().slice(0, MAX_DEVICES)) {
+    fines[dev] = Math.max(own(a.fines ?? {}, dev) ?? 0, own(b.fines ?? {}, dev) ?? 0);
+  }
+  if (Object.keys(fines).length > 0) out.fines = fines;
   out.version = Math.max(TOWN_VERSION, a.version, b.version);
   return withExtras(out, mergeExtras(townExtras(a), townExtras(b)));
 }
@@ -936,6 +949,21 @@ export function addEarned(progress: TownProgress, device: string, xu: number): T
   const add = count(xu);
   if (add === 0 || !isDevice(device)) return progress;
   return { ...progress, earned: { ...progress.earned, [device]: Math.min(MAX_XU, (own(progress.earned, device) ?? 0) + add) } };
+}
+
+/** Fines paid on all browsers together. */
+export function finesTotal(progress: TownProgress): number {
+  let sum = 0;
+  for (const dev of Object.keys(progress.fines ?? {})) sum += own(progress.fines ?? {}, dev) ?? 0;
+  return sum;
+}
+
+/** A fine paid on `device` (the input is not changed). */
+export function addFine(progress: TownProgress, device: string, xu: number): TownProgress {
+  const add = count(xu);
+  if (add === 0 || !isDevice(device)) return progress;
+  const fines = progress.fines ?? {};
+  return { ...progress, fines: { ...fines, [device]: Math.min(MAX_XU, (own(fines, device) ?? 0) + add) } };
 }
 
 /** One more typed check in the bucket of `device` (the input is not changed): `ok` when typed right at the first check. */

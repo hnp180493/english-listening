@@ -1,0 +1,134 @@
+/* Westbay's streets (features/town/streets): the police scanner under the heat pill, a stop by the police. Tokens only. */
+
+.str-scanner {
+  position: absolute;
+  top: 100px;
+  right: var(--space-3);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-width: min(360px, calc(100% - 2 * var(--space-3)));
+}
+.town-pill.str-pill {
+  position: relative;
+  width: auto;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  font-weight: 600;
+}
+.town-pill.str-pill.is-on {
+  color: var(--bad);
+}
+.str-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bad);
+  animation: str-blink 0.8s ease-in-out infinite alternate;
+}
+@keyframes str-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .str-live {
+    animation: none;
+  }
+}
+.str-offence {
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.str-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    var(--shadow-lg);
+}
+.str-status {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.str-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.str-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.str-lines li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.str-who {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.str-vi {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* a stop: over the stage's own pills (the ride button, the radio), like a sheet */
+.town-build.str-stop {
+  z-index: 6;
+}
+.str-stop .town-build-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.str-stop-again {
+  align-self: flex-start;
+}
+.str-intents {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.str-verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-weight: 600;
+}
+.str-verdict.is-right {
+  color: var(--ok);
+}
+.str-verdict.is-wrong {
+  color: var(--bad);
+}
+.str-fine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 700;
+}

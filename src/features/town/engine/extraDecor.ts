@@ -6,6 +6,7 @@
 // on a spot nobody walks: on the pond, at the pier's end over the water, on free grass away from paths and life spots.
 
 import type { Tile } from '../../../data/townWorld';
+import { HIDEOUT_AT, HIDEOUT_HOME, HIDEOUT_LET } from '../../../data/city/hideout';
 
 export interface ExtraDecorPiece {
   /** Where it stands on the tile grid (its ground point). */
@@ -30,3 +31,19 @@ export const EXTRA_DECOR: Readonly<Record<string, readonly ExtraDecorPiece[]>> =
   // Tháp đồng hồ: on the grass where the lake path comes in, beside Leo's pavilion, tall enough to be seen from the plaza
   'proj-clock-tower': [{ at: { x: 32.4, y: 29.6 } }],
 };
+
+/**
+ * Westbay's own pieces built the same way (not the town's projects): the learner's hideout behind Gus's hut, shut and
+ * to let or lived in (data/city/hideout.ts; its model features/town/hideout/hideout3d.ts; it blocks the way:
+ * engine/sim.ts PROJECT_HALF). In Westbay's coordinates.
+ */
+export const CITY_EXTRA_DECOR: Readonly<Record<string, readonly ExtraDecorPiece[]>> = {
+  [HIDEOUT_LET]: [{ at: HIDEOUT_AT }],
+  [HIDEOUT_HOME]: [{ at: HIDEOUT_AT }],
+};
+
+/** Where the pieces of a project stand: a town project's, or one of Westbay's own. */
+export function extraDecorSpots(id: string): readonly ExtraDecorPiece[] | undefined {
+  if (Object.hasOwn(EXTRA_DECOR, id)) return EXTRA_DECOR[id];
+  return Object.hasOwn(CITY_EXTRA_DECOR, id) ? CITY_EXTRA_DECOR[id] : undefined;
+}

@@ -7,6 +7,7 @@ import type { ActivitySpotId, PlaceId, Tile, TownWorld, VehicleKind } from '../.
 import type { EmoteKind } from './draw/overlay';
 import type { Marker, StageState } from './sim';
 import type { TalkSetting } from './staging';
+import type { StageExtra, StageExtraCtx } from '../three/scene/stageExtra';
 
 
 /** What can be ridden here and now: the vehicle beside the player, the one ridden, and whether that one is the learner's own (its garage id). */
@@ -95,6 +96,11 @@ export interface TownStageHandle {
   talkAt: (placeId: PlaceId, setting: TalkSetting, opts: { visitor?: PlaceId | null; instant?: boolean }, ready: () => void) => boolean;
   /** The talk is over: out of the room through the dark, or the camera back on the player. */
   endTalk: () => void;
+  /**
+   * The learner's own room (the hideout in Westbay, docs/town.md §29): through the dark from in front of its door into
+   * `room`, alone with their pet; `ready` once inside; endTalk brings them out. False = no world (or busy).
+   */
+  enterOwnRoom: (room: 'hideout', door: Tile, out: number, ready: () => void) => boolean;
   /** A courtship scene here (docs/town.md §15): the resident beside the player, the camera on the two. False = no world. */
   meet: (placeId: PlaceId, ready: () => void) => boolean;
   /** The town gathers round the player (a wedding), all but these. */
@@ -108,6 +114,11 @@ export interface TownStageHandle {
   joinTalk: (host: PlaceId, who: readonly PlaceId[]) => void;
   /** The scene is over: the player gets up, the ones who talked go back to their day. */
   endListen: () => void;
+  /**
+   * Something driven each frame in the 3D world (Westbay's traffic: features/town/streets, three/scene/stageExtra.ts),
+   * until the returned function is called. Null: no 3D world now.
+   */
+  addExtra: (make: (ctx: StageExtraCtx) => StageExtra) => (() => void) | null;
   /** People of a Westbay job (features/town/jobs) stand in a loose group in front of a place's door until endListen. */
   gather: (at: PlaceId, who: readonly PlaceId[]) => void;
   /** A passenger of a Westbay job (features/town/jobs): out of sight in the vehicle while `on`, then set down beside the player. */

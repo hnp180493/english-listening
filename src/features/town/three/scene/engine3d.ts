@@ -15,6 +15,7 @@ import { drawChatDots, drawEmote, drawFloat, drawParticles, drawSky, drawTag, dr
 import type { ActKind, BurstKind, EngineCallbacks, Near, SafeInsets, StageTarget, TravelTarget } from '../../engine/stage';
 import type { VehicleKind } from '../../../../data/townWorld';
 import { RIDES, vehicleGeometry } from './vehicles3d';
+import type { StageExtra, StageExtraCtx } from './stageExtra';
 import type { RideState } from '../../engine/stage';
 import { Birds } from './birds';
 import { paletteFor, type TownPalette } from '../../engine/palette';
@@ -353,7 +354,9 @@ export class TownEngine3D {
   private focus: PlaceId | null = null;
   private hint: PlaceId | null = null;
   /** What can be ridden (TownWorld.vehicles): where each is parked (or, the one ridden, drawn now), its model. */
-  private rides: { kind: VehicleKind; x: number; y: number; heading: number; mesh: Mesh; own?: string; speed?: number }[] = [];
+  private rides: { kind: VehicleKind; x: number; y: number; heading: number; mesh: Mesh; own?: string; speed?: number; v?: number }[] = [];
+  /** What other modules drive each frame in the open world (Westbay's traffic: features/town/streets). */
+  private extras = new Set<StageExtra>();
   private ridesMade = false;
   /** Two flocks over the view by day (birds.ts). */
   private birds: Birds | null = null;
@@ -867,6 +870,8 @@ export class TownEngine3D {
 
   destroy(): void {
     this.stop();
+    for (const x of this.extras) x.dispose();
+    this.extras.clear();
     for (const r of this.rides) {
       r.mesh.removeFromParent();
       r.mesh.geometry.dispose();
@@ -984,6 +989,19 @@ export class TownEngine3D {
       this.staged = null;
       this.cut(next);
     }
+    return true;
+  }
+
+  /**
+   * The learner's own room (the hideout in Westbay, docs/town.md §29): through the dark from in front of its door
+   * (`door`; `out` = the street side's heading) into `room`, alone with their pet; endTalk brings them out at the door.
+   * False while a talk is staged, or for a room that does not exist.
+   */
+  enterOwnRoom(room: InteriorId, door: Tile, out: number, ready: () => void): boolean {
+    if (!isInteriorId(room) || this.staged) return false;
+    this.dismount();
+    const beside = { x: door.x + 0.5 + Math.cos(out), y: door.y + 0.5 + Math.sin(out) };
+    this.cut({ placeId: '' as PlaceId, setting: { kind: 'inside', room }, visitor: null, phase: 'go', ready, doorway: { door: { ...door }, out, beside }, spots: null, arrivedAt: -1, retryAt: 0, hid: false, cancelled: false });
     return true;
   }
 
@@ -1525,6 +1543,21 @@ export class TownEngine3D {
     return best;
   }
 
+  /** The vehicle ridden and which of its colours (the models' index), for how the police describe the learner. */
+  rideLook(): { kind: VehicleKind; v: number } | null {
+    const r = this.riding >= 0 ? this.rides[this.riding] : null;
+    return r ? { kind: r.kind, v: r.v ?? 0 } : null;
+  }
+
+  /** Add something driven each frame (its `update`), until the returned function is called (it is disposed then). */
+  addExtra(make: (ctx: StageExtraCtx) => StageExtra): () => void {
+    const x = make({ scene: this.town.scene, lift: (x, y) => this.town.lift(x, y), mats: this.town.mats, sim: this.sim, rideLook: () => this.rideLook(), inRoom: () => !!this.room });
+    this.extras.add(x);
+    return () => {
+      if (this.extras.delete(x)) x.dispose();
+    };
+  }
+
   /** What the "Lên xe / Xuống xe" button shows: the vehicle beside the player, the one ridden. */
   rideState(): RideState {
     const n = this.nearRide();
@@ -1558,7 +1591,7 @@ export class TownEngine3D {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.town.scene.add(mesh);
-      this.rides.push({ kind, x: p.x, y: p.y, heading, mesh, own: id, speed });
+      this.rides.push({ kind, x: p.x, y: p.y, heading, mesh, own: id, speed, v });
       i = this.rides.length - 1;
     }
     const r = this.rides[i];
@@ -1632,7 +1665,7 @@ export class TownEngine3D {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         this.town.scene.add(mesh);
-        this.rides.push({ kind: v.kind, x: v.at.x + 0.5, y: v.at.y + 0.5, heading: v.heading, mesh });
+        this.rides.push({ kind: v.kind, x: v.at.x + 0.5, y: v.at.y + 0.5, heading: v.heading, mesh, v: i });
       });
     }
     const me = this.people.get('player');
@@ -2241,6 +2274,7 @@ export class TownEngine3D {
       this.updateNear();
       this.syncPeople(dt);
       this.updateRides();
+      for (const x of this.extras) x.update(dt, this.night);
       if (!this.birds && this.ready) {
         this.birds = new Birds(this.town.mats.std);
         this.town.scene.add(this.birds.mesh);

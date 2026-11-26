@@ -16,7 +16,8 @@ import { BODY_RADIUS, distanceTo, inside as isInside, pushOut, walkWorld, type W
 import type { CropStage } from '../../../core/town/farm';
 import { canStep, findPath, lineFits, nearestWalkable, NEIGHBOURS, onLand, sameTile, shoreStop, solidsNear, STEP_STRAIGHT, walkable, WATER, waterEdge } from '../../../core/town/map';
 import { TOWN_WORLD, type ActivitySpot, type Collider, type ActivitySpotId, type PlaceId, type Seat, type Tile, type TownWorld, type WorldPlace } from '../../../data/townWorld';
-import { EXTRA_DECOR } from './extraDecor';
+import { extraDecorSpots } from './extraDecor';
+import { HIDEOUT_HALF, HIDEOUT_HOME, HIDEOUT_LET } from '../../../data/city/hideout';
 import { CAT_STRIDE, personStride } from './gait';
 import { activitySeconds, dayPart, folkCount, kidsOut, minutesNow, pickActivity, type Activity } from './life';
 import type { TownTheme } from './palette';
@@ -1574,15 +1575,18 @@ const PROJECT_HALF: Readonly<Record<string, { x: number; y0: number; y1: number 
   'proj-clock-tower': { x: 0.35, y0: -0.35, y1: 0.35 },
   'proj-festival': { x: 0.8, y0: -0.5, y1: 0.5 },
   'proj-garden': { x: 0.9, y0: -0.9, y1: 0.9 },
+  // Westbay's hideout (data/city/hideout.ts), shut or lived in: its walls
+  [HIDEOUT_LET]: HIDEOUT_HALF,
+  [HIDEOUT_HOME]: HIDEOUT_HALF,
 };
 
-/** The colliders of the town projects built (engine/extraDecor.ts EXTRA_DECOR spots). */
+/** The colliders of the town projects built and of Westbay's own pieces (engine/extraDecor.ts extraDecorSpots). */
 export function projectColliders(ids: readonly string[] | undefined): Collider[] {
   const out: Collider[] = [];
   for (const id of ids ?? []) {
     const h = PROJECT_HALF[id];
     if (!h) continue;
-    (EXTRA_DECOR[id] ?? []).forEach((s, i) => out.push({ kind: 'box', x0: s.at.x - h.x, y0: s.at.y + h.y0, x1: s.at.x + h.x, y1: s.at.y + h.y1, what: `proj:${id}:${i}` }));
+    (extraDecorSpots(id) ?? []).forEach((s, i) => out.push({ kind: 'box', x0: s.at.x - h.x, y0: s.at.y + h.y0, x1: s.at.x + h.x, y1: s.at.y + h.y1, what: `proj:${id}:${i}` }));
   }
   return out;
 }
@@ -1594,6 +1598,11 @@ export class TownSim {
   private readonly base: TownWorld;
   private readonly rng: () => number;
   readonly player: Actor;
+  /**
+   * Things the player keeps clear of that the sim does not move (Westbay's traffic and the posts of its lights:
+   * features/town/streets): set each frame by whoever moves them. Bodies, so they stop the player as people do.
+   */
+  extraBodies: readonly Body[] = [];
   /** Residents in town (built places only), by place id. */
   readonly residents = new Map<PlaceId, Resident>();
   cat: Cat | null = null;
@@ -2524,6 +2533,7 @@ export class TownSim {
       if (Math.abs(o.x - p.x) > 2 || Math.abs(o.y - p.y) > 2) continue;
       out.push({ x: o.x, y: o.y, gap: MIN_GAP });
     }
+    for (const b of this.extraBodies) if (Math.abs(b.x - p.x) <= 2.5 && Math.abs(b.y - p.y) <= 2.5) out.push(b);
     return out;
   }
 
