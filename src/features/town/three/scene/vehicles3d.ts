@@ -16,15 +16,18 @@ export interface RideSpec {
   seat: number;
   /** The seat's place along the vehicle (tiles from its middle, + forward): the vehicle is drawn so the seat is under the player. */
   seatAt: number;
-  /** Vietnamese, for "Lên …". */
+  /**
+   * Vietnamese, for "Mượn …": whose it is, so riding is borrowing (owner, 2026-11-26: "chạy xe ô tô của người khác có
+   * phải là cướp như gta không?": no, a shared bike, a scooter for hire, a car of Rico's taxi firm, the farm's horse).
+   */
   name: string;
 }
 
 export const RIDES: Readonly<Record<VehicleKind, RideSpec>> = {
-  bike: { speed: 3.6, seat: 0.4, seatAt: -0.1, name: 'xe đạp' },
-  scooter: { speed: 4.6, seat: 0.36, seatAt: -0.12, name: 'xe máy' },
-  car: { speed: 5.6, seat: 0.22, seatAt: -0.12, name: 'ô tô' },
-  horse: { speed: 4.4, seat: 0.62, seatAt: 0, name: 'ngựa' },
+  bike: { speed: 3.6, seat: 0.4, seatAt: -0.1, name: 'xe đạp công cộng' },
+  scooter: { speed: 4.6, seat: 0.36, seatAt: -0.12, name: 'xe máy cho thuê' },
+  car: { speed: 5.6, seat: 0.22, seatAt: -0.12, name: 'xe của hãng taxi Rico' },
+  horse: { speed: 4.4, seat: 0.62, seatAt: 0, name: 'ngựa của nông trại' },
 };
 
 /** Colours a vehicle may come in (by its index: two of a kind are told apart). */

@@ -1,4 +1,4 @@
-// "Lên xe đạp" beside a vehicle, "Xuống xe" while riding (three/scene/vehicles3d.ts; owner, 2026-11-26: "có xe ngựa
+// "Mượn xe đạp công cộng" beside a vehicle, "Trả xe" while riding (three/scene/vehicles3d.ts; owner, 2026-11-26: "có xe ngựa
 // cho chạy nhanh hơn chẳng hạn… xe/ngựa hoặc nhiều thứ khác"). E does the same on a keyboard. Read from the stage a
 // few times a second; shown only when there is something to do.
 
@@ -26,9 +26,9 @@ export default function RideButton({ stage }: { stage: RefObject<TownStageHandle
   if (!kind) return null;
   const riding = !!state.riding;
   return (
-    <button type="button" className={'town-pill town-hud-btn town-ride' + (riding ? ' is-on' : '')} onClick={() => stage.current?.toggleRide()} aria-keyshortcuts="E" title={riding ? 'Xuống xe (E)' : tl`Lên ${tr(RIDES[kind].name)} (E)`}>
+    <button type="button" className={'town-pill town-hud-btn town-ride' + (riding ? ' is-on' : '')} onClick={() => stage.current?.toggleRide()} aria-keyshortcuts="E" title={riding ? 'Trả xe (E)' : tl`Mượn ${tr(RIDES[kind].name)} (E)`}>
       <Icon icon={riding ? CircleArrowDown : ICONS[kind]} size={17} />
-      <span>{riding ? 'Xuống xe' : tl`Lên ${tr(RIDES[kind].name)}`}</span>
+      <span>{riding ? 'Trả xe' : tl`Mượn ${tr(RIDES[kind].name)}`}</span>
     </button>
   );
 }

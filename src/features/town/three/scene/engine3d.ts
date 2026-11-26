@@ -226,6 +226,9 @@ const UP_Y = new Vector3(0, 1, 0);
 /** Backing onto a seat, stepping off it (a hop of the drawn body while the sim has them stand): this long (s). */
 const SLIDE_TIME = 0.45;
 
+/** How near a parked vehicle the player gets on it (tiles from its middle): the button shows, E works, a tap gets on. */
+const RIDE_REACH = 2;
+
 /** Stats for checking the town in a dev build (headless runs read window.__town3d). */
 export interface Stats3D {
   fps: number;
@@ -1399,9 +1402,26 @@ export class TownEngine3D {
     if (this.riding >= 0 || this.busy()) return -1;
     const p = this.sim.player;
     let best = -1;
-    let bestD = 1.3;
+    let bestD = RIDE_REACH;
     this.rides.forEach((r, i) => {
       const d = Math.hypot(r.x - p.x, r.y - p.y);
+      if (d < bestD) {
+        best = i;
+        bestD = d;
+      }
+    });
+    return best;
+  }
+
+  /** The parked vehicle drawn under a point of the stage (CSS px), -1 = none: its middle within a finger's reach. */
+  private rideAt(x: number, y: number): number {
+    if (this.riding >= 0 && this.rides.length === 0) return -1;
+    let best = -1;
+    let bestD = 44;
+    this.rides.forEach((r, i) => {
+      if (i === this.riding) return;
+      const at = this.project(r.x, this.town.lift(r.x, r.y) + 0.3, r.y);
+      const d = Math.hypot(at.x - x, at.y - y);
       if (d < bestD) {
         best = i;
         bestD = d;
@@ -1429,6 +1449,8 @@ export class TownEngine3D {
   }
 
   private mount(i: number): void {
+    // (off the one ridden first: it stays where it is)
+    if (this.riding >= 0) this.dismount();
     const r = this.rides[i];
     const spec = RIDES[r.kind];
     this.cancelWalk();
@@ -1804,6 +1826,15 @@ export class TownEngine3D {
 
   click(x: number, y: number): void {
     if (this.paused || !this.ready || this.busy()) return;
+    // a parked vehicle tapped: walk to it and get on (owner, 2026-11-26: "xe cho vui chứ ko đi đc hả?")
+    const ride = this.rideAt(x, y);
+    if (ride >= 0) {
+      const r = this.rides[ride];
+      this.cancelWalk();
+      if (Math.hypot(r.x - this.sim.player.x, r.y - this.sim.player.y) < RIDE_REACH) this.mount(ride);
+      else this.sim.walkToTile({ x: Math.floor(r.x), y: Math.floor(r.y) }, () => this.riding < 0 && this.mount(ride));
+      return;
+    }
     const hit = this.pickAt(x, y);
     if (!hit) return;
     // a talk being walked to is given up by a click elsewhere (another resident: the page stages that talk instead)

@@ -455,10 +455,13 @@ clips (the city speaks in the browser's voice; Ben and Sam's lines fall back to 
 scooters, cars and a horse stand where the world parks them (`TownWorld.vehicles`; the town: a bike by the plaza and
 one by the school, a scooter at the station, a horse at the farm; Westbay: cars at the taxi rank and on the harbour,
 scooters on Market Street and Arts Street, a bike by the station; `data/vehicles.test.ts` keeps them on open ground,
-clear of doors, spots, seats and chats). Beside one, E or "Lên …" (`RideButton`) puts the player on its seat (the seated
+clear of doors, spots, seats and chats). They are borrowed, not taken (owner: "chạy xe ô tô của người khác có phải là
+cướp như gta không?"): a shared bike, a scooter for hire, a car of Rico's taxi firm, the farm's horse ("Mượn …", "Trả
+xe"). A tap on one walks there and gets on (`rideAt`, a finger's reach round its middle); within `RIDE_REACH` 2 tiles,
+E or the button (`RideButton`) puts the player on its seat (the seated
 pose at the seat's height); the keys, a held finger and a click walk drive it at its pace (`RIDES` in
 `three/scene/vehicles3d.ts`: bike 3.6, horse 4.4, scooter 4.6, car 5.6 tiles/s against 1.6 walking; `sim.setRideSpeed`).
-E or "Xuống xe" leaves it where it stands, the player beside it; a talk, a meeting or fishing gets off first. The
+E or "Trả xe" leaves it where it stands, the player beside it; a talk, a meeting or fishing gets off first. The
 models are built in code (a convertible, so whoever drives is seen); nothing blocks a walk round a parked one. Checked
 in headless Edge only (on, a drive, off; bike, horse, car); nobody has ridden one by hand.
 
