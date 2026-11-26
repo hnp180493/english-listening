@@ -13,10 +13,11 @@ import { CITY_EVENT_SCENES } from '../../../data/city';
 import type { PlaceId } from '../../../data/townWorld';
 import { tl } from '../../../i18n';
 import { Portrait } from '../art';
-import SceneFlow, { type FlowEnd, type FlowResult } from '../scenes/SceneFlow';
+import SceneFlow, { type FaceLook, type FlowEnd, type FlowResult } from '../scenes/SceneFlow';
 import { speakerHasFace, speakerName } from '../scenes/speakers';
 
-const face = (who: string) => (speakerHasFace(who) ? <Portrait placeId={who as PlaceId} size={44} name={speakerName(who)} /> : null);
+const face = (who: string, look: FaceLook) =>
+  speakerHasFace(who) ? <Portrait placeId={who as PlaceId} size={look.size} mood={look.mood} shape={look.card ? 'card' : 'round'} frame={look.card ? 'bust' : 'face'} name={speakerName(who)} /> : null;
 
 export default function CityEventPanel({ event, sound, onReward, onSpeaking, onClose }: { event: CityEvent; sound: boolean; onReward: (r: { label: string; xu?: number }) => void; onSpeaking: (who: string | null) => void; onClose: () => void }) {
   // chosen once, when the panel opens

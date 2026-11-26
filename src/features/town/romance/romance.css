@@ -261,5 +261,11 @@
 }
 .town-love-face {
   flex: none;
-  width: 72px;
+  width: 132px;
+}
+/* (a phone: the scene's lines still fit under it) */
+@media (max-width: 720px) {
+  .town-love-face {
+    width: 88px;
+  }
 }

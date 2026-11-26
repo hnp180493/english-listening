@@ -39,11 +39,12 @@ import { tl, tr } from '../../i18n';
 type Started = Extract<TownEpisodeStart, { ok: true }>;
 type Step = 'listen' | 'lines' | 'again' | 'result';
 
+/** The one talking, big, Stardew style (owner, 2026-11-26: "stardew valley lúc nào cũng nhìn rõ được avatar"). */
 function portraitSize(): number {
   try {
-    return window.matchMedia('(max-width: 720px)').matches ? 60 : 108;
+    return window.matchMedia('(max-width: 720px)').matches ? 84 : 140;
   } catch {
-    return 108;
+    return 140;
   }
 }
 
@@ -297,7 +298,7 @@ export default function Episode({ place, start, friend, onJournal, onGiven, onSh
   return (
     <section ref={setBox} className={'town-talk town-ep' + (done ? ' is-result' : '') + (step === 'listen' && !heard && !gistResult ? ' is-hearing' : '')} role="group" aria-label={tl`${episodeHeading(episode, relisten)}, với ${place.resident}`} tabIndex={-1}>
       <header className="town-talk-head">
-        <Portrait placeId={placeId} size={faceSize} mood={giftMood ?? (result && result.friendAfter > result.friendBefore ? 'love' : mood)} />
+        <Portrait placeId={placeId} size={faceSize} mood={giftMood ?? (result && result.friendAfter > result.friendBefore ? 'love' : mood)} shape="card" frame="bust" />
         <div className="town-talk-who">
           <span className="town-talk-name">
             {place.resident}

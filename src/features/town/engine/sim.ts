@@ -2191,6 +2191,11 @@ export class TownSim {
     });
   }
 
+  /** Those talking aside now (talkAside), in order. */
+  asideNow(): readonly PlaceId[] {
+    return this.aside;
+  }
+
   /** This resident is one of those talking aside (the stage names them and shows who speaks). */
   inAside(id: string): boolean {
     return (this.aside as readonly string[]).includes(id);

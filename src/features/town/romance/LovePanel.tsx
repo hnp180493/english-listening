@@ -107,7 +107,7 @@ export default function LovePanel({ focus, onOpen, onReward, sound, onScene, onS
       <div className="town-love">
         <div className="town-love-head is-scene">
           <span className="town-love-face">
-            <Portrait placeId={playing.placeId as PlaceId} size={72} frame="face" shape="card" fluid mood={sceneMood ?? openingMood(playing.kind)} />
+            <Portrait placeId={playing.placeId as PlaceId} size={160} frame="bust" shape="card" fluid mood={sceneMood ?? openingMood(playing.kind)} />
           </span>
           <h3 className="town-love-title">{playing.scene.title}</h3>
         </div>

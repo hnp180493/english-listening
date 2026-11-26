@@ -11,6 +11,7 @@ import { CAREFUL_LABEL } from '../../../core/playback';
 import type { SceneLine, SceneQuestion } from '../../../core/town/sceneTypes';
 import { stopSpeaking } from '../../../core/tts';
 import { Coin, SoundBars } from '../art';
+import type { PortraitMood } from '../portraitSheet';
 import { safeDecode } from '../../dictation/decodeCache';
 import { playSfx } from '../sfx';
 import { tl } from '../../../i18n';
@@ -41,8 +42,11 @@ export interface SceneFlowProps {
   /** One Vietnamese line before listening: where the learner is and who is talking, never what about. */
   intro: string;
   nameOf: (who: string) => string;
-  /** A speaker's picture (44 px); without one, a little radio. */
-  face?: (who: string) => ReactNode;
+  /**
+   * A speaker's picture at `size` px (`card`: the big rounded-square one of whoever speaks, Stardew style, with its
+   * `mood`; else a small round one); null without one (a voice only heard: a radio is shown).
+   */
+  face?: (who: string, look: FaceLook) => ReactNode;
   say: (line: SceneLine, careful: boolean) => Promise<void>;
   /** The last question is answered: write the result down, say what it gave. Called once. */
   onDone: (result: FlowResult) => FlowEnd;
@@ -59,8 +63,54 @@ export interface SceneFlowProps {
   closeLabel?: string;
 }
 
-function Face({ who, name, live, picture }: { who: string; name: string; live: boolean; picture?: (who: string) => ReactNode }) {
-  const pic = picture?.(who);
+/** How a speaker's picture is asked for (SceneFlowProps.face). */
+export interface FaceLook {
+  size: number;
+  card: boolean;
+  mood: PortraitMood;
+}
+
+/** The big picture of whoever speaks (owner, 2026-11-26: "stardew valley lúc nào cũng nhìn rõ được avatar"). */
+function bigFace(): number {
+  try {
+    return window.matchMedia('(max-width: 720px)').matches ? 96 : 148;
+  } catch {
+    return 148;
+  }
+}
+const SMALL_FACE = 48;
+
+/**
+ * Who is talking, Stardew style: the one speaking now (else the last one who spoke) big, in a card with their name
+ * under it, the others small beside. Inside the panel, so it never covers the people talking on the stage (the
+ * camera frames them in what the panel leaves: engine/stage useStageInsets).
+ */
+function Speakers({ who, main, live, mood, nameOf, picture, big }: { who: readonly string[]; main: string; live: string | null; mood: PortraitMood; nameOf: (w: string) => string; picture?: (who: string, look: FaceLook) => ReactNode; big: number }) {
+  const pic = picture?.(main, { size: big, card: true, mood });
+  const rest = who.filter((w) => w !== main);
+  return (
+    <div className="town-ls-stage" aria-label="Người đang nói">
+      <figure className={'town-ls-card' + (live === main ? ' is-live' : '')} style={{ width: big }}>
+        {pic ?? (
+          <span className="town-ls-radio is-big" style={{ width: big, height: big }} aria-hidden="true">
+            <Icon icon={Radio} size={Math.round(big * 0.4)} />
+          </span>
+        )}
+        <figcaption className="town-ls-plate">{nameOf(main)}</figcaption>
+      </figure>
+      {rest.length > 0 && (
+        <div className="town-ls-faces">
+          {rest.map((w) => (
+            <Face key={w} who={w} name={nameOf(w)} live={live === w} picture={picture} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Face({ who, name, live, picture }: { who: string; name: string; live: boolean; picture?: (who: string, look: FaceLook) => ReactNode }) {
+  const pic = picture?.(who, { size: SMALL_FACE, card: false, mood: 'neutral' });
   return (
     <span className={'town-ls-face' + (live ? ' is-live' : '')}>
       {pic ?? (
@@ -106,6 +156,8 @@ function SaidLine({ line, name, say }: { line: SceneLine; name: string; say: (li
 export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onSpeaking, onClose, sound, doneExtra, readyExtra, closeLabel }: SceneFlowProps) {
   const [step, setStep] = useState<'ready' | 'playing' | 'asking' | 'done'>('ready');
   const [speaking, setSpeaking] = useState<number | null>(null);
+  const [lastWho, setLastWho] = useState<string | null>(null);
+  const [big] = useState(bigFace);
   const [plays, setPlays] = useState(0);
   const questions = scene.questions;
   /** The option picked for each question so far (one try each), and the question on the screen. */
@@ -137,6 +189,7 @@ export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onS
     for (let i = 0; i < scene.lines.length; i++) {
       if (token.current !== mine) return;
       setSpeaking(i);
+      setLastWho(scene.lines[i].who);
       await say(scene.lines[i], false);
     }
     if (token.current !== mine) return;
@@ -192,13 +245,12 @@ export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onS
   }, [step, answered, asking, questions.length, pick, play, finish]);
 
   const who = [...new Set(scene.lines.map((l) => l.who))];
-  const faces = (
-    <div className="town-ls-faces" aria-label="Người đang nói">
-      {who.map((w) => (
-        <Face key={w} who={w} name={nameOf(w)} live={speaking !== null && scene.lines[speaking]?.who === w} picture={face} />
-      ))}
-    </div>
-  );
+  const live = speaking !== null ? (scene.lines[speaking]?.who ?? null) : null;
+  // the big one: whoever speaks now, else whoever spoke last, else the first
+  const main = live ?? lastWho ?? who[0] ?? '';
+  // their face follows the answer: right, a smile; wrong, a little sad
+  const mood: PortraitMood = step === 'asking' && answered ? (picked[asking] === questions[asking].answer ? 'happy' : 'sad') : 'neutral';
+  const faces = <Speakers who={who} main={main} live={live} mood={mood} nameOf={nameOf} picture={face} big={big} />;
 
   // ── the words ──
   if (step === 'done' && end) {

@@ -236,6 +236,8 @@ const SLIDE_TIME = 0.45;
 
 /** How near a parked vehicle the player gets on it (tiles from its middle): the button shows, E works, a tap gets on. */
 const RIDE_REACH = 2;
+/** Those talking aside nearer than this (tiles) to the player are framed with them (goal). */
+const ASIDE_FRAME = 4.5;
 /** The vehicles' size with the VRoid avatars on (rideScale). */
 const RIDE_SCALE_AVATAR = 1.55;
 
@@ -2518,6 +2520,25 @@ export class TownEngine3D {
       const bd = this.staged?.phase === 'outside' ? this.staged.spots?.backdrop : null;
       if (bd) pts.push({ x: bd.x, y: bd.h, z: bd.y });
       const c = { x: (p.x + r.x) / 2, y: 0.5 + (pts[0].y + pts[1].y) / 2, z: (p.y + r.y) / 2 };
+      const fit = fitDistance(pts, c, this.yaw, TALK_PITCH, aspect, 0.8 * this.freeShareH());
+      return { mode: 'talk', at: c, dist: Math.max(rest * 0.5, Math.min(rest * TALK_MAX, fit)), pitch: TALK_PITCH };
+    }
+    // a scene overheard (listenFrom, gather, joinTalk): the player and those talking, all whole, in what the panel
+    // leaves free (owner, 2026-11-26: "đảm bảo là không che nhân vật, vẫn thấy các nhân vật trò chuyện"); one still
+    // walking in from further off joins the picture as they come
+    const aside = this.sim.asideNow().flatMap((id) => {
+      const q = this.sim.residents.get(id);
+      return q && !q.hidden && Math.hypot(q.x - p.x, q.y - p.y) < ASIDE_FRAME ? [q] : [];
+    });
+    if (aside.length > 0) {
+      const lift = this.town.lift;
+      const bodies = [{ id: 'player', b: p }, ...aside.map((q) => ({ id: q.place.id as string, b: q as typeof p }))];
+      const pts: P3[] = bodies.flatMap(({ id, b }) => {
+        const head = this.headOf(id, b);
+        return [{ x: b.x, y: lift(b.x, b.y), z: b.y }, { ...head, y: head.y + 0.45 }];
+      });
+      const n = bodies.length;
+      const c = { x: bodies.reduce((s, x) => s + x.b.x, 0) / n, y: 0.5 + bodies.reduce((s, x) => s + lift(x.b.x, x.b.y), 0) / n, z: bodies.reduce((s, x) => s + x.b.y, 0) / n };
       const fit = fitDistance(pts, c, this.yaw, TALK_PITCH, aspect, 0.8 * this.freeShareH());
       return { mode: 'talk', at: c, dist: Math.max(rest * 0.5, Math.min(rest * TALK_MAX, fit)), pitch: TALK_PITCH };
     }

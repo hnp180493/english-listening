@@ -18,7 +18,7 @@ import { benchNumber, thingKind, type PlaceId } from '../../../data/townWorld';
 import type { ActivityPanelProps } from '../activities/types';
 import { Portrait } from '../art';
 import { tl } from '../../../i18n';
-import SceneFlow, { type FlowEnd, type FlowResult } from './SceneFlow';
+import SceneFlow, { type FaceLook, type FlowEnd, type FlowResult } from './SceneFlow';
 import { speakerHasFace, speakerName } from './speakers';
 
 export interface ListenPanelProps extends ActivityPanelProps {
@@ -50,7 +50,8 @@ function pickScene(at: string | null | undefined, now: number, where: 'town' | '
 }
 
 /** A speaker's picture: a town resident's or a city person's portrait; nothing for a voice that is only heard. */
-const speakerFace = (who: string) => (speakerHasFace(who) ? <Portrait placeId={who as PlaceId} size={44} name={speakerName(who)} /> : null);
+const speakerFace = (who: string, look: FaceLook) =>
+  speakerHasFace(who) ? <Portrait placeId={who as PlaceId} size={look.size} mood={look.mood} shape={look.card ? 'card' : 'round'} frame={look.card ? 'bust' : 'face'} name={speakerName(who)} /> : null;
 
 function say(line: SceneLine, level: number, careful: boolean): Promise<void> {
   const p = sceneLinePlayback(line, level, careful);

@@ -501,6 +501,17 @@ place, the countdown, set down at the door, +6), not by hand; the pay and the cl
 "Giao đơn của Emma" is the quest followed and its card counts down (who it is for stays the puzzle: no way is drawn).
 Handed over in time: `DELIVERY_RUSH_XU` 2 more xu ("· giao kịp giờ" on the card). Late: nothing lost.
 
+**Big faces, Stardew style** (2026-11-26, owner: "stardew valley lúc nào cũng nhìn rõ được avatar", then "đảm bảo là
+không che nhân vật, vẫn thấy các nhân vật trò chuyện"): in every "cảnh nghe" (`scenes/SceneFlow.tsx Speakers`: the town's
+benches, radio, get-togethers, bus; Westbay's scenes and events) whoever speaks now, else whoever spoke last, is a big
+rounded card (148 px, 96 on a phone) with their name on a plate under it, their face following the answer (right:
+a smile, wrong: a little sad); the others small (48 px) beside it. The town's talks and episodes show the resident as a
+card too (140 px, 84 on a phone, was a 108 / 60 circle), a courtship scene its partner at 132 / 88 px. All of it is
+inside the panel; the camera frames the people in what the panel leaves: a scene overheard now frames the player and
+those talking (`engine3d goal`, within `ASIDE_FRAME` 4.5 tiles: `sim.asideNow`), as a talk does, where before it only
+followed the player and one of them could stand behind the panel. Seen in pictures from headless Edge (a bench at
+1400 × 900: the three left of the panel; 412 × 892; a café episode); not by hand, not on a real phone in full screen.
+
 **Moving about** (the player's control, `TownSim.steer / move` in `engine/sim.ts`, tested; rebuilt 2026-11-21 after the
 owner found the keys "delayed or not going where I want" and the character moving unnaturally). Direct control, like a
 cosy game:

@@ -38,8 +38,8 @@
 .town-ls-radio {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: var(--radius-full);
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--hairline);
@@ -132,4 +132,47 @@
   gap: var(--space-2);
   font-size: var(--fs-sm);
   color: var(--text-muted);
+}
+
+/* who is talking, Stardew style (SceneFlow Speakers): the one speaking big in a card with a name plate, the others
+   small beside it */
+.town-ls-stage {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+.town-ls-card {
+  display: grid;
+  flex: none;
+  gap: 6px;
+  margin: 0;
+}
+.town-ls-card > .town-portrait,
+.town-ls-card > .town-ls-radio {
+  border: 2px solid var(--border);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.town-ls-card.is-live > .town-portrait,
+.town-ls-card.is-live > .town-ls-radio {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.town-ls-radio.is-big {
+  border-radius: var(--radius-lg);
+}
+.town-ls-plate {
+  overflow: hidden;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.town-ls-stage > .town-ls-faces {
+  align-self: flex-end;
+  padding-bottom: 2px;
 }

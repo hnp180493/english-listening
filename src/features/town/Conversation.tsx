@@ -34,11 +34,12 @@ import { speak } from '../../core/tts';
 import { tl, tr } from '../../i18n';
 
 /** The resident's portrait in the panel: big enough to read the face, a little smaller on a phone. */
+/** The one talking, big, Stardew style (owner, 2026-11-26: "stardew valley lúc nào cũng nhìn rõ được avatar"). */
 function portraitSize(): number {
   try {
-    return window.matchMedia('(max-width: 720px)').matches ? 60 : 108;
+    return window.matchMedia('(max-width: 720px)').matches ? 84 : 140;
   } catch {
-    return 108;
+    return 140;
   }
 }
 
@@ -147,7 +148,7 @@ export default function Conversation({ place, turns, met, friend, onJournal, onG
   return (
     <section ref={setBox} className={'town-talk' + (done ? ' is-result' : '')} role="group" aria-label={tl`Trò chuyện nhanh với ${place.resident}`} tabIndex={-1}>
       <header className="town-talk-head">
-        <Portrait placeId={placeId} size={faceSize} mood={shownMood} />
+        <Portrait placeId={placeId} size={faceSize} mood={shownMood} shape="card" frame="bust" />
         <div className="town-talk-who">
           <span className="town-talk-name">
             {place.resident}
