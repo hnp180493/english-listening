@@ -127,28 +127,52 @@ async function draw(path: string, c: HTMLCanvasElement, w: number, h: number, fa
 }
 
 /** The avatar in the game's own actions (the code body's Animator drives it: chars/vrmBody.ts). */
-const ACTIONS: readonly { name: string; action: CharAction; speed: number; seconds: number }[] = [
-  { name: 'Đứng', action: 'idle', speed: 0, seconds: 1.2 },
-  { name: 'Đi', action: 'walk', speed: 1.6, seconds: 1.3 },
-  { name: 'Đi (pha sau)', action: 'walk', speed: 1.6, seconds: 1.42 },
-  { name: 'Đi (pha sau nữa)', action: 'walk', speed: 1.6, seconds: 1.54 },
-  { name: 'Chạy', action: 'run', speed: 2.8, seconds: 1.3 },
-  { name: 'Chạy (pha sau)', action: 'run', speed: 2.8, seconds: 1.38 },
-  { name: 'Chạy (pha sau nữa)', action: 'run', speed: 2.8, seconds: 1.46 },
-  { name: 'Ngồi', action: 'sit', speed: 0, seconds: 1.5 },
-  { name: 'Nói', action: 'talk', speed: 0, seconds: 1.1 },
-  { name: 'Vẫy tay', action: 'wave', speed: 0, seconds: 0.8 },
-  { name: 'Reo mừng', action: 'cheer', speed: 0, seconds: 0.7 },
-];
+interface Act {
+  name: string;
+  action: CharAction;
+  speed: number;
+  seconds: number;
+  /** Seated on a vehicle (scene/vehicles3d.ts): its kind and its seat's height in tiles. */
+  ride?: string;
+  seat?: number;
+}
 
-async function drawAction(c: HTMLCanvasElement, a: (typeof ACTIONS)[number], w: number, h: number, side: boolean): Promise<void> {
+/** `…?gait` in the address: a stride and a turn of the pedals frame by frame, and each vehicle's seat. */
+const GAIT = typeof window !== 'undefined' && window.location.hash.includes('gait');
+const strip = (name: string, action: CharAction, speed: number, from: number, step: number, n: number, ride?: string, seat?: number): Act[] =>
+  Array.from({ length: n }, (_, k) => ({ name: `${name} ${k + 1}`, action, speed, seconds: from + k * step, ride, seat }));
+
+const ACTIONS: readonly Act[] = GAIT
+  ? [
+      ...strip('Chạy', 'run', 2.8, 1.3, 0.055, 6),
+      ...strip('Đi', 'walk', 1.6, 1.3, 0.09, 4),
+      ...strip('Xe đạp', 'sit', 3.6, 1.0, 0.11, 6, 'bike', 0.62),
+      { name: 'Xe máy', action: 'sit', speed: 0, seconds: 1, ride: 'scooter', seat: 0.56 },
+      { name: 'Ngựa', action: 'sit', speed: 0, seconds: 1, ride: 'horse', seat: 0.96 },
+      { name: 'Ô tô', action: 'sit', speed: 0, seconds: 1, ride: 'car', seat: 0.34 },
+    ]
+  : [
+      { name: 'Đứng', action: 'idle', speed: 0, seconds: 1.2 },
+      { name: 'Đi', action: 'walk', speed: 1.6, seconds: 1.3 },
+      { name: 'Chạy', action: 'run', speed: 2.8, seconds: 1.3 },
+      { name: 'Ngồi', action: 'sit', speed: 0, seconds: 1.5 },
+      { name: 'Nói', action: 'talk', speed: 0, seconds: 1.1 },
+      { name: 'Vẫy tay', action: 'wave', speed: 0, seconds: 0.8 },
+      { name: 'Reo mừng', action: 'cheer', speed: 0, seconds: 0.7 },
+    ];
+
+async function drawAction(c: HTMLCanvasElement, a: Act, w: number, h: number, side: boolean): Promise<void> {
   const ch = createPerson('cafe');
   await wearVrm(ch, import.meta.env.BASE_URL + 'vrm/school.vrm?acts');
   ch.setHeading(Math.PI / 2, true);
+  if (a.ride) {
+    ch.ride = a.ride;
+    ch.setSeatHeight(a.seat ?? 0.18);
+  }
   ch.setAction(a.action);
   // (the Animator plants the feet in the world: a walk shows only when the body really moves)
   for (let t = 0; t < a.seconds; t += 1 / 60) {
-    ch.root.position.z += a.speed / 60;
+    if (!a.ride) ch.root.position.z += a.speed / 60;
     ch.update(1 / 60, a.speed);
   }
   ch.root.position.set(0, 0, 0);
@@ -235,7 +259,7 @@ async function drawResident(id: string, c: HTMLCanvasElement, w: number, h: numb
 }
 
 /** `…?acts` in the address: only the action sheet (quicker to look at). */
-const SKIP_ROWS = typeof window !== 'undefined' && /acts|bases|cast/.test(window.location.hash);
+const SKIP_ROWS = typeof window !== 'undefined' && /acts|bases|cast|gait/.test(window.location.hash);
 
 const W = 190;
 const H = 300;

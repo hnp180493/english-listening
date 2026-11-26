@@ -2710,6 +2710,8 @@ export class TownEngine3D {
       (p.ch as Character3DPlus).setSeatHeight?.(SEAT_TOP);
     }
     if (a.kind === 'player' && this.riding >= 0) (p.ch as Character3DPlus).setSeatHeight?.(RIDES[this.rides[this.riding].kind].seat * this.rideScale());
+    // (what is ridden: an avatar poses for a bike, a horse, a car each in its way: chars/vrmBody.ts)
+    if (a.kind === 'player') (p.ch as Partial<Character3DPlus>).ride = this.riding >= 0 ? this.rides[this.riding].kind : null;
     const gap = Math.hypot(tx - p.rx, tz - p.rz);
     // (the last hundredths of a walk onto its end point are not a hop)
     if (a.moving || this.still || gap > 1.1 || (gap < 0.06 && p.slide >= 1)) {
@@ -3094,7 +3096,8 @@ export class TownEngine3D {
     const ky = H / Math.max(1, this.viewH);
     const floors = this.town.mats.shared.holeFloor.value;
     this.town.mats.shared.holes.value.forEach((h, i) => {
-      const a: Actor | null | undefined = i === 0 ? this.sim.player : r;
+      // (on a vehicle the player is IN what stands in front of them: no hole is cut in their own car)
+      const a: Actor | null | undefined = i === 0 ? (this.riding >= 0 ? null : this.sim.player) : r;
       if (!a) {
         h.set(0, 0, 0, 0);
         floors[i] = 0;

@@ -68,6 +68,10 @@ const admin: Record<string, string> = {
   'Đi (pha sau nữa)': 'Walking (later still)',
   'Chạy (pha sau)': 'Running (later in the step)',
   'Chạy (pha sau nữa)': 'Running (later still)',
+  'Xe đạp': 'Bike',
+  'Xe máy': 'Scooter',
+  'Ngựa': 'Horse',
+  'Ô tô': 'Car',
 };
 
 export default admin;

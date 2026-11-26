@@ -2825,6 +2825,17 @@ in code again.
   folds as the leg comes through, the arms hang by the body and swing against the legs (elbows bent running), a
   small lean and twist of the trunk, the hips dipping as the legs spread; the step is as long as these legs make
   it, so its pace follows the ground covered (no sliding by construction).
+- **The stride, second go** (owner, on the first cycle, two straight legs swinging like a pair of compasses: "chạy bộ
+  nhìn vẫn gớm vậy"): `legCycle` takes a leg through a stride: it leaves the ground bent, folds further as it
+  comes through, opens out to land and gives a little under the weight; the knee is lifted further forward than
+  the leg is left behind; the toes point down at toe-off. Running, the body is up when the legs are furthest
+  apart (walking it dips there).
+- **On a vehicle** ("đạp xe đạp thì nhìn như dị tật chân còn không có animation đạp xe?"): the engine tells the
+  character what it rides (`Character3DPlus.ride`), and `ridePose` poses for each: a bike is PEDALLED (`legTo`, a
+  two-bone reach to a pedal going round with the ground covered, the axle put under the hips by guess, not read
+  from the bike's model), hands to the bars; a scooter and a motorbike knees forward; a horse astride; a car legs
+  out in front, hands on the wheel. No see-through hole is cut round the player in their own vehicle
+  (`fadeInFront`; "ngồi trong xe mà sao mờ mờ").
 - **Size**: an avatar stands `TALLER` 1.85 × the code body (1.4 at first: "người quái có chút xíu vầy"; a slim
   figure at the code body's height reads tiny beside the houses). Benches come to its knees.
 - **Cost**: `slim()` drops the outline pass and merges skinned meshes that share a material (a sample's 90–130

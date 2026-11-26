@@ -32,6 +32,12 @@ export interface Character3DPlus extends Character3D {
   readonly animator: Animator;
   /** Seat height in tiles for the sit pose (bench, stool…). */
   setSeatHeight(tiles: number): void;
+  /**
+   * What is being ridden, while seated (scene/vehicles3d.ts kinds: 'bike', 'scooter', 'motorbike', 'horse', 'car',
+   * 'sportscar'), or null. The code-built body sits the same on everything; a VRoid avatar poses for each
+   * (chars/vrmBody.ts ridePose).
+   */
+  ride: string | null;
   /** While fishing: the line runs from the rod's tip to this world point (the float), or hangs from it (null). */
   castLine(point: Vector3 | null): void;
   /** Current eased heading (radians). */
@@ -292,6 +298,7 @@ export function createPerson(id: CharacterId, look: CharacterLook = castLook(id)
     setNight(amount) {
       setNightTint(amount);
     },
+    ride: null,
     setSeatHeight(t) {
       anim.seat = t / tiles;
     },

@@ -30,13 +30,6 @@ import type { VrmExtra } from '../../../../data/townVrm';
 /** The share of the code body's leg swing a VRM takes (its legs are about three times as long for the same pace). */
 const STRIDE = 0.62;
 
-/**
- * Seat heights (the Animator's design units) from which somebody sits astride. With avatars on the engine makes the
- * vehicles 1.55 times as large (engine3d rideScale): a car's seat is then 0.45 and a sports car's 0.37 (legs forward),
- * a scooter's 0.75, a bike's 0.83, a horse's 1.28 (astride); a bench is 0.24.
- */
-const ASTRIDE_FROM = 0.6;
-
 /** How much taller than the code-built body a VRM stands (its head is small: at the same height it looks tiny). */
 const TALLER = 1.85;
 
@@ -89,8 +82,6 @@ const _euler = new Euler();
 const _c = new Color();
 const _sit = new Quaternion();
 const _gq = new Quaternion();
-const _e = { x: 0, y: 0, z: 0 };
-const X = new Vector3(1, 0, 0);
 const _v = new Vector3();
 
 interface Tinted {
@@ -206,6 +197,8 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
 
   /** The avatar's own step (radians: a step every pi), run on by the ground it covers. */
   let gait = 0;
+  /** The bike's cranks (radians). */
+  let pedal = 0;
   const before = { update: ch.update, headTop: ch.headTop, setNight: ch.setNight, setOutfit: ch.setOutfit, dispose: ch.dispose };
   const update = ch.update.bind(ch);
   ch.update = (dt: number, speed: number) => {
@@ -213,100 +206,108 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     if (pivot) holder.rotation.y = pivot.rotation.y;
     const p = anim.pose;
     const seat = anim.seatBlend;
+    const ride = seat > 0.001 ? ((ch as { ride?: string | null }).ride ?? null) : null;
 
     // seated on this VRM's own legs: the hip joints a little over the seat, the shins straight down to the ground
     const seatY = (anim.seat * anim.tiles) / s + ground;
     const sitHips = seatY + tall * 0.055;
     const sitLegTop = sitHips - (hipsY - legTop);
     const a = Math.acos(MathUtils.clamp((sitLegTop - ankleY - shin) / thigh, -0.85, 1));
-    // a high seat is a saddle (a bike, a scooter, a horse: scene/vehicles3d.ts RIDES): the legs go either side of it
-    const astride = anim.seat > ASTRIDE_FROM ? MathUtils.lerp(0.3, 0.5, MathUtils.clamp((anim.seat - ASTRIDE_FROM) / 0.6, 0, 1)) : 0;
 
     // The walk and the run are the avatar's OWN (owner, 2026-11-26, on the code body's gait copied over: "đi chẳng
-    // tự nhiên gì cả, mày đánh tay để làm gì vậy?", "chạy càng xấu hung"): that gait is made for stubby limbs, quick
-    // little steps and arms held out. Here the arms hang by the body and swing against the legs, the knee folds as
-    // the leg comes through, and the step is as long as these legs make it, so its pace follows the ground covered.
+    // tự nhiên gì cả, mày đánh tay để làm gì vậy?"; then on the first cycle written here, two straight legs swinging
+    // like a pair of compasses: "chạy bộ nhìn vẫn gớm vậy"). `legCycle` is a leg through one stride: it folds at the
+    // knee from toe-off through the swing, straightens to land and gives a little under the weight; running, the
+    // body is in the air when the legs are furthest apart, not at its lowest.
     const walk = anim.move * (1 - seat);
     const run = anim.runShare;
-    const swing = MathUtils.lerp(0.4, 0.7, run);
+    const swing = MathUtils.lerp(0.46, 0.74, run);
     const stepLen = Math.max(0.08, 2 * (thigh + shin) * s * Math.sin(swing));
     gait += (Math.abs(speed) / stepLen) * Math.PI * dt;
     const sn = Math.sin(gait);
-    const cs = Math.cos(gait);
-    const knee = MathUtils.lerp(0.85, 1.75, run);
-    const arm = MathUtils.lerp(0.34, 0.78, run);
-    const elbow = MathUtils.lerp(0.2, 1.4, run);
-    const lean = 0.03 + 0.15 * run;
+    const legL = legCycle(gait, run);
+    const legR = legCycle(gait + Math.PI, run);
+    const armSwing = MathUtils.lerp(0.36, 0.72, run);
+    const elbow = MathUtils.lerp(0.22, 1.45, run);
+    const lean = MathUtils.lerp(0.04, 0.2, run);
+    const twist = MathUtils.lerp(0.07, 0.14, run);
+
+    // On a vehicle (engine3d tells which through `ride`): a bike is pedalled, the feet going round with the ground
+    // covered (owner: "đạp xe đạp thì nhìn như dị tật chân còn không có animation đạp xe?", on legs hung either side
+    // of it); a scooter and a motorbike are ridden knees forward, a horse astride, a car with the legs out in front.
+    let pedalL: Leg | null = null;
+    let pedalR: Leg | null = null;
+    if (ride === 'bike') {
+      pedal += (Math.abs(speed) / PEDAL_TILES) * Math.PI * 2 * dt;
+      const reach = thigh + shin;
+      const r = reach * 0.17;
+      // the cranks' axle: as far under the hips as the legs like, but never so low that a pedal goes into the ground
+      const axleY = Math.max(sitLegTop - reach * 0.84, ground + (ankleY - ground) + r + tall * 0.03);
+      const axleZ = reach * 0.16;
+      pedalL = legTo(axleY + r * Math.sin(pedal) - sitLegTop, axleZ + r * Math.cos(pedal), thigh, shin);
+      pedalR = legTo(axleY + r * Math.sin(pedal + Math.PI) - sitLegTop, axleZ + r * Math.cos(pedal + Math.PI), thigh, shin);
+    }
+
     for (const b of bones) {
       if (!b.node) continue;
       const i = b.j * 3;
-      _e.x = p[i];
-      _e.y = p[i + 1];
-      _e.z = p[i + 2];
-      // (the pose is Euler XYZ, as the code body applies it)
-      // legs: a shorter swing (STRIDE): at the code body's angles these long legs would step far further than the
-      // ground covered
-      const leg = b.j >= J.thL && b.j <= J.anR && b.j !== J.anL && b.j !== J.anR ? STRIDE : 1;
-      _q.setFromEuler(_euler.set(_e.x * leg, _e.y, _e.z, 'XYZ'));
+      // (the pose is Euler XYZ, as the code body applies it; the code body's own leg swing is for its stubby legs)
+      const own = b.j >= J.thL && b.j <= J.knR && b.j !== J.anL ? STRIDE : 1;
+      _q.setFromEuler(_euler.set(p[i] * own, p[i + 1], p[i + 2], 'XYZ'));
+      const left = b.j === J.thL || b.j === J.knL || b.j === J.anL || b.j === J.shL || b.j === J.elL;
+      const side = left ? 1 : -1;
       if (walk > 0.001) {
         // (in the code body's frame: arms and legs hang down, +x turns a limb back, -x forward)
+        const leg = left ? legL : legR;
         let gx: number | null = null;
         let gy = 0;
         let gz = 0;
         switch (b.j) {
           case J.thL:
-            gx = -swing * sn;
-            break;
           case J.thR:
-            gx = swing * sn;
+            gx = leg.thigh;
             break;
           case J.knL:
-            gx = 0.06 + knee * Math.pow(Math.max(0, cs), 1.3);
-            break;
           case J.knR:
-            gx = 0.06 + knee * Math.pow(Math.max(0, -cs), 1.3);
+            gx = leg.knee;
             break;
           case J.anL:
           case J.anR:
-            gx = 0;
+            gx = leg.ankle;
             break;
           case J.shL:
-            gx = arm * sn;
-            gz = 0.07;
-            break;
           case J.shR:
-            gx = -arm * sn;
-            gz = -0.07;
+            // an arm goes back as its own leg comes forward; running it is carried a little ahead
+            gx = armSwing * sn * side - 0.12 * run;
+            gz = side * MathUtils.lerp(0.06, 0.15, run);
             break;
           case J.elL:
-            gx = -(elbow + 0.14 * Math.max(0, -sn));
-            break;
           case J.elR:
-            gx = -(elbow + 0.14 * Math.max(0, sn));
+            gx = -(elbow + 0.2 * Math.max(0, -sn * side));
             break;
           case J.spine:
             gx = lean;
-            gy = 0.07 * sn;
+            gy = twist * sn;
             break;
           case J.hips:
             gx = 0;
-            gy = -0.05 * sn;
+            gy = -0.5 * twist * sn;
             break;
           default:
             break;
         }
         if (gx !== null) _q.slerp(_gq.setFromEuler(_euler.set(gx, gy, gz, 'XYZ')), walk);
       }
+      if (seat > 0.001) {
+        // (still in the code body's frame)
+        const j = b.j;
+        const pose = ridePose(ride, j, side, left ? pedalL : pedalR, a);
+        if (pose) _q.slerp(_sit.setFromEuler(_euler.set(pose[0], pose[1], pose[2], 'XYZ')), seat);
+      }
       if (b.how === 'armL') _q.multiply(REST_L);
       else if (b.how === 'armR') _q.multiply(REST_R);
       else if (b.how === 'foreL') _q.premultiply(REST_L_INV).multiply(REST_L);
       else if (b.how === 'foreR') _q.premultiply(REST_R_INV).multiply(REST_R);
-      if (seat > 0.001) {
-        const j = b.j;
-        if (j === J.thL || j === J.thR) _q.slerp(_sit.setFromEuler(_euler.set(-a, 0, j === J.thL ? astride : -astride, 'XYZ')), seat);
-        else if (j === J.knL || j === J.knR) _q.slerp(_sit.setFromAxisAngle(X, a), seat);
-        else if (j === J.anL || j === J.anR) _q.slerp(_sit.identity(), seat);
-      }
       setJoint(b.node, _q);
     }
     if (hips) {
@@ -314,8 +315,8 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       const dz = p[C.hipZ] * perDesign;
       // (how far bent legs lower the hips goes with their length and with the square of the swing)
       const stand = hipsRest.y + p[C.hipY] * legRatio * STRIDE * STRIDE;
-      // walking, the hips dip as the legs spread (their own stride, not the code body's bob)
-      const dip = (thigh + shin) * (1 - Math.cos(swing)) * sn * sn * 0.9;
+      // walking, the hips dip as the legs spread; running, the body is up in the air then and down on the foot between
+      const dip = MathUtils.lerp((thigh + shin) * (1 - Math.cos(swing)) * sn * sn * 0.7, tall * (0.03 - 0.045 * sn * sn), run);
       const up = MathUtils.lerp(stand, hipsRest.y - dip, walk);
       const y = MathUtils.lerp(up, hipsRest.y + (sitHips - hipsY), seat);
       hips.position.set(hipsRest.x + (old ? -dx : dx), y, hipsRest.z + (old ? -dz : dz));
@@ -586,4 +587,112 @@ function wear(frame: Group, extra: VrmExtra, mid: Vector3, gap: number, crown: n
     add(new SphereGeometry(r * 0.1, 8, 6), '#e2b743', 0, base + r * 0.32, r * 0.9);
   }
   return out;
+}
+
+/** A leg's turn at the hip, the knee and the ankle (radians about x in the code body's frame: - forward, + back). */
+interface Leg {
+  thigh: number;
+  knee: number;
+  ankle: number;
+}
+
+/**
+ * A leg at `phi` of a stride (the left leg at the gait's own phase, the right half a turn on), walking (run 0) to
+ * running (run 1). From -pi/2 to pi/2 the leg swings forward: it leaves the ground bent, folds further as it comes
+ * through and opens out to land; from pi/2 to 3pi/2 it is on the ground going back, giving a little under the weight.
+ */
+function legCycle(phi: number, run: number): Leg {
+  const TWO = Math.PI * 2;
+  const u = ((((phi + Math.PI / 2) % TWO) + TWO) % TWO) / Math.PI;
+  const mix = (a: number, b: number): number => a + (b - a) * run;
+  const amp = mix(0.46, 0.74);
+  // (the knee is lifted further forward than the leg is left behind)
+  const thigh = -amp * Math.sin(phi) - mix(0.04, 0.16);
+  const off = mix(0.42, 0.95);
+  const land = mix(0.04, 0.26);
+  let knee: number;
+  let ankle: number;
+  if (u < 1) {
+    knee = off + (land - off) * u + mix(0.7, 1.05) * Math.pow(Math.sin(Math.PI * u), 1.2);
+    // the toes point down as the foot leaves, the foot comes level (walking: heel first) to land
+    ankle = (0.45 + (-0.16 - 0.45) * Math.min(1, u * 1.5)) * mix(0.7, 1);
+  } else {
+    const v = u - 1;
+    knee = land + (off - land) * v * v + mix(0.1, 0.3) * Math.sin(Math.PI * v);
+    ankle = (-0.16 + (0.45 + 0.16) * v * v * v) * mix(0.7, 1);
+  }
+  return { thigh, knee, ankle };
+}
+
+/**
+ * The leg that puts its ankle `dy` below and `dz` in front of its hip joint (thigh and shin lengths `t`, `s`): the
+ * knee forward, the foot kept level. For a pedal.
+ */
+function legTo(dy: number, dz: number, t: number, s: number): Leg {
+  const d = MathUtils.clamp(Math.hypot(dy, dz), Math.abs(t - s) + 0.01, t + s - 0.004);
+  const knee = Math.PI - Math.acos(MathUtils.clamp((t * t + s * s - d * d) / (2 * t * s), -1, 1));
+  const lift = Math.atan2(dz, -dy) + Math.acos(MathUtils.clamp((t * t + d * d - s * s) / (2 * t * d), -1, 1));
+  return { thigh: -lift, knee, ankle: lift - knee };
+}
+
+/** One turn of a bike's cranks for this many tiles of ground. */
+const PEDAL_TILES = 2.3;
+
+/**
+ * Somebody seated: the turn of joint `j` (Euler XYZ in the code body's frame), or null to leave what the code body's
+ * own sit pose gives. `side` is 1 on the left, -1 on the right; `a` the angle that puts the feet flat on the ground
+ * from an ordinary seat.
+ */
+function ridePose(ride: string | null, j: number, side: number, pedal: Leg | null, a: number): [number, number, number] | null {
+  const thigh = j === J.thL || j === J.thR;
+  const knee = j === J.knL || j === J.knR;
+  const ankle = j === J.anL || j === J.anR;
+  const upper = j === J.shL || j === J.shR;
+  const fore = j === J.elL || j === J.elR;
+  switch (ride) {
+    case 'bike':
+      if (thigh && pedal) return [pedal.thigh, 0, side * 0.05];
+      if (knee && pedal) return [pedal.knee, 0, 0];
+      if (ankle && pedal) return [pedal.ankle, 0, 0];
+      // leaning onto the handlebars
+      if (upper) return [-1.0, 0, side * 0.1];
+      if (fore) return [-0.3, 0, 0];
+      if (j === J.spine) return [0.3, 0, 0];
+      if (j === J.head) return [-0.22, 0, 0];
+      return null;
+    case 'scooter':
+    case 'motorbike':
+      // knees forward, the feet on the boards
+      if (thigh) return [-1.2, 0, side * 0.16];
+      if (knee) return [1.25, 0, 0];
+      if (ankle) return [-0.05, 0, 0];
+      if (upper) return [-0.95, 0, side * 0.14];
+      if (fore) return [-0.35, 0, 0];
+      if (j === J.spine) return [ride === 'motorbike' ? 0.26 : 0.1, 0, 0];
+      if (j === J.head) return [ride === 'motorbike' ? -0.2 : -0.06, 0, 0];
+      return null;
+    case 'horse':
+      // astride, the legs round its sides, the hands low on the reins
+      if (thigh) return [-0.62, 0, side * 0.52];
+      if (knee) return [0.8, 0, 0];
+      if (ankle) return [-0.15, 0, 0];
+      if (upper) return [-0.5, 0, side * 0.06];
+      if (fore) return [-0.75, 0, 0];
+      return null;
+    case 'car':
+    case 'sportscar':
+      // down in the seat, the legs out in front, the hands on the wheel
+      if (thigh) return [-1.42, 0, side * 0.06];
+      if (knee) return [0.75, 0, 0];
+      if (ankle) return [-0.2, 0, 0];
+      if (upper) return [-0.85, 0, side * 0.05];
+      if (fore) return [-0.5, 0, 0];
+      return null;
+    default:
+      // a bench, a chair, a stool
+      if (thigh) return [-a, 0, 0];
+      if (knee) return [a, 0, 0];
+      if (ankle) return [0, 0, 0];
+      return null;
+  }
 }
