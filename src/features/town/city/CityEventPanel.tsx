@@ -51,5 +51,5 @@ export default function CityEventPanel({ event, sound, onReward, onSpeaking, onC
       </div>
     );
   }
-  return <SceneFlow scene={{ title: scene.title, lines: scene.lines, questions: scene.detail ? [scene.gist, scene.detail] : [scene.gist] }} intro={scene.scene} nameOf={speakerName} face={face} say={say} onDone={done} onSpeaking={onSpeaking} onClose={onClose} sound={sound} />;
+  return <SceneFlow scene={{ title: scene.title, lines: scene.lines, questions: scene.detail ? [scene.gist, scene.detail] : [scene.gist] }} intro={scene.scene} nameOf={speakerName} face={face} host={event.host} say={say} onDone={done} onSpeaking={onSpeaking} onClose={onClose} sound={sound} />;
 }

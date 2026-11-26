@@ -2565,7 +2565,24 @@ export class TownEngine3D {
       // staged at a place's front: a little of the building behind them too (where they are reads at a glance)
       const bd = this.staged?.phase === 'outside' ? this.staged.spots?.backdrop : null;
       if (bd) pts.push({ x: bd.x, y: bd.h, z: bd.y });
-      const c = { x: (p.x + r.x) / 2, y: 0.5 + (pts[0].y + pts[1].y) / 2, z: (p.y + r.y) / 2 };
+      // those who joined the talk (joinTalk: a city scene with three) in the picture too, all whole (owner,
+      // 2026-11-26: a third voice talked from somewhere off the screen)
+      let cx = (p.x + r.x) / 2;
+      let cz = (p.y + r.y) / 2;
+      const joined = this.sim.asideNow().flatMap((id) => {
+        const q = this.sim.residents.get(id);
+        return q && q !== r && !q.hidden && Math.hypot(q.x - p.x, q.y - p.y) < ASIDE_FRAME ? [q] : [];
+      });
+      for (const q of joined) {
+        const head = this.headOf(q.place.id, q);
+        pts.push({ x: q.x, y: lift(q.x, q.y), z: q.y }, { ...head, y: head.y + 0.45 });
+      }
+      if (joined.length > 0) {
+        const all = [p, r, ...joined];
+        cx = all.reduce((s, b) => s + b.x, 0) / all.length;
+        cz = all.reduce((s, b) => s + b.y, 0) / all.length;
+      }
+      const c = { x: cx, y: 0.5 + (pts[0].y + pts[1].y) / 2, z: cz };
       const fit = fitDistance(pts, c, this.yaw, TALK_PITCH, aspect, 0.8 * this.freeShareH());
       return { mode: 'talk', at: c, dist: Math.max(rest * 0.5, Math.min(rest * TALK_MAX, fit)), pitch: TALK_PITCH };
     }

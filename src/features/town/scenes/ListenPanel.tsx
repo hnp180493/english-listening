@@ -156,6 +156,7 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
       intro={intro}
       nameOf={speakerName}
       face={speakerFace}
+      host={host}
       say={sayLine}
       onDone={done}
       onSpeaking={onSpeaking}

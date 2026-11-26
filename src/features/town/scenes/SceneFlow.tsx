@@ -55,6 +55,8 @@ export interface SceneFlowProps {
   onClose: () => void;
   /** The stage's sound-effects setting. */
   sound: boolean;
+  /** The one the learner came to (their place, the event's host): the big face until somebody else speaks. */
+  host?: string | null;
   /** A button before "Xong" on the last step (go on somewhere). */
   doneExtra?: ReactNode;
   /** A second button beside "Nghe" before the first listen (skip the scene). */
@@ -153,7 +155,7 @@ function SaidLine({ line, name, say }: { line: SceneLine; name: string; say: (li
   );
 }
 
-export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onSpeaking, onClose, sound, doneExtra, readyExtra, closeLabel }: SceneFlowProps) {
+export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onSpeaking, onClose, sound, host, doneExtra, readyExtra, closeLabel }: SceneFlowProps) {
   const [step, setStep] = useState<'ready' | 'playing' | 'asking' | 'done'>('ready');
   const [speaking, setSpeaking] = useState<number | null>(null);
   const [lastWho, setLastWho] = useState<string | null>(null);
@@ -246,8 +248,9 @@ export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onS
 
   const who = [...new Set(scene.lines.map((l) => l.who))];
   const live = speaking !== null ? (scene.lines[speaking]?.who ?? null) : null;
-  // the big one: whoever speaks now, else whoever spoke last, else the first
-  const main = live ?? lastWho ?? who[0] ?? '';
+  // the big one: whoever speaks now, else whoever spoke last, else the one the learner came to, else the first
+  // (owner, 2026-11-26: talked to Jun, Gus was the big face)
+  const main = live ?? lastWho ?? (host && who.includes(host) ? host : (who[0] ?? ''));
   // their face follows the answer: right, a smile; wrong, a little sad
   const mood: PortraitMood = step === 'asking' && answered ? (picked[asking] === questions[asking].answer ? 'happy' : 'sad') : 'neutral';
   const faces = <Speakers who={who} main={main} live={live} mood={mood} nameOf={nameOf} picture={face} big={big} />;

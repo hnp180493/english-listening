@@ -97,7 +97,7 @@ export default function CityScenePanel({ scene, again, sound, onReward, onSpeaki
   return (
     <>
       {kicker ? <p className="city-ep-kicker">{kicker}</p> : person && scene.kind === 'episode' && !again && <p className="city-ep-kicker">{tl`Chuyện của ${person.name} · phần ${scene.n}`}</p>}
-      <SceneFlow scene={scene} intro={outing ? scene.scene : intro} nameOf={nameOf} face={faceOf} say={say} onDone={done} onSpeaking={speakingAs} onClose={onClose} sound={sound} />
+      <SceneFlow scene={scene} intro={outing ? scene.scene : intro} nameOf={nameOf} face={faceOf} host={scene.at} say={say} onDone={done} onSpeaking={speakingAs} onClose={onClose} sound={sound} />
     </>
   );
 }
