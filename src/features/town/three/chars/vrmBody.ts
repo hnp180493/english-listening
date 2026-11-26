@@ -30,13 +30,20 @@ import type { VrmExtra } from '../../../../data/townVrm';
 /** The share of the code body's leg swing a VRM takes (its legs are about three times as long for the same pace). */
 const STRIDE = 0.62;
 
+/**
+ * Seat heights (the Animator's design units) from which somebody sits astride. With avatars on the engine makes the
+ * vehicles 1.55 times as large (engine3d rideScale): a car's seat is then 0.45 and a sports car's 0.37 (legs forward),
+ * a scooter's 0.75, a bike's 0.83, a horse's 1.28 (astride); a bench is 0.24.
+ */
+const ASTRIDE_FROM = 0.6;
+
 /** How much taller than the code-built body a VRM stands (its head is small: at the same height it looks tiny). */
-const TALLER = 1.4;
+const TALLER = 1.85;
 
 const Z = new Vector3(0, 0, 1);
 /** T pose → arms down (a little out from the body, so the hands clear the hips). */
-const REST_L = new Quaternion().setFromAxisAngle(Z, -(Math.PI / 2 - 0.14));
-const REST_R = new Quaternion().setFromAxisAngle(Z, Math.PI / 2 - 0.14);
+const REST_L = new Quaternion().setFromAxisAngle(Z, -(Math.PI / 2 - 0.02));
+const REST_R = new Quaternion().setFromAxisAngle(Z, Math.PI / 2 - 0.02);
 const REST_L_INV = REST_L.clone().invert();
 const REST_R_INV = REST_R.clone().invert();
 
@@ -75,12 +82,13 @@ const MOUTH: Readonly<Record<MouthState, { aa: number; oh: number; relaxed: numb
 };
 
 /** The night's colour on a VRM (its toon materials take little from the scene's dimmed lights). */
-const NIGHT = new Color('#a9b0d8');
+const NIGHT = new Color('#bcc2e4');
 
 const _q = new Quaternion();
 const _euler = new Euler();
 const _c = new Color();
 const _sit = new Quaternion();
+const _gq = new Quaternion();
 const _e = { x: 0, y: 0, z: 0 };
 const X = new Vector3(1, 0, 0);
 const _v = new Vector3();
@@ -196,6 +204,8 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     else node.quaternion.copy(q);
   };
 
+  /** The avatar's own step (radians: a step every pi), run on by the ground it covers. */
+  let gait = 0;
   const before = { update: ch.update, headTop: ch.headTop, setNight: ch.setNight, setOutfit: ch.setOutfit, dispose: ch.dispose };
   const update = ch.update.bind(ch);
   ch.update = (dt: number, speed: number) => {
@@ -209,7 +219,24 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     const sitHips = seatY + tall * 0.055;
     const sitLegTop = sitHips - (hipsY - legTop);
     const a = Math.acos(MathUtils.clamp((sitLegTop - ankleY - shin) / thigh, -0.85, 1));
+    // a high seat is a saddle (a bike, a scooter, a horse: scene/vehicles3d.ts RIDES): the legs go either side of it
+    const astride = anim.seat > ASTRIDE_FROM ? MathUtils.lerp(0.3, 0.5, MathUtils.clamp((anim.seat - ASTRIDE_FROM) / 0.6, 0, 1)) : 0;
 
+    // The walk and the run are the avatar's OWN (owner, 2026-11-26, on the code body's gait copied over: "đi chẳng
+    // tự nhiên gì cả, mày đánh tay để làm gì vậy?", "chạy càng xấu hung"): that gait is made for stubby limbs, quick
+    // little steps and arms held out. Here the arms hang by the body and swing against the legs, the knee folds as
+    // the leg comes through, and the step is as long as these legs make it, so its pace follows the ground covered.
+    const walk = anim.move * (1 - seat);
+    const run = anim.runShare;
+    const swing = MathUtils.lerp(0.4, 0.7, run);
+    const stepLen = Math.max(0.08, 2 * (thigh + shin) * s * Math.sin(swing));
+    gait += (Math.abs(speed) / stepLen) * Math.PI * dt;
+    const sn = Math.sin(gait);
+    const cs = Math.cos(gait);
+    const knee = MathUtils.lerp(0.85, 1.75, run);
+    const arm = MathUtils.lerp(0.34, 0.78, run);
+    const elbow = MathUtils.lerp(0.2, 1.4, run);
+    const lean = 0.03 + 0.15 * run;
     for (const b of bones) {
       if (!b.node) continue;
       const i = b.j * 3;
@@ -221,13 +248,62 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       // ground covered
       const leg = b.j >= J.thL && b.j <= J.anR && b.j !== J.anL && b.j !== J.anR ? STRIDE : 1;
       _q.setFromEuler(_euler.set(_e.x * leg, _e.y, _e.z, 'XYZ'));
+      if (walk > 0.001) {
+        // (in the code body's frame: arms and legs hang down, +x turns a limb back, -x forward)
+        let gx: number | null = null;
+        let gy = 0;
+        let gz = 0;
+        switch (b.j) {
+          case J.thL:
+            gx = -swing * sn;
+            break;
+          case J.thR:
+            gx = swing * sn;
+            break;
+          case J.knL:
+            gx = 0.06 + knee * Math.pow(Math.max(0, cs), 1.3);
+            break;
+          case J.knR:
+            gx = 0.06 + knee * Math.pow(Math.max(0, -cs), 1.3);
+            break;
+          case J.anL:
+          case J.anR:
+            gx = 0;
+            break;
+          case J.shL:
+            gx = arm * sn;
+            gz = 0.07;
+            break;
+          case J.shR:
+            gx = -arm * sn;
+            gz = -0.07;
+            break;
+          case J.elL:
+            gx = -(elbow + 0.14 * Math.max(0, -sn));
+            break;
+          case J.elR:
+            gx = -(elbow + 0.14 * Math.max(0, sn));
+            break;
+          case J.spine:
+            gx = lean;
+            gy = 0.07 * sn;
+            break;
+          case J.hips:
+            gx = 0;
+            gy = -0.05 * sn;
+            break;
+          default:
+            break;
+        }
+        if (gx !== null) _q.slerp(_gq.setFromEuler(_euler.set(gx, gy, gz, 'XYZ')), walk);
+      }
       if (b.how === 'armL') _q.multiply(REST_L);
       else if (b.how === 'armR') _q.multiply(REST_R);
       else if (b.how === 'foreL') _q.premultiply(REST_L_INV).multiply(REST_L);
       else if (b.how === 'foreR') _q.premultiply(REST_R_INV).multiply(REST_R);
       if (seat > 0.001) {
         const j = b.j;
-        if (j === J.thL || j === J.thR) _q.slerp(_sit.setFromAxisAngle(X, -a), seat);
+        if (j === J.thL || j === J.thR) _q.slerp(_sit.setFromEuler(_euler.set(-a, 0, j === J.thL ? astride : -astride, 'XYZ')), seat);
         else if (j === J.knL || j === J.knR) _q.slerp(_sit.setFromAxisAngle(X, a), seat);
         else if (j === J.anL || j === J.anR) _q.slerp(_sit.identity(), seat);
       }
@@ -238,7 +314,10 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       const dz = p[C.hipZ] * perDesign;
       // (how far bent legs lower the hips goes with their length and with the square of the swing)
       const stand = hipsRest.y + p[C.hipY] * legRatio * STRIDE * STRIDE;
-      const y = MathUtils.lerp(stand, hipsRest.y + (sitHips - hipsY), seat);
+      // walking, the hips dip as the legs spread (their own stride, not the code body's bob)
+      const dip = (thigh + shin) * (1 - Math.cos(swing)) * sn * sn * 0.9;
+      const up = MathUtils.lerp(stand, hipsRest.y - dip, walk);
+      const y = MathUtils.lerp(up, hipsRest.y + (sitHips - hipsY), seat);
       hips.position.set(hipsRest.x + (old ? -dx : dx), y, hipsRest.z + (old ? -dz : dz));
     }
 

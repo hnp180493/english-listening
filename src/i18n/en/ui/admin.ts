@@ -65,6 +65,9 @@ const admin: Record<string, string> = {
   'Bản thử, chưa có gì vào game. Mỗi hàng một người: bây giờ, Quaternius Modular (2022, CC0), VRoid (anime, mẫu của pixiv).': 'A trial, nothing of it is in the game. One person a row: now, Quaternius Modular (2022, CC0), VRoid (anime, pixiv\'s sample).',
   'Thân VRoid với động tác của game (nhìn chéo và nhìn ngang)': 'The VRoid body in the game\'s own actions (seen at an angle and from the side)',
   'Bây giờ': 'Now',
+  'Đi (pha sau nữa)': 'Walking (later still)',
+  'Chạy (pha sau)': 'Running (later in the step)',
+  'Chạy (pha sau nữa)': 'Running (later still)',
 };
 
 export default admin;

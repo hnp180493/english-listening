@@ -2805,23 +2805,34 @@ in code again.
   head keeps its size: a larger one throws the hair's spring bones about). The wardrobe's outfit colour repaints
   the top (`setOutfit`); hats do not show.
 - **The engine**: `chars/vrmPeople.ts`: `dressWhenNear` is asked each frame for everybody (residents, passers-by,
-  children): an avatar is fetched only for somebody within 15 tiles of the middle of the view, one file at a time,
-  and at most `MAX` 14 are worn at once: when a nearer one wants theirs the farthest takes theirs off
+  children): an avatar is fetched only for somebody within 18 tiles of the middle of the view,
+  and at most `MAX` 22 are worn at once (three files read at a time): when a nearer one wants theirs the farthest takes theirs off
   (`Worn.undress`, the code body shows again). `dressInVrm` (kept on whatever the count) for the learner and for the
   people of a room (`roomStage.ts`). `chars/vrmBody.ts` (`wearVrm`) is lazy, with `@pixiv/three-vrm` and three's
   glTF loader in the chunk `vrm`, about 220 kB. A file that fails to load leaves the code body (so does the portable
   build opened from disk, which cannot fetch).
+- **Nobody is seen changing bodies** (owner: "mới vào sao vẫn còn model cũ vầy đợi 1 lúc nó mới thành model kia, mày
+  làm UX tệ quá"): somebody whose avatar is on its way is not drawn until it is there (`vrmPeople.ts start` hides the
+  code body; a failed file brings it back), and the engine keeps the town's loading card up after the first frame
+  until `avatarsSettled()` or `AVATAR_WAIT_MS` 9 s.
 - **No animation files.** The hidden code body keeps its Animator; its pose is copied onto the VRM's humanoid bones
-  each frame, so walk, run, sit, talk, wave, yes / no, cheer and the head's look carry over, with the face as
-  expressions (blink, happy, the mouth while talking). Bridged: the arms (the code body rests arms down, a VRM in a
-  T), the legs (a VRM's are about three times as long: the swing is cut to `STRIDE` 0.62 and sitting is posed for
-  its own legs), VRM 0.x looking down −z.
+  each frame, so sit, talk, wave, yes / no, cheer and the head's look carry over, with the face as expressions
+  (blink, happy, the mouth while talking). Bridged: the arms (the code body rests arms down, a VRM in a T), sitting
+  (posed for the avatar's own long legs), VRM 0.x looking down −z.
+- **The walk and the run are the avatar's own** (owner, on the copied gait: "đi chẳng tự nhiên gì cả, mày đánh tay
+  để làm gì vậy?", "chạy càng xấu hung": the code body's gait is quick little steps with the arms held out).
+  `vrmBody.ts` blends in, by `Animator.move`, a cycle of its own: thighs swing ±0.4 rad (0.7 running), the knee
+  folds as the leg comes through, the arms hang by the body and swing against the legs (elbows bent running), a
+  small lean and twist of the trunk, the hips dipping as the legs spread; the step is as long as these legs make
+  it, so its pace follows the ground covered (no sliding by construction).
+- **Size**: an avatar stands `TALLER` 1.85 × the code body (1.4 at first: "người quái có chút xíu vầy"; a slim
+  figure at the code body's height reads tiny beside the houses). Benches come to its knees.
 - **Cost**: `slim()` drops the outline pass and merges skinned meshes that share a material (a sample's 90–130
   draw calls become about 23). On the software renderer: the plaza with 10 avatars worn of 21 people, 249 draw calls
   and 0.77 M triangles; Westbay's terminal with 7 worn of 50, 254 and 1.31 M (the town alone: about 100 and 0.5 M).
 - Night: a VRM's colours are multiplied towards `NIGHT` with the scene's night amount (a light blue-grey: the first
   value turned dark clothes into a silhouette on the owner's screen). The name tag sits over its
-  head (`headTop`). It stands `TALLER` 1.4 × the code body.
+  head (`headTop`).
 - **The way back**: `townUi.people` `'anime' | 'classic'` (device-local, default anime), Cài đặt → Hiển thị → "Nhân
   vật trong thị trấn". It applies when the town is opened.
 - The service worker keeps avatars cache-first in their own cache (`nghe-noi-am-vrm`); `VRM_VERSION` in the address
@@ -2835,7 +2846,41 @@ avatar. Portraits and thumbnails are untouched, and so are pets. Past the neares
 round code-built figures (a crowd in Westbay is mixed). A tall slim figure among round trees and low benches
 is a clash of styles nobody has judged in motion. Seen only as pictures from `scripts/town-shot.mjs` (the software
 renderer): the sheet of all 13, eleven of them on the plaza by day, one at night, the action sheet; a seated avatar
-on a real bench and a room were not looked at. The feet slide a little by design of `STRIDE`. Nobody has watched it
+on a real bench and a room were not looked at. Nobody has watched it
 move, measured it on a real GPU or opened it on a phone (13 avatars are 30 MB to fetch and about 0.5 M triangles
 more: "Kiểu cũ" is the way out, nothing switches by itself). Residents made in VRoid Studio would replace a file
 one by one (`public/vrm/<id>.vrm`, bump `VRM_VERSION`).
+
+## 24. The clock and the weather, after GTA (2026-11-26)
+
+The owner: "hiện tại ngày đêm đang như thế nào? có mưa không? tham khảo thời gian rồi thời tiết này nọ của gta rồi mô
+phỏng theo đi". Until then day or night in the town was the app's light or dark theme, and the weather a word in
+"Việc hôm nay" that the radio read (`core/town/world.ts weatherOf`): nothing was drawn.
+
+- **The clock** (`core/town/sky.ts`, pure, tested): as in GTA V a day of the game is 48 real minutes (an hour is two).
+  It is a function of the real time alone: every machine reads the same hour, a reload changes nothing, nothing is
+  stored. `nightOf(hour)` eases through dawn (05:00–07:00) and dusk (17:30–20:00); `glowOf` is the gold of both.
+- **The weather**: four skies, clear, cloudy, rain, storm, in stretches of six game hours (12 real minutes), the last
+  hour of one easing into the next (`skyAt` gives a mix: cloud, rain, storm, wind). The day's own weather leans the
+  odds (a "rain" day is wet two stretches in three, a clear one about one in eight), so the radio and the sky mostly
+  agree. `lightningAt` / `strikeIn` give the flashes of a storm from the same clock.
+- **Drawn** (`scene/engine3d.ts`, asked twice a second through `core/town/skyNow.ts`): the engine's `night` follows
+  the hour (lamps, lit windows, fireflies as before); `world3d.setWeather` dims and greys the sun under cloud, cools
+  the light from all round, and turns the sun gold at dawn and dusk; a grey day is exposed a little darker; rain is
+  `scene/rain.ts` (2,600 streaks falling in the vertex shader in a box round the view: one draw call, no work a
+  frame, slanted by the wind); a flash of lightning brightens the whole picture for a moment; leaves and cloth sway
+  harder in the wind.
+- **Heard** (`sfx.ts setRainSound`, `playThunder`, driven by `SkyChip.tsx`): the rain's hiss as loud as it rains, a
+  roll of thunder after a flash. Never over a spoken line (this is a listening app), never when effects are off.
+- **The HUD**: one pill, an icon of the sky and the hour in fives (`SkyChip.tsx`, in the town and in Westbay; hidden
+  under 560 px). `useTownTheme` (the map's and the overlay's day or night) follows the clock too.
+- Dev: `window.__town3d.debugSky(18.5, 'storm')` holds an hour and a sky for a picture; no arguments gives the clock
+  back.
+
+**Not done, not known.** The sun does not move: shadows fall the same way all day (their snapping, §7, is built on a
+fixed direction). No fog, no wet ground or puddles, no clouds drawn, nobody opens an umbrella or goes indoors, the
+birds fly in the rain. The app's dark theme no longer makes the town dark (a learner in the dark theme sees a bright
+town at the game's noon). Residents still live by the REAL clock (their week, their opening hours), not the game's.
+Seen in six pictures from `scripts/town-shot.mjs` (dawn, noon, dusk, night, rain at 13:00, a storm at 20:30) and the
+HUD pill; nobody has heard the rain or the thunder (the headless browser is mute), watched a sky ease into another,
+or seen a flash. The loudness and the odds are guesses.

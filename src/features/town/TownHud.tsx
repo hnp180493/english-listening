@@ -7,6 +7,7 @@ import type { TownOverview } from '../../core/town/overview';
 import { ACTIVITIES, type ActivityId } from './activities/types';
 import './scenes/today.css';
 import { Coin } from './art';
+import SkyChip from './SkyChip';
 
 /** The icon of each activity in the "Chơi" menu. */
 const ACTIVITY_ICONS: Readonly<Record<ActivityId, typeof Fish>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee, case: Search, delivery: Package, listen: Ear, season: BookOpen, garage: CarFront };
@@ -100,6 +101,7 @@ export default function TownHud({ overview, sound, onSound, onBuild, buildOpen, 
 
       <div className="town-hud-end">
         <div className="town-hud-counts">
+          <SkyChip sound={sound} />
           {streak >= 2 && (
             <span className="town-pill" title="Số ngày liên tiếp bạn ghé thị trấn">
               <Icon icon={Flame} size={16} />

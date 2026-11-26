@@ -1,24 +1,22 @@
 // What the town page and the city page share round their stage: the day / night theme, the phone checks and "Toàn
 // màn hình" (moved out of TownPage.tsx when the city came, 2026-11-25).
 
+import { skyNow } from '../../core/town/skyNow';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useSettings } from '../../core/settings';
-import { resolveTheme, systemPrefersDark } from '../../core/theme';
 import type { SafeInsets, TownTheme } from './engine/stage';
 import { inertOutside } from './inertOutside';
 
-/** The town follows the app's theme: night in the dark theme, day in the light one. */
+/**
+ * Day or night in the town, for what is drawn in 2D (the map, the overlay's colours): the GAME's clock
+ * (core/town/sky.ts, a day in 48 real minutes), not the app's light or dark theme as it was until 2026-11-26.
+ */
 export function useTownTheme(): TownTheme {
-  const pref = useSettings().theme;
-  const [dark, setDark] = useState(systemPrefersDark);
+  const [night, setNight] = useState(() => skyNow().night > 0.5);
   useEffect(() => {
-    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
-    if (!mq) return;
-    const onChange = () => setDark(mq.matches);
-    mq.addEventListener?.('change', onChange);
-    return () => mq.removeEventListener?.('change', onChange);
+    const id = window.setInterval(() => setNight(skyNow().night > 0.5), 2000);
+    return () => window.clearInterval(id);
   }, []);
-  return resolveTheme(pref, dark) === 'dark' ? 'night' : 'day';
+  return night ? 'night' : 'day';
 }
 
 /** A sheet that covers the whole width (a phone): buying closes it so the new thing can be seen. */

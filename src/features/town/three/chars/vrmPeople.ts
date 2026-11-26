@@ -1,9 +1,12 @@
 // The light half of the VRoid people (./vrmBody.ts is the heavy one, loaded only when needed): who is shown as an
-// avatar right now, and the lazy hand-over. Everybody has an avatar (data/townVrm.ts `vrmFor`), but a town or a city
-// full of them is far too much to draw, so at most MAX wear theirs at once: the nearest to the middle of the view
+// avatar right now, and the lazy hand-over. Everybody has an avatar (data/townVrm.ts `vrmFor`), but a city full of
+// them is too much to draw, so at most MAX wear theirs at once: the nearest to the middle of the view
 // (`dressWhenNear`, asked every frame by the engine for everybody), the far ones go back to the body built in code.
-// Avatars come one after another (a file is a couple of MB and takes a moment to read). A file that does not load
-// leaves the code-built body as it is.
+//
+// Nobody is seen in the code-built body first and then changed (owner, 2026-11-26: "mới vào sao vẫn còn model cũ vầy
+// đợi 1 lúc nó mới thành model kia, mày làm UX tệ quá"): somebody whose avatar is on its way is not drawn until it
+// is there, and the engine keeps the town's loading card up until the first ones are in (`avatarsSettled`). A few
+// files are read at a time. A file that does not load brings the code-built body back.
 
 import { vrmFor } from '../../../../data/townVrm';
 import { getTownUi } from '../../townUi';
@@ -11,10 +14,12 @@ import type { Character3D } from '../contracts';
 import type { Character3DPlus } from './person';
 import type { Worn } from './vrmBody';
 
-/** Tiles from the middle of the view within which somebody gets their avatar. */
-const NEAR = 15;
+/** Tiles from the middle of the view within which somebody gets their avatar (past what the usual view shows). */
+const NEAR = 18;
 /** How many avatars are worn at once (about 25,000 triangles and 23 draw calls each, twice with their shadows). */
-const MAX = 14;
+const MAX = 22;
+/** How many files are read at once. */
+const AT_ONCE = 3;
 
 interface Entry {
   worn: Worn | null;
@@ -27,7 +32,22 @@ interface Entry {
 
 const people = new Map<Character3D, Entry>();
 const failed = new WeakSet<Character3D>();
-let queue: Promise<void> = Promise.resolve();
+const waiting: (() => Promise<void>)[] = [];
+let running = 0;
+
+function pump(): void {
+  while (running < AT_ONCE && waiting.length > 0) {
+    const job = waiting.shift();
+    if (!job) break;
+    running++;
+    void job().finally(() => {
+      running--;
+      pump();
+    });
+  }
+}
+
+const bodyOf = (ch: Character3D) => ch.root.getObjectByName('pivot');
 
 function start(ch: Character3D, d2: number, keep: boolean): void {
   const plus = ch as Partial<Character3DPlus>;
@@ -35,25 +55,33 @@ function start(ch: Character3D, d2: number, keep: boolean): void {
   const who = vrmFor(ch.id, plus.look, import.meta.env.BASE_URL);
   const e: Entry = { worn: null, d2, keep, gone: false };
   people.set(ch, e);
+  // not drawn until the avatar is there
+  const body = bodyOf(ch);
+  if (body) body.visible = false;
   const dispose = ch.dispose.bind(ch);
   ch.dispose = () => {
     e.gone = true;
     people.delete(ch);
     dispose();
   };
-  queue = queue
-    .then(async () => {
-      if (e.gone) return;
+  const job = async (): Promise<void> => {
+    if (e.gone) return;
+    try {
       const { wearVrm } = await import('./vrmBody');
       e.worn = await wearVrm(ch as Character3DPlus, who.url, who, () => e.gone);
       // (taken off again while its file was coming)
       if (e.gone) e.worn?.undress();
-    })
-    .catch((err: unknown) => {
+    } catch (err) {
       people.delete(ch);
       failed.add(ch);
+      if (body && !e.gone) body.visible = true;
       console.warn('[town] avatar not loaded, the usual body stays:', ch.id, err);
-    });
+    }
+  };
+  // the learner first
+  if (keep) waiting.unshift(job);
+  else waiting.push(job);
+  pump();
 }
 
 /** Dress `ch` in its avatar now and keep it on (the learner, the people of a room). Never throws; never blocks. */
@@ -87,11 +115,19 @@ export function dressWhenNear(ch: Character3D, dx: number, dz: number): void {
     const e = people.get(far);
     if (e) {
       e.gone = true;
-      e.worn?.undress();
+      if (e.worn) e.worn.undress();
+      else {
+        const body = bodyOf(far);
+        if (body) body.visible = true;
+      }
       people.delete(far);
-      // (its own dispose wrapper stays: harmless, it only clears an entry that is not there)
-      e.gone = true;
     }
   }
   start(ch, d2, false);
+}
+
+/** Whether every avatar asked for so far is on (nobody is still waiting for a file): the town may show itself. */
+export function avatarsSettled(): boolean {
+  for (const e of people.values()) if (!e.worn && !e.gone) return false;
+  return true;
 }

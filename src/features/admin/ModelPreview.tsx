@@ -129,9 +129,12 @@ async function draw(path: string, c: HTMLCanvasElement, w: number, h: number, fa
 /** The avatar in the game's own actions (the code body's Animator drives it: chars/vrmBody.ts). */
 const ACTIONS: readonly { name: string; action: CharAction; speed: number; seconds: number }[] = [
   { name: 'Đứng', action: 'idle', speed: 0, seconds: 1.2 },
-  { name: 'Đi', action: 'walk', speed: 1.6, seconds: 1.37 },
-  { name: 'Đi (pha sau)', action: 'walk', speed: 1.6, seconds: 1.52 },
+  { name: 'Đi', action: 'walk', speed: 1.6, seconds: 1.3 },
+  { name: 'Đi (pha sau)', action: 'walk', speed: 1.6, seconds: 1.42 },
+  { name: 'Đi (pha sau nữa)', action: 'walk', speed: 1.6, seconds: 1.54 },
   { name: 'Chạy', action: 'run', speed: 2.8, seconds: 1.3 },
+  { name: 'Chạy (pha sau)', action: 'run', speed: 2.8, seconds: 1.38 },
+  { name: 'Chạy (pha sau nữa)', action: 'run', speed: 2.8, seconds: 1.46 },
   { name: 'Ngồi', action: 'sit', speed: 0, seconds: 1.5 },
   { name: 'Nói', action: 'talk', speed: 0, seconds: 1.1 },
   { name: 'Vẫy tay', action: 'wave', speed: 0, seconds: 0.8 },
@@ -140,7 +143,7 @@ const ACTIONS: readonly { name: string; action: CharAction; speed: number; secon
 
 async function drawAction(c: HTMLCanvasElement, a: (typeof ACTIONS)[number], w: number, h: number, side: boolean): Promise<void> {
   const ch = createPerson('cafe');
-  await wearVrm(ch, BASE + 'vroid/AvatarSample_A.vrm');
+  await wearVrm(ch, import.meta.env.BASE_URL + 'vrm/school.vrm?acts');
   ch.setHeading(Math.PI / 2, true);
   ch.setAction(a.action);
   // (the Animator plants the feet in the world: a walk shows only when the body really moves)
@@ -155,13 +158,13 @@ async function drawAction(c: HTMLCanvasElement, a: (typeof ACTIONS)[number], w: 
   const cam = st.camera;
   cam.aspect = w / h;
   cam.fov = 24;
-  const tall = 1.25;
+  const tall = 1.7;
   const dist = (tall * 0.5) / Math.tan((cam.fov * Math.PI) / 360) / 0.86;
   const yaw = side ? 0.12 : Math.PI / 2 - 0.5;
-  cam.position.set(Math.cos(yaw) * dist, 0.6 + dist * 0.12, Math.sin(yaw) * dist);
+  cam.position.set(Math.cos(yaw) * dist, 0.8 + dist * 0.12, Math.sin(yaw) * dist);
   cam.near = 0.05;
   cam.far = 30;
-  cam.lookAt(0, 0.52, 0);
+  cam.lookAt(0, 0.72, 0);
   cam.updateProjectionMatrix();
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const out = canvasOf(w * dpr, h * dpr);

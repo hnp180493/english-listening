@@ -573,7 +573,8 @@ export class Animator {
     for (const a of ACTIVITIES) {
       let target = a === this.loop ? 1 : 0;
       if (a !== 'talk' && this.move > 0.3) target = 0;
-      this.weights[a] = lerp(this.weights[a], target, approach(ACTIVITY_RATE, dt));
+      // (no time passing: with motion reduced the engine advances nobody, and somebody seated must still be seated)
+      this.weights[a] = lerp(this.weights[a], target, dt > 0 ? approach(ACTIVITY_RATE, dt) : 1);
       if (this.weights[a] < 0.002 && target === 0) this.weights[a] = 0;
       if (this.weights[a] > 0) this.clocks[a] += dt;
     }

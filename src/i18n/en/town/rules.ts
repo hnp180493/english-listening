@@ -158,6 +158,9 @@ const rules: Record<string, string> = {
   'Ông Crane': 'Mr Crane',
   'Bà Ward · Hội đồng': 'Ms Ward · Council',
   'Bà Vane': 'Mrs Vane',
+  'Trời quang': 'Clear',
+  'Nhiều mây': 'Cloudy',
+  'Mưa giông': 'Thunderstorm',
 };
 
 export default rules;

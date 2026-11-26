@@ -46,6 +46,7 @@ import { narrowStage, useFullStage, useStageInsets, useTownTheme } from '../stag
 import TownStage3D from '../three/TownStage3D';
 import { wantsFlat, webglAvailable } from '../three/webgl';
 import { setTownUi, useTownUi } from '../townUi';
+import SkyChip from '../SkyChip';
 import { eventToday } from './cityEvents';
 import QuestTracker from '../QuestTracker';
 import RideButton from '../RideButton';
@@ -545,6 +546,7 @@ export default function CityPage() {
           </div>
           <div className="town-hud-end">
             <div className="town-hud-counts">
+              <SkyChip sound={ui.sound} />
               <span ref={xuRef} className="town-pill town-xu" role="img" aria-label={tl`Bạn có ${balance(progress)} xu`}>
                 <Coin size={18} />
                 <span className="tabular" aria-hidden="true">

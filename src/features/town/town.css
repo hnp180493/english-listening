@@ -1884,3 +1884,19 @@
   color: var(--text-muted);
   font-size: var(--fs-sm);
 }
+
+/* the clock and the sky on the HUD (SkyChip.tsx): on a narrow stage the hour alone goes, the icon stays */
+.town-sky {
+  padding: 0 12px;
+  color: var(--text-muted);
+}
+.town-sky-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 600;
+}
+@media (max-width: 560px) {
+  .town-sky {
+    display: none;
+  }
+}

@@ -21,8 +21,14 @@ import { paletteFor, type TownPalette } from '../../engine/palette';
 import { Particles } from '../../engine/particles';
 import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
 import { createCharacter, createPet, passerLook, type Character3DPlus } from '../characters';
-import { dressInVrm, dressWhenNear } from '../chars/vrmPeople';
+import { avatarsSettled, dressInVrm, dressWhenNear } from '../chars/vrmPeople';
+import { glowOf, lightningAt, nightOf, type Sky, type SkyNow } from '../../../../core/town/sky';
+import { skyNow } from '../../../../core/town/skyNow';
+import { Rain } from './rain';
 import { getTownUi } from '../../townUi';
+
+/** The longest the loading card waits for avatars (ms). */
+const AVATAR_WAIT_MS = 9000;
 import type { CharAction, Character3D, Pet3D } from '../contracts';
 import { cameraPosition, fitDistance, followLead, followStiffness, FOLLOW_W, followPoint, FOV, groundHalfExtent, HOLD_RUN, holdDirection, insetShift, keyDirection, PITCH, restDistance, YAW0, yawAfter, zoomAfter } from './cameraRig';
 import { angleDiff, headingOf, octantHeading, towardViewer, type P3 } from './coords';
@@ -298,6 +304,17 @@ export class TownEngine3D {
   private first = true;
   private ready = false;
   private onReady: (() => void) | null = null;
+  /** The game's hour and weather now (core/town/sky.ts), when it was last asked, and whether the lights need it. */
+  private sky: SkyNow = skyNow();
+  private skyT = 0;
+  private skyDirty = false;
+  /** Dev only (debugSky): an hour and a sky held for a picture. */
+  private skyForce: SkyNow | null = null;
+  private rain: Rain | null = null;
+  private flash = 0;
+  private baseExposure = 1;
+  /** When the first frame was drawn (ms; the town shows itself a little later, once its avatars are on). */
+  private firstFrameAt = 0;
   // camera
   private target: P3 = { x: 0, y: 0, z: 0 };
   private targetV = { x: 0, z: 0 };
@@ -462,6 +479,21 @@ export class TownEngine3D {
     const p = this.sim.player;
     this.target = { x: p.x, y: 0, z: p.y };
     if (import.meta.env.DEV) (window as unknown as { __town3d?: TownEngine3D }).__town3d = this;
+  }
+
+  /**
+   * Dev only (window.__town3d.debugSky(18.5, 'storm') in a headless check): hold an hour of the game and a sky, or
+   * give the clock back with no arguments.
+   */
+  debugSky(hour?: number, sky?: Sky): void {
+    if (hour === undefined) this.skyForce = null;
+    else {
+      const mixes = { clear: [0, 0, 0, 0], cloudy: [0.7, 0, 0, 0.25], rain: [0.9, 0.75, 0, 0.5], storm: [1, 1, 1, 1] } as const;
+      const m = mixes[sky ?? 'clear'];
+      this.skyForce = { hour, sky: sky ?? 'clear', mix: { cloud: m[0], rain: m[1], storm: m[2], wind: m[3] }, night: nightOf(hour), glow: glowOf(hour) * (1 - 0.7 * m[0]) };
+    }
+    this.skyT = -1;
+    this.skyDirty = true;
   }
 
   setCallbacks(cb: EngineCallbacks): void {
@@ -832,6 +864,7 @@ export class TownEngine3D {
     this.birds = null;
     lastPlayerTile.set(this.world.rows, { ...this.sim.player.tile });
     for (const p of this.people.values()) p.ch.dispose();
+    this.rain?.dispose();
     this.people.clear();
     this.pet?.p.dispose();
     for (const k of this.kids) k.ch.dispose();
@@ -2092,11 +2125,29 @@ export class TownEngine3D {
     for (const [id, at] of this.pops) if (this.t - at > POP_SECONDS + 12 * POP_STAGGER) this.pops.delete(id);
     const dimTo = this.focus ? 1 : 0;
     this.dim = this.still ? dimTo : this.dim + (dimTo - this.dim) * (1 - Math.exp(-dt * DIM_RATE));
-    const nightTo = this.state.theme === 'night' ? 1 : 0;
+    // the hour and the weather (core/town/sky.ts: a day of the game is 48 real minutes; asked twice a second)
+    if (this.first || this.t - this.skyT > 0.5) {
+      this.skyT = this.t;
+      const was = this.sky;
+      this.sky = this.skyForce ?? skyNow();
+      if (Math.abs(was.mix.cloud - this.sky.mix.cloud) + Math.abs(was.glow - this.sky.glow) > 0.004) this.skyDirty = true;
+    }
+    const nightTo = this.sky.night;
     const nightWas = this.night;
     this.night = this.still || this.first ? nightTo : this.night + (nightTo - this.night) * (1 - Math.exp(-dt * NIGHT_RATE));
     if (Math.abs(this.night - nightTo) < 0.003) this.night = nightTo;
-    if (this.night !== nightWas || this.first) this.applyNight();
+    if (this.night !== nightWas || this.first || this.skyDirty) this.applyNight();
+    // lightning: the whole picture brighter for a moment (the thunder is the page's, from the same clock)
+    const flash = this.still ? 0 : lightningAt(Date.now(), this.sky.mix.storm);
+    if (flash !== this.flash) {
+      this.flash = flash;
+      this.townExposure = this.baseExposure * (1 + 1.5 * flash);
+    }
+    if (this.sky.mix.rain > 0.02 && !this.rain) {
+      this.rain = new Rain();
+      this.town.scene.add(this.rain.mesh);
+    }
+    this.rain?.update(this.still ? 0 : this.t, this.target, this.sky.mix.rain, this.sky.mix.wind, this.night);
     this.particles.update(dt);
     // puffs kicked up on the ground stay there when the camera moves
     for (const q of this.particles.list) {
@@ -2145,7 +2196,10 @@ export class TownEngine3D {
     this.spawnPetals(dt);
     this.render();
     this.first = false;
-    if (!this.ready) {
+    // the loading card stays until the avatars of the people in view are on (nobody is seen changing bodies), at
+    // most AVATAR_WAIT_MS on a slow line (chars/vrmPeople.ts)
+    if (!this.ready && !this.firstFrameAt) this.firstFrameAt = performance.now();
+    if (!this.ready && (avatarsSettled() || performance.now() - this.firstFrameAt > AVATAR_WAIT_MS)) {
       this.ready = true;
       this.stats.ready = true;
       const run = this.onReady;
@@ -2322,8 +2376,12 @@ export class TownEngine3D {
 
   private applyNight(): void {
     this.town.setNight(this.night);
+    this.town.setWeather(this.sky.mix.cloud, this.sky.glow * (1 - this.night * 0.5));
+    this.skyDirty = false;
     const rig = lightRig(this.night);
-    this.townExposure = rig.exposure;
+    // (a grey day is a little darker; a flash of lightning multiplies this)
+    this.baseExposure = rig.exposure * (1 - 0.14 * this.sky.mix.cloud * (1 - this.night));
+    this.townExposure = this.baseExposure * (1 + 1.5 * this.flash);
     this.renderer.toneMappingExposure = this.room ? roomExposure(this.night) : rig.exposure;
     for (const p of this.people.values()) p.ch.setNight(this.night);
     this.room?.setNight(this.night);
@@ -3018,7 +3076,7 @@ export class TownEngine3D {
     this.fadeInFront();
     const e = groundHalfExtent(this.dist, this.pitch, this.camera.aspect);
     this.town.mats.shared.time.value = this.t;
-    this.town.mats.shared.sway.value = this.still ? 0 : 1;
+    this.town.mats.shared.sway.value = this.still ? 0 : 1 + 0.9 * this.sky.mix.wind;
     this.town.update(this.t, this.target, Math.max(e.across, e.deep) * 1.25, this.still);
     // how far from the camera's target somebody is still drawn and animated (next frame's place): what shows, a margin
     this.reach = Math.max(e.across, e.deep) * 1.4 + 3;

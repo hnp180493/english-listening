@@ -3,7 +3,7 @@
 // night (a soft sun with shadows that follow the camera, a sky-and-ground fill, a few real lamp lights at night near
 // the camera, glowing halos and fireflies). Characters are added by the engine.
 
-import { BufferGeometry, CanvasTexture, DirectionalLight, Float32BufferAttribute, Group, HemisphereLight, Mesh, Object3D, PointLight, Points, PointsMaterial, AdditiveBlending, Scene, type Material } from 'three';
+import { BufferGeometry, CanvasTexture, DirectionalLight, Float32BufferAttribute, Group, HemisphereLight, Mesh, Object3D, PointLight, Points, PointsMaterial, AdditiveBlending, Scene, type Material, Color } from 'three';
 import { BUS_THING, groundHeight, type ActivitySpotId, type PlaceId, type TownWorld } from '../../../../data/townWorld';
 import { EXTRA_DECOR } from '../../engine/extraDecor';
 import type { StageState } from '../../engine/sim';
@@ -23,6 +23,9 @@ import { buildBackdrop, type Backdrop } from './backdrop';
 export const LAMP_LIGHTS = 6;
 /** The sun comes from this way (towards the viewer's left and behind the town): faces with doors are lit. */
 const SUN_DIR = { x: -0.42, y: 0.78, z: 0.46 };
+/** The sun at dawn and dusk, and the light under cloud (setWeather). */
+const SKY_GOLD = new Color('#ffb070');
+const SKY_GREY = new Color('#aab4c4');
 /**
  * The sun's shadow camera's right and up axes (three's lookAt from the sun to its target, up = +y): the shadow box is
  * moved in whole shadow texels along these, so shadows stay put on the ground while the box follows the camera.
@@ -485,6 +488,20 @@ export class TownScene {
 
   get nightAmount(): number {
     return this.night;
+  }
+
+  /**
+   * The weather and the hour on top of the night's own light (core/town/sky.ts; call after setNight, which starts
+   * from the rig again): under cloud the sun is dimmer and greyer and the light from all round cooler; at dawn and
+   * dusk the sun is gold.
+   */
+  setWeather(cloud: number, glow: number): void {
+    const rig = lightRig(this.night);
+    const day = 1 - this.night;
+    this.sun.color.set(rig.sunColor).lerp(SKY_GOLD, Math.min(1, glow) * 0.8).lerp(SKY_GREY, cloud * 0.6);
+    this.sun.intensity = rig.sun * (1 - 0.62 * cloud * (0.4 + 0.6 * day)) * (1 - 0.18 * glow);
+    this.hemi.color.set(rig.hemiSky).lerp(SKY_GOLD, glow * 0.25).lerp(SKY_GREY, cloud * 0.5);
+    this.hemi.intensity = rig.hemi * (1 - 0.12 * cloud);
   }
 
   /**

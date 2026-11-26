@@ -328,6 +328,8 @@ const page: Record<string, string> = {
   'siêu xe': 'supercar',
   'Lên ngựa': 'Mount',
   'Lên xe': 'Get on',
+  'Giờ trong thị trấn {}, {}': 'Town time {0}, {1}',
+  'Giờ trong thị trấn {}, {}. Một ngày ở đây dài 48 phút.': 'Town time {0}, {1}. A day here lasts 48 minutes.',
 };
 
 export default page;
