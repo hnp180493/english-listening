@@ -151,6 +151,12 @@ const stats: Record<string, string> = {
   'Lịch hoạt động 12 tuần. Dùng phím mũi tên để xem từng ngày.': 'Activity over 12 weeks. Use the arrow keys to go through the days.',
   'Ít': 'Less',
   'Nhiều': 'More',
+  '{}: {}/{} điều, còn ít, chưa nói được gì': '{0}: {1}/{2} items, too few to tell anything yet',
+  '{}: {}% ({}/{} điều)': '{0}: {1}% ({2}/{3} items)',
+  'Người Westbay, giọng trình duyệt': 'Westbay\'s people, browser voice',
+  'Người thị trấn, clip Gemini': 'Town residents, Gemini clips',
+  'Điều nghe ra lần đầu trong phi vụ và văn phòng điều xe mà bạn làm đúng sau đúng 1 lần nghe (không nhắc lại, không nghe chậm).': 'Things heard for the first time in jobs and the dispatch office that you got right after exactly one listen (no repeat, no slower play).',
+  'Đây là lời thoại viết sẵn, đọc bằng giọng máy, không phải người thật, nên không cộng vào số của Chép chính tả hay Video thật. Người thị trấn đọc bằng giọng trình duyệt khi clip của họ chưa được tạo.': 'These are lines written for the game and read by a machine voice, not real people, so they are not added to the numbers of Dictation or Real videos. Town residents speak in the browser voice until their clips have been generated.',
 };
 
 export default stats;

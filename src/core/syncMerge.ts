@@ -3,6 +3,7 @@
 // older version. The rule is "never lose progress": per-item progress keeps the most advanced
 // record, lists are unioned, and only plain preferences take the newer side as a whole.
 
+import { mergeGameEar, parseGameEar } from './town/gameEar';
 import { mergeHistoryStores, parseHistory } from './history';
 import { KEYS, STORAGE_PREFIX } from './storage';
 import {
@@ -644,6 +645,12 @@ export const mergeJobs: Merger = (newer, older) => mergeTownJobs(parseTownJobs(n
  */
 export const mergeHideout: Merger = (newer, older) => mergeTownHideout(parseTownHideout(newer), parseTownHideout(older));
 
+/**
+ * town-ear (Thị trấn: "Trong game: nghe 1 lần là đúng", core/town/gameEar): the jobs and calls met by the earlier time,
+ * per browser, day and voice the max of the counts (each browser adds only to its own bucket).
+ */
+export const mergeEar: Merger = (newer, older) => mergeGameEar(parseGameEar(newer), parseGameEar(older));
+
 /** Short key (without prefix) → merge strategy. Keys not listed (unknown): newer side wins. */
 const MERGERS: Record<string, Merger> = {
   settings: mergeSettings,
@@ -671,6 +678,7 @@ const MERGERS: Record<string, Merger> = {
   'town-shifts': mergeShifts,
   'town-jobs': mergeJobs,
   'town-hideout': mergeHideout,
+  'town-ear': mergeEar,
 };
 
 function tryParse(raw: string): { ok: true; value: unknown } | { ok: false } {

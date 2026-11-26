@@ -97,6 +97,7 @@ export const KEYS = {
   townShifts: 'town-shifts', // "Thị trấn": Westbay's work shifts (taxi rank, flower stall): best scores, missed requests, days (synced), see core/town/shift.ts
   townJobs: 'town-jobs', // "Thị trấn": Westbay's jobs ("phi vụ"): per job best grade, first time, times, flags later jobs read (synced), see core/town/jobProgress.ts
   townHideout: 'town-hideout', // "Thị trấn": the learner's hideout in Westbay: when bought, the last rest, upgrades (synced), see core/town/hideout.ts
+  townEar: 'town-ear', // "Thị trấn": first-listen counts of Westbay's jobs and dispatch calls, per browser and day (synced), see core/town/gameEar.ts
   townLife: 'town-life', // "Thị trấn": the learner's own character, courtship, marriage, children (synced), see core/town/life.ts
   tombstones: 'tombstones', // deleted custom sentences / media items (synced, pruned after a while), see core/syncMarkers.ts
   reset: 'reset', // "Xóa dữ liệu" / restore / "Xóa lịch sử" marker (synced): older data elsewhere is dropped, see core/syncMarkers.ts

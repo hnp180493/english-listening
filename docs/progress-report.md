@@ -159,6 +159,23 @@ counters are never added: the app's voice and a real speaker are different tests
 number has its own fact line and, from 20 lines, replaces the app-voice insight, with the caveat that the learner
 chose the videos.
 
+**In the game (`town-ear`, `core/town/gameEar.ts`; 2026-11-27, milestone M7 of docs/gta-plan.md §8).** Westbay's jobs
+and Rico's dispatch office have their own first-listen number, never added to the two above. A FACT is one thing the
+learner had to hear and then act on: a notebook entry of a job, a junction of a ride, a password, a dispatch call (its
+pickup and destination together). It is measured (`n`) when heard at least once in a job or a call met for the FIRST
+time: the job's or call's id goes into `met` (synced, the earlier time wins) and a job already finished before the
+store existed (`town-jobs`) is skipped, so playing a job again or meeting a call again never counts. `ok` = acted on
+rightly after exactly one hearing (the debriefs' own counts: no "Xin nhắc lại", no replay, no slower play), with
+Settings → Tốc độ đọc at the normal speed (`NORMAL_RATE_MIN`, as in dictation). Two rows by who says the fact: Westbay's
+people in the browser's voice, a town resident in their Gemini clip (the browser's voice until the owner has generated
+the clips; the card says so). The game's level is kept with each day's count when the game gives one (`lv`, from the
+jobs' and the office's speech level), not shown yet. Stored per browser and local day, max per field on a merge (like
+`progress-history`); in a backup; dropped by "Xóa dữ liệu" with everything else (not by "Xóa lịch sử", which only resets
+`stats`); the admin sandbox writes under its own prefix. Recorded by `recordJobEar` / `recordDispatchEar`
+(`features/town/ear/gameEarFacts.ts`), one line each where a job and a shift end. The report shows the card "Nghe trong
+game" only once there is a count; under `MIN_EAR_SAMPLE` (20) a row says it is too few to tell; the card says these are
+lines written for a game and read by a machine, not real people. "Nhận xét" does not use it yet.
+
 ## 5. Báo cáo tiến bộ (`#/stats?view=report`)
 
 Periods: 4 tuần (3 full weeks + this week), 3 tháng (13 weeks), Tất cả. Labels name the start day ("Từ 12/10"), so

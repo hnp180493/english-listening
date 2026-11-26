@@ -21,6 +21,7 @@ import {
   mergeShifts,
   mergeJobs,
   mergeHideout,
+  mergeEar,
   mergeValue,
 } from './syncMerge';
 import { parseDrillStore, rollDaily } from '../features/drill/drillStore';
@@ -282,6 +283,29 @@ describe('merger laws', () => {
       ),
       // the clues earned (gta-plan §17): id → first time; junk ids and times dropped
       ...(maybe(0.6) ? { clues: Object.fromEntries(['fay-heights', 'gate-one-call', 'Bad Clue'].filter(() => maybe()).map((id) => [id, pick<unknown>([T0, T0 + 3, 0, 'x'])])) } : {}),
+      // the speech level (core/town/difficulty.ts): its automatic part by when written, the pin by when chosen
+      ...(maybe(0.6) ? { speech: pick<unknown>([{ auto: { level: pick([1, 3, 5]), acc: pick([0.8, 0.9]), since: ri(20), at: pick([T0, T0 + 5]) }, pin: { level: pick([null, 2, 4]), changedAt: pick([0, T0 + 1, T0 + 7]) } }, 'junk', { auto: { level: 7 } }]) } : {}),
+    };
+  });
+  // town-ear (docs/progress-report.md §4 "In the game"): ids met by the earlier time, counts by the max per browser,
+  // day and voice (and level)
+  checkLaws('town ear', mergeEar, () => {
+    if (maybe(0.05)) return pick<unknown>([null, 'junk', [], { devices: 7 }]);
+    const count = () => pick<unknown>([{ n: pick([1, 3, 3, 8]), ok: pick([0, 1, 3, 9]) }, { n: 0, ok: 0 }, 'x', null]);
+    return {
+      version: 1,
+      met: Object.fromEntries(['job-ferry', 'job-machine2', 'dc-12', 'dc-7', 'Bad Id', '__proto__'].filter(() => maybe()).map((id) => [id, pick<unknown>([T0, T0 + 3, 0, 'x'])])),
+      devices: Object.fromEntries(
+        ['d-aaaa1111', 'd-bbbb2222', 'BAD'].filter(() => maybe()).map((dev) => [
+          dev,
+          Object.fromEntries(
+            townDays
+              .slice(ri(10), 30)
+              .filter(() => maybe(0.2))
+              .map((d) => [d, { browser: count(), clip: count(), ...(maybe(0.4) ? { lv: Object.fromEntries(['1', '2', '3', 'x'].filter(() => maybe()).map((k) => [k, count()])) } : {}) }]),
+          ),
+        ]),
+      ),
     };
   });
   // town-hideout (docs/town.md §29): the earlier buying, the later rest, each upgrade at its earlier time

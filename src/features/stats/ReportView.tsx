@@ -7,6 +7,9 @@ import { ChevronRight, ClipboardCheck, Info } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import { useCheckups, type CheckupResult } from '../../core/benchmark';
 import { loadHistory } from '../../core/history';
+import { earTotals } from '../../core/town/gameEar';
+import { useGameEar } from '../../core/town/gameEarStore';
+import GameEarCard from './GameEarCard';
 import { loadLessonProgress } from '../../core/lessons';
 import { formatDurationVi, useListeningEntries } from '../../core/listening';
 import { hrefFor, navigate, type RouteId } from '../../core/nav';
@@ -50,6 +53,7 @@ export default function ReportView({ period, stats, reviewStore, now }: ReportVi
   const settings = useSettings();
   // The archive and lesson progress change only with practice (stats) or review grades: re-read with them.
   const history = useMemo(() => readAfter([stats, reviewStore], () => loadHistory(now)), [now, stats, reviewStore]);
+  const gameEar = useGameEar();
   const lessons = useMemo(() => readAfter([stats], loadLessonProgress), [stats]);
   const onboardingDone = useMemo(() => parseOnboarding(loadJSON<unknown>(KEYS.onboarding, null)).done, []);
 
@@ -78,6 +82,9 @@ export default function ReportView({ period, stats, reviewStore, now }: ReportVi
   if (report.checkups.empty === null) cards.push({ key: 'checkups', node: <CheckupCard report={report} /> });
   if (report.understood.empty === null) cards.push({ key: 'understood', node: <UnderstoodCard report={report} /> });
   if (report.practice.empty === null) cards.push({ key: 'practice', node: <PracticeCard report={report} /> });
+  // the game's own first-listen count (core/town/gameEar.ts), apart from the practice numbers; only once there is one
+  const ear = earTotals(gameEar, report.overview.fromDay, report.overview.toDay);
+  if (ear.browser.n + ear.clip.n > 0) cards.push({ key: 'game', node: <GameEarCard totals={ear} /> });
 
   return (
     <div className="stack-lg rep-view">
