@@ -442,7 +442,13 @@ Frank has paid; Marcus puts it on air; on Friday Rico brings the real council an
 chapters, five in the city and one in the town (at Ben's), new voices only heard (Crane, Inspector Hale, Ms Ward of
 the council: the browser's voice). Chapters 2 and 5 have a `rush` (40 and 45 seconds): the clock starts when the quest
 is taken on (the card's list or the main button), the card counts down, and being late only starts it again from
-where the player is (a vehicle helps). It is the quest card's first in both places. Not heard by anybody yet; no
+where the player is (a vehicle helps). It is the quest card's first in both places. **Part 2, "Người đứng sau Crane"** (`seasonsMain2.ts`, `bigdeal`, opens
+when part 1 is heard to its end): Gus's mended radio picks up Mrs Vane giving orders (Crane was her front man; she
+wants the harbour); Mrs Okafor's slow ticket machine holds Crane until he talks (the careful-ear clue: warehouse
+fifteen, which Rico hears as fifty); Marcus writes the plan to Tom in a letter; Vane offers Rico his dispatch office
+for one quiet drive and he seems to say yes; Mei, eighty-one, gets Vane to say it all on a coin-sized recorder; Rico's
+"shortcut" ends at Marcus's stage, live, with Gus shutting the harbour gate. Six chapters (one in the town, at Tom's),
+two with a rush (45 and 50 seconds), written by a sub-agent and read through once here. Not heard by anybody yet; no
 clips (the city speaks in the browser's voice; Ben and Sam's lines fall back to it until clips are made).
 
 **Riding** (2026-11-26, owner: "có xe ngựa cho chạy nhanh hơn chẳng hạn", "xe/ngựa hoặc nhiều thứ khác"): bikes,

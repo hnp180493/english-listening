@@ -79,4 +79,6 @@ export const SCENE_VOICES: Readonly<Record<string, SceneVoice>> = {
   crane: { name: 'Ông Crane', gender: 'male' },
   hale: { name: 'Thanh tra Hale', gender: 'male' },
   officer: { name: 'Bà Ward · Hội đồng', gender: 'female' },
+  // its second part (data/city/seasonsMain2.ts): the woman behind Crane, who only ever rings
+  vane: { name: 'Bà Vane', gender: 'female' },
 };

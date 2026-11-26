@@ -22,6 +22,20 @@ describe('the main story: free', () => {
     expect(seasonNow(deal, city, now + 60_000)).toMatchObject({ kind: 'open', chapter: { id: 'cs-deal-2', rush: 40 } });
   });
 
+  it('its second part waits for the end of the first, then plays through the same way', () => {
+    const part2 = CITY_SEASONS.find((s) => s.id === 'bigdeal')!;
+    const hear2 = (city: ReturnType<typeof emptyTownCity>, id: string) => hearScene(city, [...deal.chapters, ...part2.chapters].find((s) => s.id === id)!, { right: 1, asked: 1 }, new Set(), now).city;
+    expect(CITY_SEASONS.indexOf(part2)).toBe(CITY_SEASONS.indexOf(deal) + 1);
+    let city = hear(emptyTownCity(), 'ct-rico-1');
+    for (const ch of deal.chapters.slice(0, 5)) city = hear2(city, ch.id);
+    expect(seasonNow(part2, city, now)).toMatchObject({ kind: 'locked', needs: 'cs-deal-6' });
+    city = hear2(city, 'cs-deal-6');
+    expect(seasonNow(part2, city, now + 60_000)).toMatchObject({ kind: 'open', chapter: { id: 'cs-bigdeal-1' } });
+    city = hear2(city, 'cs-bigdeal-1');
+    expect(seasonNow(part2, city, now + 120_000)).toMatchObject({ kind: 'open', chapter: { id: 'cs-bigdeal-2', rush: 45 } });
+    expect(part2.chapters.filter((c) => c.rush).map((c) => c.id)).toEqual(['cs-bigdeal-2', 'cs-bigdeal-5']);
+  });
+
   it('the other long stories still wait for the next day', () => {
     let city = emptyTownCity();
     for (const id of other.needs) city = hear(city, id);

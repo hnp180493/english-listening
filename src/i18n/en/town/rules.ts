@@ -157,6 +157,7 @@ const rules: Record<string, string> = {
   'Loa phóng thanh': 'Loudspeaker',
   'Ông Crane': 'Mr Crane',
   'Bà Ward · Hội đồng': 'Ms Ward · Council',
+  'Bà Vane': 'Mrs Vane',
 };
 
 export default rules;

@@ -903,6 +903,21 @@ const city: Record<string, string> = {
   'Tám giờ sáng thứ Sáu': 'Eight on Friday morning',
   'Sáng thứ Sáu ở khu chợ cũ, cả phố chật kín người. Một ông đeo thẻ thanh tra bước tới sạp truyện của Frank.': 'Friday morning at the old market, the street packed. A man with an inspector\'s badge walks up to Frank\'s comic stall.',
   'Trễ mất rồi! Đồng hồ chạy lại: {} giây.': 'Too late! The clock starts again: {0} seconds.',
+  'Người đứng sau Crane': 'The one behind Crane',
+  'Crane chỉ là kẻ xách cặp. Có người lớn hơn đang muốn cả bến cảng, và chỉ gọi điện chứ không lộ mặt.': 'Crane only carried the bag. Somebody bigger wants the whole harbour, and only ever rings, never shows a face.',
+  'Kênh lạ trên radio của Gus': 'A strange channel on Gus\'s radio',
+  'Chòi gác ở bến cảng, gần nửa đêm. Gus vặn chiếc radio Jun vừa sửa xong; Jun vẫn còn đứng đó.': 'The guard\'s hut on the harbour, near midnight. Gus is tuning the radio Jun has just mended; Jun is still there.',
+  'Chuyến bốn giờ mười lăm': 'The four fifteen',
+  'Ô bán vé ở Ga trung tâm, bốn giờ mười. Một người mặc com lê xám đứng trước ô cửa của bà Okafor.': 'The ticket office at Central Station, ten past four. A man in a grey suit stands at Mrs Okafor\'s window.',
+  'Lá thư không gửi qua bưu điện': 'The letter that did not go by post',
+  'Chỗ bảng tin ở thị trấn, sáng thứ Sáu. Tom cầm một phong bì dày; Max vừa đạp xe tới.': 'By the notice board in the town, Friday morning. Tom is holding a thick envelope; Max has just cycled up.',
+  'Hai cái điện thoại và một tấm bản đồ': 'Two phones and a map',
+  'Bến taxi ở ga trung tâm, chiều thứ Bảy. Điện thoại của Rico đổ chuông; Tess dừng xe cà phê lại nghe.': 'The taxi rank at Central Station, Saturday afternoon. Rico\'s phone rings; Tess stops her coffee cart to listen.',
+  'Nếu gấp thì là nói dối': 'If it\'s urgent, it\'s lying',
+  'Sạp há cảo của bà Mei ở chợ đêm, sắp tám giờ kém mười lăm. Jun nấp sau nồi hấp; một người đàn bà bước tới.': 'Mei\'s dumpling stall at the night market, nearly quarter to eight. Jun is hiding behind the steamer; a woman walks up.',
+  'Đường tắt của Rico': 'Rico\'s shortcut',
+  'Sân khấu chợ đêm ở bến cảng, Marcus đang lên sóng. Gus đặt chiếc radio lên bàn: trong đó vọng ra tiếng xe chạy.': 'The night market stage on the harbour, Marcus on air. Gus puts his radio on the desk: the sound of a car comes out of it.',
+  '"{}" mở khi bạn nghe hết "{}".': '"{0}" opens once you have heard all of "{1}".',
 };
 
 export default city;

@@ -71,7 +71,12 @@ export default function CityToday({ city, now, events, seasons, guests, onEvent,
           {tl`Còn ${waiting.length} chuyện dài chưa mở.`}{' '}
           {waiting
             .slice(0, 2)
-            .map((s) => (s.kind === 'locked' ? tl`"${s.season.title}" chờ bạn nghe xong chuyện của ${nameOf(sceneOwner(s.needs))}.` : ''))
+            .map((s) => {
+              if (s.kind !== 'locked') return '';
+              // a story that grows out of another one's last chapter (the main story's part 2): name that story
+              const before = seasons.find((x) => x.chapters.some((c) => c.id === s.needs));
+              return before ? tl`"${s.season.title}" mở khi bạn nghe hết "${before.title}".` : tl`"${s.season.title}" chờ bạn nghe xong chuyện của ${nameOf(sceneOwner(s.needs))}.`;
+            })
             .join(' ')}
         </p>
       )}
