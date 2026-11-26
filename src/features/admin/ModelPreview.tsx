@@ -17,7 +17,7 @@ import { createPerson } from '../town/three/chars/person';
 import { wearVrm } from '../town/three/chars/vrmBody';
 import type { CharAction } from '../town/three/contracts';
 import { VRM_IDS, vrmFor } from '../../data/townVrm';
-import { passerLook, profileLook } from '../town/three/chars/looks';
+import { HAT_IDS, passerLook, profileLook } from '../town/three/chars/looks';
 import type { CharacterLook } from '../town/three/contracts';
 
 const BASE = '/.assets-try/';
@@ -135,6 +135,8 @@ interface Act {
   /** Seated on a vehicle (scene/vehicles3d.ts): its kind and its seat's height in tiles. */
   ride?: string;
   seat?: number;
+  /** A hat of the wardrobe (chars/hats.ts). */
+  hat?: string;
 }
 
 /** `…?gait` in the address: a stride and a turn of the pedals frame by frame, and each vehicle's seat. */
@@ -142,7 +144,18 @@ const GAIT = typeof window !== 'undefined' && window.location.hash.includes('gai
 const strip = (name: string, action: CharAction, speed: number, from: number, step: number, n: number, ride?: string, seat?: number): Act[] =>
   Array.from({ length: n }, (_, k) => ({ name: `${name} ${k + 1}`, action, speed, seconds: from + k * step, ride, seat }));
 
-const ACTIONS: readonly Act[] = GAIT
+/** `…?worn` in the address: things held and hats of the wardrobe on an avatar. */
+const WORN = typeof window !== 'undefined' && window.location.hash.includes('worn');
+
+const ACTIONS: readonly Act[] = WORN
+  ? [
+      { name: 'cup', action: 'drink', speed: 0, seconds: 2.2 },
+      { name: 'can', action: 'water', speed: 0, seconds: 2.2 },
+      { name: 'rod', action: 'fish', speed: 0, seconds: 2.5 },
+      { name: 'book', action: 'read', speed: 0, seconds: 2.2 },
+      ...HAT_IDS.slice(0, 6).map((hat): Act => ({ name: hat, action: 'idle', speed: 0, seconds: 0.8, hat })),
+    ]
+  : GAIT
   ? [
       ...strip('Chạy', 'run', 2.8, 1.3, 0.055, 6),
       ...strip('Đi', 'walk', 1.6, 1.3, 0.09, 4),
@@ -165,6 +178,7 @@ async function drawAction(c: HTMLCanvasElement, a: Act, w: number, h: number, si
   const ch = createPerson('cafe');
   await wearVrm(ch, import.meta.env.BASE_URL + 'vrm/school.vrm?acts');
   ch.setHeading(Math.PI / 2, true);
+  if (a.hat) ch.setHat(a.hat);
   if (a.ride) {
     ch.ride = a.ride;
     ch.setSeatHeight(a.seat ?? 0.18);
@@ -259,7 +273,7 @@ async function drawResident(id: string, c: HTMLCanvasElement, w: number, h: numb
 }
 
 /** `…?acts` in the address: only the action sheet (quicker to look at). */
-const SKIP_ROWS = typeof window !== 'undefined' && /acts|bases|cast|gait/.test(window.location.hash);
+const SKIP_ROWS = typeof window !== 'undefined' && /acts|bases|cast|gait|worn/.test(window.location.hash);
 
 const W = 190;
 const H = 300;

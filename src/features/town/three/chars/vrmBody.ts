@@ -22,7 +22,11 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, type VRM, type VRMHumanBoneName } from '@pixiv/three-vrm';
 import { BODY, C, J, LEG_REACH, type EyeState, type MouthState } from './anim';
-import { nightTint } from './materials';
+import { HEAD } from './body';
+import { hatGeometry } from './hats';
+import { materials, nightTint } from './materials';
+import { PROP_PLACES } from './person';
+import { makeProp, type PropId, type PropRig } from './props';
 import type { Character3DPlus } from './person';
 import { BASE_SKIN, type VrmWear } from '../../../../data/townVrm';
 import type { VrmExtra } from '../../../../data/townVrm';
@@ -82,6 +86,7 @@ const _euler = new Euler();
 const _c = new Color();
 const _sit = new Quaternion();
 const _gq = new Quaternion();
+const PROPS: readonly PropId[] = ['cup', 'can', 'rod', 'book'];
 const _v = new Vector3();
 
 interface Tinted {
@@ -174,20 +179,58 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   if (pivot) pivot.visible = false;
   ch.root.add(holder);
 
-  // glasses, a cap: built in code on the head (the samples have none)
+  // The head's own frame (+z the way the face looks: a VRM 0.x looks down -z in its own space), for what is worn on
+  // it: glasses, a cap built in code (the samples have none), and a hat from the wardrobe.
   const worn: Mesh[] = [];
-  if (head && opts.extras?.length) {
-    if (headAt) {
-      // the head's own frame: a VRM 0.x looks down -z in it
-      const frame = new Group();
-      frame.rotation.y = old ? Math.PI : 0;
-      head.add(frame);
-      // between the eyes, and eye to eye (a sample without eye bones: where the samples have them)
-      const mid = eyeL && eyeR ? eyeL.clone().add(eyeR).multiplyScalar(0.5).sub(headAt) : new Vector3(0, 0.063, 0.03);
-      const gap = eyeL && eyeR ? Math.max(0.02, Math.abs(eyeL.x - eyeR.x)) : 0.041;
-      for (const e of opts.extras) worn.push(...wear(frame, e, mid, gap, box.max.y - headAt.y, faceFront(vrm.scene, headAt)));
-    }
+  const headFrame = head && headAt ? new Group() : null;
+  // between the eyes, and eye to eye (a sample without eye bones: where the samples have them)
+  const mid = eyeL && eyeR && headAt ? eyeL.clone().add(eyeR).multiplyScalar(0.5).sub(headAt) : new Vector3(0, 0.063, 0.03);
+  const gap = eyeL && eyeR ? Math.max(0.02, Math.abs(eyeL.x - eyeR.x)) : 0.041;
+  if (head && headFrame && headAt) {
+    headFrame.rotation.y = old ? Math.PI : 0;
+    head.add(headFrame);
+    for (const e of opts.extras ?? []) worn.push(...wear(headFrame, e, mid, gap, box.max.y - headAt.y, faceFront(vrm.scene, headAt)));
   }
+
+  // A hat of the wardrobe (chars/hats.ts: modelled round the code body's big head, so brought down to this one's).
+  let hat: Mesh | null = null;
+  const putHat = (id: string | null): void => {
+    if (hat) {
+      hat.removeFromParent();
+      hat = null;
+    }
+    const h = id ? hatGeometry(id) : null;
+    if (!h || !headFrame) return;
+    hat = new Mesh(h.geometry, materials().body);
+    hat.castShadow = true;
+    // the skull with its hair is about 2.9 eye-gaps across; the hat sits on the head's middle as on the code body
+    const k = (gap * 2.95) / HEAD.R;
+    hat.scale.set(k * HEAD.stretch[0], k * HEAD.stretch[1], k * HEAD.stretch[2]);
+    hat.position.set(0, mid.y + gap * 0.75, -gap * 0.25);
+    hat.rotation.x = -0.05;
+    headFrame.add(hat);
+  };
+  putHat(ch.hatId);
+
+  // Things held (a cup, a watering can, a rod, a book): the avatar's own, in its right hand (the book in front of
+  // the chest), shown by the same weights of the pose as the code body's, kept upright in the body's frame.
+  const held = new Map<PropId, PropRig>();
+  const hand = bone('rightHand');
+  const knuckle = bone('rightMiddleProximal');
+  const chest = bone('upperChest') ?? bone('chest') ?? bone('spine');
+  // where the hand grips: between the wrist and the knuckles, in the hand's own frame
+  const grip = new Vector3();
+  if (hand) {
+    const a = hand.getWorldPosition(new Vector3());
+    const b = knuckle ? knuckle.getWorldPosition(new Vector3()) : a;
+    grip.copy(hand.worldToLocal(a.clone().lerp(b, 0.7)));
+  }
+  const chestFrame = chest ? new Group() : null;
+  if (chest && chestFrame) {
+    chestFrame.rotation.y = old ? Math.PI : 0;
+    chest.add(chestFrame);
+  }
+  let castPoint: Vector3 | null = null;
 
   const weights: Record<string, number> = { blink: 0, happy: 0, surprised: 0, aa: 0, oh: 0, relaxed: 0 };
   const setJoint = (node: Object3D, q: Quaternion): void => {
@@ -199,7 +242,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   let gait = 0;
   /** The bike's cranks (radians). */
   let pedal = 0;
-  const before = { update: ch.update, headTop: ch.headTop, setNight: ch.setNight, setOutfit: ch.setOutfit, dispose: ch.dispose };
+  const before = { update: ch.update, headTop: ch.headTop, setNight: ch.setNight, setOutfit: ch.setOutfit, dispose: ch.dispose, setHat: ch.setHat, castLine: ch.castLine };
   const update = ch.update.bind(ch);
   ch.update = (dt: number, speed: number) => {
     update(dt, speed);
@@ -336,6 +379,45 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
         ex.setValue(name, weights[name]);
       }
     }
+    // what is in the hand
+    for (const pid of PROPS) {
+      const place = PROP_PLACES[pid];
+      const w = p[place.channel];
+      let r = held.get(pid);
+      if (w < 0.02) {
+        if (r) r.root.visible = false;
+        continue;
+      }
+      const parent = pid === 'book' ? chestFrame : hand;
+      if (!parent) continue;
+      if (!r) {
+        r = makeProp(pid, materials().body);
+        parent.add(r.root);
+        held.set(pid, r);
+      }
+      r.root.visible = true;
+      const k = MathUtils.clamp(w, 0, 1);
+      // (pops in with a small overshoot, as on the code body; a little larger: this hand is)
+      const size = ((anim.tiles * 1.5) / s) * Math.max(0.001, 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2));
+      r.root.scale.setScalar(size);
+      if (pid === 'book') {
+        r.root.position.set(0, tall * 0.02, tall * 0.16);
+        // (held up a little more than on the code body: this reader looks down at it from higher)
+        r.root.rotation.set(-1.0, place.rot[1], place.rot[2]);
+      } else {
+        r.root.position.copy(grip);
+        // upright in the body's frame whatever the arm does: undo the hand's turn, then the thing's own angle
+        const tilt = pid === 'cup' ? -1.0 * p[C.sip] : pid === 'can' ? p[C.canTilt] : -0.35 * p[C.tug];
+        parent.getWorldQuaternion(_q);
+        holder.getWorldQuaternion(_gq);
+        r.root.quaternion.copy(_q.invert()).multiply(_gq).multiply(_sit.setFromEuler(_euler.set(place.rot[0] + tilt, place.rot[1], place.rot[2], 'XYZ')));
+      }
+      if (pid === 'can') r.tick(dt, p[C.canTilt] * k);
+      else if (pid === 'rod') {
+        r.aim?.(castPoint);
+        r.tick(dt, p[C.tug]);
+      }
+    }
     vrm.update(dt);
   };
 
@@ -374,11 +456,26 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     ch.setNight(night);
   };
 
+  // the wardrobe's hat goes on this head too; the fishing line needs its float
+  const setHat = ch.setHat.bind(ch);
+  ch.setHat = (id: string | null) => {
+    setHat(id);
+    putHat(id);
+  };
+  const castLine = ch.castLine.bind(ch);
+  ch.castLine = (point: Vector3 | null) => {
+    castLine(point);
+    castPoint = point;
+  };
+
   let off = false;
   const strip = (): void => {
     if (off) return;
     off = true;
     ch.root.remove(holder);
+    // (out of the tree first: the hat's geometry and the toon material are shared, deepDispose must not free them)
+    hat?.removeFromParent();
+    for (const r of held.values()) r.root.removeFromParent();
     for (const m of worn) {
       m.geometry.dispose();
       (m.material as Material).dispose();
@@ -401,6 +498,8 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       ch.setNight = before.setNight;
       ch.setOutfit = before.setOutfit;
       ch.dispose = before.dispose;
+      ch.setHat = before.setHat;
+      ch.castLine = before.castLine;
       if (pivot) pivot.visible = true;
     },
   };

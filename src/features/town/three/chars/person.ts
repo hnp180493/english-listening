@@ -38,6 +38,8 @@ export interface Character3DPlus extends Character3D {
    * (chars/vrmBody.ts ridePose).
    */
   ride: string | null;
+  /** The hat worn now (a loot id of data/townGame.ts), or null: an avatar puts the same one on its own head. */
+  readonly hatId: string | null;
   /** While fishing: the line runs from the rod's tip to this world point (the float), or hangs from it (null). */
   castLine(point: Vector3 | null): void;
   /** Current eased heading (radians). */
@@ -51,7 +53,7 @@ const _v = new Vector3();
  * (a cup stays upright whatever the arm does; it tilts to the mouth on a sip): `rot` is in the spine's frame, `pos` an
  * offset from the hand in that frame. The book rests on the chest.
  */
-const PROP_PLACES: Record<PropId, { bone: number; pos: [number, number, number]; rot: [number, number, number]; channel: number }> = {
+export const PROP_PLACES: Record<PropId, { bone: number; pos: [number, number, number]; rot: [number, number, number]; channel: number }> = {
   cup: { bone: J.elR, pos: [0.005, 0.02, 0.04], rot: [0, 0, 0], channel: C.cup },
   can: { bone: J.elR, pos: [0, -0.01, 0.03], rot: [0, 0.2, 0], channel: C.can },
   rod: { bone: J.elR, pos: [0, -0.02, 0.02], rot: [0.95, -0.25, 0], channel: C.rod },
@@ -125,8 +127,10 @@ export function createPerson(id: CharacterId, look: CharacterLook = castLook(id)
   // hat
   let hatMesh: Mesh | null = null;
   let hatHeight = 0;
+  let hatNow: string | null = null;
   const fit = HAT_FIT[look.hair.style];
   const setHat = (hatId: string | null) => {
+    hatNow = hatId;
     if (hatMesh) {
       hatMesh.removeFromParent();
       hatMesh = null;
@@ -299,6 +303,9 @@ export function createPerson(id: CharacterId, look: CharacterLook = castLook(id)
       setNightTint(amount);
     },
     ride: null,
+    get hatId() {
+      return hatNow;
+    },
     setSeatHeight(t) {
       anim.seat = t / tiles;
     },

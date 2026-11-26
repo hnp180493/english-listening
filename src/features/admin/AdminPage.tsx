@@ -289,10 +289,11 @@ function ContentReview() {
 }
 
 /** A preview drawn only once opened (three.js loads then). */
-function PreviewDetails({ title, children }: { title: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+function PreviewDetails({ title, children, auto = false }: { title: string; children: ReactNode; auto?: boolean }) {
+  // (a sheet asked for in the address opens by itself: the dev server reloads the page whenever a file changes)
+  const [open, setOpen] = useState(auto);
   return (
-    <details className="how" onToggle={(e) => setOpen(e.currentTarget.open)}>
+    <details className="how" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary>{title}</summary>
       {open && <Suspense fallback={null}>{children}</Suspense>}
     </details>
@@ -355,7 +356,7 @@ export default function AdminPage() {
         )}
       </section>
       {ModelPreview && (
-        <PreviewDetails title="Xem thử: nhân vật mô hình thật">
+        <PreviewDetails title="Xem thử: nhân vật mô hình thật" auto={/[?&](acts|bases|cast|gait|worn)/.test(window.location.hash)}>
           <ModelPreview />
         </PreviewDetails>
       )}
