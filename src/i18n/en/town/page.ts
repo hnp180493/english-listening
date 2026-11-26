@@ -311,6 +311,15 @@ const page: Record<string, string> = {
   'Truyện chính': 'Main story',
   'còn {} giây': '{0} s left',
   'hết giờ': 'time\'s up',
+  'Giao hàng': 'Delivery',
+  'Giao đơn của Emma': 'Emma\'s order',
+  'Nghe lại lời Emma dặn để biết giao cho ai': 'Hear Emma\'s words again to know who it\'s for',
+  'Emma còn {} đơn cần giao': 'Emma has {0} orders to deliver',
+  'Tới quán của Emma': 'Go to Emma\'s café',
+  'Việc làm': 'Job',
+  'Vụ án': 'Case',
+  '{} · Kỳ {}': '{0} · Part {1}',
+  'Mở hồ sơ vụ án': 'Open the case file',
 };
 
 export default page;

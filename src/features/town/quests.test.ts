@@ -17,6 +17,16 @@ describe('the town as quests', () => {
     expect(q[1]).toMatchObject({ tag: 'Nghe lại', step: 'Tới chỗ Grace ở nhà trọ' });
   });
 
+  it("the day's games come after the suggested episode; an order in hand never names who it is for", () => {
+    const q = townQuests(places, 'cafe', null, { cafe: true, carrying: true, deliveries: 2, caseToday: { title: 'Ai lấy xu?', n: 3 } });
+    expect(q.map((x) => x.id)).toEqual(['town:cafe:2', 'job:carry', 'job:cafe', 'job:case', 'town:home:1', 'town:square:1']);
+    expect(q[1]).toMatchObject({ title: 'Giao đơn của Emma', target: null });
+    expect(q[3].title).toBe('Ai lấy xu? · Kỳ 3');
+    const none = townQuests(places, 'cafe', null, { cafe: false, carrying: false, deliveries: 2, caseToday: null });
+    expect(none.map((x) => x.id)).toContain('job:delivery');
+    expect(none.find((x) => x.id === 'job:delivery')?.target).toEqual({ kind: 'place', id: 'cafe' });
+  });
+
   it('follows the one picked while it is there, else the first', () => {
     const q = townQuests(places, null);
     expect(followed(q, 'town:square:1')?.id).toBe('town:square:1');

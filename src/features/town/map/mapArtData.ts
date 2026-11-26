@@ -18,7 +18,7 @@ export const MAP_ART = {
   meRim: '#ffffff',
   /** Residents on the minimap and the ring of a picked thing. */
   dotRim: '#ffffff',
-  /** The way to the quest followed (engine/draw/guide.ts: the same gold as on the ground). */
+  /** The way to the quest followed (drawn on the maps only: engine3d guideWayNow). */
   guide: '#ffc83d',
   guideRim: '#3d2a00',
 } as const;

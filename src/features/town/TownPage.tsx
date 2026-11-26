@@ -6,7 +6,9 @@ import ShortcutsHelp from '../../components/ShortcutsHelp';
 import { prefersReducedMotion } from '../../core/motion';
 import { hrefFor, navigate, parseHash } from '../../core/nav';
 import { CITY_INVITE_HEARTS } from '../../core/town/city';
-import { knowsFact, lineProgress, typedTotals } from '../../core/town/progress';
+import { knowsFact, lineProgress, townDay, typedTotals } from '../../core/town/progress';
+import { cafeXuLeft } from '../../core/town/cafe';
+import { useTownCafe } from '../../core/town/cafeStore';
 import {
   buyTownItem,
   loadTownProgress,
@@ -45,7 +47,7 @@ import { narrowStage, useFullStage, useStageInsets, useTownTheme } from './stage
 import MiniMap from './map/MiniMap';
 import { metInStreet, playerStand, type TalkSetting } from './engine/staging';
 import { homeSetting, streetTalkView } from './streetModel';
-import { getCarrying, handDelivery, useCarrying } from '../../core/town/deliveryStore';
+import { deliveriesLeftNow, getCarrying, handDelivery, useCarrying } from '../../core/town/deliveryStore';
 import { townRomanceSteps, useTownLife } from '../../core/town/lifeStore';
 import { castLook, playerLookKey, profileLook, setPlayerLook, subscribePlayerLook } from './three/chars/looks';
 import { kidAge, kidsOf, partnerOf } from '../../core/town/life';
@@ -378,7 +380,30 @@ export default function TownPage() {
   }, [activity]);
   // the quests (quests.ts): the one followed shows at the top with its way on the ground; the main button goes there
   const [questPick, setQuestPick] = useState<string | null>(null);
-  const quests = useMemo(() => townQuests(overview.places, suggested?.place.id ?? null, townStory), [overview.places, suggested, townStory]);
+  // the day's games as quests too: a café shift that still pays, Emma's orders, today's chapter of a case (its data
+  // loaded only when the page opens or a panel closes)
+  const cafeDay = useTownCafe();
+  const [caseToday, setCaseToday] = useState<{ title: string; n: number } | null>(null);
+  useEffect(() => {
+    let gone = false;
+    void Promise.all([import('../../core/town/cases'), import('../../core/town/casesStore'), import('../../data/cases')]).then(([rules, store, data]) => {
+      if (gone) return;
+      const at = rules.caseNow(data.TOWN_CASES, store.loadTownCases(), Date.now());
+      setCaseToday(at.kind === 'open' ? { title: at.case.title, n: at.chapter + 1 } : null);
+    });
+    return () => {
+      gone = true;
+    };
+  }, [activity]);
+  const carrying = carried?.state === 'carrying';
+  // (read again whenever the café's days or the order in hand change)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const deliveriesLeft = useMemo(() => deliveriesLeftNow(), [cafeDay, carried]);
+  const jobs = useMemo(
+    () => ({ cafe: cafeXuLeft(cafeDay, townDay(Date.now())) > 0, carrying, deliveries: deliveriesLeft, caseToday }),
+    [cafeDay, carrying, deliveriesLeft, caseToday],
+  );
+  const quests = useMemo(() => townQuests(overview.places, suggested?.place.id ?? null, townStory, jobs), [overview.places, suggested, townStory, jobs]);
   const quest = followed(quests, questPick);
   const questTarget = quest?.target ?? null;
   const lead = (questTarget?.kind === 'resident' ? overview.places.find((p) => p.place.id === questTarget.id) : undefined) ?? suggested;
@@ -1082,6 +1107,12 @@ export default function TownPage() {
             stage={stage}
             onPick={(q) => {
               setQuestPick(q.id);
+              // the day's games: to Emma's door first when it is somewhere to go, then the game's panel
+              const game = q.id === 'job:cafe' ? 'cafe' : q.id === 'job:delivery' || q.id === 'job:carry' ? 'delivery' : q.id === 'job:case' ? 'case' : null;
+              if (game) {
+                if (!q.target || !stage.current?.travelTo(q.target, 'walk', () => openActivity(game, 'hud'))) openActivity(game, 'hud');
+                return;
+              }
               if (q.id.startsWith('season:') && townStory && q.target?.kind === 'resident') {
                 const id = townStory.id;
                 void stage.current?.walkTo(q.target.id, () => openStory(id));

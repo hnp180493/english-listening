@@ -421,10 +421,11 @@ that is due first, the suggested one on top; Westbay: today's chapters of the lo
 week's get-togethers, everybody with a scene open, the shifts open; a city scene is never named by its title).
 `QuestTracker` shows the one followed under the level (what, where, how far: `metres`, a tile ≈ 2 m) and opens the
 list; a quest picked there is followed and walked to, and the main button goes to it. The stage (`StageProps.guide`,
-`engine3d.setGuide`) finds the way there twice a second (`findPath`) and draws it: gold dots on the ground, a bouncing
-arrow over the target, an arrow at the stage's edge with the distance while it is off the screen
-(`engine/draw/guide.ts`); `MapSnapshot.guide` gives the same way to the minimap (a gold line, the end on its rim when it
-is further) and the full map (an SVG line). Checked in headless Edge only (city and town, 1280×800 and 412×892).
+`engine3d.setGuide`) finds the way there twice a second (`findPath`); `MapSnapshot.guide` gives it to the minimap (a
+gold line, the end on its rim when it is further) and the full map (an SVG line). Nothing is drawn over the town itself
+(the gold dots on the ground and the arrows over the target and at the stage's edge went the same day, owner: "bỏ cái
+hướng dẫn đường đi này ở map chính đi, chỉ hiển thị ở minimap"); so the minimap shows on a phone too (96 px, above the
+main button). Checked in headless Edge only (city and town, 1280×800 and 412×892).
 
 **More to look at** (2026-11-26, owner: "đồ hoạ cũng cần nâng cấp toàn diện hơn giờ hơi đơn điệu"; the people and the
 street furniture are another session's work, so left alone here): Westbay's streets are asphalt (`TownWorld.roads`,

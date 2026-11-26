@@ -30,8 +30,31 @@ export interface Quest {
  * The town's quests: every resident with an episode waiting (a re-listen that is due first, then the lowest episode
  * number), the suggested one (the main button's) at the top.
  */
-export function townQuests(places: readonly PlaceView[], suggested: string | null, story: { id: string; at: string; title: string; n: number; main: boolean } | null = null): Quest[] {
+/** The town's games that make a quest today (TownPage reads them from their stores). */
+export interface TownJobs {
+  /** A café shift still pays today. */
+  cafe: boolean;
+  /** An order of Emma's in hand (who it is for is the puzzle: never named here). */
+  carrying: boolean;
+  /** Orders Emma still has today. */
+  deliveries: number;
+  /** Today's chapter of a case, if one is open. */
+  caseToday: { title: string; n: number } | null;
+}
+
+export function townQuests(
+  places: readonly PlaceView[],
+  suggested: string | null,
+  story: { id: string; at: string; title: string; n: number; main: boolean } | null = null,
+  jobs: TownJobs | null = null,
+): Quest[] {
   const out: (Quest & { rank: number })[] = [];
+  // the games of the day, after the suggested episode
+  if (jobs?.carrying) out.push({ id: 'job:carry', tag: tr('Giao hàng'), title: tr('Giao đơn của Emma'), step: tr('Nghe lại lời Emma dặn để biết giao cho ai'), target: null, rank: 50 });
+  else if (jobs && jobs.deliveries > 0)
+    out.push({ id: 'job:delivery', tag: tr('Giao hàng'), title: tl`Emma còn ${jobs.deliveries} đơn cần giao`, step: tr('Tới quán của Emma'), target: { kind: 'place', id: 'cafe' as PlaceId }, rank: 52 });
+  if (jobs?.cafe) out.push({ id: 'job:cafe', tag: tr('Việc làm'), title: tr('Phụ quầy cà phê'), step: tr('Tới quán của Emma'), target: { kind: 'place', id: 'cafe' as PlaceId }, rank: 51 });
+  if (jobs?.caseToday) out.push({ id: 'job:case', tag: tr('Vụ án'), title: tl`${jobs.caseToday.title} · Kỳ ${jobs.caseToday.n}`, step: tr('Mở hồ sơ vụ án'), target: null, rank: 53 });
   // a chapter of a long story of Westbay told here today (the main story's first of all)
   if (story) {
     const who = places.find((p) => p.place.id === story.at)?.place.resident ?? '';

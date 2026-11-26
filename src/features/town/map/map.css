@@ -456,9 +456,13 @@
 /* ───────────────────────── small screens ───────────────────────── */
 
 @media (max-width: 720px) {
-  /* the "Bản đồ" button is enough on a phone */
+  /* smaller on a phone, above the main button: the way to the quest followed is drawn on it only (owner,
+   * 2026-11-26: "chỉ hiển thị ở minimap") */
   .town-map-mini {
-    display: none;
+    left: var(--space-2);
+    bottom: 76px;
+    width: 96px;
+    height: 96px;
   }
   .town-map-head {
     top: var(--space-2);

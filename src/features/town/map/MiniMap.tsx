@@ -35,7 +35,8 @@ function same(a: MapSnapshot | null, b: MapSnapshot): boolean {
  * A small round map in a corner of the stage: the streets round the player, always turned the default way whatever
  * the camera's turn (it turned with the camera until 2026-11-22; once the camera could turn all the way round the
  * owner wanted it fixed; the full map does not turn either), the player's arrow the way they face, the residents as dots in their house's colour (a ring when something waits). A click opens the
- * full map. Shown on a wide stage only, and hidden during talks and panels (map.css).
+ * full map. Hidden during talks and panels (map.css); on a phone a smaller one above the main button (the quest's way
+ * is drawn here only).
  */
 /** `world`: the map the stage shows (the town by default; Westbay). Without `onOpen` it is a picture, not a button (the city has no full map). */
 export default function MiniMap({ stage, state, hint, theme, onOpen, world = TOWN_WORLD }: { stage: RefObject<TownStageHandle | null>; state: StageState; hint: string | null; theme: TownTheme; onOpen?: () => void; world?: TownWorld }) {

@@ -13,7 +13,6 @@ import { thingName } from '../../scenes/things';
 import { cameraDt, springStep } from '../../engine/spring';
 import { drawChatDots, drawEmote, drawFloat, drawParticles, drawSky, drawTag, drawTalkBubble, drawVignette, EMOTE_SECONDS, FLOAT_SECONDS, placeTags, tagSize, type EmoteKind, type TagBox } from '../../engine/draw/overlay';
 import type { ActKind, BurstKind, EngineCallbacks, Near, SafeInsets, StageTarget, TravelTarget } from '../../engine/stage';
-import { drawEdgeArrow, drawTargetArrow, drawWay, edgeArrow, metres, wayDots } from '../../engine/draw/guide';
 import type { VehicleKind } from '../../../../data/townWorld';
 import { RIDES, vehicleGeometry } from './vehicles3d';
 import { Birds } from './birds';
@@ -1542,35 +1541,6 @@ export class TownEngine3D {
     for (let i = 1; i < way.length; i++) len += Math.hypot(way[i].x - way[i - 1].x, way[i].y - way[i - 1].y);
     this.guideWay = way;
     this.guideLen = len;
-  }
-
-  /** The way on the ground, the arrow over the target or at the stage's edge (drawOverlay, not in a talk). */
-  private drawGuide(ctx: CanvasRenderingContext2D, area: { x0: number; y0: number; x1: number; y1: number }): void {
-    this.updateGuide();
-    const to = this.guidePoint();
-    if (!this.guide || !to || this.busy()) return;
-    const p = this.sim.player;
-    const len = this.guideLen ?? Math.hypot(to.x - p.x, to.y - p.y);
-    // close enough: the target is right there (its own tag and the "Nói chuyện" button take over)
-    if (len < 1.6) return;
-    // the way from where the player stands now (the first point follows them between two finds)
-    const way = this.guideWay.length > 1 ? [{ x: p.x, y: p.y }, ...this.guideWay.slice(1)] : [{ x: p.x, y: p.y }, to];
-    const step = 0.5;
-    const dots = wayDots(way, step, this.still ? step / 2 : (this.t * 1.1) % step, 48).map((d, i, all) => {
-      const s = this.project(d.x, this.town.lift(d.x, d.y) + 0.04, d.y);
-      // fade in past the player's feet, out towards the far end of what is drawn
-      const fade = Math.min(1, (i + 1) / 3, (all.length - i) / 6);
-      return { x: s.x, y: s.y, fade };
-    });
-    drawWay(ctx, dots);
-    const g = this.guide;
-    const r = g.kind === 'resident' ? this.sim.residents.get(g.id) : undefined;
-    const top = r && !r.hidden ? this.headAt(r.id, r) : this.project(to.x, this.town.lift(to.x, to.y) + 1.4, to.y);
-    const me = this.project(p.x, this.town.lift(p.x, p.y) + 0.6, p.y);
-    const edge = edgeArrow(me, top, area);
-    if (edge) drawEdgeArrow(ctx, edge, metres(len), this.font, this.pal.tagBg, this.pal.tagText);
-    // over the head (a resident's name tag sits there too: just above it), never under the stage's top buttons
-    else drawTargetArrow(ctx, { x: top.x, y: Math.max(area.y0 + 30, top.y - (r ? 8 : 0)) }, this.t, this.still);
   }
 
   setSpeaking(who: string | null): void {
@@ -3138,8 +3108,9 @@ export class TownEngine3D {
       drawTalkBubble(ctx, pal, at.x, Math.max(this.safe.top + 44, at.y + 2), this.t, this.still);
     }
     if (!this.focus) {
-      // the quest followed: under the name tags
-      this.drawGuide(ctx, { x0: this.safe.left + 6, y0: this.safe.top + 4, x1: w - Math.max(this.safe.right, this.inset.right) - 6, y1: h - Math.max(this.safe.bottom, this.inset.bottom) - 4 });
+      // the way to the quest followed: found here, drawn only on the minimap and the full map (owner, 2026-11-26: "bỏ
+      // cái hướng dẫn đường đi này ở map chính đi, chỉ hiển thị ở minimap": no dots or arrows over the town itself)
+      this.updateGuide();
       const tags: { box: TagBox; draw: (b: TagBox) => void }[] = [];
       const add = (x: number, y: number, text: string, o: Omit<Parameters<typeof drawTag>[5], 't' | 'still' | 'font'>, alt?: number) => {
         if (x < -30 || x > w + 30 || y < -10 || y > h + 60) return;

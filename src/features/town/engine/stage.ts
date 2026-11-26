@@ -196,9 +196,9 @@ export interface TownStageProps {
   /** The resident the page suggests next: always named (the camera never frames them: it follows the player). */
   hint?: PlaceId | null;
   /**
-   * The quest being followed (features/town/quests): a dotted way on the ground from the player to it, a bouncing
-   * arrow over it, an arrow at the stage's edge while it is off the screen (owner, 2026-11-26: "hướng dẫn làm nhiệm vụ
-   * như GTA"). Null = none.
+   * The quest being followed (features/town/quests): the stage finds the way to it, which the minimap and the full map
+   * draw (owner, 2026-11-26: "hướng dẫn làm nhiệm vụ như GTA"; nothing is drawn over the town itself: "chỉ hiển thị ở
+   * minimap"). Null = none.
    */
   guide?: TravelTarget | null;
   /** The stage covers the window: on a big screen the camera shows the whole built town. */
