@@ -45,7 +45,9 @@ import {
 import { evalCond, gradeHits, saidNow, type CondState, type CrewRole, type IntentStep, type JobDoc, type Said, type Step, type Track } from '../../../core/town/jobDoc';
 import { enrolJobMisses, payJob } from '../../../core/town/jobStore';
 import { hasClue, jobDone, jobUnlocked, pastFlag } from '../../../core/town/jobProgress';
-import { finishJobRun, grantClue, loadTownJobs, useTownJobs } from '../../../core/town/jobsStore';
+import { recordJobEar } from '../ear/gameEarFacts';
+import { finishJobRun, grantClue, loadTownJobs, pinSpeechLevel, recordSpeechRun, speechLevelNow, useTownJobs } from '../../../core/town/jobsStore';
+import { brokenPieces, emptySpeech, SPEECH_RULES, type SpeechLevel } from '../../../core/town/difficulty';
 import { clockOf, timeWords } from '../../../core/town/job';
 import { RING_MS } from '../../../core/town/phone';
 import { PHONE_LINES } from '../../../data/city/phoneLines';
@@ -115,6 +117,9 @@ export interface JobRunState {
   /** Who came along (core/town/crew.ts; null: alone), and what they took of the pay. */
   crew: string | null;
   crewTake: number;
+  /** The speech level this run is played at (core/town/difficulty.ts), and whether it was pinned by the learner. */
+  speech: SpeechLevel;
+  pinned: boolean;
 }
 
 type UiKind = 'idle' | 'ringing' | 'crew' | 'voicemail' | 'patrol' | 'threads' | 'pick' | 'spot' | 'call' | 'notes' | 'go' | 'find' | 'ride' | 'phone' | 'radio' | 'scene' | 'overhear' | 'intent' | 'password' | 'closing' | 'debrief';
@@ -157,8 +162,6 @@ const doorOf = (id: string): { x: number; y: number } | null => {
 const targetOf = (id: string) => (JOB_SPOTS[id] ? ({ kind: 'tile', x: JOB_SPOTS[id].x, y: JOB_SPOTS[id].y } as const) : ({ kind: 'place', id: id as PlaceId } as const));
 /** A pause in a broken-up line (the hiss), ms. */
 const HISS_MS = 700;
-/** Before the threads of a `threads` step start, a moment to choose one (ms). */
-const THREADS_LEAD_MS = 3000;
 /** After the line to spot ends, a press still counts this long (ms). */
 const SPOT_GRACE_MS = 1500;
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -201,7 +204,12 @@ const blank = (doc: JobDoc, now: number): JobRunState => ({
   enrolled: 0,
   crew: null,
   crewTake: 0,
+  speech: speechLevelNow(),
+  pinned: loadTownJobs().speech?.pin.level != null,
 });
+
+/** The speech level's rules of a run (the middle level outside one). */
+const rulesOf = (r: JobRunState | null) => SPEECH_RULES[r?.speech ?? 3];
 
 /** Every notebook entry of a job. */
 const entriesOf = (doc: JobDoc): NoteEntry[] => doc.steps.flatMap((s) => (s.kind === 'notebook' ? s.entries : []));
@@ -336,13 +344,14 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
         if (volume === 0 || (own && !PLAYER_VOICE)) await new Promise((r) => window.setTimeout(r, lineSeconds(said.line.text) * 1000));
         else if (said.line.broken) {
           // a line over a bad radio: its pieces, a silence at every "..." (no noise mixed in)
-          const pieces = said.line.text.split(/\s*\.\.\.\s*/).filter((x) => /[a-z0-9]/i.test(x));
+          // how broken it is follows the speech level (core/town/difficulty.ts brokenPieces)
+          const pieces = brokenPieces(said.line.text, rulesOf(runRef.current).breaks);
           for (let k = 0; k < pieces.length; k++) {
             if (speech.current !== mineTok) return false;
-            await sayJobLine({ who: said.line.who, text: pieces[k] }, runRef.current?.doc.level ?? 2, { ...(volume !== undefined ? { volume } : {}), ...(o.slow ? { slow: true } : {}) });
+            await sayJobLine({ who: said.line.who, text: pieces[k] }, runRef.current?.doc.level ?? 2, { rateFactor: rulesOf(runRef.current).rate, ...(volume !== undefined ? { volume } : {}), ...(o.slow ? { slow: true } : {}) });
             if (k < pieces.length - 1) await new Promise((r) => window.setTimeout(r, HISS_MS));
           }
-        } else await sayJobLine(said.line, runRef.current?.doc.level ?? 2, { ...(volume !== undefined ? { volume } : {}), ...(o.slow ? { slow: true } : {}), ...(own ? { gender: genderRef.current } : {}) });
+        } else await sayJobLine(said.line, runRef.current?.doc.level ?? 2, { ...(own ? {} : { rateFactor: rulesOf(runRef.current).rate }), ...(volume !== undefined ? { volume } : {}), ...(o.slow ? { slow: true } : {}), ...(own ? { gender: genderRef.current } : {}) });
         const lt = lineTimes.current.get(id);
         if (lt) lt.end = Date.now();
         if (speech.current !== mineTok) return false;
@@ -478,8 +487,19 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       trackRef.current = tracks[0].id;
       show({ kind: 'threads', tracks, track: tracks[0].id });
       // a moment to see the threads and pick one before anything is said
-      await new Promise((r) => window.setTimeout(r, THREADS_LEAD_MS));
+      const rules = rulesOf(runRef.current);
+      await new Promise((r) => window.setTimeout(r, rules.leadMs));
       if (!alive(tok)) return;
+      if (!rules.together) {
+        // an easier speech level: the talks one after another, each heard whole (nothing goes by unheard)
+        for (const t of tracks) {
+          if (!alive(tok)) return;
+          trackRef.current = t.id;
+          show({ ...uiRef.current, track: t.id });
+          await say(now(t.lines));
+        }
+        return;
+      }
       const t0 = Date.now();
       const end = Math.max(...due.map((d) => d.at + d.dur));
       let k = 0;
@@ -491,14 +511,14 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
             const said = lineOf(d.id);
             patch((x) => (x.log.some((y) => y.ref === said.ref) ? x : { ...x, log: [...x.log, said] }));
             setSpeaking(said.line.who === 'player' ? 'player' : said.line.who);
-            void sayJobLine(said.line, runRef.current?.doc.level ?? 2);
+            void sayJobLine(said.line, runRef.current?.doc.level ?? 2, { rateFactor: rules.rate });
           } else if (d.track.consequence && (d.track.key ?? []).includes(d.id)) hit(d.track.consequence);
         }
         await new Promise((r) => window.setTimeout(r, 120));
       }
       setSpeaking(null);
     },
-    [hit, lineOf, now, patch, show],
+    [hit, lineOf, now, patch, say, show],
   );
   const switchTrack = useCallback(
     (id: string) => {
@@ -532,7 +552,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       switch (st.kind) {
         case 'goto': {
           stage.current?.endListen();
-          const due = st.deadline ? (st.deadline.seconds ? Date.now() + st.deadline.seconds * 1000 : realTimeOf(runRef.current!.minute, Date.now())) : undefined;
+          const due = st.deadline ? (st.deadline.seconds ? Date.now() + st.deadline.seconds * 1000 * rulesOf(runRef.current).patience : realTimeOf(runRef.current!.minute, Date.now())) : undefined;
           // the card shows the time the learner WROTE (a wrong note runs a wrong clock); it is judged by the real one
           const noted = st.deadline && !st.deadline.seconds && runRef.current!.picks.time !== undefined ? realTimeOf(Number(runRef.current!.picks.time), Date.now()) : due;
           show({ kind: 'go', target: st.place, label: st.label, ...(due !== undefined ? { deadline: noted, timed: true } : {}) });
@@ -617,7 +637,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
             target = st.place;
           }
           const m = runRef.current!.minute;
-          if (st.gone && minutesPast(m, Date.now()) > st.gone.after) {
+          if (st.gone && minutesPast(m, Date.now()) > st.gone.after * rulesOf(runRef.current).patience) {
             hit(st.gone.consequence);
             show({ kind: 'phone' });
             await say(now(st.gone.lines), 'player');
@@ -721,7 +741,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           if (!alive(tok)) return;
           const volume = (_who: string, id: string) => {
             const s = snapshot();
-            const c = s ? overhearClarity(nearest(s), skyNow().mix.rain) : 'none';
+            // the speech level: heard from further at an easier one (core/town/difficulty.ts hearFar)
+            const c = s ? overhearClarity(nearest(s) / rulesOf(runRef.current).hearFar, skyNow().mix.rain) : 'none';
             if (id === st.word && c !== 'none') patch((x) => ({ ...x, heardWord: true, heard: bump(x.heard, ['word']) }));
             return CLARITY_VOLUME[c];
           };
@@ -733,7 +754,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
             const d = nearest(s);
             if (!Number.isFinite(d)) return;
             setHeard(overhearClarity(d, skyNow().mix.rain));
-            if (st.noticed && !runRef.current!.heardWord && !halt.now && d < NOTICED_WITHIN) {
+            if (st.noticed && !runRef.current!.heardWord && !halt.now && d < NOTICED_WITHIN / rulesOf(runRef.current).hearFar) {
               halt.now = true;
               hit(st.noticed.consequence);
               show({ ...uiRef.current, noticed: true });
@@ -886,7 +907,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       if (!alive(tok)) return;
       const t = Date.now();
       const role = r.crew ? doc.crew?.roles.find((x) => x.who === r.crew) : undefined;
-      const { xu, take } = payJob(doc.id, grade, t, role?.cut ?? 0);
+      const { xu, take } = payJob(doc.id, grade, t, role?.cut ?? 0, r.speech);
       if (role?.with === 'ride') stage.current?.passenger(role.who as PlaceId, false);
       unpark();
       for (const stop of boatsRef.current.splice(0)) stop();
@@ -902,11 +923,20 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       ];
       const missed = [...new Set(ids.map((id) => lineOf(id).ref))].filter((ref) => said.has(ref));
       const enrolled = enrolJobMisses(missed, t);
+      recordJobEar(doc, r, r.speech); // "Trong game: nghe 1 lần là đúng" (core/town/gameEar.ts), before the run is written as done
       const fatal = [...hits].some((h) => doc.consequences[h]?.fatal);
       setHeat(heatAfter(getHeat(), grade, hits.size, fatal));
       // what the story remembers: the grade, and the flags and consequences later jobs read
       finishJobRun(doc.id, grade, [...runRef.current!.flags.filter((f) => !f.startsWith('aboard:') && !f.startsWith('asked:')), ...[...hits].map((h) => `hit:${h}`)], t);
       patch((x) => ({ ...x, xu, missed, enrolled, crewTake: take }));
+      // the speech level follows the learner (core/town/difficulty.ts): each fact said in this run, right or not, and
+      // each junction heard, right the first time or not
+      const saidLines = new Set(runRef.current!.log.map((l) => l.line.id));
+      const results = [
+        ...doc.facts.filter((f) => saidLines.has(f.line)).map((f) => !hits.has(f.consequence) && !(f.early && hits.has(f.early))),
+        ...doc.steps.flatMap((s) => (s.kind === 'ride' ? (s.junctions ?? []).filter((j) => (r.heard[j.id] ?? 0) > 0).map((j) => !r.wrongAt.includes(j.id)) : [])),
+      ];
+      if (!r.pinned) recordSpeechRun(results, t);
       show({ kind: 'debrief' });
       onReward({ label: tl`Phi vụ xong: ${tr(GRADE_NAME[grade])}`, ...(xu > 0 ? { xu } : {}) });
     },
@@ -1081,7 +1111,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       const repeats = r!.repeats + 1;
       patch((x) => ({ ...x, repeats, heard: bump(x.heard, [key]), flags: x.flags.includes('asked') ? x.flags : [...x.flags, 'asked'] }));
       const lines = st.repeat?.[key] ?? [e.line];
-      void say([...lines, ...(st.patience && repeats === st.patience.after ? [st.patience.line] : [])], st.via === 'scene' ? null : 'player', { slow: !st.repeat?.[key] });
+      const after = st.patience ? Math.max(1, st.patience.after + rulesOf(r).freeRepeats - 1) : 0;
+      void say([...lines, ...(st.patience && repeats === after ? [st.patience.line] : [])], st.via === 'scene' ? null : 'player', { slow: !st.repeat?.[key] });
     },
     [patch, say],
   );
@@ -1093,7 +1124,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       if (!r || !j || !st) return;
       const asks = r.asks + 1;
       patch((x) => ({ ...x, asks, heard: bump(x.heard, [j.id]) }));
-      const over = !!st.again && asks > st.again.patience;
+      const over = !!st.again && asks > Math.max(0, st.again.patience + rulesOf(r).freeRepeats - 1);
       if (over) hit(st.again!.consequence);
       void say(over ? [st.again!.line, j.line] : [j.line], 'player', { slow });
     },
@@ -1409,6 +1440,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           onCallBack={(id) => void returnCall(id)}
           onPlay={playVoicemail}
           onClose={() => setPhoneOpen(false)}
+          speech={progress.speech ?? emptySpeech()}
+          onPin={(l) => pinSpeechLevel(l)}
         />
       )}
       {ui.kind === 'crew' && run && run.doc.crew && <CrewPicker doc={run.doc} world={crewWorld} nameOf={nameOf} onPick={pickCrew} onClose={quit} />}
@@ -1418,7 +1451,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
         <Suspense fallback={null}>
           <JobNotebook
             entries={ui.entries}
-            options={(key) => notebookOptions(ui.entries!, key, run.minute, run.seed, run.doc.clock ?? 'quarter')}
+            options={(key) => notebookOptions(ui.entries!, key, run.minute, run.seed, run.doc.clock ?? 'quarter', rulesOf(run).lookAlikes)}
             picks={run.picks}
             onPick={(key, value) => patch((x) => ({ ...x, picks: { ...x.picks, [key]: value } }))}
             heard={run.heard}
@@ -1494,8 +1527,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
 }
 
 /** The options of an entry as offered (the time's made from the appointment), in an order by the run's seed. */
-function notebookOptions(entries: readonly NoteEntry[], key: string, minute: number, seed: number, style: ClockStyle) {
-  return noteOptions(entries.find((x) => x.key === key)!, minute, seed + key.length, style);
+function notebookOptions(entries: readonly NoteEntry[], key: string, minute: number, seed: number, style: ClockStyle, count: 3 | 4) {
+  return noteOptions(entries.find((x) => x.key === key)!, minute, seed + key.length, style, count);
 }
 
 const CLARITY_NAME: Readonly<Record<Clarity, string>> = {

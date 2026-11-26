@@ -185,7 +185,10 @@ export default function JobDebrief({ run, say, news, newsNow, lineOf, onAgain, o
         <p className="town-build-hint">
           {run.enrolled > 0 && tl`${run.enrolled} câu nghe hụt đã vào Ôn tập.`} {run.repeats + run.asks > 0 && tl`Xin nhắc lại ${run.repeats + run.asks} lần.`}
         </p>
-        <p className="town-build-hint">Hạng và xu là điểm trò chơi, không đo trình độ. Người Westbay nói bằng giọng của trình duyệt, ít nối âm hơn người thật.</p>
+        <p className="town-build-hint">
+          {run.pinned ? tl`Bậc lời nói: ${run.speech} (bạn chọn).` : tl`Bậc lời nói: ${run.speech} (tự động).`} Hạng, bậc và xu là điểm trò chơi, không đo trình độ. Người Westbay nói bằng giọng của trình duyệt, ít nối âm hơn người thật.
+        </p>
+        <p className="town-build-hint">Số đo thật của game là "nghe 1 lần là đúng" trên điều nghe lần đầu: <a href="#/stats?view=report">xem ở Báo cáo tiến bộ</a>.</p>
 
         <h3 className="town-ls-sub">Họ đã nói gì</h3>
         <ol className="town-ls-lines">

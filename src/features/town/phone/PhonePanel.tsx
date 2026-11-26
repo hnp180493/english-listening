@@ -5,11 +5,12 @@
 // clues earned (data/city/clues.ts). One primary action at most: calling back the first open missed call.
 
 import { useRef } from 'react';
-import { Lightbulb, Phone, PhoneCall, PhoneMissed, Play, Users, Voicemail, X } from 'lucide-react';
+import { Gauge, Lightbulb, Phone, PhoneCall, PhoneMissed, Play, Users, Voicemail, X } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import { canCallBack, waiting as waitingCount, type PhoneEntry } from '../../../core/town/phone';
 import { clockOf } from '../../../core/town/job';
 import { clueById } from '../../../data/city/clues';
+import { SPEECH_LEVELS, type SpeechLevel, type SpeechState } from '../../../core/town/difficulty';
 import { tl } from '../../../i18n';
 import type { Contact } from '../jobs/crewWorld';
 import { usePanelKeys } from '../panelKeys';
@@ -36,9 +37,12 @@ export interface PhonePanelProps {
   onCallBack: (id: string) => void;
   onPlay: (id: string) => void;
   onClose: () => void;
+  /** The speech level of the jobs and the dispatch office (core/town/difficulty.ts): automatic, or pinned. */
+  speech: SpeechState;
+  onPin: (level: SpeechLevel | null) => void;
 }
 
-export default function PhonePanel({ log, now, nameOf, contacts, clues, busy, onCallBack, onPlay, onClose }: PhonePanelProps) {
+export default function PhonePanel({ log, now, nameOf, contacts, clues, busy, onCallBack, onPlay, onClose, speech, onPin }: PhonePanelProps) {
   const boxRef = useRef<HTMLElement>(null);
   usePanelKeys(boxRef, onClose);
   const calls = log.filter((e) => e.kind !== 'voicemail');
@@ -165,6 +169,25 @@ export default function PhonePanel({ log, now, nameOf, contacts, clues, busy, on
             ))}
           </ul>
         )}
+        <h3 className="town-ls-sub">
+          <Icon icon={Gauge} size={16} /> Độ khó lời nói
+        </h3>
+        <div className="phone-levels" role="radiogroup" aria-label="Độ khó lời nói">
+          <button type="button" role="radio" aria-checked={speech.pin.level === null} className="btn btn-ghost btn-sm" onClick={() => onPin(null)}>
+            Tự động
+          </button>
+          {SPEECH_LEVELS.map((l) => (
+            <button key={l} type="button" role="radio" aria-checked={speech.pin.level === l} className="btn btn-ghost btn-sm phone-level" onClick={() => onPin(l)} aria-label={tl`Bậc ${l}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <p className="town-build-hint">{speech.pin.level === null ? tl`Tự động: đang ở bậc ${speech.auto.level}, đổi dần theo việc bạn nghe đúng.` : tl`Bạn đã ghim bậc ${speech.pin.level}.`}</p>
+        <details className="how">
+          <summary>Bậc đổi những gì?</summary>
+          <p>Bậc cao hơn thì người ta nói nhanh hơn một chút (so với Tốc độ đọc của bạn), ít lần nhắc lại miễn phí hơn, chờ bạn ít hơn, sổ tay có thêm một giờ giống nhau, phải đứng gần hơn mới nghe lén rõ, câu qua bộ đàm đứt nhiều chỗ hơn, và có lúc hai chuyện diễn ra cùng lúc. Không bao giờ có tiếng ồn đè lên lời. Phi vụ ở bậc cao trả nhiều xu hơn.</p>
+          <p>Tự động giữ bạn quanh mức nghe đúng khoảng 85% ngay lần đầu, mỗi lần đổi một bậc. Bậc là điểm trò chơi, không đo trình độ tiếng Anh.</p>
+        </details>
         {first && (
           <div className="town-talk-foot">
             <button type="button" className="btn btn-primary" onClick={() => onCallBack(first.id)}>

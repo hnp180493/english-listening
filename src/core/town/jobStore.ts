@@ -11,6 +11,7 @@ import { addEarned, townDay, updateDaily } from './progress';
 import { commitTown, loadTownProgress, townDevice } from './store';
 import { scenesHeard } from './worldStore';
 import { splitPay } from './crew';
+import { SPEECH_RULES, SPEECH_START, type SpeechLevel } from './difficulty';
 
 /**
  * The job paid today already (on any browser), or the day's allowance of paid jobs is used up (JOBS_PAID_A_DAY,
@@ -27,19 +28,20 @@ export function jobLevel(jobId: string): 1 | 2 | 3 {
 }
 
 /** A run is over: its pay (0 when the job already paid today), written down. Never throws. */
-export function payJob(jobId: string, grade: JobGrade, now: number = Date.now(), cut = 0): { xu: number; take: number } {
+export function payJob(jobId: string, grade: JobGrade, now: number = Date.now(), cut = 0, level: SpeechLevel = SPEECH_START): { xu: number; take: number; level: SpeechLevel } {
   try {
     const paid = jobPaidToday(jobId, now);
-    // a crew member takes their cut first (core/town/crew.ts splitPay); the learner is paid the rest
-    const { take, keep: xu } = splitPay(jobPay(grade, paid, jobLevel(jobId)), cut);
-    if (paid) return { xu: 0, take: 0 };
+    // a harder speech level pays more (core/town/difficulty.ts SPEECH_RULES pay); a crew member takes their cut first
+    // (core/town/crew.ts splitPay); the learner is paid the rest
+    const { take, keep: xu } = splitPay(Math.round(jobPay(grade, paid, jobLevel(jobId)) * SPEECH_RULES[level].pay), cut);
+    if (paid) return { xu: 0, take: 0, level };
     const device = townDevice();
     let next = updateDaily(loadTownProgress(), townDay(now), device, (d) => ({ ...d, heard: [...(d.heard ?? []), jobId] }), true);
     if (xu > 0) next = addEarned(next, device, xu);
     commitTown(next, now);
-    return { xu, take };
+    return { xu, take, level };
   } catch {
-    return { xu: 0, take: 0 };
+    return { xu: 0, take: 0, level };
   }
 }
 

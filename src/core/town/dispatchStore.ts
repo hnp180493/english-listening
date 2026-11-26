@@ -13,6 +13,8 @@ import { queueRadioNews } from './radioNews';
 import { commitTown, loadTownProgress, townDevice } from './store';
 import type { TownCity } from './city';
 import { scenesHeard } from './worldStore';
+import { SPEECH_RULES, SPEECH_START, type SpeechLevel } from './difficulty';
+import { recordSpeechRun } from './jobsStore';
 
 /** The chapter after which Gus offers Rico the old gatehouse (data/city/seasonsMain2.ts). */
 export const OFFICE_OPENS_AFTER = 'cs-bigdeal-6';
@@ -33,6 +35,8 @@ export function shiftsPaidToday(now: number = Date.now()): number {
 }
 
 export interface ShiftEnd {
+  /** The speech level the shift was played at (core/town/difficulty.ts): for the progress report and the debrief. */
+  level: SpeechLevel;
   xu: number;
   capped: boolean;
   enrolled: number;
@@ -40,11 +44,12 @@ export interface ShiftEnd {
 }
 
 /** A shift is over: pay it (within the day's allowance), enrol the calls heard wrong, queue Bay FM's line. Never throws. */
-export function endShift(sum: ShiftSummary, missed: readonly string[], now: number = Date.now()): ShiftEnd {
+export function endShift(sum: ShiftSummary, missed: readonly string[], now: number = Date.now(), level: SpeechLevel = SPEECH_START, pinned = false): ShiftEnd {
   let xu = 0;
   let capped = false;
   try {
-    const pay = shiftPay(sum.xu, dispatchToday(now));
+    // a harder speech level pays more (core/town/difficulty.ts SPEECH_RULES pay)
+    const pay = shiftPay(Math.round(sum.xu * SPEECH_RULES[level].pay), dispatchToday(now));
     capped = pay.capped;
     // (a shift that earned nothing does not use up one of the day's two)
     if (pay.id && pay.xu > 0) {
@@ -60,5 +65,7 @@ export function endShift(sum: ShiftSummary, missed: readonly string[], now: numb
   const enrolled = enrolJobMisses(missed, now);
   const news = shiftNews(sum, sum.results.length);
   if (news) queueRadioNews({ id: `dispatch-${news}`, lines: NEWS_LINES[news].map((l) => ({ text: l.text, vi: l.vi })) }, now);
-  return { xu, capped, enrolled, news };
+  // the level follows the learner: each call answered, its two places right the first time or not (not when pinned)
+  if (!pinned) recordSpeechRun(sum.results.filter((r) => r.answered && !r.stolen).map((r) => !r.fromWrong && !r.toWrong), now);
+  return { level, xu, capped, enrolled, news };
 }

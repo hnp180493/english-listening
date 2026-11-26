@@ -5,6 +5,7 @@ import { useSyncExternalStore } from 'react';
 import { KEYS, onAppWrite, saveJSON, STORAGE_PREFIX } from '../storage';
 import type { JobGrade } from './job';
 import { emptyTownJobs, grantClueTo, hasClue, mergeTownJobs, parseTownJobs, recordJob, type TownJobs } from './jobProgress';
+import { emptySpeech, pinSpeech, speechAfter, speechLevelOf, type SpeechLevel, type SpeechState } from './difficulty';
 
 let session: TownJobs | null = null;
 let cacheRaw: string | null | undefined;
@@ -105,5 +106,38 @@ export function grantClue(id: string, now: number = Date.now()): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+function writeJobs(next: TownJobs): void {
+  const saved = saveJSON(KEYS.townJobs, next);
+  session = saved ? null : next;
+  notify();
+}
+
+/** The speech level's state (./difficulty.ts): automatic and pinned. */
+export const speechNow = (): SpeechState => loadTownJobs().speech ?? emptySpeech();
+
+/** The level a job or a shift speaks at now. */
+export const speechLevelNow = (): SpeechLevel => speechLevelOf(speechNow());
+
+/** A run is over: its lines heard right the first time or not move the automatic level (one step at most). Never throws. */
+export function recordSpeechRun(results: readonly boolean[], now: number = Date.now()): void {
+  try {
+    if (results.length === 0) return;
+    const state = loadTownJobs();
+    writeJobs({ ...state, speech: speechAfter(state.speech ?? emptySpeech(), results, now) });
+  } catch {
+    // best effort
+  }
+}
+
+/** The learner pins a level, or lifts the pin (null: automatic). Never throws. */
+export function pinSpeechLevel(level: SpeechLevel | null, now: number = Date.now()): void {
+  try {
+    const state = loadTownJobs();
+    writeJobs({ ...state, speech: pinSpeech(state.speech ?? emptySpeech(), level, now) });
+  } catch {
+    // best effort
   }
 }

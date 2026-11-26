@@ -6,7 +6,7 @@ import { TOWN_DECORATIONS, TOWN_PLACES } from '../../data/town';
 import { GARAGE } from '../../data/townGarage';
 import { EGG_COST } from '../../data/townGame';
 import { TOWN_GIFTS } from '../../data/townGifts';
-import { gradeOdds, LEARNERS, perMinute, simulate, SOURCES, sourceShares, type Learner } from './economyModel';
+import { gradeOdds, LEARNERS, perMinute, simulate, SOURCES, sourceShares, speechPay, type Learner } from './economyModel';
 import { jobLevelPay, JOBS_PAID_A_DAY } from './job';
 import { OFFICE_UPGRADES, officeTakings, wordPay } from './office';
 import { FINE_SHARE_MAX, fineFor } from './police';
@@ -78,6 +78,13 @@ describe('the economy: no source dominates, listening pays', () => {
       return o.clean * jobLevelPay('clean') + o.messy * jobLevelPay('messy') + o.broken * jobLevelPay('broken');
     };
     expect(exp(0.9)).toBeGreaterThan(exp(0.7));
+  });
+
+  it('a harder speech level pays more, never wildly more; the middle level is the pay as written', () => {
+    expect(speechPay(0.8)).toBe(1);
+    for (const [a, b] of [[0.5, 0.7], [0.7, 0.85], [0.85, 0.9], [0.9, 0.97]]) expect(speechPay(b)).toBeGreaterThan(speechPay(a));
+    expect(speechPay(1)).toBeLessThanOrEqual(1.25);
+    expect(speechPay(0)).toBeGreaterThanOrEqual(0.8);
   });
 
   it('every source pays more to a learner who understands more', () => {

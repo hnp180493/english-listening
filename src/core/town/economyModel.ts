@@ -21,6 +21,7 @@ import { EPISODE_FINISH_XU, EPISODE_GIST_FIRST_XU, EPISODE_RELISTEN_XU } from '.
 import { FARM_DAILY_CARDS, FARM_GOLDEN_XU, FARM_XU_PER_CARD } from './farm';
 import { FISH_DAILY_XU } from './fishing';
 import { JOB_PAY, JOBS_PAID_A_DAY, jobLevelPay, type JobGrade } from './job';
+import { SPEECH_RULES, type SpeechLevel } from './difficulty';
 import { OFFICE_UPGRADES, officeTakings, shiftSetup, WORDS_PAID_A_DAY, wordPay } from './office';
 import { fineFor } from './police';
 import { SHIFT_XU_DAY } from './shift';
@@ -87,6 +88,19 @@ export interface Source {
   /** `n` sessions (may be a fraction: an expected value) use up fresh content. */
   use?(s: ModelState, n: number): ModelState;
 }
+
+/**
+ * The speech level a learner who understands `p` settles at (core/town/difficulty.ts follows them to about 85% right):
+ * a guess of the model, so that a better learner's jobs and shifts pay a little more (SPEECH_RULES pay).
+ */
+export function speechLevelFor(p: number): SpeechLevel {
+  if (p < 0.6) return 1;
+  if (p < 0.75) return 2;
+  if (p < 0.88) return 3;
+  if (p < 0.94) return 4;
+  return 5;
+}
+export const speechPay = (p: number): number => SPEECH_RULES[speechLevelFor(p)].pay;
 
 /** The chance a job ends clean, messy or broken for a learner at `p` (four facts to hear, one consequence each). */
 export function gradeOdds(p: number, facts = 4): Record<JobGrade, number> {
@@ -182,7 +196,7 @@ export const SOURCES: readonly Source[] = [
     // a level-2 job, the odds of each grade at p
     xu: (p) => {
       const o = gradeOdds(p);
-      return o.clean * jobLevelPay('clean', 2) + o.messy * jobLevelPay('messy', 2) + o.broken * jobLevelPay('broken', 2);
+      return (o.clean * jobLevelPay('clean', 2) + o.messy * jobLevelPay('messy', 2) + o.broken * jobLevelPay('broken', 2)) * speechPay(p);
     },
   },
   {
@@ -191,7 +205,7 @@ export const SOURCES: readonly Source[] = [
     opens: 'office',
     minutes: 5,
     perDay: DISPATCH_SHIFTS_A_DAY,
-    xu: (p, s) => shiftSetup(s.upgrades).calls * (DISPATCH_XU + DISPATCH_FIRST_XU * p * 0.6) * p,
+    xu: (p, s) => shiftSetup(s.upgrades).calls * (DISPATCH_XU + DISPATCH_FIRST_XU * p * 0.6) * p * speechPay(p),
   },
   {
     id: 'takings',

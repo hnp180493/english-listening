@@ -25,6 +25,7 @@ import {
   type ShiftSummary,
 } from '../../../core/town/dispatch';
 import { makeRoutes } from '../../../core/town/dispatchRoads';
+import { recordDispatchEar } from '../ear/gameEarFacts';
 import { endShift, type ShiftEnd } from '../../../core/town/dispatchStore';
 import { ownedUpgrades, shiftSetup } from '../../../core/town/office';
 import { loadTownProgress } from '../../../core/town/store';
@@ -33,7 +34,10 @@ import { CITY_PLACES, CITY_ROWS } from '../../../data/cityWorld';
 import { CALLBACK_LINES, CROSS_LINES, DISPATCH_CALLS, DISPATCH_PLACES, DRIVER_LINES, OPEN_LINES, STOLEN_LINES, fillDispatchLine, type DispatchLine } from '../../../data/city/dispatch';
 import { placeEn, placeVi } from '../../../data/city/dispatch/names';
 import { playSfx } from '../sfx';
-import { hush, sayCaller, sayDriver } from './dispatchVoice';
+import { hush, sayCaller, sayDriver, setCallerRate } from './dispatchVoice';
+import { loadTownJobs, speechLevelNow } from '../../../core/town/jobsStore';
+import { PATIENCE } from '../../../core/town/dispatch';
+import { SPEECH_RULES, type SpeechLevel } from '../../../core/town/difficulty';
 
 /** Where each place's door is (tile centres), and where the three cars start. */
 export const DOORS: Readonly<Record<string, Pt>> = Object.fromEntries(
@@ -92,6 +96,8 @@ const EMPTY: Pick = { from: null, to: null, car: null };
 export function useDispatchShift(sound: boolean) {
   const [run, setRun] = useState<DispatchRun>({ phase: 'intro', shift: null, pick: EMPTY, slot: 'from', talking: false, feed: null, log: [], summary: null, end: null });
   const ref = useRef(run);
+  /** The speech level the shift under way is played at (core/town/difficulty.ts). */
+  const levelRef = useRef<SpeechLevel>(3);
   ref.current = run;
   const keys = useRef(0);
   const turn = useRef(0);
@@ -187,7 +193,11 @@ export function useDispatchShift(sound: boolean) {
     for (const c of calls) recent.add(c.id);
     turn.current = Math.floor(Date.now() / 1000) % 7;
     const open = nth(OPEN_LINES);
-    set({ phase: 'shift', streetNames: setup.streetNames, shift: startShift(calls, { doors: DOORS, start: START }, { drivers: setup.drivers, times: setup.times, lines: setup.lines }), pick: EMPTY, slot: 'from', talking: false, feed: null, log: [], summary: null, end: null });
+    // the speech level (core/town/difficulty.ts): the callers' speed, their patience, repeats before they are cross
+    levelRef.current = speechLevelNow();
+    const rules = SPEECH_RULES[levelRef.current];
+    setCallerRate(rules.rate);
+    set({ phase: 'shift', streetNames: setup.streetNames, shift: startShift(calls, { doors: DOORS, start: START }, { drivers: setup.drivers, times: setup.times, lines: setup.lines, patience: rules.patience, askPatience: Math.max(0, PATIENCE + rules.freeRepeats - 1) }), pick: EMPTY, slot: 'from', talking: false, feed: null, log: [], summary: null, end: null });
     logLine({ who: 'rico', text: open.text, vi: open.vi, kind: 'radio' });
     void sayDriver('rico', open.text);
   }, [set, logLine]);
@@ -199,7 +209,9 @@ export function useDispatchShift(sound: boolean) {
     // a shift ended early: what was not dealt with is left out, not counted against the learner
     const played: Shift = { ...s, calls: s.calls.filter((c) => c.state === 'done' || c.state === 'stolen' || c.firstFrom !== null) };
     const summary = summarize(played);
-    const end = endShift(summary, missedRefs(summary));
+    const end = endShift(summary, missedRefs(summary), Date.now(), levelRef.current, loadTownJobs().speech?.pin.level != null);
+    setCallerRate(1);
+    recordDispatchEar(summary, end.level); // "Trong game: nghe 1 lần là đúng" (core/town/gameEar.ts)
     if (end.xu > 0) playSfx('coin', sound);
     set({ phase: 'debrief', shift: played, summary, end, talking: false });
   }, [set, sound]);

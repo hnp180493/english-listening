@@ -7,18 +7,21 @@ import { CAREFUL_RATE } from '../../../core/playback';
 import type { JobLine } from '../../../core/town/job';
 import { jobVoice } from '../../../core/town/jobVoice';
 import { speak } from '../../../core/tts';
+import { getSettings } from '../../../core/settings';
 import { cityCastVoice, cityLineText } from '../../../core/town/cityAudio';
 import { dictationAudio } from '../../dictation/decodeCache';
 
-export function sayJobLine(line: Pick<JobLine, 'who' | 'text' | 'say'>, level: number, o: { careful?: boolean; volume?: number; slow?: boolean; gender?: 'male' | 'female' } = {}): Promise<void> {
+export function sayJobLine(line: Pick<JobLine, 'who' | 'text' | 'say'>, level: number, o: { careful?: boolean; volume?: number; slow?: boolean; gender?: 'male' | 'female'; rateFactor?: number } = {}): Promise<void> {
+  // the speech level's speed (core/town/difficulty.ts): a factor on the learner's own rate, never a rate of its own
+  const rate = o.rateFactor && o.rateFactor !== 1 && !o.slow && !o.careful ? { rate: (getSettings().rate || 1) * o.rateFactor } : {};
   const audio = dictationAudio({ text: line.text, level, ...(line.say ? { say: line.say } : {}) });
   // a town resident (Max, Sam, Grace…): their own Gemini voice for the connected line, the clip the owner generates
   // (core/audioInventory cityJobs; until then the browser's voice of their sex plays); careful: the browser's voice
   const cast = cityCastVoice(line.who);
-  if (cast && !o.careful) return speak(cityLineText(line, level), { mode: 'connected', voice: cast, ...(o.slow ? { slow: true } : {}) });
+  if (cast && !o.careful) return speak(cityLineText(line, level), { mode: 'connected', voice: cast, ...rate, ...(o.slow ? { slow: true } : {}) });
   const voice = jobVoice(line.who, o.gender);
   if (o.careful) return speak(audio.careful.trim(), { mode: 'careful', rate: CAREFUL_RATE, voice, browserOnly: true });
-  return speak(audio.connected.trim(), { mode: 'connected', voice, browserOnly: true, ...(o.slow ? { slow: true } : {}), ...(o.volume !== undefined ? { volume: o.volume } : {}) });
+  return speak(audio.connected.trim(), { mode: 'connected', voice, browserOnly: true, ...rate, ...(o.slow ? { slow: true } : {}), ...(o.volume !== undefined ? { volume: o.volume } : {}) });
 }
 
 /** About how long a line takes said (a line too far off to hear still takes its time). */

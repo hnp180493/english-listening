@@ -101,6 +101,7 @@ export default function DispatchDebrief({ run, onAgain, onClose }: DispatchDebri
         <p className="town-build-hint">
           Xu là điểm trò chơi, không đo trình độ. Khách và tài xế nói bằng giọng của trình duyệt, ít nối âm hơn người thật. Câu nào khó, bấm "Nghe" thêm vài lần trước khi qua ca sau.
         </p>
+        <p className="town-build-hint">Số đo thật của game là "nghe 1 lần là đúng" trên điều nghe lần đầu: <a href="#/stats?view=report">xem ở Báo cáo tiến bộ</a>.</p>
       </div>
 
       {answered.length === 0 && sum.stolen === 0 ? (

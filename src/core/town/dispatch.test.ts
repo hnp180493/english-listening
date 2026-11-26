@@ -235,3 +235,27 @@ describe('dispatch: the streets', () => {
     expect(way.length).toBeLessThanOrEqual(3);
   });
 });
+
+describe('dispatch: the speech level (core/town/difficulty.ts)', () => {
+  it('a more patient level lets a call ring longer before Bayline takes it; a harder one less', () => {
+    const at = (patience: number) => {
+      let s = startShift([call('1', 'a', 'b')], map, { patience });
+      s = { ...s, calls: s.calls.map((c) => ({ ...c, ringAt: 0 })) };
+      s = tick(s, 0.1, doors, straight).shift;
+      return run(s, RING_LIMIT + 2).shift.calls[0].state;
+    };
+    expect(at(1)).toBe('stolen');
+    expect(at(1.5)).toBe('ringing');
+    let s = startShift([call('1', 'a', 'b')], map, { patience: 0.7 });
+    s = { ...s, calls: s.calls.map((c) => ({ ...c, ringAt: 0 })) };
+    s = tick(s, 0.1, doors, straight).shift;
+    expect(run(s, RING_LIMIT * 0.7 + 1).shift.calls[0].state).toBe('stolen');
+  });
+
+  it('free repeats: a caller is cross only past the level’s patience', () => {
+    const lenient = startShift([call('1', 'a', 'b')], map, { askPatience: PATIENCE + 2 });
+    let s = heard(answer({ ...lenient, calls: lenient.calls.map((c) => ({ ...c, state: 'ringing' as const })) }, 0), 0);
+    for (let k = 0; k < PATIENCE + 1; k++) s = askAgain(s, 0).shift;
+    expect(s.calls[0].cross).toBe(false);
+  });
+});

@@ -76,3 +76,20 @@
   justify-content: flex-end;
   gap: var(--space-1);
 }
+
+/* the speech level (core/town/difficulty.ts): automatic or one of five, one row */
+.phone-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.phone-levels .btn[aria-checked='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.phone-level.btn {
+  min-width: 34px;
+  padding-inline: 6px;
+  justify-content: center;
+}

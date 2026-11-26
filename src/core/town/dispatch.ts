@@ -106,6 +106,8 @@ export type CallState =
   | 'stolen';
 
 export interface ShiftCall {
+  /** The speech level's patience (core/town/difficulty.ts): a factor on how long the caller rings and waits. Default 1. */
+  patience?: number;
   call: DispatchCall;
   state: CallState;
   /** When it rings (seconds into the shift); for a callback, when it rings again. */
@@ -158,6 +160,8 @@ export interface Shift {
   stolen: number;
   /** Phone lines (./office.ts): with two, a call ringing while the other line is busy waits on hold. */
   lines?: 1 | 2;
+  /** Repeats before a caller is cross (the speech level: PATIENCE plus its free repeats, minus one). Default PATIENCE. */
+  askPatience?: number;
 }
 
 /** How a shift is set up (./office.ts shiftSetup): the cars, when the calls ring, the lines. Default: as before. */
@@ -165,6 +169,9 @@ export interface ShiftOptions {
   drivers?: readonly DriverId[];
   times?: readonly number[];
   lines?: 1 | 2;
+  /** The speech level (core/town/difficulty.ts): a factor on the callers' patience, and repeats before they are cross. */
+  patience?: number;
+  askPatience?: number;
 }
 
 export type ShiftEvent =
@@ -188,7 +195,9 @@ export function startShift(calls: readonly DispatchCall[], map: ShiftMap, opts: 
     t: 0,
     stolen: 0,
     lines: opts.lines ?? 1,
+    ...(opts.askPatience !== undefined ? { askPatience: opts.askPatience } : {}),
     calls: calls.map((call, i) => ({
+      ...(opts.patience !== undefined && opts.patience !== 1 ? { patience: opts.patience } : {}),
       call,
       state: 'waiting',
       ringAt: times[Math.min(i, times.length - 1)] + Math.max(0, i - times.length + 1) * 10,
@@ -274,8 +283,8 @@ export function goesToBayline(waited: number, limit: number, stolenSoFar: number
 /** How close a waiting call is to its limit, 0..1 (the phone warns from BAYLINE_WARN), or null when it cannot go. */
 export function baylineShare(c: ShiftCall, t: number, stolenSoFar: number): number | null {
   if (stolenSoFar >= STOLEN_MAX || c.callbacks > 0) return null;
-  if (c.state === 'ringing') return Math.max(0, Math.min(1, (t - c.ringAt) / RING_LIMIT));
-  if (c.state === 'line' && c.heardAt !== null) return Math.max(0, Math.min(1, (t - c.heardAt) / DECIDE_LIMIT));
+  if (c.state === 'ringing') return Math.max(0, Math.min(1, (t - c.ringAt) / (RING_LIMIT * (c.patience ?? 1))));
+  if (c.state === 'line' && c.heardAt !== null) return Math.max(0, Math.min(1, (t - c.heardAt) / (DECIDE_LIMIT * (c.patience ?? 1))));
   return null;
 }
 
@@ -314,7 +323,7 @@ export function askAgain(s: Shift, i: number): { shift: Shift; ok: boolean; cros
   const c = s.calls[i];
   if (c?.state !== 'line' || c.asks >= ASKS_MAX) return { shift: s, ok: false, cross: false };
   const asks = c.asks + 1;
-  const cross = asks > PATIENCE;
+  const cross = asks > (s.askPatience ?? PATIENCE);
   return { shift: upd(s, i, { asks, cross: c.cross || cross }), ok: true, cross: cross && !c.cross };
 }
 
@@ -400,12 +409,12 @@ export function tick(s0: Shift, dt: number, doors: Readonly<Record<string, Pt>>,
       return { ...c, state: 'ringing' };
     }
     if (held && c.state === 'ringing') return { ...c, ringAt: c.ringAt + Math.max(0, dt) };
-    if (c.callbacks === 0 && c.state === 'ringing' && goesToBayline(t - c.ringAt, RING_LIMIT, stolen)) {
+    if (c.callbacks === 0 && c.state === 'ringing' && goesToBayline(t - c.ringAt, RING_LIMIT * (c.patience ?? 1), stolen)) {
       stolen++;
       events.push({ kind: 'stolen', call: c.call.id, place: c.call.from });
       return { ...c, state: 'stolen' };
     }
-    if (c.callbacks === 0 && c.state === 'line' && c.heardAt !== null && goesToBayline(t - c.heardAt, DECIDE_LIMIT, stolen)) {
+    if (c.callbacks === 0 && c.state === 'line' && c.heardAt !== null && goesToBayline(t - c.heardAt, DECIDE_LIMIT * (c.patience ?? 1), stolen)) {
       stolen++;
       events.push({ kind: 'stolen', call: c.call.id, place: c.call.from });
       return { ...c, state: 'stolen' };

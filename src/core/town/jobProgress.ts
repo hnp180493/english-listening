@@ -7,6 +7,7 @@
 // ./jobsStore.ts.
 
 import type { JobGrade } from './job';
+import { mergeSpeech, parseSpeech, type SpeechState } from './difficulty';
 
 export const JOBS_VERSION = 1;
 /** Flags kept per job at most (a run adds a handful). */
@@ -27,6 +28,8 @@ export interface TownJobs {
   done: Record<string, JobRecord>;
   /** Clues earned (id → when first, ms). Missing in records written before clues: none. */
   clues?: Record<string, number>;
+  /** The level jobs and the dispatch office speak at (./difficulty.ts): automatic and pinned, each with its time. */
+  speech?: SpeechState;
 }
 
 export const emptyTownJobs = (): TownJobs => ({ version: JOBS_VERSION, done: {} });
@@ -65,6 +68,8 @@ export function parseTownJobs(raw: unknown): TownJobs {
     for (const [id, at] of Object.entries(clues)) if (okClue(id) && time(at) > 0) kept[id] = time(at);
     if (Object.keys(kept).length > 0) out.clues = kept;
   }
+  const speech = (raw as Record<string, unknown>).speech;
+  if (speech !== undefined && speech !== null) out.speech = parseSpeech(speech);
   return out;
 }
 
@@ -93,6 +98,7 @@ export function mergeTownJobs(a: TownJobs, b: TownJobs): TownJobs {
     clues[id] = x !== undefined && y !== undefined ? Math.min(x, y) : (x ?? y)!;
   }
   if (Object.keys(clues).length > 0) out.clues = clues;
+  if (a.speech || b.speech) out.speech = a.speech && b.speech ? mergeSpeech(a.speech, b.speech) : (a.speech ?? b.speech);
   return out;
 }
 

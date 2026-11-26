@@ -42,6 +42,12 @@ export function hush(): void {
   stopSpeaking();
 }
 
+/** The speech level's speed for the callers of the shift under way (core/town/difficulty.ts): a factor on the learner's rate. */
+let levelRate = 1;
+export function setCallerRate(factor: number): void {
+  levelRate = factor > 0 ? factor : 1;
+}
+
 export interface CallSay {
   call: Pick<DispatchCall, 'id' | 'gender' | 'manner' | 'level'>;
   text: string;
@@ -58,7 +64,7 @@ export function sayCaller({ call, text, again = false, careful = false }: CallSa
   const voice: SpeakVoice = dispatchVoice(call);
   const opts: SpeakOptions = careful
     ? { mode: 'careful', rate: CAREFUL_RATE, voice, browserOnly: true }
-    : { mode: 'connected', voice, browserOnly: true, volume: m.volume, ...(again ? { slow: true } : { rate: Math.min(1.6, base * m.rate) }) };
+    : { mode: 'connected', voice, browserOnly: true, volume: m.volume, ...(again ? { slow: true } : { rate: Math.min(1.6, base * m.rate * levelRate) }) };
   if (onStart) opts.onStart = onStart;
   return queue(playback(text, call.level, careful), opts);
 }
