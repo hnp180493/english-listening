@@ -69,6 +69,7 @@ import { useCanGift } from './friends/useCanGift';
 import { useGreeting } from './friends/useGreeting';
 import { getTownUi, setTownUi, useTownUi } from './townUi';
 import QuestTracker from './QuestTracker';
+import RideButton from './RideButton';
 import { followed, townQuests } from './quests';
 import './town.css';
 import { tl, tr } from '../../i18n';
@@ -1074,6 +1075,7 @@ export default function TownPage() {
             }}
           />
         )}
+        {!flat && townReady && !talk && !build && !activity && !map && !showWelcome && <RideButton stage={stage} />}
         <TownHud
           overview={overview}
           sound={ui.sound}

@@ -245,6 +245,25 @@
   }
 }
 
+/* "Lên xe đạp" / "Xuống xe" (RideButton): the stage's bottom right, clear of the main button in the middle */
+.town-ride {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 2;
+  gap: var(--space-2);
+  font-weight: 600;
+}
+/* (wider than the round icon buttons of a phone's HUD column: its label is the point) */
+.town-pill.town-ride {
+  width: auto;
+  padding: 0 var(--space-3);
+}
+.town-ride.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 /* the title and the way to the next one */
 .town-level {
   display: flex;

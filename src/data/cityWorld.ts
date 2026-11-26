@@ -531,7 +531,19 @@ function fillers(w: TownWorld): WorldScenery[] {
   return out;
 }
 
-export const CITY_WORLD: TownWorld = { ...STRETCHED, scenery: [...(STRETCHED.scenery ?? []), ...fillers(STRETCHED)] };
+export const CITY_WORLD: TownWorld = {
+  ...STRETCHED,
+  scenery: [...(STRETCHED.scenery ?? []), ...fillers(STRETCHED)],
+  // to ride (the stretched map's own coordinates): a car at the taxi rank and one on the harbour, scooters on Market
+  // Street and Arts Street, a bike by the station (data/vehicles.test.ts: open ground, clear of what people use)
+  vehicles: [
+    { kind: 'car', at: T(30, 31), heading: 0 },
+    { kind: 'car', at: T(69, 80), heading: 0 },
+    { kind: 'scooter', at: T(47, 19), heading: 0 },
+    { kind: 'scooter', at: T(34, 50), heading: 0 },
+    { kind: 'bike', at: T(18, 32), heading: Math.PI / 2 },
+  ],
+};
 export const CITY_SIZE = CITY_WORLD.size;
 export const CITY_ROWS: readonly string[] = CITY_WORLD.rows;
 export const CITY_PLACES: readonly WorldPlace[] = CITY_WORLD.places;

@@ -14,6 +14,8 @@ import { cameraDt, springStep } from '../../engine/spring';
 import { drawChatDots, drawEmote, drawFloat, drawParticles, drawSky, drawTag, drawTalkBubble, drawVignette, EMOTE_SECONDS, FLOAT_SECONDS, placeTags, tagSize, type EmoteKind, type TagBox } from '../../engine/draw/overlay';
 import type { ActKind, BurstKind, EngineCallbacks, Near, SafeInsets, StageTarget, TravelTarget } from '../../engine/stage';
 import { drawEdgeArrow, drawTargetArrow, drawWay, edgeArrow, metres, wayDots } from '../../engine/draw/guide';
+import type { VehicleKind } from '../../../../data/townWorld';
+import { RIDES, vehicleGeometry } from './vehicles3d';
 import { paletteFor, type TownPalette } from '../../engine/palette';
 import { Particles } from '../../engine/particles';
 import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
@@ -314,6 +316,11 @@ export class TownEngine3D {
   // shell's asks
   private focus: PlaceId | null = null;
   private hint: PlaceId | null = null;
+  /** What can be ridden (TownWorld.vehicles): where each is parked (or, the one ridden, drawn now), its model. */
+  private rides: { kind: VehicleKind; x: number; y: number; heading: number; mesh: Mesh }[] = [];
+  private ridesMade = false;
+  /** The one the player rides (an index of `rides`), -1 = on foot. */
+  private riding = -1;
   /** The quest followed (setGuide), its way (tile-grid points, found twice a second) and how long that is (tiles). */
   private guide: TravelTarget | null = null;
   private guideWay: { x: number; y: number }[] = [];
@@ -806,6 +813,11 @@ export class TownEngine3D {
 
   destroy(): void {
     this.stop();
+    for (const r of this.rides) {
+      r.mesh.removeFromParent();
+      r.mesh.geometry.dispose();
+    }
+    this.rides = [];
     lastPlayerTile.set(this.world.rows, { ...this.sim.player.tile });
     for (const p of this.people.values()) p.ch.dispose();
     this.people.clear();
@@ -859,6 +871,8 @@ export class TownEngine3D {
    */
   talkAt(placeId: PlaceId, setting: TalkSetting, opts: { visitor?: PlaceId | null; instant?: boolean }, ready: () => void): boolean {
     if (!this.sim.residents.has(placeId)) return false;
+    // a talk is on foot: the bike (the car, the horse) is left where it is
+    this.dismount();
     const visitor = opts.visitor && opts.visitor !== placeId ? opts.visitor : null;
     const s = this.staged;
     if (s && s.placeId === placeId && sameSetting(s.setting, setting) && (s.phase === 'room' || s.phase === 'outside')) {
@@ -938,6 +952,7 @@ export class TownEngine3D {
    */
   meet(placeId: PlaceId, ready: () => void): boolean {
     if (!this.sim.residents.has(placeId)) return false;
+    this.dismount();
     const p = this.sim.player;
     const sides = [
       { x: 0.75, y: -0.75 },
@@ -1372,6 +1387,98 @@ export class TownEngine3D {
     this.sim.setHint(placeId);
   }
 
+  // ───────────────────────── riding ─────────────────────────
+
+  /** The parked vehicle within reach of the player (the nearest), -1 = none (or riding already). */
+  private nearRide(): number {
+    if (this.riding >= 0 || this.busy()) return -1;
+    const p = this.sim.player;
+    let best = -1;
+    let bestD = 1.3;
+    this.rides.forEach((r, i) => {
+      const d = Math.hypot(r.x - p.x, r.y - p.y);
+      if (d < bestD) {
+        best = i;
+        bestD = d;
+      }
+    });
+    return best;
+  }
+
+  /** What the "Lên xe / Xuống xe" button shows: the vehicle beside the player, the one ridden. */
+  rideState(): { near: VehicleKind | null; riding: VehicleKind | null } {
+    const n = this.nearRide();
+    return { near: n >= 0 ? this.rides[n].kind : null, riding: this.riding >= 0 ? this.rides[this.riding].kind : null };
+  }
+
+  /** On the vehicle beside the player, or off the one ridden. False = neither (none in reach, a talk, a dip). */
+  toggleRide(): boolean {
+    if (this.riding >= 0) {
+      this.dismount();
+      return true;
+    }
+    const n = this.nearRide();
+    if (n < 0 || this.paused) return false;
+    this.mount(n);
+    return true;
+  }
+
+  private mount(i: number): void {
+    const r = this.rides[i];
+    const spec = RIDES[r.kind];
+    this.cancelWalk();
+    // onto its seat, facing the way it faces
+    this.sim.placePlayer({ x: r.x + Math.cos(r.heading) * spec.seatAt, y: r.y + Math.sin(r.heading) * spec.seatAt }, r.heading);
+    this.riding = i;
+    this.sim.setRideSpeed(spec.speed);
+  }
+
+  /** Off the vehicle ridden: it stays where it is, the player steps off to its side. */
+  private dismount(): void {
+    if (this.riding < 0) return;
+    const r = this.rides[this.riding];
+    this.riding = -1;
+    this.sim.setRideSpeed(null);
+    const p = this.sim.player;
+    for (const side of [1, -1]) {
+      const at = { x: r.x - Math.sin(r.heading) * 0.55 * side, y: r.y + Math.cos(r.heading) * 0.55 * side };
+      if (walkable({ x: Math.floor(at.x), y: Math.floor(at.y) }, this.sim.world)) {
+        this.sim.placePlayer(at, p.yaw ?? r.heading);
+        return;
+      }
+    }
+  }
+
+  /** The vehicles: made once the town stands; parked ones where they are, the one ridden under the player. */
+  private updateRides(): void {
+    if (!this.ridesMade && this.ready) {
+      this.ridesMade = true;
+      (this.world.vehicles ?? []).forEach((v, i) => {
+        const geo = vehicleGeometry(v.kind, i);
+        if (!geo) return;
+        const mesh = new Mesh(geo, this.town.mats.std);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        this.town.scene.add(mesh);
+        this.rides.push({ kind: v.kind, x: v.at.x + 0.5, y: v.at.y + 0.5, heading: v.heading, mesh });
+      });
+    }
+    const me = this.people.get('player');
+    this.rides.forEach((r, i) => {
+      if (i === this.riding && me) {
+        // the seat under the player, the vehicle the way the body faces; a horse's back rises and falls at a trot
+        const spec = RIDES[r.kind];
+        r.heading = me.heading;
+        r.x = me.rx - Math.cos(r.heading) * spec.seatAt;
+        r.y = me.rz - Math.sin(r.heading) * spec.seatAt;
+        const trot = r.kind === 'horse' && this.sim.player.moving && !this.still ? Math.abs(Math.sin(this.t * 9)) * 0.035 : 0;
+        r.mesh.position.set(r.x, this.town.lift(r.x, r.y) + trot, r.y);
+      } else r.mesh.position.set(r.x, this.town.lift(r.x, r.y), r.y);
+      r.mesh.rotation.y = -r.heading;
+      r.mesh.visible = !this.room;
+    });
+  }
+
   /** The quest being followed (StageProps.guide): its way on the ground and its arrows. */
   setGuide(target: TravelTarget | null): void {
     this.guide = target;
@@ -1773,8 +1880,17 @@ export class TownEngine3D {
     }
     if (code === 'Enter' || code === 'Space' || code === 'KeyE') {
       if (down) {
+        // riding: off it; beside a vehicle with nobody and nothing else in reach: on it
+        if (this.riding >= 0) {
+          this.dismount();
+          return true;
+        }
         // whoever is within reach of where the player stands now (walking or not)
         const n = this.nearNow(false);
+        if (!n && this.nearRide() >= 0) {
+          this.mount(this.nearRide());
+          return true;
+        }
         if (n && n.kind !== 'resident') this.cancelWalk();
         if (!n) this.cb.onIdleAct?.();
         else if (n.kind === 'activity') this.cb.onActivity?.(n.id);
@@ -1943,6 +2059,7 @@ export class TownEngine3D {
     if (!this.room) {
       this.updateNear();
       this.syncPeople(dt);
+      this.updateRides();
       this.updatePet(dt);
       this.updateKids(dt);
     }
@@ -2377,6 +2494,7 @@ export class TownEngine3D {
 
   /** What somebody is doing this frame, as an action of the characters module. */
   private actionOf(a: Actor, walking: boolean): CharAction {
+    if (a.kind === 'player' && this.riding >= 0) return 'sit';
     const r = a.kind === 'resident' ? (a as Resident) : null;
     if (r?.seat || (a.kind === 'player' && this.sim.playerSeat)) return 'sit';
     if (walking) return r?.doing?.kind === 'jog' ? 'run' : 'walk';
@@ -2465,6 +2583,7 @@ export class TownEngine3D {
       tz += Math.sin(h) * SEAT_FORWARD;
       (p.ch as Character3DPlus).setSeatHeight?.(SEAT_TOP);
     }
+    if (a.kind === 'player' && this.riding >= 0) (p.ch as Character3DPlus).setSeatHeight?.(RIDES[this.rides[this.riding].kind].seat);
     const gap = Math.hypot(tx - p.rx, tz - p.rz);
     // (the last hundredths of a walk onto its end point are not a hop)
     if (a.moving || this.still || gap > 1.1 || (gap < 0.06 && p.slide >= 1)) {
@@ -3124,6 +3243,7 @@ export class TownEngine3D {
    * pier (a panel opened from far away, by a link, shows nothing in the world).
    */
   fishing(phase: FishPhase | null, tier: string | null): void {
+    if (phase !== null) this.dismount();
     if (phase === null) {
       this.fish?.leave();
       return;

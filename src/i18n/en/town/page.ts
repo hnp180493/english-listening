@@ -288,6 +288,14 @@ const page: Record<string, string> = {
   'Ca làm': 'Shift',
   'Nhiệm vụ: {}. {}': 'Quest: {0}. {1}',
   'Nhiệm vụ': 'Quests',
+  'Xuống xe (E)': 'Get off (E)',
+  'Lên {} (E)': 'Get on the {0} (E)',
+  'Xuống xe': 'Get off',
+  'Lên {}': 'Get on the {0}',
+  'xe đạp': 'bike',
+  'xe máy': 'scooter',
+  'ô tô': 'car',
+  'ngựa': 'horse',
 };
 
 export default page;

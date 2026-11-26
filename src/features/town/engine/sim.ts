@@ -1621,6 +1621,8 @@ export class TownSim {
   private squeeze: Actor | null = null;
   /** Shift held (run), and the click walk being long enough to run (RUN_FAR). */
   private running = false;
+  /** The pace while riding (setRideSpeed); null = on foot. */
+  private rideSpeed: number | null = null;
   private errandRun = false;
   /** Everyday life (docs/town.md §7 "Life"): everybody in town from the first day, schedules, passers-by. */
   readonly life: boolean;
@@ -1951,6 +1953,11 @@ export class TownSim {
   /** The way the keys steer now (a unit vector), or null. */
   get steering(): Pt2 | null {
     return this.steerDir;
+  }
+
+  /** Riding (engine3d: a bike, a scooter, a car, a horse): the player's pace whatever the walk (tiles/s); null = on foot. */
+  setRideSpeed(speed: number | null): void {
+    this.rideSpeed = speed;
   }
 
   /** Shift held: the player runs (keys and clicks). */
@@ -2803,7 +2810,7 @@ export class TownSim {
       p.path = [];
     }
     // a long click walk is run, back to a walk for its last tiles; Shift runs whatever the walk
-    p.speed = this.running || (this.errand !== null && this.errandRun && pathLeft(p) > RUN_UNTIL) ? PLAYER_RUN : PLAYER_SPEED;
+    p.speed = this.rideSpeed ?? (this.running || (this.errand !== null && this.errandRun && pathLeft(p) > RUN_UNTIL) ? PLAYER_RUN : PLAYER_SPEED);
     // past the one a click walk squeezed by: the usual rules again
     if (this.squeeze && (!this.errand || Math.hypot(this.squeeze.x - p.x, this.squeeze.y - p.y) > LOOK + 0.5)) this.squeeze = null;
     let want: Pt2 | null = this.steerDir;

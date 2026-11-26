@@ -227,6 +227,16 @@ export interface WorldScenery {
   v?: number;
 }
 
+/** What can be ridden (owner, 2026-11-26: "xe/ngựa hoặc nhiều thứ khác"): each its own pace and seat. */
+export type VehicleKind = 'bike' | 'scooter' | 'car' | 'horse';
+
+/** A vehicle parked where the world starts: on a walkable tile, facing `heading` (radians on the grid, atan2(dy, dx)). */
+export interface WorldVehicle {
+  kind: VehicleKind;
+  at: Tile;
+  heading: number;
+}
+
 /** A part of town: its name (the HUD's travel menu), the box it covers and a walkable tile to arrive at. */
 export interface WorldDistrict {
   id: 'plaza' | 'market' | 'homes' | 'civic' | 'station' | 'park' | 'farm' | 'woods' | 'orchard' | 'meadow' | 'forest' | 'fields' | 'lake' | 'hills' | 'country' | 'beach' | 'harbor' | 'cape'
@@ -272,6 +282,8 @@ export interface TownWorld {
    * the falls, roads running on through the passes. Left out = the town's (TOWN_RANGE).
    */
   range?: { north: readonly number[]; west: readonly number[]; falls: boolean; roads: boolean };
+  /** Bikes, scooters, cars and horses parked about, to ride (features/town/three/scene/vehicles3d.ts). Left out = none. */
+  vehicles?: readonly WorldVehicle[];
   /** The centre of the round plaza, on the tile grid. */
   plaza: { x: number; y: number; r: number };
   start: Tile;
@@ -849,6 +861,13 @@ export const TOWN_WORLD: TownWorld = {
   scenery: WORLD_SCENERY,
   districts: WORLD_DISTRICTS,
   coast: true,
+  // a bike by the plaza and one by the school, a scooter at the station, a horse at the farm
+  vehicles: [
+    { kind: 'bike', at: { x: 40, y: 37 }, heading: 0 },
+    { kind: 'bike', at: { x: 41, y: 44 }, heading: Math.PI / 2 },
+    { kind: 'scooter', at: { x: 52, y: 49 }, heading: 0 },
+    { kind: 'horse', at: { x: 54, y: 14 }, heading: Math.PI / 2 },
+  ],
   plaza: { x: 37.5, y: 33.5, r: 4.6 },
   start: { x: 38, y: 35 },
 };

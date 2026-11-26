@@ -149,6 +149,7 @@ export function stretchWorld(w: TownWorld, cx: readonly Cut[], cy: readonly Cut[
     ...(w.scenery ? { scenery: w.scenery.map(scenery) } : {}),
     ...(w.districts ? { districts: w.districts.map(district) } : {}),
     ...(w.range ? { range: { ...w.range, north: w.range.north.map(mx), west: w.range.west.map(my) } } : {}),
+    ...(w.vehicles ? { vehicles: w.vehicles.map((v) => ({ ...v, at: pt(v.at) })) } : {}),
     plaza: { ...w.plaza, x: mx(w.plaza.x), y: my(w.plaza.y) },
     start: pt(w.start),
   };

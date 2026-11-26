@@ -426,6 +426,17 @@ arrow over the target, an arrow at the stage's edge with the distance while it i
 (`engine/draw/guide.ts`); `MapSnapshot.guide` gives the same way to the minimap (a gold line, the end on its rim when it
 is further) and the full map (an SVG line). Checked in headless Edge only (city and town, 1280×800 and 412×892).
 
+**Riding** (2026-11-26, owner: "có xe ngựa cho chạy nhanh hơn chẳng hạn", "xe/ngựa hoặc nhiều thứ khác"): bikes,
+scooters, cars and a horse stand where the world parks them (`TownWorld.vehicles`; the town: a bike by the plaza and
+one by the school, a scooter at the station, a horse at the farm; Westbay: cars at the taxi rank and on the harbour,
+scooters on Market Street and Arts Street, a bike by the station; `data/vehicles.test.ts` keeps them on open ground,
+clear of doors, spots, seats and chats). Beside one, E or "Lên …" (`RideButton`) puts the player on its seat (the seated
+pose at the seat's height); the keys, a held finger and a click walk drive it at its pace (`RIDES` in
+`three/scene/vehicles3d.ts`: bike 3.6, horse 4.4, scooter 4.6, car 5.6 tiles/s against 1.6 walking; `sim.setRideSpeed`).
+E or "Xuống xe" leaves it where it stands, the player beside it; a talk, a meeting or fishing gets off first. The
+models are built in code (a convertible, so whoever drives is seen); nothing blocks a walk round a parked one. Checked
+in headless Edge only (on, a drive, off; bike, horse, car); nobody has ridden one by hand.
+
 **Moving about** (the player's control, `TownSim.steer / move` in `engine/sim.ts`, tested; rebuilt 2026-11-21 after the
 owner found the keys "delayed or not going where I want" and the character moving unnaturally). Direct control, like a
 cosy game:

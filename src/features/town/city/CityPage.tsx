@@ -48,6 +48,7 @@ import { wantsFlat, webglAvailable } from '../three/webgl';
 import { setTownUi, useTownUi } from '../townUi';
 import { eventToday } from './cityEvents';
 import QuestTracker from '../QuestTracker';
+import RideButton from '../RideButton';
 import { cityQuests, followed, type Quest } from '../quests';
 import './cityLooks';
 import './cityPlaces3d';
@@ -521,6 +522,7 @@ export default function CityPage() {
         )}
 
         {!flat && ready && !sheet && !welcome && !map && <QuestTracker quests={quests} current={quest} stage={stage} onPick={goQuest} />}
+        {!flat && ready && !sheet && !welcome && !map && <RideButton stage={stage} />}
         <div className="town-hud">
           <div className="town-level is-new" role="img" aria-label={tl`Westbay, ${weekday}`}>
             <span className="town-level-title">

@@ -3,7 +3,7 @@
 // browser cannot draw it, the same component with `flat` (no canvases) keeps the page working without a world.
 
 import type { ReactNode, Ref } from 'react';
-import type { ActivitySpotId, PlaceId, Tile, TownWorld } from '../../../data/townWorld';
+import type { ActivitySpotId, PlaceId, Tile, TownWorld, VehicleKind } from '../../../data/townWorld';
 import type { EmoteKind } from './draw/overlay';
 import type { Marker, StageState } from './sim';
 import type { TalkSetting } from './staging';
@@ -136,6 +136,10 @@ export interface TownStageHandle {
   travelTo: (target: TravelTarget, mode: TravelMode, then?: () => void) => boolean;
   /** How far the quest being followed (`guide`) is from the player, along the way there (tiles); null = none or no way. */
   guideDistance: () => number | null;
+  /** The vehicle beside the player and the one ridden (three/scene/vehicles3d.ts); both null without a world. */
+  rideState: () => { near: VehicleKind | null; riding: VehicleKind | null };
+  /** On the vehicle beside the player, or off the one ridden (E does the same). False = neither. */
+  toggleRide: () => boolean;
   /**
    * "Đến ngay" during a click walk (onFarWalk): a short dip to dark and the player is where the walk ends (a talk
    * walked to: both are in place, or in the room), and what the walk was for happens. False = no walk under way.
