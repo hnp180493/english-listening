@@ -1632,6 +1632,8 @@ export class TownSim {
   private running = false;
   /** The pace while riding (setRideSpeed); null = on foot. */
   private rideSpeed: number | null = null;
+  /** How a vehicle ridden holds the road (setGrip: core/town/skyRules.ts rideGrip, wet roads). Walking ignores it. */
+  private grip = { turn: 1, stop: 0 };
   private errandRun = false;
   /** Everyday life (docs/town.md §7 "Life"): everybody in town from the first day, schedules, passers-by. */
   readonly life: boolean;
@@ -1965,6 +1967,11 @@ export class TownSim {
   }
 
   /** Riding (engine3d: a bike, a scooter, a car, a horse): the player's pace whatever the walk (tiles/s); null = on foot. */
+  /** Wet roads (core/town/skyRules.ts rideGrip): a vehicle ridden turns slower and takes longer to stop. */
+  setGrip(g: { turn: number; stop: number }): void {
+    this.grip = { turn: Math.max(0.2, Math.min(1, g.turn)), stop: Math.max(0, Math.min(2, g.stop)) };
+  }
+
   setRideSpeed(speed: number | null): void {
     this.rideSpeed = speed;
   }
@@ -2555,7 +2562,7 @@ export class TownSim {
       this.roundSide = way.round ?? 0;
       const to = Math.atan2(way.face.y, way.face.x);
       const err = angleTo(yaw, to);
-      const most = PLAYER_TURN * dt;
+      const most = PLAYER_TURN * (this.rideSpeed !== null ? this.grip.turn : 1) * dt;
       yaw = angleTo(0, yaw + Math.max(-most, Math.min(most, err)));
       const off = Math.abs(angleTo(yaw, to));
       // within 60° of the way: full pace; a half turn (past ~127°): on the spot first
@@ -2575,7 +2582,9 @@ export class TownSim {
     }
     // the pace: up quickly; down quickly for a turn or the end of a click walk; let go, a stop at once
     const fast = Math.max(top, this.drive);
-    const rate = !want ? fast / PLAYER_STOP : goal < this.drive ? fast / (brake < Infinity ? PLAYER_STOP : PLAYER_ARRIVE) : top / PLAYER_ACCEL;
+    // (a vehicle on a wet road stops later: setGrip)
+    const slide = this.rideSpeed !== null ? this.grip.stop : 0;
+    const rate = !want ? fast / (PLAYER_STOP + slide) : goal < this.drive ? fast / ((brake < Infinity ? PLAYER_STOP : PLAYER_ARRIVE) + slide) : top / PLAYER_ACCEL;
     this.drive = goal > this.drive ? Math.min(goal, this.drive + rate * dt) : Math.max(goal, this.drive - rate * dt);
     if (this.drive < 1e-4) this.drive = 0;
     p.yaw = yaw;

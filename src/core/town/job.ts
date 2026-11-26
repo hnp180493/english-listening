@@ -14,6 +14,7 @@
 // Nothing here is a measure of level: grades and xu are a game score (docs/progress-report.md §6).
 
 import { GAME_DAY_MS, gameMinutes } from './sky';
+import { muffle } from './skyRules';
 
 // ───────────────────────── the script's shape ─────────────────────────
 
@@ -147,11 +148,22 @@ export function clockOf(minute: number): string {
  * 'half': half five (5:30) → 5:30, 4:30 ("half to five", as in German), 5:00 (only "five" kept).
  * 'ten': ten past six (6:10) → 6:10, 5:50 ("to" for "past"), 7:10; ten to six (5:50) → 5:50, 6:10, 6:50.
  */
-export function timeOptions(minute: number, style: ClockStyle = 'quarter'): number[] {
+export function timeOptions(minute: number, style: ClockStyle = 'quarter', count: 3 | 4 = 3): number[] {
   const m = dayMinute(minute);
-  if (style === 'half') return [m, dayMinute(m - 60), dayMinute(m - 30)];
-  if (style === 'ten') return m % 60 === 10 ? [m, dayMinute(m - 20), dayMinute(m + 60)] : [m, dayMinute(m + 20), dayMinute(m + 60)];
-  return m % 60 === 45 ? [m, dayMinute(m + 30), dayMinute(m + 60)] : [m, dayMinute(m - 30), dayMinute(m + 30)];
+  const three =
+    style === 'half'
+      ? [m, dayMinute(m - 60), dayMinute(m - 30)]
+      : style === 'ten'
+        ? m % 60 === 10
+          ? [m, dayMinute(m - 20), dayMinute(m + 60)]
+          : [m, dayMinute(m + 20), dayMinute(m + 60)]
+        : m % 60 === 45
+          ? [m, dayMinute(m + 30), dayMinute(m + 60)]
+          : [m, dayMinute(m - 30), dayMinute(m + 30)];
+  if (count === 3) return three;
+  // a fourth look-alike at a harder speech level (core/town/difficulty.ts): the same words an hour off, or half an hour
+  const fourth = [m + 60, m - 60, m + 30, m - 30].map(dayMinute).find((x) => !three.includes(x))!;
+  return [...three, fourth];
 }
 
 /** Signed game minutes from `minute` to the clock at `nowMs` (late > 0), within half a day either way. */
@@ -179,8 +191,8 @@ export function fillLine<L extends Pick<JobLine, 'text' | 'vi'>>(line: L, minute
 }
 
 /** The options of an entry as offered, in an order fixed by `seed` (the right one not always first). */
-export function noteOptions(entry: NoteEntry, minute: number, seed: number, style: ClockStyle = 'quarter'): NoteOption[] {
-  const all = entry.key === 'time' ? timeOptions(minute, style).map((m) => ({ value: String(m), label: clockOf(m) })) : [...entry.options];
+export function noteOptions(entry: NoteEntry, minute: number, seed: number, style: ClockStyle = 'quarter', count: 3 | 4 = 3): NoteOption[] {
+  const all = entry.key === 'time' ? timeOptions(minute, style, count).map((m) => ({ value: String(m), label: clockOf(m) })) : [...entry.options];
   const k = ((Math.floor(seed) % all.length) + all.length) % all.length;
   return [...all.slice(k), ...all.slice(0, k)];
 }
@@ -226,8 +238,8 @@ export type Clarity = 'clear' | 'faint' | 'none';
  */
 export function overhearClarity(distance: number, rain: number): Clarity {
   const base: Clarity = distance <= CLEAR_WITHIN ? 'clear' : distance <= FAINT_WITHIN ? 'faint' : 'none';
-  if (rain < 0.5) return base;
-  return base === 'clear' ? 'faint' : 'none';
+  // (the rule shared with everything overheard: core/town/skyRules.ts)
+  return muffle(base, rain);
 }
 
 /** The browser voice's volume for a clarity (0 = not said at all, only its time passes). */

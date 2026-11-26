@@ -24,7 +24,8 @@ import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, 
 import { createCharacter, createPet, passerLook, type Character3DPlus } from '../characters';
 import { avatarsSettled, dressInVrm, dressWhenNear } from '../chars/vrmPeople';
 import { gameHour, glowOf, lightningAt, nightOf, type Sky, type SkyNow } from '../../../../core/town/sky';
-import { skyNow, wetNow } from '../../../../core/town/skyNow';
+import { holdSky, skyNow, wetNow } from '../../../../core/town/skyNow';
+import { rideGrip } from '../../../../core/town/skyRules';
 import { sunAt } from '../../../../core/town/sunPath';
 import { airNow } from './skyLook';
 import { Rain } from './rain';
@@ -511,6 +512,8 @@ export class TownEngine3D {
     }
     this.skyT = -1;
     this.skyDirty = true;
+    // (what reads the sky as a rule sees the held one too: core/town/skyNow.ts holdSky)
+    holdSky(this.skyForce ? { sky: this.skyForce, wet: this.wetForce ?? 0 } : null);
   }
 
   setCallbacks(cb: EngineCallbacks): void {
@@ -2226,6 +2229,8 @@ export class TownEngine3D {
       this.sky = this.skyForce ?? skyNow();
       if (Math.abs(was.mix.cloud - this.sky.mix.cloud) + Math.abs(was.glow - this.sky.glow) > 0.004) this.skyDirty = true;
       this.wet = this.wetForce ?? wetNow();
+      // wet roads: a vehicle ridden turns wider and stops later (core/town/skyRules.ts)
+      this.sim.setGrip(rideGrip(this.wet));
       this.airDue = true;
     }
     const nightTo = this.sky.night;

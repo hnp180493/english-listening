@@ -6,6 +6,8 @@ import { getSettings } from '../../../core/settings';
 import type { ScanLine } from '../../../core/town/scanner';
 import { speak, stopSpeaking, type SpeakOptions, type SpeakVoice } from '../../../core/tts';
 import { dictationAudio } from '../../dictation/decodeCache';
+import { scannerStatic, staticPieces, stormStatic } from '../../../core/town/skyRules';
+import { skyNow } from '../../../core/town/skyNow';
 
 const VOICE: Readonly<Record<ScanLine['who'], SpeakVoice | null>> = {
   dispatch: { voice: 'scene-police-dispatch', gender: 'female' },
@@ -24,7 +26,12 @@ export async function sayScan(lines: readonly ScanLine[], slow = false): Promise
   for (const l of lines) {
     const voice = VOICE[l.who];
     if (!voice || g !== gen) continue;
-    const text = dictationAudio({ text: l.text, level: 2 }).connected.trim();
+    // in a storm the call sign at the start is lost to static: a silence, then the rest (core/town/skyRules.ts; the
+    // street, the heading, the vehicle and the top are never cut)
+    const cut = stormStatic(skyNow().mix.storm) ? scannerStatic(l.text) : l.text;
+    if (cut !== l.text) await new Promise((r) => window.setTimeout(r, 700));
+    if (g !== gen) continue;
+    const text = dictationAudio({ text: staticPieces(cut).join(' '), level: 2 }).connected.trim();
     const opts: SpeakOptions = { mode: 'connected', voice, browserOnly: true, volume: l.who === 'officer' ? 1 : 0.85, ...(slow ? { slow: true } : { rate: getSettings().rate || 1 }) };
     try {
       await speak(text, opts);

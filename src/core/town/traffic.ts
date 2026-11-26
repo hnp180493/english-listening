@@ -116,6 +116,8 @@ export interface TrafficCtx {
   nowMs: number;
   bodies: readonly Pt[];
   rnd: () => number;
+  /** The cruising pace, times the dry one (core/town/skyRules.ts trafficPace: slower on wet roads). Default 1. */
+  pace?: number;
 }
 
 /** One car one step (the others as they were at the start of the step). */
@@ -132,7 +134,7 @@ function stepCar(c0: TrafficCar, dt: number, all: readonly TrafficCar[], ctx: Tr
     if (light === 'red' || (light === 'amber' && ahead.d > 0.8)) room = Math.min(room, ahead.d - STOP_LINE);
   }
   // speed: brake to stop within the room, else up to the cruise
-  const want = room <= 0.02 ? 0 : Math.min(TRAFFIC_SPEED, Math.sqrt(2 * BRAKE * Math.max(0, room)));
+  const want = room <= 0.02 ? 0 : Math.min(TRAFFIC_SPEED * (ctx.pace ?? 1), Math.sqrt(2 * BRAKE * Math.max(0, room)));
   c.speed = want < c.speed ? Math.max(want, c.speed - BRAKE * dt) : Math.min(want, c.speed + ACCEL * dt);
   let go = Math.min(c.speed * dt, Math.max(0, room));
   if (go <= 0) {

@@ -25,6 +25,8 @@ import { coolStep, jobPatrolStep, patrolPath, startJobPatrol, type JobPatrolRun 
 import type { Pt } from '../../../core/town/traffic';
 import { linesDue, settleJobPatrol, takeJobPatrol, type JobScanLine } from './jobPolice';
 import { streets } from './streetsStore';
+import { trafficPace } from '../../../core/town/skyRules';
+import { wetSoon } from '../../../core/town/skyNow';
 
 /** How many cars drive Westbay (a guess: enough to meet some, few enough for the frame). */
 export const TRAFFIC_CARS = 10;
@@ -209,7 +211,8 @@ export class StreetsWorld implements StageExtra {
     // the traffic: it stops for the player, the residents and the patrol
     const patrolNow = jobAt ?? (search ? search.patrol : null);
     const bodies = [{ x: p.x, y: p.y }, ...[...this.ctx.sim.residents.values()].map((r) => ({ x: r.x, y: r.y })), ...(patrolNow ? [patrolNow] : [])];
-    this.cars = stepTraffic(this.cars, dt, { net: this.net, nowMs: now, bodies, rnd: this.rnd });
+    // (slower on wet roads: core/town/skyRules.ts trafficPace)
+    this.cars = stepTraffic(this.cars, dt, { net: this.net, nowMs: now, bodies, rnd: this.rnd, pace: trafficPace(wetSoon(now)) });
     // what stands in the player's way: never anything they are already inside (a car turning across them, the patrol
     // pulling up), so nothing that moves can shut them in (core/town/traffic.ts blockersFor)
     this.ctx.sim.extraBodies = blockersFor(p, this.cars, patrolNow, this.posts);

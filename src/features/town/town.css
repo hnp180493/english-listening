@@ -1895,6 +1895,12 @@
   font-size: 13px;
   font-weight: 600;
 }
+/* the weather's rules in force (skyRules.ts): a word or two after the hour */
+.town-sky-rule {
+  margin-left: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
 @media (max-width: 560px) {
   .town-sky {
     display: none;

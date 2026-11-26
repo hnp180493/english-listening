@@ -6,7 +6,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
-import { isLiveId } from '../../../core/town/radio';
+import { isLiveId, isRadioFiller } from '../../../core/town/radio';
+import { overheardVolume, rainMuffles, staticCut, staticPieces, stormStatic } from '../../../core/town/skyRules';
+import { skyNow } from '../../../core/town/skyNow';
 import { radioHeard, radioScene } from '../../../core/town/radioStore';
 import { sceneLinePlayback } from '../../../core/town/sceneAudio';
 import type { ListenScene, SceneLine } from '../../../core/town/sceneTypes';
@@ -58,8 +60,35 @@ function pickScene(at: string | null | undefined, now: number, where: 'town' | '
 const speakerFace = (who: string, look: FaceLook) =>
   speakerHasFace(who) ? <Portrait placeId={who as PlaceId} size={look.size} mood={look.mood} shape={look.card ? 'card' : 'round'} frame={look.card ? 'bust' : 'face'} name={speakerName(who)} /> : null;
 
-function say(line: SceneLine, level: number, careful: boolean): Promise<void> {
+/** A silence where a stormy radio lost a word (the jobs' broken lines use the same), ms. */
+const HISS_MS = 700;
+let sayGen = 0;
+
+/**
+ * A line said, the sky's rules applied (core/town/skyRules.ts): in hard rain an overheard talk is quieter; in a storm
+ * Bay FM's bulletin loses a word or two of its filler lines (never one a question asks about), said in pieces with a
+ * silence where the signal dropped. Nothing is mixed over the voice.
+ */
+async function say(line: SceneLine, level: number, careful: boolean, kind?: ListenScene['kind']): Promise<void> {
   const p = sceneLinePlayback(line, level, careful);
+  const g = ++sayGen;
+  if (careful) return speak(p.text, p.options);
+  const sky = skyNow();
+  if (kind === 'overheard' && rainMuffles(sky.mix.rain)) p.options = { ...p.options, volume: Math.min(p.options.volume ?? 1, overheardVolume(sky.mix.rain)) };
+  if (kind === 'radio' && isRadioFiller(line) && stormStatic(sky.mix.storm)) {
+    let seed = 0;
+    for (const ch of line.text) seed = (seed * 31 + ch.charCodeAt(0)) | 0;
+    const cut = staticCut(p.text, () => false, seed + Math.floor(Date.now() / 120_000));
+    if (cut !== p.text) {
+      const pieces = staticPieces(cut);
+      for (let k = 0; k < pieces.length; k++) {
+        if (g !== sayGen) return;
+        await speak(pieces[k], p.options);
+        if (k < pieces.length - 1) await new Promise((r) => window.setTimeout(r, HISS_MS));
+      }
+      return;
+    }
+  }
   return speak(p.text, p.options);
 }
 
@@ -107,7 +136,8 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
   }, []);
 
   const level = scene?.level ?? 1;
-  const sayLine = useCallback((line: SceneLine, careful: boolean) => say(line, level, careful), [level]);
+  const sceneKind = scene?.kind;
+  const sayLine = useCallback((line: SceneLine, careful: boolean) => say(line, level, careful, sceneKind), [level, sceneKind]);
   const done = useCallback(
     (r: FlowResult): FlowEnd => {
       if (!scene) return { xu: 0, notes: [] };

@@ -79,6 +79,16 @@ describe('the appointment', () => {
     expect(refs.every((r) => /-t\d\d[15]0$/.test(r))).toBe(true);
   });
 
+  it('a harder speech level offers a fourth look-alike time: the same words an hour (or half an hour) off', () => {
+    for (const style of ['quarter', 'half', 'ten'] as const)
+      for (const m of [18 * 60 + 45, 19 * 60 + 15, 17 * 60 + 30, 18 * 60 + 10, 17 * 60 + 50]) {
+        const four = timeOptions(m, style, 4);
+        expect(four.slice(0, 3)).toEqual(timeOptions(m, style));
+        expect(new Set(four).size).toBe(4);
+      }
+    expect(timeOptions(17 * 60 + 30, 'half', 4).map(clockOf)).toEqual(['17:30', '16:30', '17:00', '18:30']);
+  });
+
   it('knows how late the learner is, and the real time a minute of the game comes round', () => {
     expect(minutesPast(600, at(610))).toBeCloseTo(10);
     expect(minutesPast(600, at(590))).toBeCloseTo(-10);

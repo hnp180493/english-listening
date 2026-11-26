@@ -227,6 +227,15 @@ function cityToday(weekday: number, month: number): { day: CityRadioEvent | null
   };
 }
 
+/**
+ * The lines of a bulletin that carry nothing a question asks or a learner acts on (the greeting and ident, the leads
+ * into the news and the events, the lead into the advert, the sign-off): the only ones a storm may break up
+ * (core/town/skyRules.ts staticCut). The time check, the sky, the forecast, the news, the events and the advert itself
+ * are never cut.
+ */
+const FILLER = new WeakSet<SceneLine>();
+export const isRadioFiller = (line: SceneLine): boolean => FILLER.has(line);
+
 /** The bulletin Marcus reads at a real time. */
 export function bulletinAt(input: BulletinInput): Bulletin {
   const { now, weekday, month, townEvents } = input;
@@ -234,11 +243,15 @@ export function bulletinAt(input: BulletinInput): Bulletin {
   const hour = gameMinutes(now) / 60;
   const lines: SceneLine[] = [];
   const say = (p: Piece) => lines.push({ who: 'marcus', text: p.en, vi: p.vi });
+  const filler = (p: Piece) => {
+    say(p);
+    FILLER.add(lines[lines.length - 1]);
+  };
 
   // who is on air
   const g = greeting(hour);
   const id = pick(IDENTS, ed, 1);
-  say({ en: `${g.en}, ${id.en}`, vi: `${g.vi}, ${id.vi}` });
+  filler({ en: `${g.en}, ${id.en}`, vi: `${g.vi}, ${id.vi}` });
 
   // the time by the game's clock, as near as five minutes: before, on or just after the mark
   const nowMin = gameMinutes(now);
@@ -252,7 +265,7 @@ export function bulletinAt(input: BulletinInput): Bulletin {
   // the player's news
   const news = (input.news ?? []).filter((n) => n.lines.length > 0);
   if (news.length > 0) {
-    say(pick(NEWS_LEADS, ed, 3));
+    filler(pick(NEWS_LEADS, ed, 3));
     for (const n of news) for (const l of n.lines) lines.push({ who: 'marcus', text: l.text, vi: l.vi, ...(l.say ? { say: l.say } : {}) });
   }
 
@@ -285,17 +298,17 @@ export function bulletinAt(input: BulletinInput): Bulletin {
   const extra = !townLine && city.day && city.festival ? city.festival : null;
   const onToday = [townLine, cityEvent, extra].filter((p): p is Piece => !!p);
   if (onToday.length > 0) {
-    say(pick(EVENTS_LEAD, ed, 7));
+    filler(pick(EVENTS_LEAD, ed, 7));
     for (const p of onToday) say({ en: p.en, vi: p.vi });
   }
 
   // an advert of a real place (data/scenes/radioCalls.ts: true of it; some are clues a job may use)
   const ad = pick(RADIO_ADS, ed, 21);
   const adLead = pick(AD_LEADS, ed, 22);
-  say({ en: adLead.text, vi: adLead.vi });
+  filler({ en: adLead.text, vi: adLead.vi });
   for (const l of ad.lines) say({ en: l.text, vi: l.vi });
 
-  say(pick(SIGN_OFFS, ed, 8));
+  filler(pick(SIGN_OFFS, ed, 8));
 
   // the questions: the sky (what was said about it), then when it changes or what is on
   const next = fc.changes[0]?.sky ?? null;

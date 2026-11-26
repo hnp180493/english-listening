@@ -6,11 +6,20 @@ import { useEffect, useState } from 'react';
 import { Cloud, CloudLightning, CloudRain, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import { clockLabel, SKY_NAME, strikeIn, type Sky } from '../../core/town/sky';
-import { skyNow } from '../../core/town/skyNow';
+import { skyNow, wetSoon } from '../../core/town/skyNow';
+import { rulesNow, type SkyRule } from '../../core/town/skyRules';
 import { tl, tr } from '../../i18n';
 import { playThunder, setRainSound } from './sfx';
 
 const ICONS: Readonly<Record<Sky, LucideIcon>> = { clear: Sun, cloudy: Cloud, rain: CloudRain, storm: CloudLightning };
+
+/** The sky's rules in force (core/town/skyRules.ts), in a word or two each, and what each does (the pill's title). */
+const RULE_WORD: Readonly<Record<SkyRule, string>> = { slippery: 'Đường trơn', muffled: 'Mưa át tiếng', static: 'Radio rè' };
+const RULE_SAYS: Readonly<Record<SkyRule, string>> = {
+  slippery: 'Đường ướt: xe phanh dài hơn, ôm cua rộng hơn.',
+  muffled: 'Mưa to: nghe lỏm khó hơn một nấc.',
+  static: 'Giông: radio và bộ đàm bị rè, mất vài chữ.',
+};
 
 export default function SkyChip({ sound }: { sound: boolean }) {
   const [now, setNow] = useState(() => Date.now());
@@ -38,10 +47,15 @@ export default function SkyChip({ sound }: { sound: boolean }) {
   const icon = sky.sky === 'clear' && night ? Moon : ICONS[sky.sky];
   const label = clockLabel(now);
   const name = tr(SKY_NAME[sky.sky]);
+  // what the weather does to the game now (none on a dry day): a word or two after the hour
+  const rules = rulesNow(sky.mix, wetSoon(now));
+  const words = rules.map((r) => tr(RULE_WORD[r])).join(' · ');
+  const says = rules.map((r) => tr(RULE_SAYS[r])).join(' ');
   return (
-    <span className="town-pill town-sky" role="img" aria-label={tl`Giờ trong thị trấn ${label}, ${name}`} title={tl`Giờ trong thị trấn ${label}, ${name}. Một ngày ở đây dài 48 phút.`}>
+    <span className="town-pill town-sky" role="img" aria-label={words ? tl`Giờ trong thị trấn ${label}, ${name}. ${words}` : tl`Giờ trong thị trấn ${label}, ${name}`} title={tl`Giờ trong thị trấn ${label}, ${name}. Một ngày ở đây dài 48 phút.` + (says ? ` ${says}` : '')}>
       <Icon icon={icon} size={15} />
       <span className="town-sky-time">{label}</span>
+      {words && <span className="town-sky-rule">{words}</span>}
     </span>
   );
 }
