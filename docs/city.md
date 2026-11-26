@@ -504,3 +504,27 @@ after the main story's part 2; nothing in it assumes the learner has heard it.
   directions he mixes up Quay Street and Pier Road (as he mixes up the names of the stops of the no. 9).
 - The streets named in it: College Road, East Road, Arts Street, Quay Street, Pier Road, Station Avenue, Station Road,
   Market Street (data/cityWorld.ts).
+
+## 14. What Act I's job 1 added (now canon, if the owner keeps it)
+
+From "Máy số hai" (`data/city/jobs/machine2.ts`, docs/gta-story.md §6; the bible's people are proposals until the owner
+says otherwise).
+
+- **Duncan Kemp** owns **Bayline**, the city's biggest taxi firm. Polite, never in a hurry, never lies; a navy coat. He
+  reads Bayline's own advert on Bay FM ("Wherever you're going, we're already there."). He has put in a bid for the
+  old gatehouse, which belongs to the **Harbour Trust**, not to Gus; the Trust hears the bids in a fortnight.
+- Rico's firm opens in the old gatehouse by Gus's hut on Pier Road (two phones, the map on the wall); Tess brings the
+  coffee and does not answer phone two. Rico's first fare is Kemp, picked up at the paper kiosk at Meridian's side and
+  taken to Mei's dumpling stall, where Kemp offers to buy her pitch "at what it's worth" and is in no hurry.
+- Bay FM's traffic news is "brought to you by Bayline"; Kit reads it. Station Avenue has roadworks that week.
+
+## 15. What the dispatch office added (now canon)
+
+From Rico's dispatch office (`data/city/dispatch/`, docs/town.md §27).
+
+- The office is the old gatehouse by Gus's hut on Pier Road; the learner answers phone two and is "partner" on the radio.
+- Rico has three cars on the night shift: his own, **Tess**'s (she drives the second car in the evenings once the cart is
+  shut, for her café savings; she still never answers phone two) and **Theo**'s (Nora's husband drives the third on the
+  nights the ferry does not need its mechanic; he hardly says a word on the radio). Rico talks on the radio as much as
+  in the car.
+- A caller left waiting too long is picked up by a Bayline car: "they listen to everything".

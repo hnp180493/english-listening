@@ -12,10 +12,35 @@
  */
 export type VrmExtra = 'glasses' | 'sunglasses' | 'shades-up' | 'flowers' | `cap:#${string}` | `peaked:#${string}` | `bun:#${string}`;
 
+/**
+ * How old a face is drawn (every VRoid sample has a young anime face: chars/vrmAge.ts draws age on a copy of its face
+ * texture): 'older' = lines on the forehead and by the nose and mouth; 'old' = more of them, crow's feet, bags under
+ * the eyes, hollow cheeks, pale brows, a little stoop and a shorter step.
+ */
+export type VrmAge = 'older' | 'old';
+
+/**
+ * Hair on the face: 'stubble' a dotted shadow on the texture; the rest a mesh grown from the face itself
+ * (chars/vrmAge.ts): 'moustache' over the lip, 'goatee' round the mouth and down the chin, 'short' along the whole jaw
+ * and the lip, 'full' the same, thick and hanging below the chin.
+ */
+export type VrmBeard = 'stubble' | 'moustache' | 'goatee' | 'short' | 'full';
+
+/** An older face and the hair on it, as the person's drawn portrait has them (public/portraits). */
+export interface VrmFace {
+  age?: VrmAge;
+  beard?: VrmBeard;
+  /** The beard's colour (default: the hair's). */
+  beardColor?: string;
+  /** Stubble drawn on the skin as well (a moustache over a shadow of a beard: Gus). */
+  stubble?: boolean;
+}
+
 export interface VrmPerson {
   /** Height against the usual avatar (1). */
   tall?: number;
   extras?: readonly VrmExtra[];
+  face?: VrmFace;
 }
 
 /** Every resident with an avatar (the keys are place ids; each has a file). */
@@ -23,8 +48,9 @@ const PEOPLE: Readonly<Record<string, VrmPerson>> = {
   square: {},
   cafe: {},
   friend: { tall: 0.93 },
-  home: { tall: 0.94, extras: ['glasses', 'bun:#c9c9cf'] },
-  shop: { tall: 1.03 },
+  // (Grace: an old lady in her portrait; Ben: a short dark beard)
+  home: { tall: 0.94, extras: ['glasses', 'bun:#c9c9cf'], face: { age: 'old' } },
+  shop: { tall: 1.03, face: { beard: 'short', beardColor: '#4a3426' } },
   office: {},
   school: { extras: ['glasses'] },
   station: { extras: ['peaked:#27365a'] },
@@ -62,6 +88,72 @@ export interface VrmWear extends VrmPerson {
   bald?: boolean;
 }
 
+/**
+ * The faces of Westbay's people, read off their drawn portraits one by one (2026-11-27; public/portraits, the first face
+ * of each sheet). An id listed here is taken as it stands (an empty entry: a young face, whatever the hair: Iris and
+ * Vivian are white-haired and young); anybody else gets what their look says (`faceOf`).
+ */
+export const FACES: Readonly<Record<string, VrmFace>> = {
+  // old: white or grey hair and a lined face in the portrait
+  osei: { age: 'old', beard: 'goatee', beardColor: '#dedcd6' },
+  adeyemi: { age: 'old', beard: 'goatee', beardColor: '#ecebe6' },
+  frank: { age: 'old', beard: 'short', beardColor: '#bdb6ae' },
+  hal: { age: 'old', beard: 'full', beardColor: '#cfcac3' },
+  mei: { age: 'old' },
+  okafor: { age: 'old' },
+  // older: grey hair, a few lines
+  finch: { age: 'older' },
+  whitlock: { age: 'older' },
+  odile: { age: 'older' },
+  // a beard on a young face
+  gus: { beard: 'moustache', beardColor: '#4a3527', stubble: true },
+  marcus: { beard: 'short', beardColor: '#231c1c' },
+  // (his own portrait is not drawn yet: the file that carried his name was Marcus's; the beard is his look's hair)
+  jonah: { beard: 'short', beardColor: '#7a5236' },
+  theo: { beard: 'short', beardColor: '#6b4a33' },
+  rico: { beard: 'short', beardColor: '#2a2222' },
+  // white hair on a young face
+  iris: {},
+  vivian: {},
+};
+
+/** Grey or white hair (light, hardly any colour): read as an older face when nothing else says. */
+function greyHair(hex: string): boolean {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const light = (max + min) / 2;
+  return light > 0.6 && max - min < 0.1;
+}
+
+/**
+ * Somebody's face: the table above, else their look: a beard of their look ('beard' extra) is a short one of the hair's
+ * colour, grey hair an older face. A child is never aged. Null: a young face, nothing on it.
+ */
+export function faceOf(id: string, look: LookLike): VrmFace | null {
+  if (Object.hasOwn(FACES, id)) {
+    const f = FACES[id];
+    return f.age || f.beard ? f : null;
+  }
+  if ((look.scale ?? 1) < 0.9) return null;
+  const has = (x: string): boolean => (look.extras ?? []).some((e) => e === x || e.startsWith(x + ':'));
+  const face: VrmFace = {};
+  if (has('beard')) {
+    face.beard = 'short';
+    face.beardColor = look.hair.color;
+  }
+  if (greyHair(look.hair.color) && look.hair.style !== 'bald') face.age = 'older';
+  return face.age || face.beard ? face : null;
+}
+
+/** A white coat (a doctor's, a pharmacist's: the look's 'coat') worn as the top of a tintable avatar. */
+export const COAT_WHITE = '#f4f2ee';
+
 /** The tintable bases: three men (a jacket, a hoodie, a shirt and tie), four women (a bob, long hair, a ponytail, a bob with buns). */
 const MEN = ['m-jacket', 'm-hoodie', 'm-shirt'] as const;
 const WOMEN = ['f-bob', 'f-long', 'f-tail', 'f-buns'] as const;
@@ -86,7 +178,10 @@ function hash(s: string): number {
 function baseFor(id: string, look: LookLike): { base: string; bald: boolean } {
   const style = look.hair.style;
   const has = (x: string): boolean => (look.extras ?? []).some((e) => e === x || e.startsWith(x + ':'));
-  const woman = has('lashes') || has('skirt') || has('dungarees') || style === 'long' || style === 'bun' || style === 'ponytail' || style === 'pigtails' || style === 'bob';
+  // A beard settles it (Jonah's long hair and Theo's dungarees once put the two of them, beards and all, in a girl's
+  // body with a bow at the neck).
+  const man = has('beard') || (Object.hasOwn(FACES, id) && !!FACES[id].beard);
+  const woman = !man && (has('lashes') || has('skirt') || has('dungarees') || style === 'long' || style === 'bun' || style === 'ponytail' || style === 'pigtails' || style === 'bob');
   if (woman) {
     const base = style === 'long' ? 'f-long' : style === 'ponytail' || style === 'pigtails' ? 'f-tail' : style === 'bob' ? 'f-bob' : style === 'bun' ? 'f-buns' : WOMEN[hash(id) % WOMEN.length];
     return { base, bald: false };
@@ -115,9 +210,12 @@ export function vrmFor(id: string, look: LookLike, base: string): VrmWear {
   if (own2.includes('glasses')) extras.push('glasses');
   if (own2.includes('sunglasses')) extras.push('sunglasses');
   if (own2.includes('cap')) extras.push(`cap:#${look.top.replace('#', '')}`);
+  const face = faceOf(id, look);
   return {
     url: file(base, 'base-' + pick.base),
-    tint: { skin: look.skin, hair: look.hair.color, top: look.top, bottom: look.bottom },
+    // (a white coat over the top: the base has no coat, so its top turns white)
+    tint: { skin: look.skin, hair: look.hair.color, top: own2.includes('coat') ? COAT_WHITE : look.top, bottom: look.bottom },
+    ...(face ? { face } : {}),
     // (a child stands lower than its code-built size says: these legs are long. Its head keeps its size: a larger
     // head throws the hair's spring bones about)
     tall: kid ? (look.scale ?? 0.75) * 0.84 : (look.scale ?? 1),

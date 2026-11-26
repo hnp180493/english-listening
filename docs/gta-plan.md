@@ -306,3 +306,58 @@ chưa ai đọc. Thời gian, khoảng cách, sức chịu của ông khách, ti
 2. Một lỗi ghi chép có cảm giác là hậu quả trong truyện, hay là bị phạt?
 3. Rico và ông khách nói có nhanh quá không; "Xin nhắc lại" có đủ để đỡ mà vẫn thấy có giá không?
 4. Mày có muốn chơi phi vụ thứ hai không? Nếu có, muốn đổi gì trước khi viết thêm?
+
+## 13. M1 as built (2026-11-26): phi vụ là dữ liệu, và phi vụ 1 của Hồi I
+
+Theo yêu cầu "push lên rồi tiếp đi": khung phi vụ thành một bộ máy chạy **tài liệu phi vụ**, để chủ dự án so hai
+kiểu trên cùng một máy rồi chọn. Hai phi vụ đều mở trong danh sách nhiệm vụ: **"Máy số hai"** (phi vụ 1 của Hồi I,
+`docs/gta-story.md` §6: đối đáp trong xe với chính phản diện) và **"Cuộn băng của Gus"** (M0: lái theo lời chỉ,
+nghe lén mật khẩu), chơi y như trước.
+
+**Một phi vụ = một tài liệu** (`src/core/town/jobDoc.ts`): các bước thuộc những loại đã biết, chạy lần lượt:
+`goto` (tới một chỗ, có đường dẫn), `scene` (người trong thế giới nói), `phone`, `radio`, `notebook` (nghe dặn rồi
+ghi sổ, "Xin nhắc lại" từng mục, câu nhắc lại riêng và câu "hết kiên nhẫn" nếu có), `pickup` (tới chỗ đã GHI, chỗ ghi
+sai thì có người gọi chỉ lại, tìm người trong đám đông, lời chào theo những gì đã ghi, khách bỏ đi nếu tới quá muộn),
+`ride` (xe tự chạy tới chỗ đã ghi hoặc chỗ cố định; trên đường hoặc là các ngã rẽ chọn đường, hoặc là một cuộc nói
+chuyện có xen câu đáp theo ý), `overhear` (nghe theo từng câu; có thể không bao giờ "phát hiện"; có thể bắt đầu
+giữa chừng khi người chơi tới muộn), `intent` (**MỚI**: đáp bằng ý tiếng Việt; câu tiếng Anh của người chơi hiện
+lên, và được đọc nếu `PLAYER_VOICE` bật; có thể là câu bị kiểm), `password`. Câu nói có điều kiện (`if`: mục ghi
+đúng / sai / sớm / muộn / bằng giá trị nào, cờ, hệ quả đã dính). **Sự thật và hệ quả**: mỗi sự thật có đúng một hệ
+quả, mỗi hệ quả có lời "nhập lại mạch chính" (hiện ở màn xem lại); `wellFormed` kiểm mọi tài liệu (test:
+`src/data/city/jobs/jobs.test.ts`): câu nào cũng được nói, người nói hợp lệ (người Westbay, người mới, người chơi),
+chỗ có trên bản đồ, ngã rẽ nằm trên đường, sự thật nào cũng có hệ quả và lời nhập lại, và một mục ghi sai thật sự
+được diễn ra (có điều kiện đọc nó, hoặc một bước dẫn theo nó, hoặc một hành động gây ra hệ quả của nó). Hạng = số
+hệ quả đã dính (0 Sạch, 1–2 Lộn xộn, từ 3 hoặc một hệ quả "chết" Hỏng). Bộ máy: `src/features/town/jobs/useCityJob.tsx`
+(một "đạo diễn" chạy các bước, chờ người chơi qua các bảng).
+
+**Phi vụ 1 "Máy số hai"** (`src/data/city/jobs/machine2.ts`, 104 câu kể cả nhánh, 0 câu của người thị trấn, 0 clip):
+lời thoại theo kinh truyện, trừ những chỗ phải đổi (ghi cả ở đầu file):
+- 04 "Tess, can you—" → "Tess, can you..." (gạch ngang không phải cuối câu);
+- 12 "Quarter past seven, if that's alright…" → "Say {time}, if that's alright…": giờ hẹn theo đồng hồ game như M0,
+  luôn "quarter past / to", nên cặp nghe nhầm vẫn giữ được; 12r → "At {time}, please.";
+- 25a "Quarter past on the dot." → "On the dot."; 25c "…since quarter to?" → "…half an hour?"; 25d "…at ten past."
+  → "…early." (đúng với mọi giờ hẹn);
+- 21 tách ba biến thể Kemp / Ken / Kent; 24 tách "Nah, I'm waiting for the bus." + "And who's Ken, anyway?"; 52
+  câu trả lời tên của người chơi thành câu riêng (Kemp / Ken / Kent); 53b có thêm bản cho Kent (53c);
+- 16b, 25e, 33, 43, H2, N-sạch tách đôi (mỗi câu tối đa 16 từ, luật của thành phố);
+- 25f tách đôi ("…Never mind." + "Go to Mei's anyway, she rang about her lights.").
+Dựng: trạm gác cũ chưa có trên bản đồ nên nhịp 1 diễn ở chòi gác của Gus (Pier Road), Rico và Tess đứng đó; sạp báo
+là chỗ của Mr Whitlock bên hông Meridian; Kemp là người mới, giọng trình duyệt (`SCENE_VOICES`), đứng quanh Station
+Avenue khi không có việc (`features/town/jobs/jobCast.ts`, một "guest" của thế giới). Hệ quả: sai tên (Kemp sửa "có
+chữ P", Rico nói đúng tên ở cuối), chờ nhầm cửa (Kemp gọi điện), ghi giờ sớm (Rico mất một khách ở ga), ghi giờ muộn
+hoặc tới muộn (Kemp chờ nửa tiếng), tới quá 30 phút (Kemp lên xe Bayline: Hỏng, bỏ đoạn trong xe, vẫn ra sạp bà Mei),
+hỏi nhầm người, chở nhầm chỗ (Kemp đi bộ trước, người chơi lỡ ba câu đầu ở sạp), trả lời sai bà Mei.
+
+**Giọng của người chơi** (đang chờ chủ dự án quyết): `PLAYER_VOICE` trong `src/core/town/jobVoice.ts`, mặc định BẬT:
+câu của người chơi hiện thành chữ và đọc bằng giọng trình duyệt đúng giới tính nhân vật; TẮT thì chỉ hiện chữ.
+
+**Chọn phi vụ**: thẻ nhiệm vụ liệt kê các phi vụ đang mở (cả hai mở khi đã gặp Rico, `ct-rico-1`; mở ngay trong chế
+độ admin); chọn thẻ nào thì điện thoại đổ chuông cho phi vụ đó; chơi lại thoải mái.
+
+**Độ nóng** (bản nhẹ nhất, `src/core/town/heat.ts` + test): một con số trong bộ nhớ, mỗi hệ quả +1 (hệ quả "chết" +2),
+phi vụ Sạch −2, từ 0 tới 10; hiện thành một viên nhỏ dưới góc phải khi lớn hơn 0. Không cảnh sát, không xe tuần tra.
+Tải lại trang là về 0.
+
+**Chưa làm / chưa kiểm**: không ai nghe bằng tai, không ai chơi bằng tay hay trên điện thoại; lời thoại chưa ai đọc
+lại; trạm gác cũ và văn phòng Ban quản lý cảng chưa có trên bản đồ; độ nóng chưa có tác dụng gì ngoài con số; các cờ
+"Kemp biết bạn chưa được trả công" / "Kemp sẽ hỏi lại" được nhớ trong lượt chơi nhưng chưa được lưu cho phi vụ 5.

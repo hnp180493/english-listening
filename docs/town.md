@@ -2903,9 +2903,42 @@ in code again.
   goes up when the files are baked again.
 - The admin page has the sheets used to look at all this, dev server only (`features/admin/ModelPreview.tsx`:
   `?cast` every resident's avatar, `?acts` the actions, `?bases` the twelve samples), and `LookPreview.tsx` (the 16
-  faces; 13 new pieces of street furniture, `scene/furniture.ts`, proposed and not in the town).
+  faces; the 13 pieces of street furniture of `scene/furniture.ts`, in the world since 2026-11-26: §26).
 
-**Not done, not known.** An avatar of a RESIDENT keeps its baked clothes whatever outfit colour is set. Portraits and thumbnails are untouched, and so are pets. Past the nearest fourteen, people are still the
+- **Older faces and beards** (2026-11-27; owner, on Dr Osei's young anime face beside his portrait of an old doctor
+  with a white beard: "không làm model già đi được hả? không khớp avatar"). Who is older or bearded was read off the
+  drawn portraits one by one (`data/townVrm.ts`: `VrmFace` { age 'older' | 'old', beard 'stubble' | 'moustache' |
+  'goatee' | 'short' | 'full', its colour, stubble }): Grace old; Ben a short dark beard; in Westbay Dr Osei,
+  Professor Adeyemi (white goatees), Frank (a short grey beard), Hal (a full grey beard), Mei and Mrs Okafor old;
+  Mr Finch, Mr Whitlock and Captain Odile older; Gus a moustache over stubble; Marcus, Jonah, Theo and Rico short
+  beards; Iris and Vivian listed with nothing (white hair, young faces). Anybody else by their look (`faceOf`): a
+  'beard' extra is a short beard of the hair's colour, grey hair an older face, a child never. A look's 'coat' (Osei,
+  Nell) turns a tintable base's top white.
+  - `chars/vrmAge.ts ageFace`: lines drawn on a canvas copy of the face's skin texture, blurred a little and
+    MULTIPLIED (darker skin, so they survive the tint and show on dark skin): forehead lines and nose-to-mouth lines;
+    'old' also crow's feet, bags under the eyes, hollow cheeks, lines down from the mouth; stubble as dots. The copy
+    replaces both the map and MToon's shade texture (else the shaded side keeps the young face). A bald head's
+    painted hairline becomes bare skin on the same copy (Frank and Adeyemi had a black skullcap). Where things are on
+    the texture (`FACE_UV`) was measured on the seven bases and two residents' faces: VRoid faces share one layout
+    within about 2 %.
+  - `beardMesh`: ONE mesh grown from the face itself: the face's own triangles under the nose, picked by their place
+    on the texture (`beardAt`, the lips always left open), pushed out along their normals, thin at the edge, a full
+    beard hanging below the chin; on the head bone (it does not follow the mouth's morph targets).
+  - 'old' bodies stoop a little (spine forward, head held up, not when seated or riding) and take shorter steps
+    with less arm swing (`legCycle` stride). Old brows are as pale as the hair (tintable bases only).
+  - A bald avatar's crown is closed by a dome of its skin colour (`scalpMesh`; the face mesh is open where the hair
+    was, and the inside of the head showed as a dark skullcap): one more mesh for a bald person.
+  - Seen on the admin sheet `?elders` (each person: portrait, the avatar without age, with it, with it face on, the
+    body; `.assets-try/previews/elder-sheet.png`, `elder-faces.png`) and in the world at the usual camera, the person
+    put beside the player (`elder-world-home|shop|osei.png`, `elder-world-close.png`): there Ben's dark beard reads,
+    Dr Osei's white goatee is a small pale patch, Grace's lines do not show at all (a head is some 25 px).
+
+**Not done, not known.** Age is drawn ON a young face: the eyes stay big and round, the face round and smooth in
+shape, so an old person reads as a young face with lines and a beard, not an old face (Grace is still no old lady);
+receding hair cannot be done (the hair is the sample's: Frank's fringe is gone with the hair hidden, Osei keeps a
+young spiky crop), nor a white coat (Osei's and Nell's tops turn white, the shirt base's vest stays pale grey). The
+lines do not show at the usual camera distance (a head is some 25 px there); a dark beard does, a white one barely. A resident's brows keep
+their bake. An avatar of a RESIDENT keeps its baked clothes whatever outfit colour is set. Portraits and thumbnails are untouched, and so are pets. Past the nearest fourteen, people are still the
 round code-built figures (a crowd in Westbay is mixed). A tall slim figure among round trees and low benches
 is a clash of styles nobody has judged in motion. Seen only as pictures from `scripts/town-shot.mjs` (the software
 renderer): the sheet of all 13, eleven of them on the plaza by day, one at night, the action sheet; a seated avatar
@@ -2940,13 +2973,59 @@ phỏng theo đi". Until then day or night in the town was the app's light or da
 - Dev: `window.__town3d.debugSky(18.5, 'storm')` holds an hour and a sky for a picture; no arguments gives the clock
   back.
 
-**Not done, not known.** The sun does not move: shadows fall the same way all day (their snapping, §7, is built on a
-fixed direction). No fog, no wet ground or puddles, no clouds drawn, nobody opens an umbrella or goes indoors, the
-birds fly in the rain. The app's dark theme no longer makes the town dark (a learner in the dark theme sees a bright
-town at the game's noon). Residents still live by the REAL clock (their week, their opening hours), not the game's.
-Seen in six pictures from `scripts/town-shot.mjs` (dawn, noon, dusk, night, rain at 13:00, a storm at 20:30) and the
-HUD pill; nobody has heard the rain or the thunder (the headless browser is mute), watched a sky ease into another,
-or seen a flash. The loudness and the odds are guesses.
+### The sun, the air and the ground (2026-11-26, later)
+
+So that the hour reads in the light and the weather on the ground, as in GTA:
+
+- **The sun moves** (`core/town/sunPath.ts sunAt`, pure, tested). It is up from 05:15 to 19:36 of the game, low in the
+  east (+x) at dawn, exactly the old `SUN_DIR` at 12:25 (the offscreen studios keep that), low in the west at dusk:
+  its way on the ground turns 95° either side of noon, its height eases from 51° to 14° (never lower while it lights,
+  so a shadow is at most four times as long as what casts it). At night the same light is the moon on its own lower
+  arc (highest at 00:30). Round each hand-over the light fades to nothing over an hour and the direction swings from
+  where the sun set to where the moon rises while it is almost dark, so the direction is continuous all day and the
+  swap is not seen (tests: unit length, the lowest height, no jump over the whole day and midnight).
+- **No shimmer from a moving sun.** The shadow map is re-aimed only once the light has turned 0.3° (`stepSun`): a
+  step every few real seconds by day, never every frame; at each step the light's own right / up axes are worked out
+  again (`world3d.ts lightBasis`) and the box keeps snapping to whole texels in that basis (`shadowCenter(at, texel,
+  basis)`). `shadowSnap.test.ts` checks the snapping for directions all through the day and that two real minutes of
+  frames make a few dozen steps, each held for over a hundred frames. A step itself moves shadow edges by less than a
+  texel once; whether that is seen in motion only the owner can say.
+- **The sky's colour** (`scene/skyLook.ts`, pure, tested): the sky canvas still paints its day and night palettes, now
+  tinted by the hour and the weather: pink and gold at the horizon at dawn and dusk, grey under cloud, darker in the
+  rain, thicker grey shapes, no stars through cloud. From the usual camera the sky shows only at the island's far
+  edges and in a wide view.
+- **Mist and haze** (`core/town/sunPath.ts hazeOf`; shader in `scene/weather3d.ts`): no fog object (switching three's
+  fog would rebuild every shader): the shared materials (`materials.ts`: the standard, the swaying and the water
+  materials) fade into the horizon's colour by their distance BEYOND what the camera looks at, thicker near the
+  ground, so the player and what is round them are never in it. None at a clear noon, a light mist at dawn (heavier on
+  wet ground), a little at night, more in the rain, most in a storm. The avatars (VRM, their own materials) and the
+  backdrop's road and falls do not take it.
+- **Wet ground** (`sunPath.ts wetAt`, pure, tested; `skyNow.ts wetNow`): the ground gets wet with the rain and dries
+  over four hours of the game after (8 real minutes). Nothing is stored: the wetness at any moment is read off the sky
+  of the four hours before it, each moment by its own day's weather. Faces looking up darken and turn glossy; on low
+  flat ground, seldom on grass (told by the vertex colour), puddles open where a fixed noise is high: darker, almost a
+  mirror, with the sky's colour in them and the lamps' lights at night (Westbay's asphalt under its street lamps).
+- **Cloud shadows**: on a broken-cloud day (none under a clear or an all-grey sky) soft patches of shade drift over
+  everything with the wind (the direct light dimmed in the same shaders, one shared uniform moved each frame). Under
+  a grey sky the shadows go faint (`shadow.intensity`).
+- **Reduced motion** (`still`): the cloud shadows stop drifting and the rain stops falling, the light of the hour, the
+  sun's direction, the mist and the wetness still show.
+- Cost: no new mesh or pass (a few noise lookups in the shaders that were drawn anyway). A low sun does cost: its
+  longer shadows come from casters further off, all drawn in the shadow pass. Along the light's up axis the shadow box
+  now covers only what is in view on the ground (`rv` in `world3d.update`, its own texel for the snapping), which took
+  the first measure of a dawn from a third more draw calls down to this, measured in one page each on the software
+  renderer, Westbay's centre at zoom 1: noon 124 calls / 1.17 M triangles, rain 14:00 123 / 1.08 M, dawn 06:12
+  151 / 1.63 M, dusk 18:30 147 / 1.44 M (the town's plaza could not be compared: people walking in and out of view
+  move it by 60 calls). Dev: `debugSky(hour, sky, wet?)` (wet defaults to 1 in rain and storm, else 0).
+
+**Not done, not known.** No clouds drawn in the 3D sky (only their shadows and the canvas's shapes), no moon drawn,
+no reflections of buildings in puddles (only the sky's colour and the lamps' highlights), no splashes, nobody opens an
+umbrella or goes indoors, the birds fly in the rain. The app's dark theme no longer makes the town dark (a learner in
+the dark theme sees a bright town at the game's noon). Residents still live by the REAL clock (their week, their
+opening hours), not the game's. Seen only in pictures from `scripts/town-shot.mjs` on the software renderer
+(`.assets-try/previews/sky-*.png`, outside git); nobody has heard the rain or the thunder (the headless browser is
+mute), watched a sky ease into another, a shadow step, the clouds drift or a flash. The loudness, the odds, the mist's
+strength, the drying time and the puddles' look are guesses.
 
 ## 25. Bay FM, true of the game (2026-11-26)
 
@@ -2997,3 +3076,124 @@ café's radio at its first question (rain at 22:40, the gist "Trời mưa, lát 
 1400×900 and 390×844 and its panel on a phone; the pill in Westbay was not looked at. The English of the pieces was
 written by a model and read by nobody else; the Vietnamese meanings are shown in Vietnamese in English mode, like every
 meaning (docs/i18n.md §4).
+
+## 26. Street furniture: each district its own (2026-11-26)
+
+Owner, 2026-11-26: "đồ đạc cũng đa dạng khác biệt lên" (the whole town had ONE bench and ONE lamp, copied everywhere).
+Thirteen pieces were modelled in code (`three/scene/furniture.ts`) and shown on the admin page; the owner saw them and
+said to do it. They are in the world now.
+
+**Benches and lamps by district** (`data/townFurniture.ts DISTRICT_LOOKS`). Every bench and street lamp keeps its
+spot (people sit there, the night's lights are placed there, stored data holds only ids); what changes is which model
+is drawn there. The district of a spot is `districtAt`: of the district boxes holding it, the one whose middle is
+nearest (boxes overlap at their edges: the orchard's bench under the market's box is the orchard's), else the nearest
+box. The town: stone benches and two-globe lamps on the plaza, the old lantern on the market street and in the park, in
+the fields, on the country road and the harbour, iron-armed park benches by the lakes and in the homes' lane, log
+benches out in the woods, hills, orchard and meadow, the classic wood-and-iron bench and arm lamp at the bus station and
+on the beach, stone on the quay and the cape. Westbay: lanterns over stone benches in Chợ cũ, two globes over stone in
+the office district and over park benches on the campus, park benches on Arts Street and the seafront, lanterns at the
+harbour over the classic bench, the classic at the station. A bench of any look seats people at `SEAT_TOP` (the log
+bench's top was lowered to it; the park bench's slats sit 0.008 under it); its collider is its own size
+(`colliders.ts BENCH_SIZE`). A lamp's light and halo stand where its bulbs are (`layout.ts lampLight`: the classic one
+out over its arm, the lantern's glass box, the middle of the two globes, whose bar runs the way the old arm reached);
+the bulbs use the bulb material, so they glow at night like the old ones. The small 'lantern' props (by the inn, the
+pier…) are unchanged.
+
+**The small things** (`TOWN_FURNITURE`, `CITY_FURNITURE`; `TownWorld.furniture`). Placed by hand where they make
+sense. The town (34): bins 10 (the plaza, the market street, the lake, the homes' lane, the bus lay-by, four on
+the beach promenade, the harbour), picnic tables 7 (the park, the lake shore, the big lake, the meadow, the grassy hill,
+the pond), crates and barrels 8 (behind the market stalls and Ben's shop, by the stall across the street, by both
+barns, three on the harbour quay), flower pots 3 (by Grace's, Mia's and Sarah's doors), bike
+racks 2 (the bus station, where the footpath comes down to the beach), post boxes 2 (by Tom's notice board,
+on the plaza's east side), a newspaper box by the bus stop's bench, a hydrant by the clinic. Westbay (47): bins 9,
+crates 8 (by the market square's stalls, at the night market, by Jun's, the ferry and the pier road), hydrants 9 (along
+Market Street, Arts Street, Station Road, by the hospital, on Quay Street, in the office district), bike racks 5
+(Central Station, Arts Street, the offices, the campus quad, the library), post boxes 4 (the station, Market Street,
+the bookshop, across from the hospital), newspaper boxes 4 (Station Road, Bay FM, Mr Whitlock's stand, the Bay FM
+stage), picnic tables 5 (Station Park, the seafront, the campus lawn), pots 4 (between the shops on Market Street, by
+FreshWay's and the computer room's doors). A thing's front looks to +y or +x (`face`), the sides the viewer sees.
+
+**Rules, tested** (`data/townFurniture.test.ts`): on grass or sand (crates and bins may stand at a market square's
+edge), never on a street, a path or the water, never on a tile something else stands on (a house, a prop, scenery, a
+decoration spot bought or not, a town project, a tree), never on a door, the tile in front of a door, a resident's
+spot, a seat's approach, a chat, a life spot, a walk's point, a district's arrival, the start; a tile clear of every
+parked vehicle. Every one is solid as big as its model at body height (`colliders.ts FURNITURE_SIZE`,
+`furnitureColliders`, measured from the scaled models; `three/scene/colliders.test.ts` checks each against its model
+and the reverse); the walking tests (`engine/noStuck.test.ts`, `noWedge.test.ts`, `colliders.test.ts`) prove a body is
+stopped only by something drawn and nobody is shut in. They caught three placements on the way in: crates behind the
+stalls that made a pocket by the planter, a bin and crates diagonal to each other on the market street that made a
+nook a held key stuck in, crates on a Westbay chat spot. Then `townWorld.test.ts` caught a bike rack by the school and
+a bin on the plaza closing the way round a decoration's spot (the flower bed, the flags): both taken out. And
+`engine/sim.test.ts` "a click walk never stays stuck behind somebody" failed at 30 Hz seed 1, walk 3: the player and
+Leo stood waiting for each other on the open plaza, nothing of the furniture within 0.6 of them. It is chaotic, not a
+narrowed way: taking out almost any one of several unrelated pieces (a beach bin, the station's bike rack…) passes it,
+because any change moves the seeded residents differently. The pots beside the café's terrace were taken out, which
+passes it; the stand-off itself is a weakness of the sim (engine/sim.ts) that another seed may still find.
+
+**Size.** The residents are tall avatars (§23; 1.85 × the code body when these were chosen, 1.45 × since cbaa653, not revisited), so the small things stand bigger than modelled
+(`furniture.ts FURNITURE_SCALE`: post box 1.7, newspaper box 1.6, hydrant 1.45, bins 1.4, crates, pots and bike rack
+1.35, lantern 1.15, globes 1.1); seats stay at 1. The admin page's preview draws each piece at that size.
+
+**Cost.** The small things are merged by chunks of 12 × 12 tiles (`streetFurniture.ts buildStreetFurniture`, as the
+city's blocks): a body, and the pots' leaves in the sway material, per chunk; the camera culls far chunks. A bench or a
+lamp of a district's look is one piece, as the classic one was. Measured on the software renderer at the plaza with everything built (admin sandbox, noon): 198 draw calls and 0.62 M triangles with the furniture, 192 and 0.60 M with its chunks hidden. Westbay, the same way: the old town 196 calls with the furniture, 187 without (1.28 M and 1.26 M triangles), the offices 253 / 249, the harbour 264 / 259, the old town at night 251 / 241.
+
+**Not known.** Seen only in pictures from `scripts/town-shot.mjs` (software renderer, day and night); nobody has walked
+round them with real keys, watched a resident sit on the new benches, or seen it on a real GPU or a phone. The chunks'
+bounding boxes are not used for picking or fading (both go by other boxes).
+
+## 27. Rico's dispatch office: phone two (2026-11-26)
+
+`docs/gta-plan.md` §4.4 ("Hãng xe của Rico ở trạm gác cổng cảng: mày là người điều phối"), built as a loop of its own:
+a steady source of play and income that is answered on a map, not in a quiz.
+
+**Where.** The old harbour gatehouse that Gus offers Rico at the end of the main story's part 2 (`cs-bigdeal-6`: "Two
+phones would fit. A map, too."). The map has no gatehouse of its own, so Gus's hut on Pier Road stands for it
+(`data/city/dispatch/places.ts OFFICE_AT`): beside Gus a second button "Văn phòng" opens it, and a quest card
+"Văn phòng điều xe" walks the player there (`features/town/dispatch/dispatchQuest.ts`). It opens once `cs-bigdeal-6`
+was heard (`core/town/dispatchStore.ts dispatchOpen`), at once in the admin sandbox; in the no-3D list it is a button.
+The office is drawn over the whole window (`DispatchOffice.tsx`, the 3D stage paused behind it).
+
+**A shift** (`core/town/dispatch.ts`, pure, tested; about five minutes):
+1. Eight calls ring on phone two, slowly at first, two or three at once near the end (`CALL_TIMES`). The learner picks
+   which to answer. A caller (the browser's voice, a man or a woman, by `manner`: clear, hurried, mumbling, a bad line
+   whose words repeat themselves) says ONCE where they are and where they want to go, sometimes more (how many, "in ten
+   minutes", "at the back", "no, sorry, not the station, the stage"). "Xin nhắc lại" (and the shared replay / slow keys)
+   makes them say the two places again, slower; every repeat is counted; past two the caller is cross (no tip); three at
+   most.
+2. The learner taps the pickup and the destination on the map on the wall (`DispatchMap.tsx`: Westbay drawn from its own
+   tiles, north up; a tap or a district's button zooms into a district, where each place carries the name on its sign,
+   in English), then one of Rico's three cars (Rico, Tess, Theo: on the map or in the list, each with its time to the
+   pickup). A busy car can be given a job (it goes when done); "the near one" = within 8 s of the quickest
+   (`nearestCar`, `isNear`).
+3. The world answers: the car drives the streets (`core/town/dispatchRoads.ts`, breadth first on the painted street and
+   square tiles) and the driver radios. A wrong pickup: "nobody here", the caller rings back annoyed and says the place
+   again (`CALLBACK_LINES`); on that second try they stay on the line and talk the driver in, so it always rejoins. A
+   wrong destination is found out at the drop ("they wanted …") and the car takes them on. One consequence each.
+4. Bayline (docs/city.md §13–14): a call left ringing over 35 s, or heard and left without a car over 70 s, goes to a
+   Bayline car, at most two a shift, never a callback; the phone warns from 70 % of the wait (`goesToBayline`,
+   `baylineShare`). Rico says so on the radio.
+5. The end (`DispatchDebrief.tsx`): heard right the first time (no repeat, both places right: the only "nghe 1 lần là
+   đúng"), repeats, places misheard, Bayline's; each call with its outcome, its words (the call, the repeats, the
+   callback) with the meaning, "Nghe" and "Rõ từng từ"; the radio folded. The calls whose places were misheard become
+   review cards `talk:disp-<id>` (`jobStore.enrolJobMisses`; Ôn tập resolves them in `features/review/resolve.ts`,
+   the caller in the same browser voice). Bay FM's next bulletin mentions a good or a bad night (`radioNews`).
+
+**Content** (`data/city/dispatch/`): 44 calls (14 plain, 15 everyday, 15 hard; 22 men, 22 women), 28 places, 18 pairs
+of places a careless ear confuses (11 that sound alike in connected speech, 7 next door), WHY each is written beside it in
+`places.ts`; every call's `fromNear` / `toNear` is the other half of a pair (tested). The drivers' radio lines, the
+callbacks, Rico's lines and Bay FM's are templates filled with the places' spoken names; every one, filled with every
+place, is checked short and speakable (`dispatch.test.ts`). Nobody of the town speaks here: no clips, nothing in the
+clip inventory.
+
+**Pay (guesses).** 2 xu a call right first time, +1 heard once (not with a far car or a cross caller), 1 for a call that
+needed a second go, 0 for Bayline's; two paid shifts a day (`dp-shift-1`, `dp-shift-2` in the daily set `heard` of
+town-progress; a shift that earned nothing does not use one up): at most 48 xu a day, as Rico's taxi fares. No new
+stored or synced key: a shift lives in memory, a reload drops it unpaid.
+
+**Not known.** Played only by script in headless Edge on the dev server (the voice is muted there); nobody has heard a
+caller, judged the speeds and manners, or played a shift by hand, by touch on a phone, or in English. The pace (eight
+calls, the ring and decide limits, the car speed), the pay and the difficulty mix are untuned; there is no automatic
+difficulty yet (gta-plan §11.3 wants one around 85 % right). The 44 calls and the radio lines were written by a model
+and read by nobody. The places are shown by English labels on the wall map (what the caller says), their Vietnamese
+names in the slots and the debrief.

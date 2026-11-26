@@ -52,7 +52,7 @@ const admin: Record<string, string> = {
   'Bản xem thử, chưa áp vào game. Trái: mặt hiện tại. Phải: mặt mới và dáng đầu riêng.': 'A preview, not in the game yet. Left: the face now. Right: the new face and a head shape of their own.',
   'Cả {} kiểu mặt trên cùng một người': 'All {0} faces on one person',
   'Đồ đạc mới trên phố': 'New street furniture',
-  'Hiện cả thị trấn chỉ có một kiểu ghế và một kiểu đèn. Đây là các kiểu đề xuất thêm.': 'The whole town has one kind of bench and one kind of lamp now. These are the kinds proposed.',
+  'Đã đặt vào thị trấn và Westbay: mỗi khu một kiểu ghế, một kiểu đèn; đồ nhỏ đứng ở chỗ hợp lý. Mỗi món vẽ đúng cỡ như trong thế giới.': 'In the town and Westbay now: each district its own bench and lamp, the small things where they make sense. Each piece is drawn at its size in the world.',
   'Đứng': 'Standing',
   'Đi': 'Walking',
   'Đi (pha sau)': 'Walking (later in the step)',

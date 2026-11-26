@@ -16,7 +16,9 @@ import { canvasOf, charStudio, paint } from '../town/three/offscreen';
 import { createPerson } from '../town/three/chars/person';
 import { wearVrm } from '../town/three/chars/vrmBody';
 import type { CharAction } from '../town/three/contracts';
-import { VRM_IDS, vrmFor } from '../../data/townVrm';
+import { FACES, VRM_IDS, vrmFor } from '../../data/townVrm';
+// (Westbay's people, for the sheet of older faces: their looks register with the cast)
+import '../town/city/cityLooks';
 import { HAT_IDS, passerLook, profileLook } from '../town/three/chars/looks';
 import type { CharacterLook } from '../town/three/contracts';
 
@@ -238,10 +240,10 @@ const CAST_IDS: readonly string[] = [...VRM_IDS, ...Object.keys(OTHERS)];
 /** `…?cast` in the address: every resident in the avatar baked for them (public/vrm), body and face. */
 const SHOW_CAST = typeof window !== 'undefined' && window.location.hash.includes('cast');
 
-async function drawResident(id: string, c: HTMLCanvasElement, w: number, h: number, face: boolean): Promise<void> {
+async function drawResident(id: string, c: HTMLCanvasElement, w: number, h: number, face: boolean, aged = true, straight = false): Promise<void> {
   const ch = OTHERS[id] ? createPerson(id, OTHERS[id]) : createPerson(id);
   const who = vrmFor(id, ch.look, import.meta.env.BASE_URL);
-  await wearVrm(ch, who.url, who);
+  await wearVrm(ch, who.url, aged ? who : { ...who, face: undefined });
   ch.setHeading(Math.PI / 2, true);
   for (let t = 0; t < 0.6; t += 1 / 60) ch.update(1 / 60, 0);
   const st = charStudio();
@@ -254,7 +256,7 @@ async function drawResident(id: string, c: HTMLCanvasElement, w: number, h: numb
   const span = face ? top * 0.26 : top * 1.06;
   const mid = face ? top * 0.9 : top * 0.5;
   const dist = (span * 0.5) / Math.tan((cam.fov * Math.PI) / 360) / 0.9;
-  const yaw = Math.PI / 2 - (face ? 0.3 : 0.4);
+  const yaw = Math.PI / 2 - (straight ? 0 : face ? 0.3 : 0.4);
   cam.position.set(Math.cos(yaw) * dist, mid + dist * (face ? 0.04 : 0.1), Math.sin(yaw) * dist);
   cam.near = 0.02;
   cam.far = 30;
@@ -272,8 +274,15 @@ async function drawResident(id: string, c: HTMLCanvasElement, w: number, h: numb
   ctx.drawImage(out, 0, 0);
 }
 
+/**
+ * `…?elders` in the address: the older and bearded people (data/townVrm.ts: Grace and Ben, and Westbay's FACES), each
+ * beside their drawn portrait: the face as the sample had it, the face aged, the body aged (chars/vrmAge.ts).
+ */
+const SHOW_ELDERS = typeof window !== 'undefined' && window.location.hash.includes('elders');
+const ELDERS: readonly string[] = ['home', 'shop', ...Object.keys(FACES).filter((id) => FACES[id].age || FACES[id].beard)];
+
 /** `…?acts` in the address: only the action sheet (quicker to look at). */
-const SKIP_ROWS = typeof window !== 'undefined' && /acts|bases|cast|gait|worn/.test(window.location.hash);
+const SKIP_ROWS = typeof window !== 'undefined' && /acts|bases|cast|gait|worn|elders/.test(window.location.hash);
 
 const W = 190;
 const H = 300;
@@ -287,6 +296,7 @@ export default function ModelPreview() {
   const acts = useRef<Cell[]>([]);
   const bases = useRef<Cell[]>([]);
   const cast = useRef<Cell[]>([]);
+  const elders = useRef<Cell[]>([]);
   const [note, setNote] = useState('');
 
   useEffect(() => {
@@ -318,13 +328,20 @@ export default function ModelPreview() {
           if (body) await drawResident(CAST_IDS[i], body, 150, 250, false);
           if (face) await drawResident(CAST_IDS[i], face, 170, 170, true);
         }
+        for (let i = 0; SHOW_ELDERS && i < ELDERS.length && !live.gone; i++) {
+          const [before, after, front, body] = [0, 1, 2, 3].map((k) => elders.current[i * 4 + k]);
+          if (before) await drawResident(ELDERS[i], before, 170, 170, true, false);
+          if (after) await drawResident(ELDERS[i], after, 170, 170, true);
+          if (front) await drawResident(ELDERS[i], front, 170, 170, true, true, true);
+          if (body) await drawResident(ELDERS[i], body, 120, 200, false);
+        }
         for (let i = 0; SHOW_BASES && i < BASES.length && !live.gone; i++) {
           const body = bases.current[i * 2];
           const face = bases.current[i * 2 + 1];
           if (body) await draw(`vroid/${BASES[i]}.vrm`, body, 150, 230, false);
           if (face) await draw(`vroid/${BASES[i]}.vrm`, face, 150, 150, true);
         }
-        for (let i = 0; i < (SHOW_BASES || SHOW_CAST ? 0 : ACTIONS.length) && !live.gone; i++) {
+        for (let i = 0; i < (SHOW_BASES || SHOW_CAST || SHOW_ELDERS ? 0 : ACTIONS.length) && !live.gone; i++) {
           const front = acts.current[i * 2];
           const side = acts.current[i * 2 + 1];
           if (front) await drawAction(front, ACTIONS[i], 150, 230, false);
@@ -352,6 +369,27 @@ export default function ModelPreview() {
               <div className="adm-look-pair">
                 <canvas ref={(el) => void (cast.current[i * 2] = el)} className="adm-pic" style={{ width: 150, height: 250 }} />
                 <canvas ref={(el) => void (cast.current[i * 2 + 1] = el)} className="adm-pic" style={{ width: 170, height: 170 }} />
+              </div>
+              <span className="adm-scene">{townPlace(id)?.resident ?? id}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {SHOW_ELDERS && (
+        <ul className="adm-faces">
+          {ELDERS.map((id, i) => (
+            <li key={id} className="adm-model">
+              <div className="adm-look-pair">
+                <div
+                  className="adm-pic"
+                  role="img"
+                  aria-label={id}
+                  style={{ width: 170, height: 170, backgroundImage: `url(${import.meta.env.BASE_URL}portraits/${id}.webp)`, backgroundSize: '300% 300%', backgroundPosition: '0 0' }}
+                />
+                {[0, 1, 2].map((k) => (
+                  <canvas key={k} ref={(el) => void (elders.current[i * 4 + k] = el)} className="adm-pic" style={{ width: 170, height: 170 }} />
+                ))}
+                <canvas ref={(el) => void (elders.current[i * 4 + 3] = el)} className="adm-pic" style={{ width: 120, height: 200 }} />
               </div>
               <span className="adm-scene">{townPlace(id)?.resident ?? id}</span>
             </li>

@@ -31,6 +31,7 @@ import { RIDES } from '../scene/vehicles3d';
 import type { Character3DPlus } from './person';
 import { BASE_SKIN, type VrmWear } from '../../../../data/townVrm';
 import type { VrmExtra } from '../../../../data/townVrm';
+import { ageFace, beardMesh, scalpMesh } from './vrmAge';
 
 /** The share of the code body's leg swing a VRM takes (its legs are about three times as long for the same pace). */
 const STRIDE = 0.62;
@@ -121,7 +122,11 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   VRMUtils.rotateVRM0(vrm);
   const old = vrm.meta.metaVersion === '0';
   slim(vrm.scene);
-  const tops = opts.tint ? paint(vrm.scene, opts.tint) : [];
+  const face = opts.face;
+  const elder = face?.age === 'old';
+  const tops = opts.tint ? paint(vrm.scene, opts.tint, elder) : [];
+  // an older face, stubble: drawn on a copy of the face's texture (./vrmAge.ts; data/townVrm.ts VrmFace)
+  if (face && (face.age || face.beard === 'stubble' || face.stubble)) ageFace(vrm.scene, face, seedOf(url), !!opts.bald);
   if (opts.bald)
     vrm.scene.traverse((o) => {
       const m = o as Mesh;
@@ -199,7 +204,20 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     headFrame.rotation.y = old ? Math.PI : 0;
     head.add(headFrame);
     for (const e of opts.extras ?? []) worn.push(...wear(headFrame, e, mid, gap, box.max.y - headAt.y, faceFront(vrm.scene, headAt)));
+    // a bald head: the crown closed in skin (the face mesh is open where the hair was)
+    if (opts.bald) {
+      const sc = scalpMesh(vrm.scene, headFrame, opts.tint?.skin ?? '#e8b892', mid.y);
+      if (sc) worn.push(sc);
+    }
+    // a beard or a moustache grown from the face itself, in the beard's colour (one mesh)
+    if (face?.beard) {
+      const b = beardMesh(vrm.scene, head, face.beard, face.beardColor ?? opts.tint?.hair ?? '#3a2c26', gap);
+      if (b) worn.push(b);
+    }
   }
+  /** An old body: a little stoop (the head held up against it) and a shorter step. */
+  const stoop = elder ? 0.17 : 0;
+  const stride = elder ? 0.78 : 1;
 
   // A hat of the wardrobe (chars/hats.ts: modelled round the code body's big head, so brought down to this one's).
   let hat: Mesh | null = null;
@@ -273,13 +291,13 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     // body is in the air when the legs are furthest apart, not at its lowest.
     const walk = anim.move * (1 - seat);
     const run = anim.runShare;
-    const swing = MathUtils.lerp(0.46, 0.74, run);
+    const swing = MathUtils.lerp(0.46, 0.74, run) * stride;
     const stepLen = Math.max(0.08, 2 * (thigh + shin) * s * Math.sin(swing));
     gait += (Math.abs(speed) / stepLen) * Math.PI * dt;
     const sn = Math.sin(gait);
-    const legL = legCycle(gait, run);
-    const legR = legCycle(gait + Math.PI, run);
-    const armSwing = MathUtils.lerp(0.36, 0.72, run);
+    const legL = legCycle(gait, run, stride);
+    const legR = legCycle(gait + Math.PI, run, stride);
+    const armSwing = MathUtils.lerp(0.36, 0.72, run) * (elder ? 0.7 : 1);
     const elbow = MathUtils.lerp(0.22, 1.45, run);
     const lean = MathUtils.lerp(0.04, 0.2, run);
     const twist = MathUtils.lerp(0.07, 0.14, run);
@@ -385,6 +403,8 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
         const pose = ridePose(ride, j, side, left ? pedalL : pedalR, a, reach, reachOut);
         if (pose) _q.slerp(_sit.setFromEuler(_euler.set(pose[0], pose[1], pose[2], 'XYZ')), seat);
       }
+      // an old body's stoop, standing and walking (seated and riding: the seat's pose as it is)
+      if (stoop > 0 && (b.j === J.spine || b.j === J.head)) _q.multiply(_gq.setFromEuler(_euler.set((b.j === J.spine ? stoop : -0.6 * stoop) * (1 - seat), 0, 0, 'XYZ')));
       if (b.how === 'armL') _q.multiply(REST_L);
       else if (b.how === 'armR') _q.multiply(REST_R);
       else if (b.how === 'foreL') _q.premultiply(REST_L_INV).multiply(REST_L);
@@ -552,14 +572,15 @@ interface TopPaint {
  * own colours: each material's colour is multiplied by the look's. Returns the top's materials as they were before
  * their colour (the wardrobe repaints them).
  */
-function paint(scene: Object3D, tint: NonNullable<VrmWear['tint']>): TopPaint[] {
+function paint(scene: Object3D, tint: NonNullable<VrmWear['tint']>, oldBrows = false): TopPaint[] {
   const seen = new Set<Material>();
   const tops: TopPaint[] = [];
   const skin = new Color(tint.skin);
   const ref = new Color(BASE_SKIN);
   skin.setRGB(Math.min(1.15, skin.r / ref.r), Math.min(1.15, skin.g / ref.g), Math.min(1.15, skin.b / ref.b));
   const hair = new Color(tint.hair);
-  const brow = hair.clone().multiplyScalar(0.75);
+  // (an old face: the brows as pale as the hair, a little paler)
+  const brow = oldBrows ? hair.clone().lerp(new Color('#ffffff'), 0.25) : hair.clone().multiplyScalar(0.75);
   const top = new Color(tint.top);
   const bottom = new Color(tint.bottom);
   scene.traverse((o) => {
@@ -627,6 +648,13 @@ function slim(scene: Object3D): void {
       m.geometry.dispose();
     }
   }
+}
+
+/** A stable number for an avatar's file (the stubble's dots fall the same way every time). */
+function seedOf(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
 }
 
 const FRAME = '#4a3328';
@@ -738,11 +766,11 @@ interface Leg {
  * running (run 1). From -pi/2 to pi/2 the leg swings forward: it leaves the ground bent, folds further as it comes
  * through and opens out to land; from pi/2 to 3pi/2 it is on the ground going back, giving a little under the weight.
  */
-function legCycle(phi: number, run: number): Leg {
+function legCycle(phi: number, run: number, stride = 1): Leg {
   const TWO = Math.PI * 2;
   const u = ((((phi + Math.PI / 2) % TWO) + TWO) % TWO) / Math.PI;
   const mix = (a: number, b: number): number => a + (b - a) * run;
-  const amp = mix(0.46, 0.74);
+  const amp = mix(0.46, 0.74) * stride;
   // (the knee is lifted further forward than the leg is left behind)
   const thigh = -amp * Math.sin(phi) - mix(0.04, 0.16);
   const off = mix(0.42, 0.95);
