@@ -27,6 +27,7 @@ import { hatGeometry } from './hats';
 import { materials, nightTint } from './materials';
 import { PROP_PLACES } from './person';
 import { makeProp, type PropId, type PropRig } from './props';
+import { RIDES } from '../scene/vehicles3d';
 import type { Character3DPlus } from './person';
 import { BASE_SKIN, type VrmWear } from '../../../../data/townVrm';
 import type { VrmExtra } from '../../../../data/townVrm';
@@ -35,7 +36,7 @@ import type { VrmExtra } from '../../../../data/townVrm';
 const STRIDE = 0.62;
 
 /** How much taller than the code-built body a VRM stands (its head is small: at the same height it looks tiny). */
-const TALLER = 1.85;
+const TALLER = 1.45;
 
 const Z = new Vector3(0, 0, 1);
 /** T pose → arms down (a little out from the body, so the hands clear the hips). */
@@ -157,6 +158,14 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   const ankleY = yOf('leftFoot');
   const thigh = Math.max(0.01, legTop - kneeY);
   const shin = Math.max(0.01, kneeY - ankleY);
+  // the arms, for hands that reach a vehicle's bars: the shoulder joint, the lengths to the elbow and to the palm
+  const shoulderAt = bone('leftUpperArm')?.getWorldPosition(new Vector3()) ?? new Vector3(0.1, hipsY + tall * 0.3, 0);
+  const elbowAt = bone('leftLowerArm')?.getWorldPosition(new Vector3()) ?? shoulderAt;
+  const wristAt = bone('leftHand')?.getWorldPosition(new Vector3()) ?? elbowAt;
+  const upperArm = Math.max(0.01, shoulderAt.distanceTo(elbowAt));
+  // (to the wrist: the hand then lies over the grip)
+  const foreArm = Math.max(0.01, elbowAt.distanceTo(wristAt));
+  const spineY = yOf('spine');
   const ground = box.min.y;
   // where the eyes and the head are, for what is worn on the head (read now: the holder below scales the world)
   const eyeL = bone('leftEye')?.getWorldPosition(new Vector3());
@@ -278,6 +287,33 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     // On a vehicle (engine3d tells which through `ride`): a bike is pedalled, the feet going round with the ground
     // covered (owner: "đạp xe đạp thì nhìn như dị tật chân còn không có animation đạp xe?", on legs hung either side
     // of it); a scooter and a motorbike are ridden knees forward, a horse astride, a car with the legs out in front.
+    // Hands on the bars (owner, 2026-11-26, on arms held out in the air: "lái xe kiểu gì đây, tay còn không cầm tay
+    // lái?"): where the vehicle's bars are (scene/vehicles3d.ts, in its own units, scaled as the engine scales it),
+    // reached by the two bones of the arm from where the shoulder is once seated and leaning.
+    let reach: Leg | null = null;
+    let reachOut = 0;
+    const bars = ride ? BARS[ride] : undefined;
+    const spec = ride && Object.hasOwn(RIDES, ride) ? RIDES[ride as keyof typeof RIDES] : undefined;
+    if (bars && spec) {
+      // (the engine gives the seat's height already scaled: that tells how large the vehicle is drawn)
+      const u = ((anim.seat * anim.tiles) / spec.seat) / s;
+      const torso = shoulderAt.y - spineY;
+      // the rider leans as far as it takes for the hands to get there with the elbows still a little bent (these toy
+      // vehicles' bars are a long way from the seat), from the vehicle's own lean up to a racing crouch
+      let lean = bars.lean;
+      let dy = 0;
+      let dz = 0;
+      for (; ; lean += 0.04) {
+        dy = ground + bars.y * u - (sitHips + (spineY - hipsY) + torso * Math.cos(lean));
+        dz = (bars.x - spec.seatAt) * u - torso * Math.sin(lean);
+        if (Math.hypot(dy, dz) <= (upperArm + foreArm) * 0.94 || lean >= 0.7) break;
+      }
+      reach = armTo(dy, dz, upperArm, foreArm);
+      // (in the leaning chest's own frame; the lean itself rides along for the spine and the head)
+      reach.thigh -= lean;
+      reach.ankle = lean;
+      reachOut = Math.atan2(bars.z * u - Math.abs(shoulderAt.x), Math.hypot(dy, dz));
+    }
     let pedalL: Leg | null = null;
     let pedalR: Leg | null = null;
     if (ride === 'bike') {
@@ -346,7 +382,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       if (seat > 0.001) {
         // (still in the code body's frame)
         const j = b.j;
-        const pose = ridePose(ride, j, side, left ? pedalL : pedalR, a);
+        const pose = ridePose(ride, j, side, left ? pedalL : pedalR, a, reach, reachOut);
         if (pose) _q.slerp(_sit.setFromEuler(_euler.set(pose[0], pose[1], pose[2], 'XYZ')), seat);
       }
       if (b.how === 'armL') _q.multiply(REST_L);
@@ -736,6 +772,27 @@ function legTo(dy: number, dz: number, t: number, s: number): Leg {
   return { thigh: -lift, knee, ankle: lift - knee };
 }
 
+/**
+ * The arm that puts its palm `dy` below and `dz` in front of its shoulder (upper arm and forearm lengths `u`, `f`):
+ * the elbow down and back, the forearm bent forward. Angles as a Leg's: `thigh` the upper arm, `knee` the forearm.
+ */
+function armTo(dy: number, dz: number, u: number, f: number): Leg {
+  const d = MathUtils.clamp(Math.hypot(dy, dz), Math.abs(u - f) + 0.01, u + f - 0.004);
+  const bend = Math.PI - Math.acos(MathUtils.clamp((u * u + f * f - d * d) / (2 * u * f), -1, 1));
+  const raise = Math.atan2(dz, -dy) - Math.acos(MathUtils.clamp((u * u + d * d - f * f) / (2 * u * d), -1, 1));
+  return { thigh: -raise, knee: -bend, ankle: 0 };
+}
+
+/**
+ * Where the grips of a vehicle's bars are in its own model (scene/vehicles3d.ts: x forward, y up, z half the bars'
+ * width; read off its code on 2026-11-26), and how far the rider leans to them.
+ */
+const BARS: Readonly<Record<string, { x: number; y: number; z: number; lean: number }>> = {
+  bike: { x: 0.21, y: 0.47, z: 0.14, lean: 0.3 },
+  scooter: { x: 0.23, y: 0.49, z: 0.13, lean: 0.12 },
+  motorbike: { x: 0.24, y: 0.56, z: 0.17, lean: 0.28 },
+};
+
 /** One turn of a bike's cranks for this many tiles of ground. */
 const PEDAL_TILES = 2.3;
 
@@ -744,7 +801,7 @@ const PEDAL_TILES = 2.3;
  * own sit pose gives. `side` is 1 on the left, -1 on the right; `a` the angle that puts the feet flat on the ground
  * from an ordinary seat.
  */
-function ridePose(ride: string | null, j: number, side: number, pedal: Leg | null, a: number): [number, number, number] | null {
+function ridePose(ride: string | null, j: number, side: number, pedal: Leg | null, a: number, reach: Leg | null, out: number): [number, number, number] | null {
   const thigh = j === J.thL || j === J.thR;
   const knee = j === J.knL || j === J.knR;
   const ankle = j === J.anL || j === J.anR;
@@ -756,10 +813,10 @@ function ridePose(ride: string | null, j: number, side: number, pedal: Leg | nul
       if (knee && pedal) return [pedal.knee, 0, 0];
       if (ankle && pedal) return [pedal.ankle, 0, 0];
       // leaning onto the handlebars
-      if (upper) return [-1.0, 0, side * 0.1];
-      if (fore) return [-0.3, 0, 0];
-      if (j === J.spine) return [0.3, 0, 0];
-      if (j === J.head) return [-0.22, 0, 0];
+      if (upper) return reach ? [reach.thigh, 0, side * out] : [-1.0, 0, side * 0.1];
+      if (fore) return reach ? [reach.knee, 0, 0] : [-0.3, 0, 0];
+      if (j === J.spine) return [reach ? reach.ankle : BARS.bike.lean, 0, 0];
+      if (j === J.head) return [reach ? -0.75 * reach.ankle : -0.22, 0, 0];
       return null;
     case 'scooter':
     case 'motorbike':
@@ -767,10 +824,10 @@ function ridePose(ride: string | null, j: number, side: number, pedal: Leg | nul
       if (thigh) return [-1.2, 0, side * 0.16];
       if (knee) return [1.25, 0, 0];
       if (ankle) return [-0.05, 0, 0];
-      if (upper) return [-0.95, 0, side * 0.14];
-      if (fore) return [-0.35, 0, 0];
-      if (j === J.spine) return [ride === 'motorbike' ? 0.26 : 0.1, 0, 0];
-      if (j === J.head) return [ride === 'motorbike' ? -0.2 : -0.06, 0, 0];
+      if (upper) return reach ? [reach.thigh, 0, side * out] : [-0.95, 0, side * 0.14];
+      if (fore) return reach ? [reach.knee, 0, 0] : [-0.35, 0, 0];
+      if (j === J.spine) return [reach ? reach.ankle : BARS[ride].lean, 0, 0];
+      if (j === J.head) return [reach ? -0.75 * reach.ankle : -0.1, 0, 0];
       return null;
     case 'horse':
       // astride, the legs round its sides, the hands low on the reins

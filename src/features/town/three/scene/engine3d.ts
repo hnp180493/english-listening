@@ -239,7 +239,7 @@ const RIDE_REACH = 2;
 /** Those talking aside nearer than this (tiles) to the player are framed with them (goal). */
 const ASIDE_FRAME = 4.5;
 /** The vehicles' size with the VRoid avatars on (rideScale). */
-const RIDE_SCALE_AVATAR = 1.55;
+const RIDE_SCALE_AVATAR = 1.2;
 
 /** Stats for checking the town in a dev build (headless runs read window.__town3d). */
 export interface Stats3D {
@@ -329,7 +329,9 @@ export class TownEngine3D {
   /** How far down the camera looks: lower in a conversation, so faces show under a hat brim. */
   private pitch = PITCH;
   private pitchV = 0;
-  private zoomUser = 1;
+  // (with avatars on the view starts a little closer: a slim figure sized to the houses is small on the screen at the
+  // code body's distance: chars/vrmBody.ts TALLER)
+  private zoomUser = getTownUi().people === 'anime' ? 0.78 : 1;
   private shift = { x: 0, y: 0 };
   private shiftGoal = { x: 0, y: 0 };
   /** What the camera shows ('follow', 'talk', 'show', 'overview') and the spring it moves with now. */
