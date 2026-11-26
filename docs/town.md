@@ -1220,7 +1220,13 @@ the player were dithered in a hole far too big (owner: "nó đứng trên đồi
 (2026-11-25, owner: "sao mỗi chỗ model mỗi kiểu vậy?"): a near-neutral fill (`ROOM_SKY` / `ROOM_GROUND` in
 `interiors/build.ts`), a key no stronger than the town's sun, the town's day exposure (`roomExposure` 0.92 by day),
 and soft warm-white lamps at night (`LAMP_NIGHT` 1.8, not 4.5 of amber), so black hair stays black, jeans blue and
-brown hair brown indoors as out. Trees, tufts, flowers and flags sway in a vertex shader, the lake and the
+brown hair brown indoors as out. **A crowd stays cheap** (2026-11-26, owner: "sao thành phố lag dữ vậy?"; Westbay has
+about 49 people against the town's 19): `lineClear` only looks at the people within PASS of its line, `walkPath`
+marks the tiles crowded once (not every person for every tile the path finder tries), and anybody further from the
+camera's target than what shows plus a margin (`reach`) is neither drawn nor posed (the sim walks them on). Measured
+in headless Edge (software GL, 412×892): one walk's path in the city from up to 145 ms to under 40, the engine's own
+work per frame from 22.8 ms to 13.9 (the town's that hour: 13.6); 0 of 1,920 checks found anybody on the screen
+hidden. Not checked on a real phone. Trees, tufts, flowers and flags sway in a vertex shader, the lake and the
 fountain ripple. Under reduced motion: no camera travel, no particles, no pop, no sway or ripples, the xu count changes
 at once; people stand still in their pose (no breathing, no walk cycle, no nod / shake / wave; walking, they glide);
 emotes and the "+N" stand still for a moment instead of rising.

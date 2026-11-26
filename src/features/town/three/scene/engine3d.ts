@@ -546,6 +546,9 @@ export class TownEngine3D {
     this.playerName = state.playerName || 'Bạn';
   }
 
+  /** How far (tiles) from the camera's target people are drawn and animated (set each frame from the view). */
+  private reach = Infinity;
+
   /** The player's look the model was made with (StageState.body). */
   private playerBody = '';
 
@@ -2334,7 +2337,19 @@ export class TownEngine3D {
   private place(id: string, a: Actor, dt: number, show: boolean): void {
     const p = this.personFor(a);
     if (!p) return;
-    p.ch.root.visible = show;
+    // well off the screen: not drawn, not animated (the sim walks them on; in the city's crowd, posing everybody
+    // every frame was a good part of a frame's work)
+    const off = Math.hypot(a.x - this.target.x, a.y - this.target.z) > this.reach;
+    p.ch.root.visible = show && !off;
+    if (show && off) {
+      p.rx = p.sx = a.x;
+      p.rz = p.sz = a.y;
+      p.slide = 1;
+      p.last.x = a.x;
+      p.last.y = a.y;
+      p.ch.root.position.set(a.x, this.town.lift(a.x, a.y), a.y);
+      return;
+    }
     p.last.x = a.x;
     p.last.y = a.y;
     if (!show) {
@@ -2719,6 +2734,8 @@ export class TownEngine3D {
     this.town.mats.shared.time.value = this.t;
     this.town.mats.shared.sway.value = this.still ? 0 : 1;
     this.town.update(this.t, this.target, Math.max(e.across, e.deep) * 1.25, this.still);
+    // how far from the camera's target somebody is still drawn and animated (next frame's place): what shows, a margin
+    this.reach = Math.max(e.across, e.deep) * 1.4 + 3;
     this.drawSky();
     this.renderer.render(this.town.scene, this.camera);
     this.drawOverlay();

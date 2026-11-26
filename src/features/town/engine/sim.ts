@@ -604,15 +604,30 @@ export function lineClear(ax: number, ay: number, bx: number, by: number, world:
   if (!tilesClear(ax, ay, bx, by, len, world) && !squeezeClear(ax, ay, bx, by, world)) return false;
   if (people.length === 0) return true;
   // nobody walks through (or brushes past) a person: PASS to spare; somebody the walker already stands beside: the
-  // line may go on past them, but never nearer
+  // line may go on past them, but never nearer. Only the people within PASS of the line are looked at (in the city's
+  // crowd every sample against everybody made one walk's path cost up to a tenth of a second)
+  const x0 = Math.min(ax, bx) - PASS;
+  const x1 = Math.max(ax, bx) + PASS;
+  const y0 = Math.min(ay, by) - PASS;
+  const y1 = Math.max(ay, by) + PASS;
+  const ux = (bx - ax) / len;
+  const uy = (by - ay) / len;
+  let near: Pt2[] | null = null;
+  for (const p of people) {
+    if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
+    // further than PASS from the line through the two ends: never within PASS of any point of it
+    if (Math.abs((p.x - ax) * uy - (p.y - ay) * ux) >= PASS) continue;
+    (near ??= []).push(p);
+  }
+  if (!near) return true;
   const n = Math.ceil(len / 0.05);
-  const from = people.map((p) => Math.hypot(p.x - ax, p.y - ay));
+  const from = near.map((p) => Math.hypot(p.x - ax, p.y - ay));
   for (let i = 1; i <= n; i++) {
     const k = i / n;
     const x = ax + (bx - ax) * k;
     const y = ay + (by - ay) * k;
-    for (let j = 0; j < people.length; j++) {
-      const d = Math.hypot(people[j].x - x, people[j].y - y);
+    for (let j = 0; j < near.length; j++) {
+      const d = Math.hypot(near[j].x - x, near[j].y - y);
       if (d < PASS && !(from[j] < PASS && d >= from[j] - 0.02)) return false;
     }
   }
@@ -2337,7 +2352,18 @@ export class TownSim {
     // a passer-by goes round a conversation (two tiles clear of the pair), not through it
     const pair = a.kind === 'folk' ? this.pairTiles() : null;
     const near = (t: Tile) => !!pair && pair.some((q) => Math.max(Math.abs(q.x - t.x), Math.abs(q.y - t.y)) <= 2);
-    const path = findPath(a.tile, to, this.world, (t) => (people.some((o) => Math.hypot(o.x - t.x - 0.5, o.y - t.y - 0.5) < PERSONAL) ? DETOUR : 0) + (near(t) ? DETOUR * 2 : 0));
+    // the tiles whose centre is within PERSONAL of somebody, marked once (not every person for every tile the path
+    // finder looks at: in the city's crowd that was most of a walk's cost)
+    const size = this.world.size;
+    const crowded = new Set<number>();
+    for (const o of people) {
+      for (let ty = Math.floor(o.y - PERSONAL - 0.5); ty <= Math.floor(o.y + PERSONAL - 0.5) + 1; ty++) {
+        for (let tx = Math.floor(o.x - PERSONAL - 0.5); tx <= Math.floor(o.x + PERSONAL - 0.5) + 1; tx++) {
+          if (tx >= 0 && ty >= 0 && tx < size && ty < size && Math.hypot(o.x - tx - 0.5, o.y - ty - 0.5) < PERSONAL) crowded.add(ty * size + tx);
+        }
+      }
+    }
+    const path = findPath(a.tile, to, this.world, (t) => (crowded.has(t.y * size + t.x) ? DETOUR : 0) + (near(t) ? DETOUR * 2 : 0));
     return path.length > 0 ? smoothPath(a.x, a.y, path, this.world, people) : [];
   }
 
