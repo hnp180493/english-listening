@@ -238,7 +238,9 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     let pedalL: Leg | null = null;
     let pedalR: Leg | null = null;
     if (ride === 'bike') {
-      pedal += (Math.abs(speed) / PEDAL_TILES) * Math.PI * 2 * dt;
+      // (the angle runs down: over the top a foot goes FORWARD. Counting up, the rider pedalled backwards: owner,
+      // 2026-11-26, "đạp xe mà sao chân lại đạp ngược?")
+      pedal -= (Math.abs(speed) / PEDAL_TILES) * Math.PI * 2 * dt;
       const reach = thigh + shin;
       const r = reach * 0.17;
       // the cranks' axle: as far under the hips as the legs like, but never so low that a pedal goes into the ground

@@ -146,7 +146,7 @@ const ACTIONS: readonly Act[] = GAIT
   ? [
       ...strip('Chạy', 'run', 2.8, 1.3, 0.055, 6),
       ...strip('Đi', 'walk', 1.6, 1.3, 0.09, 4),
-      ...strip('Xe đạp', 'sit', 3.6, 1.0, 0.11, 6, 'bike', 0.62),
+      ...strip('Xe đạp', 'sit', 3.6, 1.0, 0.07, 6, 'bike', 0.62),
       { name: 'Xe máy', action: 'sit', speed: 0, seconds: 1, ride: 'scooter', seat: 0.56 },
       { name: 'Ngựa', action: 'sit', speed: 0, seconds: 1, ride: 'horse', seat: 0.96 },
       { name: 'Ô tô', action: 'sit', speed: 0, seconds: 1, ride: 'car', seat: 0.34 },
