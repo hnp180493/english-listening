@@ -197,6 +197,13 @@
   color: var(--text);
   font-weight: 600;
 }
+.town-quest-clock {
+  color: var(--text);
+  font-weight: 600;
+}
+.town-quest-clock.is-low {
+  color: var(--bad);
+}
 .town-quest-more {
   flex: none;
   color: var(--text-muted);

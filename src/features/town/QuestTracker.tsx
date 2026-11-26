@@ -17,11 +17,21 @@ export interface QuestTrackerProps {
   stage: RefObject<TownStageHandle | null>;
   /** Follow this one and go there. */
   onPick: (q: Quest) => void;
+  /** A chapter to get to in time: when its clock runs out (ms since the epoch); the card counts down. */
+  deadline?: number | null;
 }
 
-export default function QuestTracker({ quests, current, stage, onPick }: QuestTrackerProps) {
+export default function QuestTracker({ quests, current, stage, onPick, deadline = null }: QuestTrackerProps) {
   const [open, setOpen] = useState(false);
   const [far, setFar] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  // the countdown of a chapter to get to in time
+  useEffect(() => {
+    if (!deadline) return;
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [deadline]);
+  const left = deadline ? Math.max(0, Math.ceil((deadline - now) / 1000)) : null;
   // how far, read from the stage a few times a second (the way is found there)
   const hasTarget = !!current?.target;
   useEffect(() => {
@@ -47,6 +57,7 @@ export default function QuestTracker({ quests, current, stage, onPick }: QuestTr
           <span className="town-quest-step">
             {current.step}
             {shownFar !== null && shownFar >= 1.6 && <span className="town-quest-far tabular"> · {metres(shownFar)}</span>}
+            {left !== null && <span className={'town-quest-clock tabular' + (left <= 15 ? ' is-low' : '')}> · {left > 0 ? tl`còn ${left} giây` : 'hết giờ'}</span>}
           </span>
         </span>
         {quests.length > 1 && (

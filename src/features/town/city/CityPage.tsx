@@ -361,14 +361,28 @@ export default function CityPage() {
     [suggested, chapters, guests, scenes, city, now, eventsToday, shiftAt],
   );
   const quest = followed(quests, questPick);
+  // a main story chapter to get to in time (data/city/seasonsMain.ts `rush`): the clock starts when it is taken on
+  const [rush, setRush] = useState<{ id: string; until: number } | null>(null);
   const goQuest = (q: Quest) => {
     setQuestPick(q.id);
+    const clock = q.rush ? (rush?.id === q.id ? rush : { id: q.id, until: Date.now() + q.rush * 1000 }) : null;
+    if (clock && clock !== rush) setRush(clock);
     const [kind, key] = [q.id.slice(0, q.id.indexOf(':')), q.id.slice(q.id.indexOf(':') + 1)];
     if (kind === 'season') {
       const c = chapters.find((x) => `${x.season.id}:${x.chapter.n}` === key);
       if (!c) return;
       if (c.chapter.where === 'town') navigate('town', { from: 'city', listen: `season:${c.chapter.id}` });
-      else void stage.current?.walkTo(c.chapter.at as PlaceId, () => startScene(c.chapter.at));
+      else
+        void stage.current?.walkTo(c.chapter.at as PlaceId, () => {
+          // late: nothing lost, the clock starts again from here
+          if (clock && Date.now() > clock.until) {
+            setRush({ id: q.id, until: Date.now() + (q.rush ?? 0) * 1000 });
+            setToast(tl`Trễ mất rồi! Đồng hồ chạy lại: ${q.rush ?? 0} giây.`);
+            return;
+          }
+          setRush(null);
+          startScene(c.chapter.at);
+        });
       return;
     }
     if (kind === 'event') {
@@ -521,7 +535,7 @@ export default function CityPage() {
           </ul>
         )}
 
-        {!flat && ready && !sheet && !welcome && !map && <QuestTracker quests={quests} current={quest} stage={stage} onPick={goQuest} />}
+        {!flat && ready && !sheet && !welcome && !map && <QuestTracker quests={quests} current={quest} stage={stage} onPick={goQuest} deadline={rush && rush.id === quest?.id ? rush.until : null} />}
         {!flat && ready && !sheet && !welcome && !map && <RideButton stage={stage} />}
         <div className="town-hud">
           <div className="town-level is-new" role="img" aria-label={tl`Westbay, ${weekday}`}>

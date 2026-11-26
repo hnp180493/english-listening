@@ -888,6 +888,21 @@ const city: Record<string, string> = {
   'Sạp há cảo': 'Dumpling stall',
   'Sạp lồng đèn': 'Lantern stall',
   'Bờ vịnh': 'The bay shore',
+  'Kèo lớn ở Westbay': 'The Big Deal in Westbay',
+  'Một chiếc cặp bỏ quên trên taxi của Rico, và cả khu chợ cũ bị đem ra làm kèo.': 'A briefcase left in Rico\'s taxi, and the whole old market up for grabs.',
+  'Chiếc cặp ở ghế sau': 'The case on the back seat',
+  'Bến taxi ở ga trung tâm, cuối chiều. Rico vẫy bạn lại gần, tay ôm một chiếc cặp da.': 'The taxi rank at Central Station, late afternoon. Rico waves you over, a leather briefcase in his arms.',
+  'Hai vụ lừa trong một máy': 'Two scams in one phone',
+  'Sạp sửa đồ điện tử ở bến cảng. Jun đặt chiếc điện thoại lên bàn, Rico đứng thở dốc.': 'The repair stall on the harbour. Jun puts the phone on the bench; Rico is out of breath.',
+  'Lá thư dùng để nhóm lò': 'The letter that lit the oven',
+  'Quán Ý của Gianna, tối thứ Tư. Bạn ngồi ăn mì; một người đàn ông mặc com lê xám bước vào.': 'Gianna\'s Italian place, Wednesday evening. You\'re eating pasta; a man in a grey suit walks in.',
+  'Năm trăm bảng của bố': 'Dad\'s five hundred pounds',
+  'Cửa hàng của Ben ở thị trấn, sáng thứ Năm. Ben cầm điện thoại, mặt tái đi; Sam đứng cạnh quầy.': 'Ben\'s shop in the town, Thursday morning. Ben holds his phone, pale; Sam stands by the counter.',
+  'Lên sóng trực tiếp': 'Live on air',
+  'Phòng thu Bay FM, hai phút trước giờ lên sóng. Marcus đeo tai nghe; Jun ngồi cạnh với chiếc máy tính.': 'The Bay FM studio, two minutes before air. Marcus has his headphones on; Jun sits beside him with a laptop.',
+  'Tám giờ sáng thứ Sáu': 'Eight on Friday morning',
+  'Sáng thứ Sáu ở khu chợ cũ, cả phố chật kín người. Một ông đeo thẻ thanh tra bước tới sạp truyện của Frank.': 'Friday morning at the old market, the street packed. A man with an inspector\'s badge walks up to Frank\'s comic stall.',
+  'Trễ mất rồi! Đồng hồ chạy lại: {} giây.': 'Too late! The clock starts again: {0} seconds.',
 };
 
 export default city;

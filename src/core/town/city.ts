@@ -228,7 +228,7 @@ export function seasonNow(season: CitySeason, city: TownCity, now: number): Seas
   if (ADMIN) return { kind: 'open', season, chapter: season.chapters[i] };
   if (missing && i === 0) return { kind: 'locked', season, needs: missing };
   const chapter = season.chapters[i];
-  if (i === 0) return { kind: 'open', season, chapter };
+  if (i === 0 || season.free) return { kind: 'open', season, chapter };
   const before = heardOf(city, season.chapters[i - 1].id)!;
   return cityDay(before.at) < cityDay(now) ? { kind: 'open', season, chapter } : { kind: 'tomorrow', season, chapter };
 }

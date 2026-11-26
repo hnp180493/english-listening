@@ -75,4 +75,8 @@ export const SCENE_VOICES: Readonly<Record<string, SceneVoice>> = {
   bus9: { name: 'Loa xe buýt', gender: 'female' },
   rider1: { name: 'Hành khách', gender: 'male' },
   rider2: { name: 'Hành khách', gender: 'female' },
+  // the main story (data/city/seasonsMain.ts): the man with the briefcase, his inspector, the real council
+  crane: { name: 'Ông Crane', gender: 'male' },
+  hale: { name: 'Thanh tra Hale', gender: 'male' },
+  officer: { name: 'Bà Ward · Hội đồng', gender: 'female' },
 };

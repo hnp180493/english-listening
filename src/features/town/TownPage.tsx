@@ -349,9 +349,36 @@ export default function TownPage() {
   const state = useMemo(() => ({ ...stageStateOf(overview, theme), look, extraDecor, farm, body, playerName: profile?.name, kids }), [overview, theme, look, extraDecor, farm, body, profile?.name, kids]);
   const lotLabels = useMemo(() => lotLabelsOf(overview), [overview]);
   const suggested = useMemo(() => suggestedPlace(overview.places), [overview.places]);
+  // today's chapter of a long story of Westbay that is played here in the town (docs/town.md §21): the stories are the
+  // city's data, loaded only for somebody who has been there
+  const [townStory, setTownStory] = useState<{ id: string; text: string; at: string; title: string; n: number; main: boolean } | null>(null);
+  useEffect(() => {
+    let gone = false;
+    void Promise.all([import('../../core/town/cityStore'), import('../../core/town/city'), import('../../data/city/seasons')]).then(([store, rules, data]) => {
+      const city = store.loadTownCity();
+      if (gone || !city.first) return;
+      const ch = rules.chaptersToday(data.CITY_SEASONS, city, Date.now()).find((c) => c.chapter.where === 'town');
+      setTownStory(
+        ch
+          ? {
+              id: ch.chapter.id,
+              text: tl`${ch.season.title}: chương hôm nay ở chỗ ${overviewRef.current.places.find((p) => p.place.id === ch.chapter.at)?.place.resident ?? ''}.`,
+              at: ch.chapter.at,
+              title: ch.season.title,
+              n: ch.chapter.n,
+              main: !!ch.season.free,
+            }
+          : null,
+      );
+    });
+    return () => {
+      gone = true;
+    };
+    // when the page opens, and again when a panel closes (the chapter may just have been heard)
+  }, [activity]);
   // the quests (quests.ts): the one followed shows at the top with its way on the ground; the main button goes there
   const [questPick, setQuestPick] = useState<string | null>(null);
-  const quests = useMemo(() => townQuests(overview.places, suggested?.place.id ?? null), [overview.places, suggested]);
+  const quests = useMemo(() => townQuests(overview.places, suggested?.place.id ?? null, townStory), [overview.places, suggested, townStory]);
   const quest = followed(quests, questPick);
   const questTarget = quest?.target ?? null;
   const lead = (questTarget?.kind === 'resident' ? overview.places.find((p) => p.place.id === questTarget.id) : undefined) ?? suggested;
@@ -670,22 +697,6 @@ export default function TownPage() {
     },
     [openActivity],
   );
-  // today's chapter of a long story of Westbay that is played here in the town (docs/town.md §21): the stories are the
-  // city's data, loaded only for somebody who has been there
-  const [townStory, setTownStory] = useState<{ id: string; text: string } | null>(null);
-  useEffect(() => {
-    let gone = false;
-    void Promise.all([import('../../core/town/cityStore'), import('../../core/town/city'), import('../../data/city/seasons')]).then(([store, rules, data]) => {
-      const city = store.loadTownCity();
-      if (gone || !city.first) return;
-      const ch = rules.chaptersToday(data.CITY_SEASONS, city, Date.now()).find((c) => c.chapter.where === 'town');
-      setTownStory(ch ? { id: ch.chapter.id, text: tl`${ch.season.title}: chương hôm nay ở chỗ ${overviewRef.current.places.find((p) => p.place.id === ch.chapter.at)?.place.resident ?? ''}.` } : null);
-    });
-    return () => {
-      gone = true;
-    };
-    // when the page opens, and again when a panel closes (the chapter may just have been heard)
-  }, [activity]);
   const openStory = useCallback(
     (id: string) => {
       setListenAt('season:' + id);
@@ -1071,7 +1082,10 @@ export default function TownPage() {
             stage={stage}
             onPick={(q) => {
               setQuestPick(q.id);
-              if (q.target?.kind === 'resident') goTalk(q.target.id);
+              if (q.id.startsWith('season:') && townStory && q.target?.kind === 'resident') {
+                const id = townStory.id;
+                void stage.current?.walkTo(q.target.id, () => openStory(id));
+              } else if (q.target?.kind === 'resident') goTalk(q.target.id);
             }}
           />
         )}

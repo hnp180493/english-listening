@@ -3,5 +3,7 @@
 import type { CitySeason } from '../../core/town/cityTypes';
 import { CITY_SEASONS_A } from './seasonsA';
 import { CITY_SEASONS_B } from './seasonsB';
+import { CITY_SEASON_MAIN } from './seasonsMain';
 
-export const CITY_SEASONS: readonly CitySeason[] = [...CITY_SEASONS_A, ...CITY_SEASONS_B];
+// the main story first: its chapter is the quest card's first, the story to play through
+export const CITY_SEASONS: readonly CitySeason[] = [CITY_SEASON_MAIN, ...CITY_SEASONS_A, ...CITY_SEASONS_B];

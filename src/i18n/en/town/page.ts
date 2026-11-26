@@ -296,6 +296,9 @@ const page: Record<string, string> = {
   'xe máy': 'scooter',
   'ô tô': 'car',
   'ngựa': 'horse',
+  'Truyện chính': 'Main story',
+  'còn {} giây': '{0} s left',
+  'hết giờ': 'time\'s up',
 };
 
 export default page;

@@ -22,14 +22,28 @@ export interface Quest {
   step: string;
   /** Where the stage guides to; null = nothing to walk to (it happens elsewhere). */
   target: TravelTarget | null;
+  /** Seconds to get there in (a main story chapter: the card counts down; late only starts the clock again). */
+  rush?: number;
 }
 
 /**
  * The town's quests: every resident with an episode waiting (a re-listen that is due first, then the lowest episode
  * number), the suggested one (the main button's) at the top.
  */
-export function townQuests(places: readonly PlaceView[], suggested: string | null): Quest[] {
+export function townQuests(places: readonly PlaceView[], suggested: string | null, story: { id: string; at: string; title: string; n: number; main: boolean } | null = null): Quest[] {
   const out: (Quest & { rank: number })[] = [];
+  // a chapter of a long story of Westbay told here today (the main story's first of all)
+  if (story) {
+    const who = places.find((p) => p.place.id === story.at)?.place.resident ?? '';
+    out.push({
+      id: `season:${story.id}`,
+      tag: story.main ? tr('Truyện chính') : tr('Truyện dài'),
+      title: tl`${story.title} · Chương ${story.n}`,
+      step: tl`Tới chỗ ${who}`,
+      target: { kind: 'resident', id: story.at as PlaceId },
+      rank: story.main ? -2 : -1,
+    });
+  }
   for (const p of places) {
     const e = p.episode;
     if (!e) continue;
@@ -77,7 +91,8 @@ export function cityQuests(o: CityQuestInput): Quest[] {
     const inTown = chapter.where === 'town';
     add({
       id: `season:${season.id}:${chapter.n}`,
-      tag: tr('Truyện dài'),
+      tag: season.free ? tr('Truyện chính') : tr('Truyện dài'),
+      ...(chapter.rush && !inTown ? { rush: chapter.rush } : {}),
       title: tl`${season.title} · Chương ${chapter.n}`,
       step: inTown ? tl`Ở thị trấn, chỗ ${o.nameOf(chapter.at)}: về bằng xe số 9` : tl`Tới chỗ ${o.nameOf(chapter.at)}`,
       target: inTown ? null : { kind: 'resident', id: chapter.at as PlaceId },

@@ -426,6 +426,17 @@ arrow over the target, an arrow at the stage's edge with the distance while it i
 (`engine/draw/guide.ts`); `MapSnapshot.guide` gives the same way to the minimap (a gold line, the end on its rim when it
 is further) and the full map (an SVG line). Checked in headless Edge only (city and town, 1280×800 and 412×892).
 
+**The main story** (2026-11-26, owner: "thêm nhiệm vụ phong phú hấp dẫn hơn", "cốt truyện phải hay như GTA 6"):
+"Kèo lớn ở Westbay" (`data/city/seasonsMain.ts`, a season of its own with `free`: the next chapter opens as soon as
+the one before is heard). A briefcase left in Rico's taxi holds Mr Crane's phone; Jun opens it (a fake Heritage Fund
+taking five hundred pounds a stall, a bought inspector due on Friday); Crane leans on Gianna; in the town Ben learns
+Frank has paid; Marcus puts it on air; on Friday Rico brings the real council and Frank tells Ben himself. Six
+chapters, five in the city and one in the town (at Ben's), new voices only heard (Crane, Inspector Hale, Ms Ward of
+the council: the browser's voice). Chapters 2 and 5 have a `rush` (40 and 45 seconds): the clock starts when the quest
+is taken on (the card's list or the main button), the card counts down, and being late only starts it again from
+where the player is (a vehicle helps). It is the quest card's first in both places. Not heard by anybody yet; no
+clips (the city speaks in the browser's voice; Ben and Sam's lines fall back to it until clips are made).
+
 **Riding** (2026-11-26, owner: "có xe ngựa cho chạy nhanh hơn chẳng hạn", "xe/ngựa hoặc nhiều thứ khác"): bikes,
 scooters, cars and a horse stand where the world parks them (`TownWorld.vehicles`; the town: a bike by the plaza and
 one by the school, a scooter at the station, a horse at the farm; Westbay: cars at the taxi rank and on the harbour,

@@ -52,7 +52,7 @@ function overlap(a: string[], b: string[]): number {
 const ALLOWED = new Set([
   ...TOWN_PLACES.map((p) => p.resident.toLowerCase()),
   ...CITY_PEOPLE.flatMap((p) => p.name.toLowerCase().split(' ')),
-  ...'marcus bay fm westbay chip maya dot rosa colin freshway lumen harbour press sunflower corner twin ovens gianna bo latte pizza pasta email radio karaoke taxi sandwich espresso cappuccino tiramisu risotto bus guitar piano jazz rock pop film video online wifi app'.split(' '),
+  ...'marcus bay fm westbay chip maya dot rosa crane hale ward colin freshway lumen harbour press sunflower corner twin ovens gianna bo latte pizza pasta email radio karaoke taxi sandwich espresso cappuccino tiramisu risotto bus guitar piano jazz rock pop film video online wifi app'.split(' '),
 ]);
 const ENGLISH = new Set('the you and is are it of on at my we he she they this that what yes ok okay hi hey bye but not with for'.split(' '));
 const VIET_SYLLABLE = /^(ngh|ng|nh|ch|gh|gi|kh|ph|th|tr|qu|[bcdghklmnpqrstvx])?[aeiouy]{1,3}(ch|ng|nh|[cmnpt])?$/;
@@ -182,8 +182,10 @@ describe('Westbay: shape', () => {
 
   it('the long stories: six chapters each, in the city at somebody of the city, in the town at a resident; they open from scenes that exist', () => {
     const ids = new Set(CITY_SCENES.map((s) => s.id));
-    expect(CITY_SEASONS.length).toBe(6);
-    expect(new Set(CITY_SEASONS.map((s) => s.id)).size).toBe(6);
+    // six long stories and the main story ('deal', free: data/city/seasonsMain.ts)
+    expect(CITY_SEASONS.length).toBe(7);
+    expect(new Set(CITY_SEASONS.map((s) => s.id)).size).toBe(7);
+    expect(CITY_SEASONS.filter((s) => s.free).map((s) => s.id)).toEqual(['deal']);
     for (const season of CITY_SEASONS) {
       expect(season.id, season.id).toMatch(/^[a-z]{2,12}$/);
       expect(season.chapters.length, season.id).toBe(6);

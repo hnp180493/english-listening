@@ -68,6 +68,11 @@ export interface CityScene {
   needs?: readonly string[];
   /** A season's chapter that is played in the TOWN, at the place of the town resident `at` (left out: in the city). */
   where?: 'town';
+  /**
+   * A chapter to get to in time (the main story, data/city/seasonsMain.ts): seconds from when it is followed to reach
+   * `at` (a vehicle helps); the quest card counts down, and being late only starts the clock again.
+   */
+  rush?: number;
 }
 
 /**
@@ -84,6 +89,8 @@ export interface CitySeason {
   blurb: string;
   /** Scenes that must have been heard before its first chapter opens. */
   needs: readonly string[];
+  /** The main story: the next chapter opens as soon as the one before is heard (not a chapter a real day). */
+  free?: boolean;
   chapters: readonly CityScene[];
 }
 
