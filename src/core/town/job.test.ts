@@ -9,24 +9,20 @@ import {
   clockOf,
   fillLine,
   GAME_MINUTE_MS,
-  gradeJob,
   jobPay,
-  jobProblems,
   lineRef,
   minutesPast,
-  missedLines,
   noteAnswer,
   noteOptions,
   notesWrong,
   overhearClarity,
   parseLineRef,
-  PATIENCE,
   realTimeOf,
   templatedRefs,
+  timeSide,
   timeOptions,
   timeWords,
   waysOf,
-  type JobRun,
   type Junction,
   type NoteEntry,
 } from './job';
@@ -136,35 +132,19 @@ describe('overhearing', () => {
   });
 });
 
-const CLEAN: JobRun = { wrongPlace: false, late: false, spotted: false, wrongPeople: 0, wrongTurns: 0, asks: 0, noticed: false, password: 'first' };
-
 describe('the outcome', () => {
-  it('counts each consequence once; asking again is free up to the passenger patience', () => {
-    expect(jobProblems(CLEAN)).toEqual([]);
-    expect(jobProblems({ ...CLEAN, asks: PATIENCE })).toEqual([]);
-    expect(jobProblems({ ...CLEAN, asks: PATIENCE + 1 })).toEqual(['nagged']);
-    expect(jobProblems({ ...CLEAN, wrongPeople: 3, wrongTurns: 2 })).toEqual(['wrongPerson', 'lost']);
-    expect(jobProblems({ ...CLEAN, password: 'helped' })).toEqual([]);
-  });
-
-  it('grades by how many consequences were hit: none Sạch, one or two Lộn xộn, three or more Hỏng', () => {
-    expect(gradeJob(CLEAN)).toBe('clean');
-    expect(gradeJob({ ...CLEAN, late: true })).toBe('messy');
-    expect(gradeJob({ ...CLEAN, wrongPlace: true, spotted: true })).toBe('messy');
-    expect(gradeJob({ ...CLEAN, wrongPlace: true, spotted: true, password: 'none' })).toBe('broken');
-  });
-
   it('pays by grade, the first run of a day only', () => {
     expect(jobPay('clean', false)).toBeGreaterThan(jobPay('messy', false));
     expect(jobPay('messy', false)).toBeGreaterThan(jobPay('broken', false));
     expect(jobPay('clean', true)).toBe(0);
   });
 
-  it('marks the lines behind what was not caught', () => {
-    const entries: NoteEntry[] = [...ENTRIES, { key: 'look', label: '', line: 'c05', answer: 'grey', options: [] }];
-    const missed = missedLines({ entries, wrongNotes: ['time'], wrongPeople: 1, junctions: [J], wrongAt: ['a-b'], password: 'helped', passwordLine: 'o05' });
-    expect(missed).toEqual(['c04', 'c05', 'd1', 'o05']);
-    expect(missedLines({ entries, wrongNotes: [], wrongPeople: 0, junctions: [J], wrongAt: [], password: 'first', passwordLine: 'o05' })).toEqual([]);
+  it('tells a time noted early from one noted late, round midnight too', () => {
+    expect(timeSide(18 * 60 + 45, 18 * 60 + 45)).toBe('right');
+    expect(timeSide(18 * 60 + 15, 18 * 60 + 45)).toBe('early');
+    expect(timeSide(19 * 60 + 15, 18 * 60 + 45)).toBe('late');
+    expect(timeSide(23 * 60 + 45, 15)).toBe('early');
+    expect(timeSide(45, 23 * 60 + 45)).toBe('late');
   });
 });
 

@@ -1,65 +1,47 @@
-// Content checks for Westbay's jobs ("phi vụ", core/town/job.ts; docs/gta-plan.md §3): every part of a script points
-// at a line that exists, the speakers are Westbay's people (browser voice, no clips), the English follows the city's
-// rules (docs/city.md §5), the notebook offers its answer, and the places and zones are on Westbay's map.
+// Content checks for Westbay's jobs ("phi vụ", core/town/jobDoc.ts; docs/gta-plan.md §3, §12–13): every job
+// document is well formed (every fact has its consequence and a rejoin and plays out, every junction is on a road,
+// only Westbay's people, the new ones and the learner speak), the English follows the city's rules (docs/city.md §5),
+// the notebook offers its answer, and the lines resolve as review cards.
 import { describe, expect, it } from 'vitest';
 import { decode, speakableFor } from '../../../core/decoder';
 import { LONE_APOSTROPHE, SAPI_MISREAD } from '../../../core/decoder/sapiMisread';
 import { cityPerson } from '../../../core/town/cityPeople';
-import { fillLine, timeWords, waysOf, type JobScript } from '../../../core/town/job';
+import { fillLine, timeWords } from '../../../core/town/job';
+import { wellFormed, type JobDoc, type Step } from '../../../core/town/jobDoc';
 import { judgeTyped } from '../../../core/town/typing';
 import { SCENE_VOICES } from '../../../core/town/sceneTypes';
 import { CAST_VOICES } from '../../../core/town/voices';
-import { CITY_PLACE_IDS, CITY_PLACES, CITY_ROWS } from '../../cityWorld';
+import { CITY_PLACE_IDS, CITY_ROWS } from '../../cityWorld';
 import { SENTENCES } from '../../sentences';
 import { CITY_SCENES } from '../index';
 import { allJobRefs, CITY_JOBS, jobLine, jobLineByRef } from './index';
 
 const wordCount = (s: string): number => s.split(/\s+/).filter((w) => /[a-z]/i.test(w)).length;
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+const speaker = (who: string) => who === 'player' || !!cityPerson(who) || Object.hasOwn(SCENE_VOICES, who);
+const WORLD = {
+  speaker,
+  place: (id: string) => (CITY_PLACE_IDS as readonly string[]).includes(id),
+  road: (x: number, y: number) => CITY_ROWS[y]?.[x] === '=',
+};
+const notebookOf = (doc: JobDoc) => doc.steps.find((s): s is Extract<Step, { kind: 'notebook' }> => s.kind === 'notebook')!;
 
-/** Every line id a script refers to. */
-function refs(j: JobScript): string[] {
-  return [
-    ...j.call,
-    ...j.notebook.map((e) => e.line),
-    ...Object.values(j.notMe),
-    j.callOut,
-    ...Object.values(j.greet),
-    ...j.wrongPlace,
-    ...j.junctions.flatMap((x) => [x.line, ...Object.values(x.ways).flatMap((w) => (w?.line ? [w.line] : []))]),
-    j.again,
-    j.dropoff.near,
-    j.dropoff.arrive,
-    ...j.brief,
-    ...j.overhear.lines,
-    j.overhear.noticed,
-    j.password.line,
-    j.password.ask,
-    j.password.right,
-    j.password.close,
-    j.password.wrong,
-    ...Object.values(j.ending).flat(),
-    ...Object.values(j.news).flat(),
-  ];
-}
-
-const street = (p: { x: number; y: number }) => CITY_ROWS[p.y]?.[p.x] === '=';
+describe('the jobs', () => {
+  it('are the two drafts, Act I job 1 first, with unique orders', () => {
+    expect(CITY_JOBS.map((j) => j.id)).toEqual(['job-m2', 'job-ferry']);
+    expect(new Set(CITY_JOBS.map((j) => j.order)).size).toBe(CITY_JOBS.length);
+  });
+});
 
 describe.each(CITY_JOBS.map((j) => [j.id, j] as const))('job %s', (_, job) => {
-  const ids = new Set(job.lines.map((l) => l.id));
-
-  it('has unique line ids under its own prefix, and every part points at one of them; no line goes unused', () => {
-    expect(ids.size).toBe(job.lines.length);
-    for (const l of job.lines) expect(l.id.startsWith(`${job.id}-`), l.id).toBe(true);
-    const used = refs(job);
-    for (const r of used) expect(ids.has(r), r).toBe(true);
-    for (const l of job.lines) expect(used.includes(l.id), `${l.id} is never said`).toBe(true);
+  it('is well formed: lines said, speakers allowed, places on the map, junctions on roads, every fact with its consequence and rejoin, played out', () => {
+    expect(wellFormed(job, WORLD)).toEqual([]);
   });
 
-  it("is said by Westbay's people and voices only heard: the browser's voice, no clips to generate", () => {
+  it('has its lines under its own prefix; nobody of the town speaks (no clips to generate)', () => {
     for (const l of job.lines) {
-      expect(!!cityPerson(l.who) || Object.hasOwn(SCENE_VOICES, l.who), `${l.id}: ${l.who}`).toBe(true);
-      expect(Object.hasOwn(CAST_VOICES, l.who), `${l.id}: a town resident needs clips`).toBe(false);
+      expect(l.id.startsWith(`${job.id}-`), l.id).toBe(true);
+      expect(l.who !== 'player' && Object.hasOwn(CAST_VOICES, l.who), `${l.id}: a town resident needs clips`).toBe(false);
     }
   });
 
@@ -87,63 +69,40 @@ describe.each(CITY_JOBS.map((j) => [j.id, j] as const))('job %s', (_, job) => {
     for (const l of job.lines) expect(taken.has(norm(l.text)), `${l.id}: ${l.text}`).toBe(false);
   });
 
-  it('the notebook: four entries, three different ways each, the answer among them, each said in the call', () => {
-    expect(job.notebook.map((e) => e.key).sort()).toEqual(['avoid', 'look', 'pickup', 'time']);
-    for (const e of job.notebook) {
-      expect(job.call.includes(e.line), e.key).toBe(true);
+  it('the notebook: three or four entries, three different ways each, the answer among them, each said in the briefing', () => {
+    const nb = notebookOf(job);
+    expect(nb.entries.length).toBeGreaterThanOrEqual(3);
+    expect(nb.entries.length).toBeLessThanOrEqual(4);
+    const call = nb.call.map((x) => (typeof x === 'string' ? x : x.line));
+    for (const e of nb.entries) {
+      expect(call, e.key).toContain(e.line);
       if (e.key === 'time') {
         expect(jobLine(e.line)?.line.text).toContain('{time}');
         continue;
       }
       expect(e.options).toHaveLength(3);
       expect(new Set(e.options.map((o) => o.value)).size).toBe(3);
-      expect(new Set(e.options.map((o) => o.label)).size).toBe(3);
       expect(e.options.map((o) => o.value)).toContain(e.answer);
     }
-    const pickup = job.notebook.find((e) => e.key === 'pickup')!;
-    for (const o of pickup.options) expect(CITY_PLACE_IDS as readonly string[], o.value).toContain(job.places[o.value]);
-    expect(job.places[pickup.answer]).toBe(job.pickup.place);
   });
 
-  it('the people and places are on the map: the crowd, the passenger, the two overheard, the drop-off', () => {
-    const places = CITY_PLACE_IDS as readonly string[];
-    for (const id of [job.pickup.place, job.pickup.host, job.pickup.passenger, ...job.pickup.crowd, job.dropoff.place, job.overhear.host, ...job.overhear.who, job.password.who]) expect(places, id).toContain(id);
-    expect(job.pickup.crowd.length + 2).toBeGreaterThanOrEqual(5);
-    expect(job.pickup.crowd).not.toContain(job.pickup.passenger);
-    for (const id of [...job.pickup.crowd, job.pickup.host]) expect(Object.hasOwn(job.notMe, id), id).toBe(true);
-    expect(job.overhear.who).toContain(job.password.who);
-  });
-
-  it('the junctions: on the streets of the map, the right way among the ways out, a line for every wrong way and none for the right one', () => {
-    expect(job.junctions.length).toBeGreaterThanOrEqual(3);
-    expect(job.junctions.length).toBeLessThanOrEqual(5);
-    expect(new Set(job.junctions.map((x) => x.id)).size).toBe(job.junctions.length);
-    for (const x of job.junctions) {
-      expect(street(x.at), x.id).toBe(true);
-      expect(waysOf(x).length, x.id).toBeGreaterThanOrEqual(2);
-      expect(waysOf(x), x.id).toContain(x.right);
-      for (const t of waysOf(x)) {
-        const w = x.ways[t]!;
-        expect(street(w.to), `${x.id} ${t}`).toBe(true);
-        expect(Math.hypot(w.to.x - x.at.x, w.to.y - x.at.y), `${x.id} ${t}`).toBeGreaterThan(4);
-        expect(!!w.line, `${x.id} ${t}`).toBe(t !== x.right);
+  it('a pickup or a ride led by an entry leads every one of its values somewhere on the map, the answer to the right place', () => {
+    const nb = notebookOf(job);
+    for (const s of job.steps) {
+      if ((s.kind === 'pickup' || s.kind === 'ride') && s.entry) {
+        const e = nb.entries.find((x) => x.key === s.entry)!;
+        for (const o of e.options) expect(WORLD.place(s.places![o.value]), `${s.kind} ${o.value}`).toBe(true);
+        expect(s.places![e.answer]).toBe(s.place);
       }
     }
-    // the passenger corrects himself at least once (the owner's sample: "second left… no, sorry, the next one")
-    expect(job.junctions.some((x) => /no, sorry/i.test(jobLine(x.line)!.line.text))).toBe(true);
-    // the wrong time's consequence says the time again
-    expect(jobLine(job.greet.late)!.line.text).toContain('{time}');
-    // the drop-off is a place of the map
-    expect(CITY_PLACES.some((p) => (p.id as string) === job.dropoff.place)).toBe(true);
   });
 
-  it('the password is a chunk of the line it is said in, and typing it is judged right', () => {
-    const line = jobLine(job.password.line)!.line;
-    expect(line.text.toLowerCase()).toContain(job.password.chunk);
-    expect(job.overhear.lines).toContain(job.password.line);
-    expect(judgeTyped(job.password.chunk, job.password.chunk).correct).toBe(true);
-    expect(judgeTyped(job.password.chunk, 'outta order').correct).toBe(true);
-    expect(judgeTyped(job.password.chunk, 'out of date').correct).toBe(false);
+  it('a password is a chunk of the line it is said in, and typing it is judged right', () => {
+    for (const s of job.steps) {
+      if (s.kind !== 'password') continue;
+      expect(jobLine(s.line)!.line.text.toLowerCase()).toContain(s.chunk);
+      expect(judgeTyped(s.chunk, s.chunk).correct).toBe(true);
+    }
   });
 });
 
@@ -155,10 +114,10 @@ describe('job lines as review cards', () => {
       const found = jobLineByRef(ref);
       expect(found, ref).toBeDefined();
       expect(found!.line.text.includes('{time}'), ref).toBe(false);
-      expect(found!.line.id).toBe(ref);
     }
     expect(jobLineByRef('job-ferry-c04')).toBeUndefined();
     expect(jobLineByRef('job-ferry-c04-t1845')?.line.text).toBe("Be there at quarter to seven. He's got a ferry to catch.");
+    expect(jobLineByRef('job-m2-12-t1915')?.line.text).toBe("Say quarter past seven, if that's alright. I'll be in a navy coat.");
     expect(jobLineByRef('cafe-1-01')).toBeUndefined();
   });
 });

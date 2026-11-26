@@ -5,31 +5,31 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowRight, KeyRound, X } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
-import type { JobRun, JobScript } from '../../../core/town/job';
+import type { Step } from '../../../core/town/jobDoc';
 import type { TypedJudge } from '../../../core/town/typing';
 import { cityPerson } from '../../../core/town/cityPeople';
 import { tl } from '../../../i18n';
 import { usePanelKeys } from '../panelKeys';
 
 export interface JobPasswordProps {
-  job: JobScript;
+  step: Extract<Step, { kind: 'password' }>;
   say: (ids: readonly string[]) => Promise<boolean>;
   judge: (answer: string) => TypedJudge;
-  onDone: (password: JobRun['password']) => void;
+  onDone: (password: 'first' | 'helped' | 'none') => void;
   /** Back to listening (not ready yet). */
   onClose: () => void;
 }
 
-export default function JobPassword({ job, say, judge, onDone, onClose }: JobPasswordProps) {
+export default function JobPassword({ step, say, judge, onDone, onClose }: JobPasswordProps) {
   const boxRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   usePanelKeys(boxRef, onClose);
   const [answer, setAnswer] = useState('');
   const [hint, setHint] = useState<string | null>(null);
   const [over, setOver] = useState(false);
-  const who = cityPerson(job.password.who)?.name ?? job.password.who;
+  const who = cityPerson(step.who)?.name ?? step.who;
   useEffect(() => {
-    void say([job.password.ask]);
+    void say([step.ask]);
     inputRef.current?.focus({ preventScroll: true });
     // (once, when the sheet opens)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -41,16 +41,16 @@ export default function JobPassword({ job, say, judge, onDone, onClose }: JobPas
     const v = judge(answer);
     if (v.correct) {
       setOver(true);
-      await say([job.password.right]);
+      await say([step.right]);
       onDone(hint ? 'helped' : 'first');
     } else if (v.verdict === 'close' && !hint) {
       setHint(v.hint);
       setAnswer('');
-      await say([job.password.close]);
+      await say([step.close]);
       inputRef.current?.focus();
     } else {
       setOver(true);
-      await say([job.password.wrong]);
+      await say([step.wrong]);
       onDone('none');
     }
   };

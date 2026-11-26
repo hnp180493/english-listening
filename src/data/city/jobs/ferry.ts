@@ -16,7 +16,8 @@
 // the seafront promenade y 57–58, Quay Street y 78–79, Pier Road y 90–91 run east–west; College Road x 74–75 and East
 // Road x 90–91 north–south. The Loom's door is at (77, 15), the ferry's at (66, 90), the big wheel's at (81, 78).
 
-import type { JobLine, JobScript, TilePt } from '../../../core/town/job';
+import type { JobLine, Junction, NoteEntry, TilePt } from '../../../core/town/job';
+import type { JobDoc } from '../../../core/town/jobDoc';
 
 const T = (x: number, y: number): TilePt => ({ x, y });
 
@@ -97,96 +98,138 @@ const LINES: readonly JobLine[] = [
   { id: id('f-none3'), who: 'marcus', text: "Make of that what you will. Here's some music.", vi: 'Hiểu thế nào thì tùy các bạn. Giờ thì nghe nhạc nhé.' },
 ];
 
-export const JOB_FERRY: JobScript = {
+const NOTEBOOK: NoteEntry[] = [
+  {
+    key: 'pickup',
+    label: 'Đón ở đâu',
+    line: id('c03'),
+    answer: 'loom',
+    options: [
+      { value: 'loom', label: 'Trước xưởng thiết kế Loom' },
+      { value: 'lumen', label: 'Trước rạp Lumen' },
+      { value: 'ferry', label: 'Ở bến phà' },
+    ],
+  },
+  { key: 'time', label: 'Mấy giờ', line: id('c04'), answer: '', options: [] },
+  {
+    key: 'look',
+    label: 'Nhận ra khách thế nào',
+    line: id('c05'),
+    answer: 'grey',
+    options: [
+      { value: 'grey', label: 'Tóc bạc, đeo kính, com-lê xám' },
+      { value: 'green', label: 'Tóc bạc, đeo kính, áo len xanh lá' },
+      { value: 'fair', label: 'Tóc vàng, áo khoác xanh lá, thắt cà vạt' },
+    ],
+  },
+  {
+    key: 'avoid',
+    label: 'Tránh đường nào',
+    line: id('c07'),
+    answer: 'avenue',
+    options: [
+      { value: 'avenue', label: 'Station Avenue (đại lộ)' },
+      { value: 'road', label: 'Station Road' },
+      { value: 'bay', label: 'Bay Road' },
+    ],
+  },
+];
+
+// the passenger's way from the Loom to the ferry: four junctions (the car comes to the first heading west along
+// Market Street, then south down College Road, east along Arts Street, south down East Road)
+const JUNCTIONS: Junction[] = [
+  {
+    id: 'market-college',
+    name: 'Market Street × College Road',
+    at: T(74, 16),
+    line: id('d1'),
+    right: 'left',
+    ways: { left: { to: T(74, 22) }, straight: { to: T(68, 16), line: id('d1-straight') }, right: { to: T(74, 9), line: id('d1-right') } },
+  },
+  {
+    id: 'college-arts',
+    name: 'College Road × Arts Street',
+    at: T(74, 49),
+    line: id('d2'),
+    right: 'left',
+    ways: { left: { to: T(81, 49) }, straight: { to: T(74, 55), line: id('d2-straight') }, right: { to: T(67, 49), line: id('d2-right') } },
+  },
+  {
+    id: 'arts-east',
+    name: 'Arts Street × East Road',
+    at: T(90, 49),
+    line: id('d3'),
+    right: 'right',
+    ways: { left: { to: T(90, 43), line: id('d3-left') }, right: { to: T(90, 55) } },
+  },
+  {
+    id: 'east-quay',
+    name: 'East Road × Quay Street',
+    at: T(90, 78),
+    line: id('d4'),
+    right: 'straight',
+    ways: { straight: { to: T(90, 84) }, right: { to: T(83, 78), line: id('d4-quay') } },
+  },
+];
+
+export const JOB_FERRY: JobDoc = {
   id: 'job-ferry',
   title: 'Cuộn băng của Gus',
   blurb: 'Bayline nghe lén bộ đàm của Rico để cướp khách. Rico gọi điện cho bạn thay vì nói qua bộ đàm.',
   level: 2,
+  order: 2,
+  opens: ['ct-rico-1'],
+  from: 'rico',
   lines: LINES,
-  call: ['c01', 'c02', 'c03', 'c04', 'c05', 'c06', 'c07', 'c08'].map(id),
-  notebook: [
-    {
-      key: 'pickup',
-      label: 'Đón ở đâu',
-      line: id('c03'),
-      answer: 'loom',
-      options: [
-        { value: 'loom', label: 'Trước xưởng thiết kế Loom' },
-        { value: 'lumen', label: 'Trước rạp Lumen' },
-        { value: 'ferry', label: 'Ở bến phà' },
-      ],
-    },
-    { key: 'time', label: 'Mấy giờ', line: id('c04'), answer: '', options: [] },
-    {
-      key: 'look',
-      label: 'Nhận ra khách thế nào',
-      line: id('c05'),
-      answer: 'grey',
-      options: [
-        { value: 'grey', label: 'Tóc bạc, đeo kính, com-lê xám' },
-        { value: 'green', label: 'Tóc bạc, đeo kính, áo len xanh lá' },
-        { value: 'fair', label: 'Tóc vàng, áo khoác xanh lá, thắt cà vạt' },
-      ],
-    },
-    {
-      key: 'avoid',
-      label: 'Tránh đường nào',
-      line: id('c07'),
-      answer: 'avenue',
-      options: [
-        { value: 'avenue', label: 'Station Avenue (đại lộ)' },
-        { value: 'road', label: 'Station Road' },
-        { value: 'bay', label: 'Bay Road' },
-      ],
-    },
+  facts: [
+    { id: 'pickup', label: 'Đón ở đâu', line: id('c03'), consequence: 'wrongPlace', byAction: true },
+    { id: 'time', label: 'Mấy giờ', line: id('c04'), consequence: 'late' },
+    { id: 'look', label: 'Nhận ra khách thế nào', line: id('c05'), consequence: 'wrongPerson', byAction: true },
+    { id: 'avoid', label: 'Tránh đường nào', line: id('c07'), consequence: 'spotted' },
+    { id: 'word', label: 'Mật khẩu (nghe lén)', line: id('o05'), consequence: 'password', byAction: true },
   ],
-  pickup: { place: 'vivian', host: 'vivian', passenger: 'whitlock', crowd: ['finch', 'colin', 'priya', 'hana'] },
-  places: { loom: 'vivian', lumen: 'iris', ferry: 'odile' },
-  notMe: { finch: id('x-finch'), colin: id('x-colin'), priya: id('x-priya'), hana: id('x-hana'), vivian: id('x-vivian') },
-  callOut: id('k00'),
-  greet: { ontime: id('p01'), late: id('p02'), spotted: id('p03') },
-  wrongPlace: [id('w01'), id('w02')],
-  // the passenger's way from the Loom to the ferry: four junctions (the car comes to the first heading west along
-  // Market Street, then south down College Road, east along Arts Street, south down East Road)
-  junctions: [
+  consequences: {
+    wrongPlace: { name: 'Ghi nhầm chỗ đón: không ai đợi ở đó, Rico phải gọi chỉ lại', rejoin: 'Rico nói lại chỗ đón, bạn tới xưởng Loom muộn hơn một chút.' },
+    late: { name: 'Ghi nhầm giờ (hoặc tới muộn): ông khách phải đứng chờ', rejoin: 'Ông khách cằn nhằn rồi vẫn lên xe.' },
+    wrongPerson: { name: 'Hỏi nhầm người', rejoin: 'Người bị hỏi nhầm đuổi khéo; ông khách vẫn đứng đó.' },
+    spotted: { name: 'Ghi nhầm đường cần tránh: xe Bayline bám theo', rejoin: 'Chiếc xe Bayline đỗ lại phía sau; chuyến xe vẫn đi tiếp.' },
+    lost: { name: 'Chọn sai đường ở ngã rẽ', rejoin: 'Ông khách chỉ lại, xe quay về ngã rẽ.' },
+    nagged: { name: 'Bắt ông khách nhắc lại nhiều quá, ông ấy bực', rejoin: 'Ông vẫn chỉ đường, giọng gắt hơn.' },
+    noticed: { name: 'Gus và Odile thấy bạn nghe lén', rejoin: 'Họ thôi nói; bạn vẫn tới hỏi Gus được.' },
+    password: { name: 'Không nói được mật khẩu, Gus giữ lại cuộn băng', rejoin: 'Rico sẽ tự đi lấy; bản tin đổi theo.' },
+  },
+  failed: 'password',
+  steps: [
+    // beat 1: Rico phones, the learner writes it down
+    { kind: 'notebook', call: ['c01', 'c02', 'c03', 'c04', 'c05', 'c06', 'c07', 'c08'].map(id), entries: NOTEBOOK },
+    // beat 2: the pickup the learner noted; then the passenger's way, junction by junction
     {
-      id: 'market-college',
-      name: 'Market Street × College Road',
-      at: T(74, 16),
-      line: id('d1'),
-      right: 'left',
-      ways: { left: { to: T(74, 22) }, straight: { to: T(68, 16), line: id('d1-straight') }, right: { to: T(74, 9), line: id('d1-right') } },
+      kind: 'pickup',
+      entry: 'pickup',
+      places: { loom: 'vivian', lumen: 'iris', ferry: 'odile' },
+      place: 'vivian',
+      wrongPlace: { lines: [id('w01'), id('w02')], consequence: 'wrongPlace' },
+      crowd: ['vivian', 'finch', 'colin', 'priya', 'hana'],
+      passenger: 'whitlock',
+      notMe: { finch: [id('x-finch')], colin: [id('x-colin')], priya: [id('x-priya')], hana: [id('x-hana')], vivian: [id('x-vivian')] },
+      wrongPerson: 'wrongPerson',
+      callOut: { after: 2, line: id('k00') },
+      greet: [{ line: id('p02'), if: { any: [{ note: 'time', is: 'wrong' }, { flag: 'late' }] } }, id('p01'), { line: id('p03'), if: { note: 'avoid', is: 'wrong' } }],
     },
     {
-      id: 'college-arts',
-      name: 'College Road × Arts Street',
-      at: T(74, 49),
-      line: id('d2'),
-      right: 'left',
-      ways: { left: { to: T(81, 49) }, straight: { to: T(74, 55), line: id('d2-straight') }, right: { to: T(67, 49), line: id('d2-right') } },
+      kind: 'ride',
+      place: 'odile',
+      junctions: JUNCTIONS,
+      lost: 'lost',
+      again: { line: id('again'), patience: 2, consequence: 'nagged' },
+      near: [id('d5')],
+      arrive: { right: [id('a01')] },
     },
-    {
-      id: 'arts-east',
-      name: 'Arts Street × East Road',
-      at: T(90, 49),
-      line: id('d3'),
-      right: 'right',
-      ways: { left: { to: T(90, 43), line: id('d3-left') }, right: { to: T(90, 55) } },
-    },
-    {
-      id: 'east-quay',
-      name: 'East Road × Quay Street',
-      at: T(90, 78),
-      line: id('d4'),
-      right: 'straight',
-      ways: { straight: { to: T(90, 84) }, right: { to: T(83, 78), line: id('d4-quay') } },
-    },
+    // beat 3: Rico again; the two at the big wheel; the password
+    { kind: 'phone', lines: ['r01', 'r02', 'r03', 'r04', 'r05', 'r06'].map(id) },
+    { kind: 'overhear', at: 'fay', who: ['gus', 'odile'], lines: ['o01', 'o02', 'o03', 'o04', 'o05', 'o06', 'o07'].map(id), passes: 4, noticed: { line: id('n01'), consequence: 'noticed' }, word: id('o05') },
+    { kind: 'password', who: 'gus', line: id('o05'), chunk: 'out of order', ask: id('k01'), right: id('k02'), close: id('k03'), wrong: id('k04'), consequence: 'password' },
   ],
-  again: id('again'),
-  dropoff: { place: 'odile', near: id('d5'), arrive: id('a01') },
-  brief: ['r01', 'r02', 'r03', 'r04', 'r05', 'r06'].map(id),
-  overhear: { host: 'fay', who: ['gus', 'odile'], lines: ['o01', 'o02', 'o03', 'o04', 'o05', 'o06', 'o07'].map(id), noticed: id('n01'), passes: 4 },
-  password: { who: 'gus', line: id('o05'), chunk: 'out of order', ask: id('k01'), right: id('k02'), close: id('k03'), wrong: id('k04') },
   ending: { clean: [id('e-clean1'), id('e-clean2')], messy: [id('e-messy1'), id('e-messy2')], broken: [id('e-broken1'), id('e-broken2')] },
-  news: { clean: [id('f-clean1'), id('f-clean2'), id('f-clean3')], messy: [id('f-messy1'), id('f-messy2'), id('f-messy3')], none: [id('f-none1'), id('f-none2'), id('f-none3')] },
+  news: { clean: [id('f-clean1'), id('f-clean2'), id('f-clean3')], messy: [id('f-messy1'), id('f-messy2'), id('f-messy3')], broken: [id('f-messy1'), id('f-messy2'), id('f-messy3')], none: [id('f-none1'), id('f-none2'), id('f-none3')] },
 };

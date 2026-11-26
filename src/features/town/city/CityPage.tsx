@@ -55,7 +55,14 @@ import { cityQuests, followed, taxiQuest, type Quest } from '../quests';
 import { arriveTaxi, dropTaxi, useTaxiRide } from '../../../core/town/taxiStore';
 import { TAXI_ARRIVE } from '../../../core/town/taxi';
 import { taxiPlaceName } from './taxiPlace';
+import { DISPATCH_SHIFTS_A_DAY } from '../../../core/town/dispatch';
+import { dispatchOpen, shiftsPaidToday } from '../../../core/town/dispatchStore';
+import { DISPATCH_QUEST_ID, dispatchQuest } from '../dispatch/dispatchQuest';
+import { OFFICE_AT } from '../../../data/city/dispatch/places';
+import { PhoneCall } from 'lucide-react';
 import { useCityJob } from '../jobs/useCityJob';
+import { withJobCast } from '../jobs/jobCast';
+import type { JobDoc } from '../../../core/town/jobDoc';
 import { CITY_JOBS } from '../../../data/city/jobs';
 import './cityLooks';
 import './cityPlaces3d';
@@ -68,6 +75,8 @@ const CityToday = lazy(() => import('./CityToday'));
 const CityEventPanel = lazy(() => import('./CityEventPanel'));
 const ShiftPanel = lazy(() => import('./ShiftPanel'));
 const TaxiPanel = lazy(() => import('./TaxiPanel'));
+/** Rico's dispatch office in the old gatehouse (../dispatch, docs/town.md §27). */
+const DispatchOffice = lazy(() => import('../dispatch/DispatchOffice'));
 /** The full map (M, or the minimap): the town's, on Westbay's world. */
 const TownMap = lazy(() => import('../map/TownMap'));
 
@@ -84,6 +93,7 @@ type Sheet =
   | { kind: 'today'; key: number }
   | { kind: 'shift'; key: number; id: string }
   | { kind: 'taxi'; key: number }
+  | { kind: 'dispatch'; key: number }
   | { kind: 'event'; key: number; event: CityEvent };
 
 /** What the one button offers beside somebody. */
@@ -136,7 +146,7 @@ export default function CityPage() {
   const guestKey = guests.join(',');
   // (the same object for the same guests: the stage is made again only when somebody new has come)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const world = useMemo(() => cityWorldWith(guests.map((id) => ({ id, name: townPlace(id)?.resident ?? '' }))), [guestKey]);
+  const world = useMemo(() => withJobCast(cityWorldWith(guests.map((id) => ({ id, name: townPlace(id)?.resident ?? '' })))), [guestKey]);
   useEffect(() => {
     setReady(false);
   }, [world]);
@@ -371,13 +381,15 @@ export default function CityPage() {
   );
   // a job ("phi vụ", ../jobs; docs/gta-plan.md M0): Rico rings once he has been met (at once in the admin sandbox); under
   // way, it is THE quest and it takes the one button and the clicks on people
+  const jobOpen = useCallback((d: JobDoc) => !flat && ready && (ADMIN || d.opens.every((s) => Object.hasOwn(city.heard, s))), [flat, ready, city]);
   const job = useCityJob({
-    job: CITY_JOBS[0],
+    jobs: CITY_JOBS,
     stage,
-    available: !flat && ready && (ADMIN || Object.hasOwn(city.heard, 'ct-rico-1')),
+    isOpen: jobOpen,
     free: ready && !sheet && !map && !welcome,
     nearId: near?.kind === 'resident' ? near.placeId : null,
     sound: ui.sound,
+    playerGender: life.profile?.gender === 'female' ? 'female' : 'male',
     onReward,
   });
   // Rico's taxi (core/town/taxi.ts): a passenger in the car is THE quest until set down; the job is there for whoever met him
@@ -389,13 +401,16 @@ export default function CityPage() {
     [ridingTo, taxiOpen, quests],
   );
   const riding = !!ridingTo;
-  const questList = useMemo(() => (job.quest ? [job.quest, ...allQuests] : allQuests), [job.quest, allQuests]);
-  const quest = job.active ? job.quest : riding ? allQuests[0] : followed(questList, questPick);
+  // Rico's dispatch office (../dispatch): open once Gus offered him the gatehouse (the main story's part 2)
+  const officeOpen = dispatchOpen(city);
+  const withOffice = useMemo(() => (officeOpen ? [...allQuests, dispatchQuest(DISPATCH_SHIFTS_A_DAY - shiftsPaidToday())] : allQuests), [officeOpen, allQuests]);
+  const questList = useMemo(() => [...job.quests, ...withOffice], [job.quests, withOffice]);
+  const quest = job.active ? job.quests[0] : riding ? allQuests[0] : followed(questList, questPick);
   // a main story chapter to get to in time (data/city/seasonsMain.ts `rush`): the clock starts when it is taken on
   const [rush, setRush] = useState<{ id: string; until: number } | null>(null);
   const goQuest = (q: Quest) => {
     if (q.id.startsWith('job:')) {
-      job.start();
+      job.start(q.id.slice(4));
       return;
     }
     setQuestPick(q.id);
@@ -422,6 +437,10 @@ export default function CityPage() {
     if (kind === 'event') {
       const ev = eventsToday.find((x) => x.event.id === key);
       if (ev) openEvent(ev.event);
+      return;
+    }
+    if (q.id === DISPATCH_QUEST_ID) {
+      void stage.current?.walkTo(OFFICE_AT as PlaceId, () => setSheet((sh) => sh ?? { kind: 'dispatch', key: ++keys.current }));
       return;
     }
     if (q.id === 'taxi:fare') {
@@ -570,6 +589,13 @@ export default function CityPage() {
                     </li>
                   ) : null;
                 })}
+                {officeOpen && (
+                  <li>
+                    <button type="button" className="btn btn-ghost" onClick={() => setSheet({ kind: 'dispatch', key: ++keys.current })}>
+                      Văn phòng điều xe
+                    </button>
+                  </li>
+                )}
                 {CITY_SHIFTS.filter((s) => shiftAt(s.at)).map((s) => (
                   <li key={s.id}>
                     <button type="button" className="btn btn-ghost" onClick={() => setSheet({ kind: 'shift', key: ++keys.current, id: s.id })}>
@@ -689,6 +715,12 @@ export default function CityPage() {
                 <span className="town-prompt-gift-label">Vào ca</span>
               </button>
             )}
+            {(nearId as string) === OFFICE_AT && officeOpen && (
+              <button type="button" className="btn btn-lg town-prompt-gift" onClick={() => !sheet && setSheet({ kind: 'dispatch', key: ++keys.current })} aria-label="Văn phòng điều xe">
+                <Icon icon={PhoneCall} size={18} />
+                <span className="town-prompt-gift-label">Văn phòng</span>
+              </button>
+            )}
             {nearOuting && nearId && (
               <button type="button" className="btn btn-lg town-prompt-gift" onClick={() => startOuting(nearId, nearOuting)} aria-label={nearOuting.kind === 'family' ? 'Cả nhà ghé đây' : 'Hẹn hò ở đây'}>
                 <Icon icon={Heart} size={18} />
@@ -741,6 +773,11 @@ export default function CityPage() {
               <TaxiPanel key={shownSheet.key} sound={ui.sound} distanceTo={doorDistance} onReward={onReward} onClose={closeSheet} />
             </Suspense>
           </CitySheet>
+        )}
+        {shownSheet?.kind === 'dispatch' && (
+          <Suspense fallback={null}>
+            <DispatchOffice key={shownSheet.key} sound={ui.sound} onReward={onReward} onClose={closeSheet} />
+          </Suspense>
         )}
         {shownSheet?.kind === 'shift' && (
           <CitySheet title={CITY_SHIFTS.find((s) => s.id === shownSheet.id)?.name ?? 'Ca làm việc'} onClose={closeSheet}>

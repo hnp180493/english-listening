@@ -88,4 +88,6 @@ export const SCENE_VOICES: Readonly<Record<string, SceneVoice>> = {
   officer: { name: 'Bà Ward · Hội đồng', gender: 'female' },
   // its second part (data/city/seasonsMain2.ts): the woman behind Crane, who only ever rings
   vane: { name: 'Bà Vane', gender: 'female' },
+  // Act I of the story (docs/gta-story.md §2): the owner of Bayline, new, met in the jobs (data/city/jobs/)
+  kemp: { name: 'Duncan Kemp', gender: 'male' },
 };

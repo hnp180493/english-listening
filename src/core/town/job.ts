@@ -9,7 +9,8 @@
 //   4. the outcome: no fail state; the grade counts the consequences hit; then the words and Bay FM's news.
 // A wrong note never forks the story: it has ONE consequence that plays out in the world and then rejoins the main
 // line (owner's review, 2026-11-26). Hearing again is an action with a cost, counted per fact ("heard once" honestly).
-// Pure: the rules only. The script is data (data/city/jobs/), the runner and its panels features/town/jobs/.
+// Pure: the rules only. A job's shape is ./jobDoc.ts, the jobs are data (data/city/jobs/), the engine and its panels
+// features/town/jobs/.
 // Nothing here is a measure of level: grades and xu are a game score (docs/progress-report.md §6).
 
 import { GAME_DAY_MS, gameMinutes } from './sky';
@@ -43,7 +44,8 @@ export interface NoteOption {
   label: string;
 }
 
-export type NoteKey = 'pickup' | 'time' | 'look' | 'avoid';
+/** A notebook entry's key ('pickup', 'time', 'name'…; 'time' is the appointment, its options made from it). */
+export type NoteKey = string;
 
 export interface NoteEntry {
   key: NoteKey;
@@ -75,53 +77,6 @@ export interface Junction {
   line: string;
   right: Turn;
   ways: Partial<Record<Turn, { to: TilePt; line?: string }>>;
-}
-
-/**
- * A whole job: its lines by id and the parts the runner plays (features/town/jobs). The places are ids of Westbay's
- * places (data/cityWorld.ts); the points are on its tile grid.
- */
-export interface JobScript {
-  /** `job-<name>`: what paid today is this id in the daily set `heard` of town-progress. */
-  id: string;
-  /** Shown on the quest card and the debrief. */
-  title: string;
-  /** One Vietnamese line: what the job is about, never what is said. */
-  blurb: string;
-  level: 1 | 2 | 3;
-  lines: readonly JobLine[];
-  /** The briefing (beat 1), said on the phone. */
-  call: readonly string[];
-  notebook: readonly NoteEntry[];
-  /** The right pickup (a place id) and who is picked up there among the crowd standing at its door. */
-  pickup: { place: string; host: string; passenger: string; crowd: readonly string[] };
-  /** Where the noted pickup leads, by notebook value (a place id). */
-  places: Readonly<Record<string, string>>;
-  /** What each of the crowd says when asked by mistake (they send the learner away); the passenger's call after two. */
-  notMe: Readonly<Record<string, string>>;
-  callOut: string;
-  /**
-   * The passenger's first words: on time; then the consequence of a wrong time (he has been waiting, and says since
-   * when) and of a wrong street to avoid (a rival's car behind). Each said after `ontime`, only when it happened.
-   */
-  greet: { ontime: string; late: string; spotted: string };
-  /** Rico rings, annoyed, when the learner is at the wrong pickup, and says that one fact again. */
-  wrongPlace: readonly string[];
-  /** The passenger's directions: his junctions in order, then the drop-off. */
-  junctions: readonly Junction[];
-  /** "Xin nhắc lại" past the passenger's patience: what he says before saying it again. */
-  again: string;
-  /** The drop-off (a place id), what the passenger says on the way there and there. */
-  dropoff: { place: string; near: string; arrive: string };
-  /** Rico's second call (beat 3's brief). */
-  brief: readonly string[];
-  /** The two overheard, the place at whose door they stand, and what they say, looped. */
-  overhear: { host: string; who: readonly [string, string]; lines: readonly string[]; noticed: string; passes: number };
-  /** The password: who asks, the line it was said in, the chunk to type, and the answers. */
-  password: { who: string; line: string; chunk: string; ask: string; right: string; close: string; wrong: string };
-  /** Rico's last word by grade, and Bay FM's news by how it ended (tape or none). */
-  ending: Readonly<Record<JobGrade, readonly string[]>>;
-  news: { clean: readonly string[]; messy: readonly string[]; none: readonly string[] };
 }
 
 // ───────────────────────── the clock: an appointment in the game's time ─────────────────────────
@@ -263,49 +218,8 @@ export const CLARITY_VOLUME: Readonly<Record<Clarity, number>> = { clear: 1, fai
 
 // ───────────────────────── the outcome ─────────────────────────
 
-/** What happened in a run of the job: each true is one consequence that played out in the world. */
-export interface JobRun {
-  /** Went to the wrong pickup: nobody there, Rico rang, annoyed. */
-  wrongPlace: boolean;
-  /** Wrote the wrong time (or got there after it): the passenger had been waiting, and said so. */
-  late: boolean;
-  /** Wrote the wrong street to avoid: a rival's car followed. */
-  spotted: boolean;
-  /** People asked before the right one (they sent the learner away). */
-  wrongPeople: number;
-  /** Wrong ways taken at the junctions. */
-  wrongTurns: number;
-  /** "Xin nhắc lại" asked of the passenger, all junctions together. */
-  asks: number;
-  /** The two overheard saw the learner listening. */
-  noticed: boolean;
-  /** The password: right at the first try, right after a hint, or never. */
-  password: 'first' | 'helped' | 'none';
-}
-
-export type JobProblem = 'wrongPlace' | 'late' | 'spotted' | 'wrongPerson' | 'lost' | 'nagged' | 'noticed' | 'password';
-
-/** The consequences hit, in the order they happen. */
-export function jobProblems(r: JobRun): JobProblem[] {
-  const out: JobProblem[] = [];
-  if (r.wrongPlace) out.push('wrongPlace');
-  if (r.late) out.push('late');
-  if (r.spotted) out.push('spotted');
-  if (r.wrongPeople > 0) out.push('wrongPerson');
-  if (r.wrongTurns > 0) out.push('lost');
-  if (r.asks > PATIENCE) out.push('nagged');
-  if (r.noticed) out.push('noticed');
-  if (r.password === 'none') out.push('password');
-  return out;
-}
-
+/** Sạch / Lộn xộn / Hỏng (the grade counts the consequences hit: core/town/jobDoc gradeHits). A game score. */
 export type JobGrade = 'clean' | 'messy' | 'broken';
-
-/** The grade is how many consequences were hit: Sạch none, Lộn xộn one or two, Hỏng three or more. */
-export function gradeJob(r: JobRun): JobGrade {
-  const n = jobProblems(r).length;
-  return n === 0 ? 'clean' : n <= 2 ? 'messy' : 'broken';
-}
 
 /** Xu for a grade (a game score). Paid for the first run of a day only. */
 export const JOB_PAY: Readonly<Record<JobGrade, number>> = { clean: 30, messy: 15, broken: 5 };
@@ -314,25 +228,11 @@ export function jobPay(grade: JobGrade, paidToday: boolean): number {
   return paidToday ? 0 : JOB_PAY[grade];
 }
 
-/**
- * The lines the learner did not catch, as the run shows it (each is marked in the debrief and becomes a review card):
- * the call's lines behind an entry written wrong, the description when the wrong person was asked, a junction's line
- * when a wrong way was taken there, the password when it was not typed right at once.
- */
-export function missedLines(o: {
-  entries: readonly NoteEntry[];
-  wrongNotes: readonly NoteKey[];
-  wrongPeople: number;
-  junctions: readonly Junction[];
-  wrongAt: readonly string[];
-  password: JobRun['password'];
-  passwordLine: string;
-}): string[] {
-  const out: string[] = [];
-  for (const e of o.entries) if (o.wrongNotes.includes(e.key) || (e.key === 'look' && o.wrongPeople > 0)) out.push(e.line);
-  for (const j of o.junctions) if (o.wrongAt.includes(j.id)) out.push(j.line);
-  if (o.password !== 'first') out.push(o.passwordLine);
-  return [...new Set(out)];
+/** How a time noted compares with the appointment: right, earlier, later (within half a day). */
+export function timeSide(noted: number, appointment: number): 'right' | 'early' | 'late' {
+  const d = dayMinute(noted - appointment);
+  if (d === 0) return 'right';
+  return d > DAY_MIN / 2 ? 'early' : 'late';
 }
 
 // ───────────────────────── review cards of templated lines ─────────────────────────

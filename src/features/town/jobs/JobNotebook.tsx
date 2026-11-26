@@ -7,13 +7,13 @@ import { useRef } from 'react';
 import { ArrowRight, MessageCircleQuestion, NotebookPen, RotateCcw, X } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import { useShortcuts } from '../../../components/useShortcuts';
-import type { JobScript, NoteKey, NoteOption } from '../../../core/town/job';
+import type { NoteEntry, NoteKey, NoteOption } from '../../../core/town/job';
 import { tl } from '../../../i18n';
 import { SoundBars } from '../art';
 import { usePanelKeys } from '../panelKeys';
 
 export interface JobNotebookProps {
-  job: JobScript;
+  entries: readonly NoteEntry[];
   options: (key: NoteKey) => NoteOption[];
   picks: Partial<Record<NoteKey, string>>;
   onPick: (key: NoteKey, value: string) => void;
@@ -29,11 +29,11 @@ export interface JobNotebookProps {
   onClose: () => void;
 }
 
-export default function JobNotebook({ job, options, picks, onPick, heard, playing, onReplay, onFact, onGo, onClose }: JobNotebookProps) {
+export default function JobNotebook({ entries, options, picks, onPick, heard, playing, onReplay, onFact, onGo, onClose }: JobNotebookProps) {
   const boxRef = useRef<HTMLElement>(null);
   usePanelKeys(boxRef, onClose);
   useShortcuts({ replay: () => onReplay(false), slow: () => onReplay(true) }, { root: boxRef });
-  const done = job.notebook.every((e) => picks[e.key] !== undefined);
+  const done = entries.every((e) => picks[e.key] !== undefined);
   return (
     // (a region, not a dialog: the shared practice keys work in it)
     <aside ref={boxRef} className="town-build town-activity-sheet job-sheet" role="region" aria-label="Sổ tay" tabIndex={-1}>
@@ -47,7 +47,7 @@ export default function JobNotebook({ job, options, picks, onPick, heard, playin
       </header>
       <div className="town-build-body town-activity-body">
         <p className="town-build-hint">Ghi lại điều bạn nghe được. Không ai báo đúng sai: bạn ghi gì, trò chơi dẫn bạn đi theo đúng cái đó. Nghe lại được, nhưng lần nào cũng được đếm, và đồng hồ hẹn vẫn chạy.</p>
-        {job.notebook.map((e) => (
+        {entries.map((e) => (
           <fieldset key={e.key} className="job-note">
             <legend className="job-note-label">
               {e.label}

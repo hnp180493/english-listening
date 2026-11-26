@@ -9,9 +9,9 @@ import { jobVoice } from '../../../core/town/jobVoice';
 import { speak } from '../../../core/tts';
 import { dictationAudio } from '../../dictation/decodeCache';
 
-export function sayJobLine(line: Pick<JobLine, 'who' | 'text' | 'say'>, level: number, o: { careful?: boolean; volume?: number; slow?: boolean } = {}): Promise<void> {
+export function sayJobLine(line: Pick<JobLine, 'who' | 'text' | 'say'>, level: number, o: { careful?: boolean; volume?: number; slow?: boolean; gender?: 'male' | 'female' } = {}): Promise<void> {
   const audio = dictationAudio({ text: line.text, level, ...(line.say ? { say: line.say } : {}) });
-  const voice = jobVoice(line.who);
+  const voice = jobVoice(line.who, o.gender);
   if (o.careful) return speak(audio.careful.trim(), { mode: 'careful', rate: CAREFUL_RATE, voice, browserOnly: true });
   return speak(audio.connected.trim(), { mode: 'connected', voice, browserOnly: true, ...(o.slow ? { slow: true } : {}), ...(o.volume !== undefined ? { volume: o.volume } : {}) });
 }
