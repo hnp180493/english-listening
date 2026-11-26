@@ -26,6 +26,8 @@ import {
 } from '../../../core/town/dispatch';
 import { makeRoutes } from '../../../core/town/dispatchRoads';
 import { endShift, type ShiftEnd } from '../../../core/town/dispatchStore';
+import { ownedUpgrades, shiftSetup } from '../../../core/town/office';
+import { loadTownProgress } from '../../../core/town/store';
 import { tl, tr } from '../../../i18n';
 import { CITY_PLACES, CITY_ROWS } from '../../../data/cityWorld';
 import { CALLBACK_LINES, CROSS_LINES, DISPATCH_CALLS, DISPATCH_PLACES, DRIVER_LINES, OPEN_LINES, STOLEN_LINES, fillDispatchLine, type DispatchLine } from '../../../data/city/dispatch';
@@ -41,9 +43,9 @@ const doorOf = (id: string): Pt => {
   const p = CITY_PLACES.find((x) => (x.id as string) === id)!;
   return { x: p.door.x + 0.5, y: p.door.y + 0.5 };
 };
-/** Rico at the gatehouse (beside Gus's hut), Tess by her cart on the terminal plaza, Theo on Market Street by Nora's. */
-const START: Readonly<Record<DriverId, Pt>> = { rico: doorOf('gus'), tess: doorOf('tess'), theo: doorOf('nora') };
-export const DRIVER_NAME: Readonly<Record<DriverId, string>> = { rico: 'Rico', tess: 'Tess', theo: 'Theo' };
+/** Rico at the gatehouse (beside Gus's hut), Tess by her cart on the terminal plaza, Theo on Market Street by Nora's, Jas (the fourth car) by the Lumen. */
+const START: Readonly<Record<DriverId, Pt>> = { rico: doorOf('gus'), tess: doorOf('tess'), theo: doorOf('nora'), jas: doorOf('wren') };
+export const DRIVER_NAME: Readonly<Record<DriverId, string>> = { rico: 'Rico', tess: 'Tess', theo: 'Theo', jas: 'Jas' };
 
 let routes: RouteFn | null = null;
 export const cityRoutes = (): RouteFn => (routes ??= makeRoutes(CITY_ROWS));
@@ -81,6 +83,8 @@ export interface DispatchRun {
   log: LoggedLine[];
   summary: ShiftSummary | null;
   end: ShiftEnd | null;
+  /** The better map is bought: the streets' names on the wall (core/town/office.ts). */
+  streetNames?: boolean;
 }
 
 const EMPTY: Pick = { from: null, to: null, car: null };
@@ -176,12 +180,14 @@ export function useDispatchShift(sound: boolean) {
 
   const start = useCallback(() => {
     hush();
-    const calls = pickShiftCalls(DISPATCH_CALLS, recent, Date.now());
+    // the office's upgrades (core/town/office.ts): a fourth car, a second line
+    const setup = shiftSetup(ownedUpgrades(loadTownProgress().bought));
+    const calls = pickShiftCalls(DISPATCH_CALLS, recent, Date.now(), setup.calls);
     if (recent.size > 24) recent.clear();
     for (const c of calls) recent.add(c.id);
     turn.current = Math.floor(Date.now() / 1000) % 7;
     const open = nth(OPEN_LINES);
-    set({ phase: 'shift', shift: startShift(calls, { doors: DOORS, start: START }), pick: EMPTY, slot: 'from', talking: false, feed: null, log: [], summary: null, end: null });
+    set({ phase: 'shift', streetNames: setup.streetNames, shift: startShift(calls, { doors: DOORS, start: START }, { drivers: setup.drivers, times: setup.times, lines: setup.lines }), pick: EMPTY, slot: 'from', talking: false, feed: null, log: [], summary: null, end: null });
     logLine({ who: 'rico', text: open.text, vi: open.vi, kind: 'radio' });
     void sayDriver('rico', open.text);
   }, [set, logLine]);

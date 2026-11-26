@@ -20,6 +20,7 @@ import { placeLines, TOWN_DECORATIONS, TOWN_PLACES, townDecoration, townPlace } 
 import { EGG_COST } from '../../data/townGame';
 import { garageVehicle } from '../../data/townGarage';
 import { HIDEOUT_COST, HIDEOUT_ID } from '../../data/city/hideout';
+import { officeUpgrade } from './office';
 import { TOWN_GIFTS } from '../../data/townGifts';
 import { noteConversation, noteLine, type TaskPayout } from './daily';
 import { addBought, addEarned, addTyped, earnedTotal, eggCountTotal, finesTotal, giftCount, hasBought, isLineId, lineProgress, linesStats, recordLine, type LineBest, type TownProgress, type TownStats } from './progress';
@@ -87,7 +88,7 @@ export function conversationBonus(outcomes: readonly LineOutcome[], size: number
 
 // ───────────────────────── buying ─────────────────────────
 
-export type TownItemKind = 'place' | 'decoration' | 'vehicle' | 'hideout';
+export type TownItemKind = 'place' | 'decoration' | 'vehicle' | 'hideout' | 'office';
 
 export interface TownItem {
   id: string;
@@ -106,7 +107,10 @@ export function townItem(id: string): TownItem | undefined {
   const g = garageVehicle(id);
   if (g) return { id: g.id, kind: 'vehicle', name: g.name, cost: g.cost };
   // the learner's hideout in Westbay (data/city/hideout.ts): bought and kept like a vehicle
-  return id === HIDEOUT_ID ? { id, kind: 'hideout', name: 'Chỗ ẩn', cost: HIDEOUT_COST } : undefined;
+  if (id === HIDEOUT_ID) return { id, kind: 'hideout', name: 'Chỗ ẩn', cost: HIDEOUT_COST };
+  // an upgrade of Rico's dispatch office (./office.ts): bought and kept like the hideout
+  const u = officeUpgrade(id);
+  return u ? { id: u.id, kind: 'office', name: u.name, cost: u.cost } : undefined;
 }
 
 /**
@@ -141,7 +145,7 @@ export function isBuilt(progress: TownProgress, placeId: string): boolean {
 
 /** Whether the learner has it: a built place (the three free ones always) or a bought decoration. */
 export function owns(progress: TownProgress, id: string): boolean {
-  return townPlace(id) ? isBuilt(progress, id) : !!(townDecoration(id) || garageVehicle(id) || id === HIDEOUT_ID) && hasBought(progress, id);
+  return townPlace(id) ? isBuilt(progress, id) : !!(townDecoration(id) || garageVehicle(id) || id === HIDEOUT_ID || officeUpgrade(id)) && hasBought(progress, id);
 }
 
 /** The places that stand, in their listed order. */

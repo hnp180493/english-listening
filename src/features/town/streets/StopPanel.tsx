@@ -25,6 +25,8 @@ export default function StopPanel({ stop }: { stop: Stop }) {
   const scene = useMemo(() => officerScene(stop.facts, stop.id), [stop]);
   const [picked, setPicked] = useState<number | null>(null);
   const [fine, setFine] = useState<number | null>(null);
+  /** The fine before the cap on the learner's xu (fineFor: never more than 40 % of what they have). */
+  const [due, setDue] = useState(0);
   const boxRef = useRef<HTMLElement>(null);
   useEffect(() => {
     boxRef.current?.focus({ preventScroll: true });
@@ -50,6 +52,7 @@ export default function StopPanel({ stop }: { stop: Stop }) {
     try {
       const progress = loadTownProgress();
       paid = fineFor(stop.heat, right, balance(progress));
+      setDue(fineFor(stop.heat, right, Number.MAX_SAFE_INTEGER));
       if (paid > 0) commitTown(addFine(progress, townDevice(), paid));
     } catch {
       paid = 0;
@@ -121,6 +124,7 @@ export default function StopPanel({ stop }: { stop: Stop }) {
                 'Bạn không còn xu nào để nộp phạt.'
               )}
             </p>
+            {fine !== null && fine < due && <p className="town-build-hint">{tl`Mức phạt là ${due} xu, nhưng không bao giờ quá 40% số xu bạn đang có.`}</p>}
             <ol className="str-lines">
               {line(scene.open, 'open')}
               {line(scene.question, 'q')}

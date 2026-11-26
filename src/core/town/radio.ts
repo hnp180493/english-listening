@@ -16,6 +16,7 @@ import { CHANGE_LEADS, CITY_EVENT_LINES, CLOCK, EVENT_Q, EVENTS_LEAD, greeting, 
 import type { ListenScene, SceneLine, SceneQuestion, Weather } from './sceneTypes';
 import { GAME_DAY_MS, gameMinutes, SKIES, skyAt, type Sky } from './sky';
 import type { TownEvent } from './world';
+import { AD_LEADS, RADIO_ADS, type RadioAd, type RadioCall } from '../../data/scenes/radioCalls';
 
 /** Real milliseconds in a minute of the game (two seconds). */
 export const GAME_MINUTE_MS = GAME_DAY_MS / (24 * 60);
@@ -174,6 +175,8 @@ export function forecastAt(now: number, weatherAt: (t: number) => Weather): Fore
 export interface RadioNewsItem {
   id: string;
   lines: readonly { text: string; vi: string; say?: string }[];
+  /** A clue the item gives once the bulletin is heard through (data/city/clues.ts). */
+  clue?: string;
 }
 
 export interface BulletinInput {
@@ -196,6 +199,10 @@ export interface Bulletin {
   forecast: Forecast;
   /** The news items read in it (to be marked as aired once heard). */
   newsIds: string[];
+  /** The clues its items give once heard through. */
+  clues: string[];
+  /** The advert read in it (data/scenes/radioCalls.ts RADIO_ADS). */
+  adId: string;
 }
 
 /** Three answers in an order of the edition's own, the right one first in `options` before shuffling. */
@@ -282,6 +289,12 @@ export function bulletinAt(input: BulletinInput): Bulletin {
     for (const p of onToday) say({ en: p.en, vi: p.vi });
   }
 
+  // an advert of a real place (data/scenes/radioCalls.ts: true of it; some are clues a job may use)
+  const ad = pick(RADIO_ADS, ed, 21);
+  const adLead = pick(AD_LEADS, ed, 22);
+  say({ en: adLead.text, vi: adLead.vi });
+  for (const l of ad.lines) say({ en: l.text, vi: l.vi });
+
   say(pick(SIGN_OFFS, ed, 8));
 
   // the questions: the sky (what was said about it), then when it changes or what is on
@@ -334,6 +347,24 @@ export function bulletinAt(input: BulletinInput): Bulletin {
     gist,
     ...(detail ? { detail } : {}),
   };
-  return { scene, forecast: fc, newsIds: news.map((n) => n.id) };
+  return { scene, forecast: fc, newsIds: news.map((n) => n.id), clues: news.flatMap((n) => (n.clue ? [n.clue] : [])), adId: ad.id };
 }
 
+// ───────────────────────── the call-in show ─────────────────────────
+
+/**
+ * Which call of Bay FM's call-in show plays (data/scenes/radioCalls.ts): the ladder. The lowest rung that still has a
+ * call not heard lately (`recent`: the scene ids heard on any of the last days), the calls of a rung in order; once all
+ * were heard, round the whole show again by the edition (the game's hour). Null with no calls.
+ */
+export function callNow(calls: readonly RadioCall[], recent: ReadonlySet<string>, now: number): RadioCall | null {
+  if (calls.length === 0) return null;
+  const order = [...calls].sort((a, b) => a.level - b.level || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const fresh = order.find((c) => !recent.has(c.id));
+  if (fresh) return fresh;
+  const ed = Math.floor(now / (GAME_MINUTE_MS * 60));
+  return order[((ed % order.length) + order.length) % order.length];
+}
+
+/** The adverts a bulletin can read (re-exported for the job engine's clues: data/scenes/radioCalls.ts RADIO_CLUE_ADS). */
+export type { RadioAd };

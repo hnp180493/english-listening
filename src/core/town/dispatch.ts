@@ -40,7 +40,8 @@ export interface DispatchCall {
   toNear: string;
 }
 
-export type DriverId = 'rico' | 'tess' | 'theo';
+/** Rico's three drivers, and Jas, who drives the fourth car once the office has bought it (./office.ts). */
+export type DriverId = 'rico' | 'tess' | 'theo' | 'jas';
 export const DRIVERS: readonly DriverId[] = ['rico', 'tess', 'theo'];
 
 export interface Pt {
@@ -155,6 +156,15 @@ export interface Shift {
   calls: ShiftCall[];
   cars: Car[];
   stolen: number;
+  /** Phone lines (./office.ts): with two, a call ringing while the other line is busy waits on hold. */
+  lines?: 1 | 2;
+}
+
+/** How a shift is set up (./office.ts shiftSetup): the cars, when the calls ring, the lines. Default: as before. */
+export interface ShiftOptions {
+  drivers?: readonly DriverId[];
+  times?: readonly number[];
+  lines?: 1 | 2;
 }
 
 export type ShiftEvent =
@@ -168,17 +178,20 @@ export type ShiftEvent =
 /** Where each place's door is (map tiles), and where each car starts. */
 export interface ShiftMap {
   doors: Readonly<Record<string, Pt>>;
-  start: Readonly<Record<DriverId, Pt>>;
+  start: Readonly<Partial<Record<DriverId, Pt>>>;
 }
 
-export function startShift(calls: readonly DispatchCall[], map: ShiftMap): Shift {
+export function startShift(calls: readonly DispatchCall[], map: ShiftMap, opts: ShiftOptions = {}): Shift {
+  const times = opts.times ?? CALL_TIMES;
+  const drivers = (opts.drivers ?? DRIVERS).filter((id) => map.start[id]);
   return {
     t: 0,
     stolen: 0,
+    lines: opts.lines ?? 1,
     calls: calls.map((call, i) => ({
       call,
       state: 'waiting',
-      ringAt: CALL_TIMES[Math.min(i, CALL_TIMES.length - 1)] + Math.max(0, i - CALL_TIMES.length + 1) * 10,
+      ringAt: times[Math.min(i, times.length - 1)] + Math.max(0, i - times.length + 1) * 10,
       heardAt: null,
       asks: 0,
       firstFrom: null,
@@ -192,7 +205,7 @@ export function startShift(calls: readonly DispatchCall[], map: ShiftMap): Shift
       dropWrong: false,
       waited: null,
     })),
-    cars: DRIVERS.map((id) => ({ id, at: { ...map.start[id] }, route: [], legs: [], stop: 0 })),
+    cars: drivers.map((id) => ({ id, at: { ...map.start[id]! }, route: [], legs: [], stop: 0 })),
   };
 }
 
@@ -379,11 +392,14 @@ export function tick(s0: Shift, dt: number, doors: Readonly<Record<string, Pt>>,
   const events: ShiftEvent[] = [];
   const t = s0.t + Math.max(0, dt);
   let stolen = s0.stolen;
+  // a second line: while one call is on the line, the others ringing are on hold (Bayline waits for them)
+  const held = (s0.lines ?? 1) >= 2 && s0.calls.some((c) => c.state === 'line');
   let calls = s0.calls.map((c): ShiftCall => {
     if ((c.state === 'waiting' || c.state === 'callback') && t >= c.ringAt) {
       events.push({ kind: 'ring', call: c.call.id, callback: c.state === 'callback' });
       return { ...c, state: 'ringing' };
     }
+    if (held && c.state === 'ringing') return { ...c, ringAt: c.ringAt + Math.max(0, dt) };
     if (c.callbacks === 0 && c.state === 'ringing' && goesToBayline(t - c.ringAt, RING_LIMIT, stolen)) {
       stolen++;
       events.push({ kind: 'stolen', call: c.call.id, place: c.call.from });
@@ -428,7 +444,7 @@ export function tick(s0: Shift, dt: number, doors: Readonly<Record<string, Pt>>,
     }
     return car;
   });
-  return { shift: { t, calls, cars: cars.map((c) => begin(c, doors, route)), stolen }, events };
+  return { shift: { ...s0, t, calls, cars: cars.map((c) => begin(c, doors, route)), stolen }, events };
 }
 
 /** Every call is done or went to Bayline. */
@@ -536,7 +552,7 @@ export const dispatchRef = (callId: string): string => `disp-${callId}`;
  * The calls of a shift: three plain, three natural, two hard (by level), each level's own by `seed`, calls not heard
  * in the last shifts first; easier first, and no two in a row from the same pickup.
  */
-export function pickShiftCalls(all: readonly DispatchCall[], recent: ReadonlySet<string>, seed: number): DispatchCall[] {
+export function pickShiftCalls(all: readonly DispatchCall[], recent: ReadonlySet<string>, seed: number, count: number = SHIFT_CALLS): DispatchCall[] {
   let r = Math.abs(Math.floor(seed)) % 2147483647 || 1;
   const rnd = () => (r = (r * 48271) % 2147483647) / 2147483647;
   const take = (level: number, n: number): DispatchCall[] => {
@@ -545,7 +561,9 @@ export function pickShiftCalls(all: readonly DispatchCall[], recent: ReadonlySet
     const order = (list: DispatchCall[]) => list.map((c) => ({ c, k: rnd() })).sort((a, b) => a.k - b.k).map((x) => x.c);
     return [...order(fresh), ...order(pool.filter((c) => recent.has(c.id)))].slice(0, n);
   };
-  const out = [...take(1, 3), ...take(2, 3), ...take(3, 2)];
+  // (ten calls with a second line: one more natural, one more hard)
+  const extra = Math.max(0, count - SHIFT_CALLS);
+  const out = [...take(1, 3), ...take(2, 3 + Math.ceil(extra / 2)), ...take(3, 2 + Math.floor(extra / 2))];
   // no two in a row from the same pickup (swap with the next that differs)
   for (let i = 1; i < out.length; i++) {
     if (out[i].from !== out[i - 1].from) continue;

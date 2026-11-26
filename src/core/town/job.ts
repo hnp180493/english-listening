@@ -29,6 +29,8 @@ export interface JobLine {
   vi: string;
   /** How it sounds said naturally, when the decoder's own version would be wrong. */
   say?: string;
+  /** Said in pieces with a silence (a hiss) at every "..." of the text: a line over a bad radio (core/town/jobDoc.ts §2). */
+  broken?: boolean;
 }
 
 /** A point of the map's tile grid. */
@@ -237,10 +239,21 @@ export const CLARITY_VOLUME: Readonly<Record<Clarity, number>> = { clear: 1, fai
 export type JobGrade = 'clean' | 'messy' | 'broken';
 
 /** Xu for a grade (a game score). Paid for the first run of a day only. */
-export const JOB_PAY: Readonly<Record<JobGrade, number>> = { clean: 30, messy: 15, broken: 5 };
+export const JOB_PAY: Readonly<Record<JobGrade, number>> = { clean: 64, messy: 32, broken: 10 };
 
-export function jobPay(grade: JobGrade, paidToday: boolean): number {
-  return paidToday ? 0 : JOB_PAY[grade];
+/** A harder job (JobDoc.level) pays more: the grade's pay times this (docs/town.md §31 "Kinh tế"). */
+export const JOB_LEVEL_FACTOR: Readonly<Record<1 | 2 | 3, number>> = { 1: 1, 2: 1.2, 3: 1.45 };
+
+/** Jobs that pay in a real day, on every browser (the rest replay for nothing): replays are not a living. */
+export const JOBS_PAID_A_DAY = 2;
+
+/** What a grade pays on a job of `level` (1 … 3). */
+export function jobLevelPay(grade: JobGrade, level: 1 | 2 | 3 = 2): number {
+  return Math.round(JOB_PAY[grade] * (JOB_LEVEL_FACTOR[level] ?? 1));
+}
+
+export function jobPay(grade: JobGrade, paidToday: boolean, level: 1 | 2 | 3 = 2): number {
+  return paidToday ? 0 : jobLevelPay(grade, level);
 }
 
 /** How a time noted compares with the appointment: right, earlier, later (within half a day). */

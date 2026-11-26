@@ -145,8 +145,12 @@ export const heatAfterLost = (heat: number): number => Math.min(heat, PATROL_AT 
 export function fineFor(heat: number, answered: boolean, balance: number): number {
   const full = Math.max(30, Math.min(120, 30 + 10 * Math.max(0, heat)));
   const due = answered ? Math.max(30, Math.round(full * 0.75)) : full;
-  return Math.max(0, Math.min(due, Math.floor(balance)));
+  // it hurts, it never empties (docs/town.md §31 "Kinh tế"): never more than FINE_SHARE_MAX of what the learner has
+  return Math.max(0, Math.min(due, Math.floor(Math.max(0, balance) * FINE_SHARE_MAX)));
 }
+
+/** The most of the learner's xu one fine takes. */
+export const FINE_SHARE_MAX = 0.4;
 
 /** A point on a road to start a patrol from: of `candidates` (junction middles), the first between 16 and 34 tiles away (else the farthest). */
 export function patrolStart(me: Pt, candidates: readonly Pt[], pick: number): Pt {

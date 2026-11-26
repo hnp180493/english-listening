@@ -312,6 +312,9 @@
 .is-theo {
   --car: var(--mod-decoder);
 }
+.is-jas {
+  --car: var(--mod-pairs);
+}
 .dsp-car {
   position: absolute;
   /* under the places' labels: a car parked at a door never hides its name (the list below picks it too) */
@@ -625,4 +628,139 @@
   font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
+}
+
+/* before a shift: Tess's word and the office's upgrades (OfficeExtras.tsx, docs/town.md §30) */
+.dsp-extras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.dsp-sub {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-md);
+  font-weight: 650;
+}
+.dsp-word,
+.dsp-ups {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.dsp-word-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.dsp-word-ask {
+  margin-top: var(--space-3);
+}
+.dsp-word-q {
+  margin: 0 0 var(--space-2);
+  font-weight: 600;
+}
+.dsp-word-opts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.dsp-word-opt {
+  min-height: 44px;
+  padding: var(--space-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.dsp-word-opt:hover {
+  background: var(--accent-soft);
+}
+.dsp-word-done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.dsp-word-verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-weight: 600;
+}
+.dsp-word-en {
+  margin: 0;
+}
+.dsp-up-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dsp-up {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--hairline);
+}
+.dsp-up:first-child {
+  border-top: 0;
+}
+.dsp-up-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dsp-up-name {
+  font-weight: 600;
+}
+.dsp-up-blurb,
+.dsp-up-take {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.dsp-up-owned {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dsp-up-buy {
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .dsp-up {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* the better map: the streets' names (office-map), in a district's view */
+.dsp-street {
+  position: absolute;
+  z-index: 0;
+  transform: translate(-50%, -50%);
+  padding: 0 4px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-style: italic;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.dsp-street.is-ns {
+  transform: translate(-50%, -50%) rotate(-90deg);
 }

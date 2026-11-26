@@ -12,6 +12,7 @@ import type { Car as ShiftCar, DriverId } from '../../../core/town/dispatch';
 import { tl, tr } from '../../../i18n';
 import { CITY_PLACES, CITY_ROWS, CITY_SIZE, CITY_WORLD } from '../../../data/cityWorld';
 import { DISPATCH_PLACES, OFFICE_AT } from '../../../data/city/dispatch';
+import { westbayNet } from '../../../core/town/streets';
 import { placeVi } from '../../../data/city/dispatch/names';
 import type { Slot } from './useDispatchShift';
 import { DOORS, DRIVER_NAME } from './useDispatchShift';
@@ -86,9 +87,14 @@ export interface DispatchMapProps {
   /** The pickup and destination the cars are driving to (their legs), to mark on the map. */
   onPlace: (id: string) => void;
   onCar: (id: DriverId) => void;
+  /** The better map (core/town/office.ts): the streets' names, in a district's view. */
+  streetNames?: boolean;
 }
 
-export default function DispatchMap({ cars, slot, from, to, car, onPlace, onCar }: DispatchMapProps) {
+/** Each street's name where it runs, the middle of the stretch a view shows of it. */
+const NET = westbayNet();
+
+export default function DispatchMap({ cars, slot, from, to, car, onPlace, onCar, streetNames = false }: DispatchMapProps) {
   const [zoom, setZoom] = useState<string | null>(null);
   const view = zoom ? districtView(zoom) : WHOLE;
   const pos = (p: { x: number; y: number }): CSSProperties => ({ left: `${((p.x - view.x) / view.s) * 100}%`, top: `${((p.y - view.y) / view.s) * 100}%` });
@@ -167,6 +173,25 @@ export default function DispatchMap({ cars, slot, from, to, car, onPlace, onCar 
             </button>
           );
         })}
+
+        {zoom &&
+          streetNames &&
+          NET.streets.map((st) => {
+            // the part of the street inside the view, and a point along it (between its two lanes)
+            const lo = Math.max(st.from, st.axis === 'x' ? view.x : view.y);
+            const hi = Math.min(st.to + 1, st.axis === 'x' ? view.x + view.s : view.y + view.s);
+            const across = st.at + 1;
+            const acrossIn = st.axis === 'x' ? across >= view.y && across <= view.y + view.s : across >= view.x && across <= view.x + view.s;
+            if (hi - lo < 4 || !acrossIn) return null;
+            // (off the middle, where the crossings and the busiest labels are: a quarter along east–west, 0.7 north–south)
+            const mid = lo + (hi - lo) * (st.axis === 'x' ? 0.25 : 0.7);
+            const at = st.axis === 'x' ? { x: mid, y: across } : { x: across, y: mid };
+            return (
+              <span key={st.id} className={'dsp-street' + (st.axis === 'y' ? ' is-ns' : '')} style={pos(at)} lang="en" aria-hidden="true">
+                {st.name}
+              </span>
+            );
+          })}
 
         {office && inView(office) && (
           <span className="dsp-office" style={pos(office)} title="Trạm gác cũ: văn phòng của Rico">

@@ -16,6 +16,7 @@ import { SoundBars } from '../art';
 import { usePanelKeys } from '../panelKeys';
 import DispatchDebrief from './DispatchDebrief';
 import DispatchMap from './DispatchMap';
+import OfficeExtras from './OfficeExtras';
 import { cityRoutes, DOORS, DRIVER_NAME, useDispatchShift, type Slot } from './useDispatchShift';
 import './dispatch.css';
 
@@ -71,7 +72,7 @@ export default function DispatchOffice({ sound, onReward, onClose }: DispatchOff
         </p>
         <ol className="dsp-intro-steps">
           <li>Khách gọi tới, nói một lần: đón ở đâu, đi đâu, đôi khi thêm mấy người, mấy giờ, hay tự sửa lời.</li>
-          <li>Chạm điểm đón rồi điểm đến trên bản đồ, chọn một trong ba xe đang rảnh và ở gần.</li>
+          <li>Chạm điểm đón rồi điểm đến trên bản đồ, chọn một xe đang rảnh và ở gần.</li>
           <li>Xe chạy thật trên bản đồ. Đón nhầm chỗ thì khách gọi lại, bực; chở nhầm nơi thì tới cuối cuốc mới biết.</li>
         </ol>
         <p className="town-build-hint">{left > 0 ? tl`Hôm nay còn ${left} ca được trả xu.` : 'Hôm nay đã đủ hai ca có xu; trực tiếp vẫn để luyện nghe.'}</p>
@@ -97,6 +98,7 @@ export default function DispatchOffice({ sound, onReward, onClose }: DispatchOff
             Bắt đầu ca
           </button>
         </div>
+        <OfficeExtras sound={sound} onReward={onReward} />
       </div>
     );
   } else if (run.phase === 'debrief') {
@@ -113,7 +115,7 @@ export default function DispatchOffice({ sound, onReward, onClose }: DispatchOff
     const ready = !!(on && run.pick.from && run.pick.to && run.pick.car);
     body = (
       <div className="dsp-desk">
-        <DispatchMap cars={shift.cars} slot={on ? run.slot : null} from={run.pick.from} to={run.pick.to} car={run.pick.car} onPlace={(id) => d.choose(run.slot === 'car' ? 'from' : run.slot, id)} onCar={(id: DriverId) => d.choose('car', id)} />
+        <DispatchMap streetNames={run.streetNames} cars={shift.cars} slot={on ? run.slot : null} from={run.pick.from} to={run.pick.to} car={run.pick.car} onPlace={(id) => d.choose(run.slot === 'car' ? 'from' : run.slot, id)} onCar={(id: DriverId) => d.choose('car', id)} />
         <div className="dsp-side">
           <p className="dsp-clock">
             <span className="tabular">{tl`Ca trực · còn ${left} cuộc`}</span>

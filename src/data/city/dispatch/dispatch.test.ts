@@ -6,7 +6,10 @@ import { describe, expect, it } from 'vitest';
 import { decode, speakableFor } from '../../../core/decoder';
 import { LONE_APOSTROPHE, SAPI_MISREAD } from '../../../core/decoder/sapiMisread';
 import { cityPerson } from '../../../core/town/cityPeople';
-import { DRIVERS, MANNERS } from '../../../core/town/dispatch';
+import { DRIVERS, MANNERS, type DriverId } from '../../../core/town/dispatch';
+
+/** Every driver with lines: the three, and Jas of the fourth car (core/town/office.ts). */
+const ALL_DRIVERS = Object.keys(DRIVER_LINES) as DriverId[];
 import { CAST_VOICES } from '../../../core/town/voices';
 import { CITY_PLACE_IDS, CITY_PLACES, CITY_ROWS } from '../../cityWorld';
 import { TOWN_PLACES } from '../../town';
@@ -115,7 +118,7 @@ describe('dispatch office: who speaks', () => {
 
   it('every template, filled with every place, is a short speakable line', () => {
     const all: [string, DispatchLine][] = [
-      ...DRIVERS.flatMap((d) => Object.entries(DRIVER_LINES[d]).flatMap(([k, ls]) => ls.map((l, i): [string, DispatchLine] => [`${d}.${k}.${i}`, l]))),
+      ...ALL_DRIVERS.flatMap((d) => Object.entries(DRIVER_LINES[d]).flatMap(([k, ls]) => ls.map((l, i): [string, DispatchLine] => [`${d}.${k}.${i}`, l]))),
       ...CALLBACK_LINES.map((l, i): [string, DispatchLine] => [`callback.${i}`, l]),
       ...CROSS_LINES.map((l, i): [string, DispatchLine] => [`cross.${i}`, l]),
       ...STOLEN_LINES.map((l, i): [string, DispatchLine] => [`stolen.${i}`, l]),
@@ -123,7 +126,7 @@ describe('dispatch office: who speaks', () => {
       ...NEWS_LINES.good.map((l, i): [string, DispatchLine] => [`news.good.${i}`, l]),
       ...NEWS_LINES.bad.map((l, i): [string, DispatchLine] => [`news.bad.${i}`, l]),
     ];
-    for (const d of DRIVERS) for (const k of ['board', 'nobody', 'drop', 'wrongDrop'] as const) expect(DRIVER_LINES[d][k].length, `${d}.${k}`).toBeGreaterThan(0);
+    for (const d of ALL_DRIVERS) for (const k of ['board', 'nobody', 'drop', 'wrongDrop'] as const) expect(DRIVER_LINES[d][k].length, `${d}.${k}`).toBeGreaterThan(0);
     for (const [id, line] of all) {
       expect(line.text.startsWith('{'), id).toBe(false);
       expect(line.vi.trim().length, id).toBeGreaterThan(0);

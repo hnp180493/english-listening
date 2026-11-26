@@ -260,11 +260,12 @@ describe('Bay FM: news about the player, and the turns', () => {
     expect(pendingRadioNews(now + 2000)).toEqual([]);
   });
 
-  it('the radio takes turns with the written segments, always the bulletin while news waits, and a heard bulletin airs its news', () => {
+  it('the radio takes turns with the call-in show and the written segments, always the bulletin while news waits, and a heard bulletin airs its news', () => {
     const now = times(1)[0];
     const written = { id: 'fm-1' } as never;
-    const order = [0, 1, 2, 3].map(() => radioScene(now, 'cafe', () => written)!.id);
-    expect(order.map(isLiveId)).toEqual([true, false, true, false]);
+    const order = [0, 1, 2, 3, 4, 5].map(() => radioScene(now, 'cafe', () => written)!.id);
+    // a bulletin, a call of the call-in show, a written segment, and round again
+    expect(order.map((id) => (isLiveId(id) ? 'live' : id.startsWith('fm-call-') ? 'call' : 'written'))).toEqual(['live', 'call', 'written', 'live', 'call', 'written']);
     queueRadioNews(item, now);
     const s = radioScene(now, 'car', () => written)!;
     expect(isLiveId(s.id)).toBe(true);

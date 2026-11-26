@@ -78,13 +78,14 @@ describe('police: a search', () => {
     expect(heatAfterLost(1)).toBe(1);
   });
 
-  it('the fine: 30 to 120 by heat, less for an answer to the question, never more than the learner has', () => {
+  it('the fine: 30 to 120 by heat, less for an answer to the question, never more than 40% of what the learner has', () => {
     expect(fineFor(0, false, 999)).toBe(30);
     expect(fineFor(3, false, 999)).toBe(60);
     expect(fineFor(10, false, 999)).toBe(120);
     expect(fineFor(10, true, 999)).toBe(90);
     expect(fineFor(1, true, 999)).toBe(30);
-    expect(fineFor(10, false, 17)).toBe(17);
+    expect(fineFor(10, false, 17)).toBe(6);
+    expect(fineFor(10, false, 200)).toBe(80);
     expect(fineFor(10, false, 0)).toBe(0);
   });
 

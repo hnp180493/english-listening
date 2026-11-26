@@ -46,8 +46,8 @@ function pickScene(at: string | null | undefined, now: number, where: 'town' | '
   const kind = at ? thingKind(at) : null;
   // the radio (the café's, or a vehicle's): Bay FM's bulletin of the moment, taking turns with the written segments
   if (kind === 'radio' || at === CAR_RADIO) {
-    const turn = scenesHeard(progress, today.day).filter((id) => id.startsWith('fm-') && !isLiveId(id)).length;
-    return { scene: radioScene(now, at === CAR_RADIO ? 'car' : 'cafe', () => radioNow(RADIO_SCENES, today.day, today.weekday, today.weather, turn, recent)), host: null };
+    const turn = scenesHeard(progress, today.day).filter((id) => id.startsWith('fm-') && !isLiveId(id) && !id.startsWith('fm-call-')).length;
+    return { scene: radioScene(now, at === CAR_RADIO ? 'car' : 'cafe', () => radioNow(RADIO_SCENES, today.day, today.weekday, today.weather, turn, recent), recent), host: null };
   }
   if (kind === 'bus') return { scene: rideNow(RIDE_SCENES, where === 'city' ? 'town' : 'city', today.day, recent), host: null };
   if (kind === 'bench' && at) return { scene: overheardAt(overheard, Math.max(0, benchNumber(at)), today.day, recent), host: null };

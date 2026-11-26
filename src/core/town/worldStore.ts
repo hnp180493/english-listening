@@ -7,6 +7,7 @@ import { addEarned, townDay, updateDaily, type TownProgress } from './progress';
 import type { ListenScene, Weather } from './sceneTypes';
 import { commitTown, loadTownProgress, townDevice } from './store';
 import { eventOn, scenePay, weatherOf, weekdayOf, type ScenePay, type SceneResult, type TownEvent } from './world';
+import { heardScene } from './clueStore';
 
 /** The town today: the local day, its weekday, its weather, and the get-together that is on (or null). */
 export interface TownToday {
@@ -46,6 +47,7 @@ const done = new WeakMap<SceneResult, SceneEnd>();
 export function finishScene(scene: ListenScene, host: string | null, result: SceneResult, now: number = Date.now()): SceneEnd {
   const again = done.get(result);
   if (again) return again;
+  heardScene(scene.id, now); // a clue it gives (data/city/clues.ts)
   const device = townDevice();
   const day = townDay(now);
   let progress = loadTownProgress();

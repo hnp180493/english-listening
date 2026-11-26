@@ -59,6 +59,22 @@ export const DRIVER_LINES: Readonly<Record<DriverId, Readonly<Record<RadioKind, 
     ],
     wrongDrop: [{ text: 'They wanted {right}. Going there now.', vi: 'Khách muốn đi {right}. Đang qua đó.' }],
   },
+  // Jas drives the fourth car once the office has bought it (core/town/office.ts; docs/city.md §15): new, keen, polite
+  jas: {
+    board: [
+      { text: 'Hi, Jas here. Passenger on board, all good.', vi: 'Chào, Jas đây. Khách lên xe rồi, ổn cả.' },
+      { text: "Picked up. They're lovely, by the way.", vi: 'Đón rồi. Khách dễ thương lắm nhé.' },
+    ],
+    nobody: [
+      { text: "Sorry, I'm at {place} and there's nobody here.", vi: 'Xin lỗi, tôi đang ở {place} mà không có ai cả.' },
+      { text: 'Nobody outside {place}. Did I get it wrong?', vi: 'Trước {place} không có ai. Tôi nhầm à?' },
+    ],
+    drop: [
+      { text: 'Dropped them at {place}. Ready for the next one.', vi: 'Thả khách ở {place} rồi. Sẵn sàng cuốc tiếp.' },
+      { text: 'All done at {place}. They gave me a tip.', vi: 'Xong ở {place} rồi. Khách còn cho tiền boa.' },
+    ],
+    wrongDrop: [{ text: "Oh, we're at {place}, but they wanted {right}. Going now.", vi: 'Ơ, tới {place} rồi, mà khách muốn đi {right}. Đi ngay đây.' }],
+  },
 };
 
 /** The caller rings back after the driver found nobody: annoyed, and saying again the one thing that went wrong. */
