@@ -28,14 +28,20 @@ export const RIDES: Readonly<Record<VehicleKind, RideSpec>> = {
   scooter: { speed: 4.6, seat: 0.36, seatAt: -0.12, name: 'xe máy cho thuê' },
   car: { speed: 5.6, seat: 0.22, seatAt: -0.12, name: 'xe của hãng taxi Rico' },
   horse: { speed: 4.4, seat: 0.62, seatAt: 0, name: 'ngựa của nông trại' },
+  // only bought (data/townGarage.ts): never parked for borrowing
+  motorbike: { speed: 6.6, seat: 0.42, seatAt: -0.1, name: 'mô tô' },
+  sportscar: { speed: 8.2, seat: 0.18, seatAt: -0.12, name: 'siêu xe' },
 };
 
 /** Colours a vehicle may come in (by its index: two of a kind are told apart). */
 const BODY: Readonly<Record<VehicleKind, readonly string[]>> = {
-  bike: [C.red, C.teal, C.mustard],
-  scooter: [C.mint, C.coral, C.sky],
-  car: [C.coral, C.sky, C.mustard],
-  horse: ['#8a5a3c', '#5b3a29', '#c8a070'],
+  // the fourth of each: the garage's own finish (data/townGarage.ts `v: 3`)
+  bike: [C.red, C.teal, C.mustard, '#24262d'],
+  scooter: [C.mint, C.coral, C.sky, '#efe2c4'],
+  car: [C.coral, C.sky, C.mustard, '#d2302c'],
+  horse: ['#8a5a3c', '#5b3a29', '#c8a070', '#efebe4'],
+  motorbike: ['#c8302c'],
+  sportscar: ['#f2b21e'],
 };
 
 const TYRE = '#2b2a30';
@@ -135,6 +141,54 @@ function horse(m: Merge, c: string): void {
   m.add(shapes.box(0.2, 0.06, 0.2, 0.03, 2), '#6b4430', { x: 0, y: 0.72, z: 0 });
 }
 
+function motorbike(m: Merge, c: string): void {
+  wheel(m, -0.31, 0, 0.17, 0.05);
+  wheel(m, 0.33, 0, 0.17, 0.05);
+  const black = '#1c1d22';
+  // the engine and frame low in the middle, the tank, the long seat, the tail
+  m.add(shapes.box(0.26, 0.17, 0.16, 0.04, 2), '#3a3c44', { x: 0, y: 0.25, z: 0 });
+  for (const z of [-0.09, 0.09]) m.add(shapes.cyl(0.035, 0.035, 0.12, 10), CHROME, { x: 0.02, y: 0.25, z, rx: Math.PI / 2 }, { ao: false });
+  m.add(shapes.sphere(0.13, 14, 10), c, { x: 0.1, y: 0.42, z: 0, s: [1.35, 0.7, 0.85] });
+  m.add(shapes.box(0.34, 0.06, 0.18, 0.03, 2), black, { x: -0.17, y: 0.43, z: 0 });
+  m.add(shapes.box(0.2, 0.07, 0.15, 0.03, 2), c, { x: -0.36, y: 0.42, z: 0, rz: 0.2 });
+  bar(m, -0.31, 0.17, -0.08, 0.34, 0.04, black);
+  // the exhaust along the right side, up to the tail
+  bar(m, 0.02, 0.18, -0.4, 0.26, 0.045, CHROME, 0.11);
+  // the fork, the bars, the headlight
+  for (const z of [-0.06, 0.06]) bar(m, 0.33, 0.17, 0.25, 0.53, 0.032, CHROME, z);
+  m.add(shapes.box(0.04, 0.035, 0.36, 0.015, 1), CHROME, { x: 0.24, y: 0.56, z: 0 });
+  for (const s of [-1, 1]) m.add(shapes.cyl(0.02, 0.02, 0.07, 8), black, { x: 0.24, y: 0.56, z: s * 0.19, rx: Math.PI / 2 }, { ao: false });
+  m.add(shapes.sphere(0.05, 12, 8), C.cream, { x: 0.32, y: 0.48, z: 0, s: [0.7, 1, 1] }, { ao: false });
+  m.add(shapes.box(0.04, 0.03, 0.1, 0.012, 1), C.red, { x: -0.46, y: 0.44, z: 0 }, { ao: false });
+}
+
+function sportscar(m: Merge, c: string): void {
+  const black = '#1c1d22';
+  for (const x of [-0.44, 0.44]) for (const z of [-0.33, 0.33]) {
+    m.add(shapes.cyl(0.13, 0.13, 0.1, 16), TYRE, { x, y: 0.13, z, rx: Math.PI / 2 });
+    m.add(shapes.cyl(0.08, 0.08, 0.105, 12), '#9aa0ab', { x, y: 0.13, z, rx: Math.PI / 2 }, { ao: false });
+  }
+  // a low, wide body: the long nose sloping down, the open cockpit, the rear over the engine, the wing
+  m.add(shapes.box(1.34, 0.15, 0.72, 0.07, 3), c, { x: 0, y: 0.2, z: 0 });
+  m.add(shapes.box(0.46, 0.08, 0.68, 0.05, 2), c, { x: 0.4, y: 0.29, z: 0, rz: -0.12 });
+  m.add(shapes.box(0.4, 0.13, 0.7, 0.06, 2), c, { x: -0.42, y: 0.32, z: 0 });
+  for (const z of [-0.33, 0.33]) m.add(shapes.box(0.5, 0.08, 0.06, 0.03, 1), c, { x: -0.02, y: 0.3, z });
+  for (const z of [-0.36, 0.36]) m.add(shapes.box(0.22, 0.07, 0.02, 0.01, 1), black, { x: -0.26, y: 0.22, z }, { ao: false });
+  m.add(shapes.box(0.03, 0.12, 0.62, 0.015, 1), C.glass, { x: 0.12, y: 0.38, z: 0, rz: 0.55 }, { ao: false });
+  for (const z of [-0.14, 0.14]) {
+    m.add(shapes.box(0.17, 0.05, 0.21, 0.025, 1), black, { x: -0.12, y: 0.27, z });
+    m.add(shapes.box(0.05, 0.17, 0.21, 0.025, 1), black, { x: -0.22, y: 0.35, z, rz: 0.3 });
+  }
+  m.add(shapes.torus(0.055, 0.012, 14), black, { x: 0.02, y: 0.36, z: -0.14, ry: Math.PI / 2, rz: 0.6 });
+  for (const z of [-0.24, 0.24]) m.add(shapes.box(0.04, 0.12, 0.04, 0.015, 1), black, { x: -0.6, y: 0.44, z });
+  m.add(shapes.box(0.16, 0.025, 0.72, 0.012, 1), black, { x: -0.62, y: 0.51, z: 0 });
+  for (const z of [-0.25, 0.25]) {
+    m.add(shapes.box(0.03, 0.035, 0.14, 0.012, 1), C.cream, { x: 0.66, y: 0.23, z }, { ao: false });
+    m.add(shapes.box(0.03, 0.035, 0.16, 0.012, 1), C.red, { x: -0.66, y: 0.28, z }, { ao: false });
+  }
+  for (const z of [-0.08, 0.08]) m.add(shapes.cyl(0.03, 0.03, 0.06, 10), CHROME, { x: -0.68, y: 0.16, z, rz: Math.PI / 2 }, { ao: false });
+}
+
 /** The model of a vehicle (`v`: which of its colours), facing +x, origin on the ground under its middle. */
 export function vehicleGeometry(kind: VehicleKind, v: number): BufferGeometry | null {
   const m = new Merge();
@@ -143,6 +197,8 @@ export function vehicleGeometry(kind: VehicleKind, v: number): BufferGeometry | 
   if (kind === 'bike') bike(m, c);
   else if (kind === 'scooter') scooter(m, c);
   else if (kind === 'car') car(m, c);
+  else if (kind === 'motorbike') motorbike(m, c);
+  else if (kind === 'sportscar') sportscar(m, c);
   else horse(m, c);
   return m.build();
 }

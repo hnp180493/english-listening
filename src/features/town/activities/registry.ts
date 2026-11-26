@@ -17,4 +17,5 @@ export const PANELS: Record<ActivityId, LazyExoticComponent<ComponentType<Activi
   character: lazy(() => import('../romance/CharacterPanel')),
   listen: lazy(() => import('../scenes/ListenPanel')),
   season: lazy(() => import('../city/SeasonPanel')),
+  garage: lazy(() => import('./GaragePanel')),
 };

@@ -228,7 +228,7 @@ export interface WorldScenery {
 }
 
 /** What can be ridden (owner, 2026-11-26: "xe/ngựa hoặc nhiều thứ khác"): each its own pace and seat. */
-export type VehicleKind = 'bike' | 'scooter' | 'car' | 'horse';
+export type VehicleKind = 'bike' | 'scooter' | 'car' | 'horse' | 'motorbike' | 'sportscar';
 
 /** A vehicle parked where the world starts: on a walkable tile, facing `heading` (radians on the grid, atan2(dy, dx)). */
 export interface WorldVehicle {

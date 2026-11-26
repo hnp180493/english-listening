@@ -20,9 +20,11 @@ export interface TownUi {
    * body built in code like everybody else ('classic'). Per browser: an avatar is heavy for a weak phone.
    */
   people: 'anime' | 'classic';
+  /** The vehicle of the garage (data/townGarage.ts) the "Gọi …" button brings; '' = the dearest one owned. */
+  ride: string;
 }
 
-export const DEFAULT_TOWN_UI: TownUi = { sound: true, welcomed: false, greet: true, hi: {}, said: {}, people: 'anime' };
+export const DEFAULT_TOWN_UI: TownUi = { sound: true, welcomed: false, greet: true, hi: {}, said: {}, people: 'anime', ride: '' };
 
 const HI_ID = /^[a-z][a-z0-9-]{0,59}$/;
 
@@ -50,7 +52,7 @@ function parseSaid(raw: unknown): TownUi['said'] {
 export function parseTownUi(raw: unknown): TownUi {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...DEFAULT_TOWN_UI, hi: {}, said: {} };
   const r = raw as Record<string, unknown>;
-  return { sound: typeof r.sound === 'boolean' ? r.sound : DEFAULT_TOWN_UI.sound, welcomed: r.welcomed === true, greet: typeof r.greet === 'boolean' ? r.greet : DEFAULT_TOWN_UI.greet, hi: parseHi(r.hi), said: parseSaid(r.said), people: r.people === 'classic' ? 'classic' : 'anime' };
+  return { sound: typeof r.sound === 'boolean' ? r.sound : DEFAULT_TOWN_UI.sound, welcomed: r.welcomed === true, greet: typeof r.greet === 'boolean' ? r.greet : DEFAULT_TOWN_UI.greet, hi: parseHi(r.hi), said: parseSaid(r.said), people: r.people === 'classic' ? 'classic' : 'anime', ride: typeof r.ride === 'string' && HI_ID.test(r.ride) ? r.ride : '' };
 }
 
 let cache: TownUi | null = null;

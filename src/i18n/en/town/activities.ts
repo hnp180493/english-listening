@@ -352,6 +352,7 @@ const activities: Record<string, string> = {
   'Từ trứng': 'From an egg',
   'Cấp thị trấn': 'Town level',
   'Đang dùng': 'In use',
+  'Gara': 'Garage',
   'Chưa có: một món {}, ra từ trứng': 'Locked: {0} item, from an egg',
   'Chưa đeo danh hiệu': 'No title worn',
   'Loại đồ': 'Item type',
@@ -360,6 +361,14 @@ const activities: Record<string, string> = {
   'Ô mờ là món chưa có. Mọi món đều ra từ trứng ở Tiệm trứng.': 'Faded tiles are items you don’t have yet. Every item comes from an egg at the Egg shop.',
   'Ấp trứng ·': 'From an egg ·',
   'danh hiệu từ thành tích, dự án và cấp thị trấn. Xem cách có ở Sưu tầm.': '{#|more title|more titles} from achievements, projects and town levels. See how to earn them in Collection.',
+  'Nhanh gấp {} lần đi bộ': '{0} times as fast as walking',
+  'Dùng xe này': 'Use this one',
+  'Xe của mình khác xe mượn thế nào?': 'How is your own vehicle different from a borrowed one?',
+  'Xe đạp công cộng, xe máy cho thuê, xe hãng taxi hay ngựa nông trại thì mượn rồi trả, đậu ở chỗ của nó. Xe mua ở gara là của bạn mãi: bấm “Gọi …” ở góc dưới là xe tới ngay chỗ bạn đứng, ở thị trấn hay ở Westbay. Xe càng đắt chạy càng nhanh. Mua bằng xu kiếm được từ việc nghe.': 'A shared bike, a scooter for hire, a taxi firm\'s car or the farm\'s horse is borrowed and given back, and it stays where it is parked. A vehicle bought at the garage is yours for good: press “Call …” at the bottom corner and it comes right to where you stand, in the town or in Westbay. The dearer it is, the faster it goes. You buy it with the xu you earn by listening.',
+  'Mua đứt xe của riêng mình: càng đắt càng nhanh.': 'Buy a vehicle of your own: the dearer, the faster.',
+  '{} là của bạn. Đóng bảng này rồi bấm “{}” ở góc dưới.': 'The {0} is yours. Close this panel and press “{1}” at the bottom corner.',
+  'Gọi ngựa': 'Call your horse',
+  'Gọi xe': 'Call your ride',
 };
 
 export default activities;

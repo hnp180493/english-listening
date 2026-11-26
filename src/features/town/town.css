@@ -270,6 +270,12 @@
   background: var(--accent-soft);
   color: var(--accent);
 }
+/* a narrow stage: above the main button's row (both are wide there) */
+@media (max-width: 640px) {
+  .town-ride {
+    bottom: calc(var(--space-3) + 58px);
+  }
+}
 
 /* the title and the way to the next one */
 .town-level {

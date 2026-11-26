@@ -320,6 +320,14 @@ const page: Record<string, string> = {
   'xe máy cho thuê': 'scooter for hire',
   'xe của hãng taxi Rico': 'car from Rico\'s taxi firm',
   'ngựa của nông trại': 'farm\'s horse',
+  'Gọi {} tới chỗ bạn': 'Call the {0} to where you are',
+  'Xuống xe': 'Get off',
+  'Xuống xe (E)': 'Get off (E)',
+  'Lên {} (E)': 'Ride {0} (E)',
+  'mô tô': 'motorbike',
+  'siêu xe': 'supercar',
+  'Lên ngựa': 'Mount',
+  'Lên xe': 'Get on',
 };
 
 export default page;

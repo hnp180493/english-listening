@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type Ref } from 'react';
-import { BookOpen, Coffee, Ear, Search, Package, Check, Heart, UserRound, Egg, Fish, Gift, Flame, Hammer, ListChecks, Map as MapIcon, Maximize2, Minimize2, Shirt, Sprout, Sparkles, Trophy, Volume2, VolumeX } from 'lucide-react';
+import { BookOpen, CarFront, Coffee, Ear, Search, Package, Check, Heart, UserRound, Egg, Fish, Gift, Flame, Hammer, ListChecks, Map as MapIcon, Maximize2, Minimize2, Shirt, Sprout, Sparkles, Trophy, Volume2, VolumeX } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import Popover from '../../components/Popover';
 import { prefersReducedMotion } from '../../core/motion';
@@ -9,7 +9,7 @@ import './scenes/today.css';
 import { Coin } from './art';
 
 /** The icon of each activity in the "Chơi" menu. */
-const ACTIVITY_ICONS: Readonly<Record<ActivityId, typeof Fish>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee, case: Search, delivery: Package, listen: Ear, season: BookOpen };
+const ACTIVITY_ICONS: Readonly<Record<ActivityId, typeof Fish>> = { fish: Fish, farm: Sprout, eggs: Egg, wardrobe: Shirt, album: Trophy, gifts: Gift, journal: BookOpen, love: Heart, character: UserRound, cafe: Coffee, case: Search, delivery: Package, listen: Ear, season: BookOpen, garage: CarFront };
 /** The two groups of the "Chơi" menu, in order. */
 const PLAY_GROUPS = [{ id: 'game' }, { id: 'life' }] as const;
 import { levelLabel, taskCount, xu } from './shellModel';

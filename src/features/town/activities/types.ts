@@ -12,7 +12,7 @@ import type { SceneSpot } from '../../../data/romance/places';
  * 'season' is a chapter of one of Westbay's long stories played in the town (docs/town.md §21, city/SeasonPanel):
  * `focus` is the chapter's id.
  */
-export type ActivityId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | 'gifts' | 'journal' | 'character' | 'love' | 'cafe' | 'case' | 'delivery' | 'listen' | 'season';
+export type ActivityId = 'fish' | 'farm' | 'eggs' | 'wardrobe' | 'album' | 'gifts' | 'journal' | 'character' | 'love' | 'cafe' | 'case' | 'delivery' | 'listen' | 'season' | 'garage';
 
 /** The activities with a spot in the world (data/townWorld ActivitySpotId): the player walks there first. */
 export const SPOT_ACTIVITIES = ['fish', 'farm', 'eggs', 'wardrobe', 'album'] as const;
@@ -38,6 +38,7 @@ export const ACTIVITIES: readonly ActivityInfo[] = [
   { id: 'wardrobe', name: 'Tủ đồ', blurb: 'Mặc đồ, đội mũ, dắt thú cưng.', group: 'life' },
   { id: 'album', name: 'Sưu tầm', blurb: 'Bộ sưu tập cá, thành tích, danh hiệu.', group: 'life' },
   { id: 'gifts', name: 'Tiệm quà', blurb: 'Mua quà tặng người dân, mỗi người một món mỗi ngày.', group: 'life' },
+  { id: 'garage', name: 'Gara', blurb: 'Mua đứt xe của riêng mình: càng đắt càng nhanh.', group: 'life' },
   { id: 'journal', name: 'Sổ tay', blurb: 'Độ thân với từng người, điều bạn biết về họ.', group: 'life' },
   { id: 'love', name: 'Hẹn hò & gia đình', blurb: 'Thân đủ thì tỏ tình, hẹn hò, cưới, có con.', group: 'life' },
   { id: 'character', name: 'Nhân vật', blurb: 'Nam hay nữ, tên, màu da, kiểu tóc.', group: 'life' },

@@ -525,8 +525,9 @@ export default function TownStage3D({
         if (!flatRef.current) engineRef.current?.fishing(phase, tier);
       },
       guideDistance: () => (flatRef.current ? null : (engineRef.current?.guideDistance() ?? null)),
-      rideState: () => (flatRef.current || !engineRef.current ? { near: null, riding: null } : engineRef.current.rideState()),
+      rideState: () => (flatRef.current || !engineRef.current ? { near: null, riding: null, own: null } : engineRef.current.rideState()),
       toggleRide: () => (!flatRef.current && engineRef.current ? engineRef.current.toggleRide() : false),
+      summonRide: (id, kind, v, speed) => (!flatRef.current && engineRef.current ? engineRef.current.summonRide(id, kind, v, speed) : false),
       travelTo: (target, mode, then) => {
         const e = flatRef.current ? null : engineRef.current;
         if (!e) return false;

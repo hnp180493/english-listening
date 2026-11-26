@@ -8,6 +8,13 @@ import type { EmoteKind } from './draw/overlay';
 import type { Marker, StageState } from './sim';
 import type { TalkSetting } from './staging';
 
+
+/** What can be ridden here and now: the vehicle beside the player, the one ridden, and whether that one is the learner's own (its garage id). */
+export interface RideState {
+  near: VehicleKind | null;
+  riding: VehicleKind | null;
+  own: string | null;
+}
 export type { EmoteKind } from './draw/overlay';
 export type { Marker, StageState } from './sim';
 export type { TownTheme } from './palette';
@@ -137,9 +144,11 @@ export interface TownStageHandle {
   /** How far the quest being followed (`guide`) is from the player, along the way there (tiles); null = none or no way. */
   guideDistance: () => number | null;
   /** The vehicle beside the player and the one ridden (three/scene/vehicles3d.ts); both null without a world. */
-  rideState: () => { near: VehicleKind | null; riding: VehicleKind | null };
+  rideState: () => RideState;
   /** On the vehicle beside the player, or off the one ridden (E does the same). False = neither. */
   toggleRide: () => boolean;
+  /** The learner's own vehicle (data/townGarage.ts) brought to them and ridden. False = not now. */
+  summonRide: (id: string, kind: VehicleKind, v: number, speed: number) => boolean;
   /**
    * "Đến ngay" during a click walk (onFarWalk): a short dip to dark and the player is where the walk ends (a talk
    * walked to: both are in place, or in the room), and what the walk was for happens. False = no walk under way.

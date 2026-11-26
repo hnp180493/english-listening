@@ -15,12 +15,14 @@ import { drawChatDots, drawEmote, drawFloat, drawParticles, drawSky, drawTag, dr
 import type { ActKind, BurstKind, EngineCallbacks, Near, SafeInsets, StageTarget, TravelTarget } from '../../engine/stage';
 import type { VehicleKind } from '../../../../data/townWorld';
 import { RIDES, vehicleGeometry } from './vehicles3d';
+import type { RideState } from '../../engine/stage';
 import { Birds } from './birds';
 import { paletteFor, type TownPalette } from '../../engine/palette';
 import { Particles } from '../../engine/particles';
 import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
 import { createCharacter, createPet, passerLook, type Character3DPlus } from '../characters';
 import { dressInVrm, dressWhenNear } from '../chars/vrmPeople';
+import { getTownUi } from '../../townUi';
 import type { CharAction, Character3D, Pet3D } from '../contracts';
 import { cameraPosition, fitDistance, followLead, followStiffness, FOLLOW_W, followPoint, FOV, groundHalfExtent, HOLD_RUN, holdDirection, insetShift, keyDirection, PITCH, restDistance, YAW0, yawAfter, zoomAfter } from './cameraRig';
 import { angleDiff, headingOf, octantHeading, towardViewer, type P3 } from './coords';
@@ -228,6 +230,8 @@ const SLIDE_TIME = 0.45;
 
 /** How near a parked vehicle the player gets on it (tiles from its middle): the button shows, E works, a tap gets on. */
 const RIDE_REACH = 2;
+/** The vehicles' size with the VRoid avatars on (rideScale). */
+const RIDE_SCALE_AVATAR = 1.55;
 
 /** Stats for checking the town in a dev build (headless runs read window.__town3d). */
 export interface Stats3D {
@@ -321,7 +325,7 @@ export class TownEngine3D {
   private focus: PlaceId | null = null;
   private hint: PlaceId | null = null;
   /** What can be ridden (TownWorld.vehicles): where each is parked (or, the one ridden, drawn now), its model. */
-  private rides: { kind: VehicleKind; x: number; y: number; heading: number; mesh: Mesh }[] = [];
+  private rides: { kind: VehicleKind; x: number; y: number; heading: number; mesh: Mesh; own?: string; speed?: number }[] = [];
   private ridesMade = false;
   /** Two flocks over the view by day (birds.ts). */
   private birds: Birds | null = null;
@@ -1420,7 +1424,7 @@ export class TownEngine3D {
     let bestD = 44;
     this.rides.forEach((r, i) => {
       if (i === this.riding) return;
-      const at = this.project(r.x, this.town.lift(r.x, r.y) + 0.3, r.y);
+      const at = this.project(r.x, this.town.lift(r.x, r.y) + 0.3 * this.rideScale(), r.y);
       const d = Math.hypot(at.x - x, at.y - y);
       if (d < bestD) {
         best = i;
@@ -1431,9 +1435,57 @@ export class TownEngine3D {
   }
 
   /** What the "Lên xe / Xuống xe" button shows: the vehicle beside the player, the one ridden. */
-  rideState(): { near: VehicleKind | null; riding: VehicleKind | null } {
+  rideState(): RideState {
     const n = this.nearRide();
-    return { near: n >= 0 ? this.rides[n].kind : null, riding: this.riding >= 0 ? this.rides[this.riding].kind : null };
+    const at = this.riding >= 0 ? this.rides[this.riding] : n >= 0 ? this.rides[n] : null;
+    return { near: n >= 0 ? this.rides[n].kind : null, riding: this.riding >= 0 ? this.rides[this.riding].kind : null, own: at?.own ?? null };
+  }
+
+  /**
+   * The learner's own vehicle (data/townGarage.ts, owner 2026-11-26: "phải có mua đứt luôn chứ") brought to where they
+   * stand and ridden: one at a time (another one called puts the first away). False = not now (a talk, a dip, a room).
+   */
+  summonRide(id: string, kind: VehicleKind, v: number, speed: number): boolean {
+    if (this.paused || !this.ready || !this.ridesMade || this.busy()) return false;
+    if (this.riding >= 0 && this.rides[this.riding].own === id) return true;
+    this.dismount();
+    this.cancelWalk();
+    const p = this.sim.player;
+    const heading = p.yaw ?? 0;
+    let i = this.rides.findIndex((r) => r.own !== undefined);
+    if (i >= 0 && (this.rides[i].own !== id || this.rides[i].kind !== kind)) {
+      const old = this.rides[i];
+      this.town.scene.remove(old.mesh);
+      old.mesh.geometry.dispose();
+      this.rides.splice(i, 1);
+      i = -1;
+    }
+    if (i < 0) {
+      const geo = vehicleGeometry(kind, v);
+      if (!geo) return false;
+      const mesh = new Mesh(geo, this.town.mats.std);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.town.scene.add(mesh);
+      this.rides.push({ kind, x: p.x, y: p.y, heading, mesh, own: id, speed });
+      i = this.rides.length - 1;
+    }
+    const r = this.rides[i];
+    const seatAt = RIDES[kind].seatAt * this.rideScale();
+    r.x = p.x - Math.cos(heading) * seatAt;
+    r.y = p.y - Math.sin(heading) * seatAt;
+    r.heading = heading;
+    r.speed = speed;
+    this.mount(i);
+    return true;
+  }
+
+  /**
+   * How much bigger the vehicles are drawn than their models (vehicles3d.ts, made for the code-built body): the VRoid
+   * avatars stand 1.85 × that body (chars/vrmBody.ts), so with them on a bike would be a toy under its rider.
+   */
+  private rideScale(): number {
+    return getTownUi().people === 'anime' ? RIDE_SCALE_AVATAR : 1;
   }
 
   /** On the vehicle beside the player, or off the one ridden. False = neither (none in reach, a talk, a dip). */
@@ -1455,9 +1507,10 @@ export class TownEngine3D {
     const spec = RIDES[r.kind];
     this.cancelWalk();
     // onto its seat, facing the way it faces
-    this.sim.placePlayer({ x: r.x + Math.cos(r.heading) * spec.seatAt, y: r.y + Math.sin(r.heading) * spec.seatAt }, r.heading);
+    const seatAt = spec.seatAt * this.rideScale();
+    this.sim.placePlayer({ x: r.x + Math.cos(r.heading) * seatAt, y: r.y + Math.sin(r.heading) * seatAt }, r.heading);
     this.riding = i;
-    this.sim.setRideSpeed(spec.speed);
+    this.sim.setRideSpeed(r.speed ?? spec.speed);
   }
 
   /** Off the vehicle ridden: it stays where it is, the player steps off to its side. */
@@ -1468,7 +1521,8 @@ export class TownEngine3D {
     this.sim.setRideSpeed(null);
     const p = this.sim.player;
     for (const side of [1, -1]) {
-      const at = { x: r.x - Math.sin(r.heading) * 0.55 * side, y: r.y + Math.cos(r.heading) * 0.55 * side };
+      const off = 0.55 * this.rideScale() * side;
+      const at = { x: r.x - Math.sin(r.heading) * off, y: r.y + Math.cos(r.heading) * off };
       if (walkable({ x: Math.floor(at.x), y: Math.floor(at.y) }, this.sim.world)) {
         this.sim.placePlayer(at, p.yaw ?? r.heading);
         return;
@@ -1491,13 +1545,15 @@ export class TownEngine3D {
       });
     }
     const me = this.people.get('player');
+    const k = this.rideScale();
     this.rides.forEach((r, i) => {
+      r.mesh.scale.setScalar(k);
       if (i === this.riding && me) {
         // the seat under the player, the vehicle the way the body faces; a horse's back rises and falls at a trot
         const spec = RIDES[r.kind];
         r.heading = me.heading;
-        r.x = me.rx - Math.cos(r.heading) * spec.seatAt;
-        r.y = me.rz - Math.sin(r.heading) * spec.seatAt;
+        r.x = me.rx - Math.cos(r.heading) * spec.seatAt * k;
+        r.y = me.rz - Math.sin(r.heading) * spec.seatAt * k;
         const trot = r.kind === 'horse' && this.sim.player.moving && !this.still ? Math.abs(Math.sin(this.t * 9)) * 0.035 : 0;
         r.mesh.position.set(r.x, this.town.lift(r.x, r.y) + trot, r.y);
       } else r.mesh.position.set(r.x, this.town.lift(r.x, r.y), r.y);
@@ -2595,7 +2651,7 @@ export class TownEngine3D {
       tz += Math.sin(h) * SEAT_FORWARD;
       (p.ch as Character3DPlus).setSeatHeight?.(SEAT_TOP);
     }
-    if (a.kind === 'player' && this.riding >= 0) (p.ch as Character3DPlus).setSeatHeight?.(RIDES[this.rides[this.riding].kind].seat);
+    if (a.kind === 'player' && this.riding >= 0) (p.ch as Character3DPlus).setSeatHeight?.(RIDES[this.rides[this.riding].kind].seat * this.rideScale());
     const gap = Math.hypot(tx - p.rx, tz - p.rz);
     // (the last hundredths of a walk onto its end point are not a hop)
     if (a.moving || this.still || gap > 1.1 || (gap < 0.06 && p.slide >= 1)) {

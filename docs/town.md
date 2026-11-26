@@ -465,6 +465,22 @@ E or "Trả xe" leaves it where it stands, the player beside it; a talk, a meeti
 models are built in code (a convertible, so whoever drives is seen); nothing blocks a walk round a parked one. Checked
 in headless Edge only (on, a drive, off; bike, horse, car); nobody has ridden one by hand.
 
+**Gara: vehicles of your own** (2026-11-26, owner: "phải có mua đứt luôn chứ, tiền càng nhiều thì đồ càng xịn"):
+activity `garage` ("Gara", group life, `activities/GaragePanel.tsx`) sells six vehicles for xu (`data/townGarage.ts`):
+a racing bike 60 xu (4.4 tiles/s), a vintage Vespa 150 (5.2), a white horse 250 (5.6), a big motorbike 400 (6.6), a
+red convertible 600 (6.8), a supercar 1000 (8.2): every dearer one faster, the cheapest faster than the borrowed one
+of its kind (`data/townGarage.test.ts`). A purchase goes into `town-progress` `bought` like a decoration
+(`economy.ts townItem` kind 'vehicle'; synced as a union, never un-bought). One is picked per browser (`townUi.ride`,
+'' = the dearest owned; `features/town/garagePick.ts`); with nothing to borrow in reach the corner button says "Gọi
+xe" ("Gọi ngựa") and `engine3d.summonRide` puts that vehicle under the player where they stand (one of your own at a
+time: calling another puts the first away), in the town and in Westbay; got off, it stays parked there ("Lên xe").
+Two new models (`vehicles3d.ts`: a motorbike, a low open supercar) and a fourth finish per kind for the garage's
+own. With the VRoid avatars on, every vehicle is drawn 1.55 × its model and the seat with it (`rideScale`: the
+avatars stand 1.85 × the code-built body the models were made for); the classic people keep 1 ×. On a stage under
+640 px the button sits above the main button's row. Checked in headless Edge only (buying, calling, riding the
+supercar and the motorbike, off and on, 1400 × 900 and 412 × 892); the speeds were not felt (the software renderer
+runs at 2 frames a second); the prices are guesses; nobody has bought or driven one by hand.
+
 **Moving about** (the player's control, `TownSim.steer / move` in `engine/sim.ts`, tested; rebuilt 2026-11-21 after the
 owner found the keys "delayed or not going where I want" and the character moving unnaturally). Direct control, like a
 cosy game:
