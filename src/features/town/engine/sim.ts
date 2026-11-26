@@ -14,7 +14,7 @@
 
 import { BODY_RADIUS, distanceTo, inside as isInside, pushOut, walkWorld, type WalkState } from '../../../core/town/colliders';
 import type { CropStage } from '../../../core/town/farm';
-import { canStep, findPath, lineFits, nearestWalkable, NEIGHBOURS, onLand, sameTile, shoreStop, solidsNear, STEP_STRAIGHT, walkable, WATER } from '../../../core/town/map';
+import { canStep, findPath, lineFits, nearestWalkable, NEIGHBOURS, onLand, sameTile, shoreStop, solidsNear, STEP_STRAIGHT, walkable, WATER, waterEdge } from '../../../core/town/map';
 import { TOWN_WORLD, type ActivitySpot, type Collider, type ActivitySpotId, type PlaceId, type Seat, type Tile, type TownWorld, type WorldPlace } from '../../../data/townWorld';
 import { EXTRA_DECOR } from './extraDecor';
 import { CAT_STRIDE, personStride } from './gait';
@@ -430,6 +430,15 @@ const FRONT = [0, 1, 2];
 const centre = (t: Tile) => ({ x: t.x + 0.5, y: t.y + 0.5 });
 /** The tile a point of the grid lies on (a path point need not be a tile centre: cutLastCorner). */
 const tileOf = (p: { x: number; y: number }): Tile => ({ x: Math.floor(p.x), y: Math.floor(p.y) });
+
+/**
+ * The tile a walker now counts as standing on: the one under it, unless that is a water tile (its dry strip by the
+ * drawn shore, where somebody fishing stands): then the tile it came from, so a walk on from there starts on land.
+ */
+const tileUnder = (a: { tile: Tile }, x: number, y: number, world: TownWorld): Tile => {
+  const t = { x: Math.floor(x), y: Math.floor(y) };
+  return world.rows[t.y]?.[t.x] === '~' ? a.tile : t;
+};
 
 /** Screen distance (world pixels) between two points of the tile grid. */
 export function gridDistance(ax: number, ay: number, bx: number, by: number): number {
@@ -888,7 +897,7 @@ export function advance(a: Actor, dt: number, more?: () => Tile | null, cap = In
         a.y = ok === 1 ? ny : ay;
         moved += left;
         left = 0;
-        a.tile = { x: Math.floor(a.x), y: Math.floor(a.y) };
+        a.tile = tileUnder(a, a.x, a.y, world);
         break;
       }
     }
@@ -905,7 +914,7 @@ export function advance(a: Actor, dt: number, more?: () => Tile | null, cap = In
     if (d <= left) {
       a.x = c.x;
       a.y = c.y;
-      a.tile = tileOf(c);
+      a.tile = tileUnder(a, c.x, c.y, world);
       a.path.shift();
       left -= d;
       moved += d;
@@ -929,7 +938,7 @@ export function advance(a: Actor, dt: number, more?: () => Tile | null, cap = In
         moved += Math.hypot(sx - a.x, sy - a.y);
         a.x = sx;
         a.y = sy;
-        a.tile = { x: Math.floor(a.x), y: Math.floor(a.y) };
+        a.tile = tileUnder(a, a.x, a.y, world);
         break;
       }
       left = 0;
@@ -3208,6 +3217,18 @@ export class TownSim {
     if (!go(r, d) || (mate && !go(mate.q, mate.d))) {
       this.endDoing(r);
       return false;
+    }
+    if (d.kind === 'fish' && d.at && d.oct !== null) {
+      // on from the stand to the water's edge it looks over, in one walk: the line goes into the water, not onto grass
+      const e = waterEdge(this.world, d.at.x + 0.5, d.at.y + 0.5, OCTANTS[d.oct]);
+      if (e && instant) {
+        r.x = e.x;
+        r.y = e.y;
+        r.tile = tileUnder(r, e.x, e.y, this.world);
+      } else if (e) {
+        d.at = null;
+        r.path.push({ x: e.x - 0.5, y: e.y - 0.5 });
+      }
     }
     if (d.kind === 'sit' && d.seat) {
       // on to the spot in front of the seat in one walk (no stop on the tile before it)

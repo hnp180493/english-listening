@@ -244,6 +244,25 @@ export function shoreStop(world: TownWorld, x: number, y: number): { x: number; 
   return { x: x + (gx / gl) * step, y: y + (gy / gl) * step };
 }
 
+/**
+ * From a point on land, the spot straight on along `dir` where a body stands with its feet at the drawn water
+ * (SHORE_STAND + 0.12 from the waterline): where somebody fishing stands (owner, 2026-11-26: "thằng kia câu cá trên
+ * bờ?": the stand tiles lie a whole tile back from the drawn water). Null when no water is within `reach` tiles.
+ */
+export function waterEdge(world: TownWorld, x: number, y: number, dir: { x: number; y: number }, reach = 2.2): { x: number; y: number } | null {
+  const l = Math.hypot(dir.x, dir.y);
+  if (l < 1e-6) return null;
+  const ux = dir.x / l;
+  const uy = dir.y / l;
+  const want = SHORE_STAND + 0.12;
+  let last = 0;
+  for (let k = 0; k <= reach + 1e-9; k += 0.05) {
+    if (shoreDistance(world, x + ux * k, y + uy * k) <= want) return { x: x + ux * last, y: y + uy * last };
+    last = k;
+  }
+  return null;
+}
+
 /** Reused by solidsNear (no garbage per call). */
 const SEEN: Collider[] = [];
 

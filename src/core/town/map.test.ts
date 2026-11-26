@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { TOWN_WORLD, WORLD_PLACES, type TownWorld, type WorldPlace } from '../../data/townWorld';
-import { walkWorld } from './colliders';
+import { BODY_RADIUS, distanceTo, walkWorld } from './colliders';
 import {
   canStep,
+  onLand,
+  solidsNear,
+  shoreDistance,
+  waterEdge,
   findPath,
   inBounds,
   nearestWalkable,
@@ -206,5 +210,38 @@ describe('places', () => {
     expect(placeAtTile(P(3.4, 1.9), SMALL)?.id).toBe('home');
     expect(placeAtTile(P(4, 2), SMALL)).toBeUndefined();
     expect(placeAtTile(P(39, 28))?.id).toBe('cafe');
+  });
+});
+
+describe('somebody fishing stands at the water (owner, 2026-11-26: "câu cá trên bờ?")', () => {
+  const OCT: Record<number, { x: number; y: number }> = { 0: { x: 1, y: 0 }, 2: { x: 0, y: 1 }, 4: { x: -1, y: 0 }, 6: { x: 0, y: -1 } };
+  const world = walkWorld(TOWN_WORLD, { built: [], decorations: [] });
+  it('every fishing stand has the drawn water just ahead, reached in a clear line, feet on land', () => {
+    for (const f of TOWN_WORLD.life!.fish) {
+      const cx = f.at.x + 0.5;
+      const cy = f.at.y + 0.5;
+      const dir = OCT[f.oct];
+      const e = waterEdge(world, cx, cy, dir);
+      expect(e, JSON.stringify(f)).not.toBeNull();
+      expect(onLand(world, e!.x, e!.y), JSON.stringify(f)).toBe(true);
+      expect(Math.hypot(e!.x - cx, e!.y - cy), JSON.stringify(f)).toBeLessThan(1.7);
+      // the water a short step on from where they stand (the rod reaches it)
+      let ahead = Infinity;
+      for (let k = 0; k <= 1; k += 0.05) if (ahead === Infinity && shoreDistance(world, e!.x + dir.x * k, e!.y + dir.y * k) < 0) ahead = k;
+      expect(ahead, JSON.stringify(f)).toBeLessThan(0.6);
+      // the steps there as a walk takes them: on land all the way, nothing solid in the way but the water's own tiles
+      // (a walk stops at the drawn waterline, not at a water tile's edge)
+      for (let k = 0; k <= 1; k += 0.05) {
+        const x = cx + (e!.x - cx) * k;
+        const y = cy + (e!.y - cy) * k;
+        expect(onLand(world, x, y), JSON.stringify(f)).toBe(true);
+        solidsNear(world, x - BODY_RADIUS, y - BODY_RADIUS, x + BODY_RADIUS, y + BODY_RADIUS, (c) => {
+          if (c.what !== 'water') expect(distanceTo(c, x, y), `${JSON.stringify(f)} ${c.what}`).toBeGreaterThanOrEqual(BODY_RADIUS);
+        });
+      }
+    }
+  });
+  it('no water ahead: no edge', () => {
+    expect(waterEdge(world, 40.5, 30.5, { x: 1, y: 0 })).toBeNull();
   });
 });
