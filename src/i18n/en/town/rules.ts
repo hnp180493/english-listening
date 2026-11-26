@@ -161,6 +161,8 @@ const rules: Record<string, string> = {
   'Trời quang': 'Clear',
   'Nhiều mây': 'Cloudy',
   'Mưa giông': 'Thunderstorm',
+  'Bà Delaney': 'Mrs Delaney',
+  'Tổng đài Bayline': 'Bayline desk',
 };
 
 export default rules;

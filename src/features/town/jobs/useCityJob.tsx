@@ -23,10 +23,11 @@ import {
   arrivedLate,
   chooseTurn,
   CLARITY_VOLUME,
-  clockOf,
   FAINT_WITHIN,
   fillLine,
   lineRef,
+  noteOptions,
+  type ClockStyle,
   minutesPast,
   NOTICED_WITHIN,
   noteAnswer,
@@ -43,6 +44,9 @@ import {
 } from '../../../core/town/job';
 import { evalCond, gradeHits, saidNow, type CondState, type IntentStep, type JobDoc, type Said, type Step } from '../../../core/town/jobDoc';
 import { enrolJobMisses, payJob } from '../../../core/town/jobStore';
+import { jobDone, jobUnlocked, pastFlag } from '../../../core/town/jobProgress';
+import { finishJobRun, loadTownJobs, useTownJobs } from '../../../core/town/jobsStore';
+import { ADMIN } from '../../../core/admin';
 import { jobSpeakerName, PLAYER_VOICE } from '../../../core/town/jobVoice';
 import { judgeTyped } from '../../../core/town/typing';
 import { skyNow } from '../../../core/town/skyNow';
@@ -113,6 +117,10 @@ interface Ui {
   intent?: IntentStep | null;
   password?: Extract<Step, { kind: 'password' }> | null;
   noticed?: boolean;
+  /** Who says the briefing being heard (a notebook's `via`). */
+  via?: 'phone' | 'radio' | 'scene';
+  /** A goto with a deadline: the card counts down to it. */
+  timed?: boolean;
 }
 
 const CANCEL = Symbol('cancel');
@@ -122,7 +130,7 @@ const doorOf = (id: string): { x: number; y: number } | null => {
   return p ? { x: p.door.x + 0.5, y: p.door.y + 0.5 } : null;
 };
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
-const nameOf = (id: string) => (id === 'kemp' ? 'Duncan Kemp' : (cityPerson(id)?.name ?? jobSpeakerName(id)));
+const nameOf = (id: string) => cityPerson(id)?.name ?? jobSpeakerName(id);
 const bump = (h: Record<string, number>, keys: readonly string[]) => {
   const out = { ...h };
   for (const k of keys) out[k] = (out[k] ?? 0) + 1;
@@ -141,7 +149,7 @@ const TURN_KEY: Readonly<Record<string, Turn>> = { ArrowLeft: 'left', ArrowUp: '
 
 const blank = (doc: JobDoc, now: number): JobRunState => ({
   doc,
-  minute: appointment(now),
+  minute: appointment(now, doc.clock ?? 'quarter'),
   seed: Math.floor(now / 1000),
   picks: {},
   heard: {},
@@ -199,7 +207,12 @@ export interface CityJob {
 }
 
 export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGender, onReward }: CityJobOptions): CityJob {
-  const open = useMemo(() => jobs.filter(isOpen), [jobs, isOpen]);
+  // the story's chain (core/town/jobProgress): a job opens once the one before it is done; done jobs can be replayed
+  const progress = useTownJobs();
+  const unlocked = useMemo(() => jobs.filter((d) => isOpen(d) && jobUnlocked(d, progress, ADMIN)), [jobs, isOpen, progress]);
+  /** Offered: the next of the chain (not done yet) and the side jobs; the done ones only to replay. */
+  const open = useMemo(() => unlocked.filter((d) => d.side || !jobDone(progress, d.id)), [unlocked, progress]);
+  const replays = useMemo(() => unlocked.filter((d) => !d.side && jobDone(progress, d.id)), [unlocked, progress]);
   const [run, setRun] = useState<JobRunState | null>(null);
   const runRef = useRef<JobRunState | null>(null);
   const patch = useCallback((change: (r: JobRunState) => JobRunState) => {
@@ -228,6 +241,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
   // ── waits and cancelling ──
   const token = useRef(0);
   const speech = useRef(0);
+  /** The notebook being filled in (a job may have several: the voicemail and "Xin nhắc lại" are this one's). */
+  const nbRef = useRef<Extract<Step, { kind: 'notebook' }> | null>(null);
   const waits = useRef(new Map<string, (v: unknown) => void>());
   const wait = useCallback(<T,>(key: string): Promise<T | typeof CANCEL> => new Promise((res) => waits.current.set(key, res as (v: unknown) => void)), []);
   const resolve = useCallback((key: string, v: unknown) => {
@@ -252,7 +267,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
   const lineOf = useCallback((id: string): SaidJobLine => {
     const raw = jobLine(id)!.line;
     const minute = runRef.current?.minute ?? null;
-    return { ref: lineRef(raw, minute), line: fillLine(raw, minute) };
+    return { ref: lineRef(raw, minute), line: fillLine(raw, minute, runRef.current?.doc.clock ?? 'quarter') };
   }, []);
   /**
    * Say lines one after another (a new call stops what was being said). `bubble`: over whose head (null: the
@@ -300,6 +315,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       },
       flags: new Set(r.flags),
       hits: new Set(r.hits),
+      past: (ref) => pastFlag(loadTownJobs(), ref),
     };
   }, []);
   const now = useCallback((list: readonly Said[] | undefined) => saidNow(list ?? [], condState()), [condState]);
@@ -367,7 +383,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       await say(now(o.reply), bubble);
       if (o.flag) flag(o.flag);
       if (i.check) {
-        const right = pick === i.check.right;
+        const right = typeof i.check.right === 'number' ? pick === i.check.right : i.check.right.includes(pick);
         patch((r) => ({ ...r, checks: { ...r.checks, [i.check!.fact]: right } }));
         if (!right) hit(i.check.consequence);
       }
@@ -382,8 +398,17 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       switch (st.kind) {
         case 'goto': {
           stage.current?.endListen();
-          show({ kind: 'go', target: st.place, label: st.label });
+          const due = st.deadline ? (st.deadline.seconds ? Date.now() + st.deadline.seconds * 1000 : realTimeOf(runRef.current!.minute, Date.now())) : undefined;
+          // the card shows the time the learner WROTE (a wrong note runs a wrong clock); it is judged by the real one
+          const noted = st.deadline && !st.deadline.seconds && runRef.current!.picks.time !== undefined ? realTimeOf(Number(runRef.current!.picks.time), Date.now()) : due;
+          show({ kind: 'go', target: st.place, label: st.label, ...(due !== undefined ? { deadline: noted, timed: true } : {}) });
           await until(near(st.place));
+          if (!alive(tok)) return;
+          if (st.deadline && due !== undefined && Date.now() > due) {
+            hit(st.deadline.consequence);
+            show({ kind: 'scene' });
+            await say(now(st.deadline.lines));
+          }
           return;
         }
         case 'scene': {
@@ -400,11 +425,12 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
         }
         case 'notebook': {
           const keys = st.entries.map((e) => e.key);
+          nbRef.current = st;
           patch((r) => ({ ...r, heard: bump(r.heard, keys) }));
-          show({ kind: 'call', entries: st.entries });
-          await say(now(st.call), 'player');
+          show({ kind: 'call', entries: st.entries, via: st.via ?? 'phone' });
+          await say(now(st.call), st.via === 'scene' ? null : 'player');
           if (!alive(tok)) return;
-          show({ kind: 'notes', entries: st.entries });
+          show({ kind: 'notes', entries: st.entries, via: st.via ?? 'phone' });
           const go = await wait<true>('notes');
           if (go === CANCEL || !alive(tok)) return;
           speech.current++;
@@ -474,6 +500,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
             }
           }
           await say(now(st.greet));
+          if (st.board === false) return;
           stage.current?.endListen();
           stage.current?.passenger(st.passenger as PlaceId, true);
           patch((x) => ({ ...x, flags: [...x.flags, `aboard:${st.passenger}`] }));
@@ -529,18 +556,21 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           return;
         }
         case 'overhear': {
-          const [a, b] = st.who;
-          stage.current?.gather(st.at as PlaceId, st.who as unknown as PlaceId[]);
+          stage.current?.gather(st.at as PlaceId, st.who as PlaceId[]);
+          /** How far the learner is from the nearest of those standing there. */
+          const nearest = (s: NonNullable<ReturnType<typeof snapshot>>): number => {
+            const ds = st.who.map((w) => s.residents.find((x) => x.id === w)).filter((x): x is NonNullable<typeof x> => !!x).map((x) => dist(s.player, x));
+            return ds.length ? Math.min(...ds) : Infinity;
+          };
           const lines = now(st.lines).slice(st.from && evalCond(st.from.if, condState()) ? st.from.index : 0);
           const pw = next?.kind === 'password' ? next : null;
           show({ kind: 'overhear', askWho: pw ? [pw.who] : [], noticed: false });
           // they start when the learner is near enough to hear anything (or after a while all the same)
           await until(near(st.at, FAINT_WITHIN + 3), 25000);
           if (!alive(tok)) return;
-          const volume = (who: string, id: string) => {
+          const volume = (_who: string, id: string) => {
             const s = snapshot();
-            const p = s?.residents.find((x) => x.id === who);
-            const c = s && p ? overhearClarity(dist(s.player, p), skyNow().mix.rain) : 'none';
+            const c = s ? overhearClarity(nearest(s), skyNow().mix.rain) : 'none';
             if (id === st.word && c !== 'none') patch((x) => ({ ...x, heardWord: true, heard: bump(x.heard, ['word']) }));
             return CLARITY_VOLUME[c];
           };
@@ -548,10 +578,9 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           // too near before the word was heard: they notice and stop (only a step with `noticed`)
           const watch = window.setInterval(() => {
             const s = snapshot();
-            const pa = s?.residents.find((x) => x.id === a);
-            const pb = s?.residents.find((x) => x.id === b);
-            if (!s || !pa || !pb) return;
-            const d = Math.min(dist(s.player, pa), dist(s.player, pb));
+            if (!s) return;
+            const d = nearest(s);
+            if (!Number.isFinite(d)) return;
             setHeard(overhearClarity(d, skyNow().mix.rain));
             if (st.noticed && !runRef.current!.heardWord && !halt.now && d < NOTICED_WITHIN) {
               halt.now = true;
@@ -629,6 +658,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       const enrolled = enrolJobMisses(missed, t);
       const fatal = [...hits].some((h) => doc.consequences[h]?.fatal);
       setHeat(heatAfter(getHeat(), grade, hits.size, fatal));
+      // what the story remembers: the grade, and the flags and consequences later jobs read
+      finishJobRun(doc.id, grade, [...runRef.current!.flags.filter((f) => !f.startsWith('aboard:') && !f.startsWith('asked:')), ...[...hits].map((h) => `hit:${h}`)], t);
       patch((x) => ({ ...x, xu, missed, enrolled }));
       show({ kind: 'debrief' });
       onReward({ label: tl`Phi vụ xong: ${tr(GRADE_NAME[grade])}`, ...(xu > 0 ? { xu } : {}) });
@@ -650,7 +681,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
   );
 
   // ── starting, giving up ──
-  const ringing = ui.kind === 'idle' ? (open.find((d) => !declined.includes(d.id)) ?? null) : null;
+  const ringing = ui.kind === 'idle' ? (open.find((d) => !d.side && !declined.includes(d.id)) ?? null) : null;
   const [ringFor, setRingFor] = useState<JobDoc | null>(null);
   const offered = ui.kind === 'ringing' ? ringFor : free ? ringing : null;
   const start = useCallback(
@@ -691,24 +722,23 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
   // ── the panels' actions ──
   const replayCall = useCallback(
     (slow = false) => {
-      const r = runRef.current;
-      const st = r?.doc.steps.find((s): s is Extract<Step, { kind: 'notebook' }> => s.kind === 'notebook');
-      if (!st) return;
+      const st = nbRef.current;
+      if (!runRef.current || !st) return;
       patch((x) => ({ ...x, heard: bump(x.heard, st.entries.map((e) => e.key)) }));
-      void say(now(st.call), 'player', { slow });
+      void say(now(st.call), st.via === 'scene' ? null : 'player', { slow });
     },
     [now, patch, say],
   );
   const replayFact = useCallback(
     (key: string) => {
       const r = runRef.current;
-      const st = r?.doc.steps.find((s): s is Extract<Step, { kind: 'notebook' }> => s.kind === 'notebook');
+      const st = nbRef.current;
       const e = st?.entries.find((x) => x.key === key);
-      if (!st || !e) return;
+      if (!r || !st || !e) return;
       const repeats = r!.repeats + 1;
       patch((x) => ({ ...x, repeats, heard: bump(x.heard, [key]), flags: x.flags.includes('asked') ? x.flags : [...x.flags, 'asked'] }));
       const lines = st.repeat?.[key] ?? [e.line];
-      void say([...lines, ...(st.patience && repeats === st.patience.after ? [st.patience.line] : [])], 'player', { slow: !st.repeat?.[key] });
+      void say([...lines, ...(st.patience && repeats === st.patience.after ? [st.patience.line] : [])], st.via === 'scene' ? null : 'player', { slow: !st.repeat?.[key] });
     },
     [patch, say],
   );
@@ -769,7 +799,12 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
   const active = ui.kind !== 'idle' && ui.kind !== 'ringing';
   const quests = useMemo<Quest[]>(() => {
     const tag = tr('Phi vụ');
-    if (!active || !run) return open.map((d) => ({ id: `job:${d.id}`, tag, title: d.title, step: tl`${nameOf(d.from)} có việc cho bạn`, target: null }));
+    if (!active || !run)
+      return [
+        // the story's next job first (a page may show only the first card), the side jobs after it
+        ...[...open.filter((d) => !d.side), ...open.filter((d) => d.side)].map((d) => ({ id: `job:${d.id}`, tag, title: d.title, step: tl`${nameOf(d.from)} có việc cho bạn`, target: null })),
+        ...replays.map((d) => ({ id: `job:${d.id}`, tag: tr('Chơi lại'), title: d.title, step: tr('Phi vụ đã làm. Chơi lại để thử cách khác'), target: null })),
+      ];
     const doc = run.doc;
     const base = { id: `job:${doc.id}`, tag, title: doc.title };
     const step = (() => {
@@ -796,7 +831,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       }
     })();
     return [{ ...base, step, target: ui.kind === 'go' && ui.target ? { kind: 'place', id: ui.target as PlaceId } : null }];
-  }, [active, run, open, ui]);
+  }, [active, run, open, replays, ui]);
 
   // ── what is drawn over the stage ──
   const pill = heatLevel(heat) !== 'none' && (
@@ -857,10 +892,10 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
         return (
           <div className="town-welcome job-strip" role="status">
             <span className="job-strip-icon" aria-hidden="true">
-              <Icon icon={Phone} size={20} />
+              <Icon icon={ui.via === 'radio' ? Radio : ui.via === 'scene' ? MessageCircle : Phone} size={20} />
             </span>
             <p className="town-welcome-text">
-              <span className="town-welcome-name">Điện thoại</span>
+              <span className="town-welcome-name">{ui.via === 'radio' ? 'Bộ đàm' : ui.via === 'scene' ? (speaking && speaking !== 'player' ? nameOf(speaking) : 'Nghe họ nói') : 'Điện thoại'}</span>
               {hearing(speaking !== null ? 'Đang nói… chỉ nghe thôi, không có chữ.' : 'Đã dập máy.')}
             </p>
           </div>
@@ -964,17 +999,16 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
     }
   })();
 
-  const notebook = run?.doc.steps.find((s): s is Extract<Step, { kind: 'notebook' }> => s.kind === 'notebook');
   const node = (
     <>
       {pill}
       {free && strip}
       {free && mineNode}
-      {ui.kind === 'notes' && run && notebook && (
+      {ui.kind === 'notes' && run && ui.entries && (
         <Suspense fallback={null}>
           <JobNotebook
-            entries={notebook.entries}
-            options={(key) => notebookOptions(notebook.entries, key, run.minute, run.seed)}
+            entries={ui.entries}
+            options={(key) => notebookOptions(ui.entries!, key, run.minute, run.seed, run.doc.clock ?? 'quarter')}
             picks={run.picks}
             onPick={(key, value) => patch((x) => ({ ...x, picks: { ...x.picks, [key]: value } }))}
             heard={run.heard}
@@ -1031,6 +1065,11 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
     </>
   );
 
+  // dev only: headless replays of a job read where the run stands and press what the panels press (gta-plan §16)
+  useEffect(() => {
+    if (import.meta.env.DEV) (window as unknown as { __job?: unknown }).__job = { ui, run, ask, choose, askAgain, quests };
+  });
+
   return {
     active,
     quests,
@@ -1045,16 +1084,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
 }
 
 /** The options of an entry as offered (the time's made from the appointment), in an order by the run's seed. */
-function notebookOptions(entries: readonly NoteEntry[], key: string, minute: number, seed: number) {
-  const e = entries.find((x) => x.key === key)!;
-  const all = key === 'time' ? timeChoices(minute) : [...e.options];
-  const k = ((Math.floor(seed + key.length) % all.length) + all.length) % all.length;
-  return [...all.slice(k), ...all.slice(0, k)];
-}
-function timeChoices(minute: number) {
-  const m = ((minute % 1440) + 1440) % 1440;
-  const list = m % 60 === 45 ? [m, m + 30, m + 60] : [m, m - 30, m + 30];
-  return list.map((x) => ({ value: String(((x % 1440) + 1440) % 1440), label: clockOf(x) }));
+function notebookOptions(entries: readonly NoteEntry[], key: string, minute: number, seed: number, style: ClockStyle) {
+  return noteOptions(entries.find((x) => x.key === key)!, minute, seed + key.length, style);
 }
 
 const CLARITY_NAME: Readonly<Record<Clarity, string>> = {

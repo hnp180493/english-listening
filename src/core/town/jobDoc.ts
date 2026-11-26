@@ -12,6 +12,14 @@
 //   intent    the learner answers by a Vietnamese intent (their own line is shown, and said when PLAYER_VOICE is on);
 //   password  the chunk just heard, typed;                                    end    the grade's lines and the news.
 //
+// Added for Act I's jobs 2–5 (M2, gta-plan §14; fields are only ever ADDED, never renamed, so every job keeps
+// working): JobDoc `after` (the job done first in the story's chain), `side` (a job outside the chain), `clock` (how
+// the appointment is said: 'quarter' / 'half' "half five" / 'ten' "ten past six"); Cond `past` (a flag or a consequence
+// an EARLIER job left: `<job id>:<flag>` or `<job id>:hit:<consequence>`); goto `deadline` (late = a consequence);
+// pickup `board: false` (the one found is not driven anywhere); notebook `via` ('phone' / 'radio' / 'scene': who says
+// the briefing, and how the strip shows it); several notebooks in one job (keys unique across them); overhear `who` of
+// any length (each line heard by the distance to the nearest of them); intent `check.right` a list of good answers.
+//
 // Facts and consequences (owner's review, gta-plan §11.4): every fact the learner can mishear has ONE consequence that
 // plays out in the world and then rejoins the main line; the grade counts the consequences hit. `wellFormed` (tested
 // for every job: data/city/jobs/jobs.test.ts) checks that each fact has its consequence and its rejoin, and that the
@@ -25,6 +33,7 @@ export type Cond =
   | { note: string; value: string }
   | { flag: string }
   | { hit: string }
+  | { past: string }
   | { not: Cond }
   | { all: readonly Cond[] }
   | { any: readonly Cond[] };
@@ -44,14 +53,23 @@ export interface IntentOption {
 }
 
 export type Step =
-  | { kind: 'goto'; place: string; label: string; if?: Cond }
+  | {
+      kind: 'goto';
+      place: string;
+      label: string;
+      /** Get there in time or it is a consequence: `seconds` real seconds from the step's start, else by the appointment. */
+      deadline?: { seconds?: number; consequence: string; lines: readonly Said[] };
+      if?: Cond;
+    }
   | { kind: 'scene'; at?: string; who?: readonly string[]; lines: readonly Said[]; if?: Cond }
   | { kind: 'phone'; lines: readonly Said[]; if?: Cond }
   | { kind: 'radio'; lines: readonly Said[]; if?: Cond }
   | {
       kind: 'notebook';
-      /** The briefing (said once; replayable, counted). `via`: on the learner's phone or by somebody in the scene. */
+      /** The briefing (said once; replayable, counted). */
       call: readonly Said[];
+      /** Who says it: on the learner's phone (the default), on the car's radio, or somebody in the scene. */
+      via?: 'phone' | 'radio' | 'scene';
       entries: readonly NoteEntry[];
       /** "Xin nhắc lại" one entry: these lines (default: the entry's own line, a little slower). */
       repeat?: Readonly<Record<string, readonly string[]>>;
@@ -83,6 +101,8 @@ export type Step =
       callOut?: { after: number; line: string };
       /** The passenger's first words (conditional on the notes: the consequences of the time and the like). */
       greet: readonly Said[];
+      /** false: the one found is not driven anywhere (they stay where they stand, the talk goes on). Default true. */
+      board?: boolean;
       if?: Cond;
     }
   | {
@@ -109,7 +129,8 @@ export type Step =
   | {
       kind: 'overhear';
       at: string;
-      who: readonly [string, string];
+      /** Who stands there (one or more): each line is heard by the distance to the nearest of them. */
+      who: readonly string[];
       lines: readonly Said[];
       passes: number;
       /** Too near before the password line is heard: they notice (said, the talk stops). Without it they never do. */
@@ -128,7 +149,8 @@ export interface IntentStep {
   who: string;
   ask: readonly Said[];
   options: readonly IntentOption[];
-  check?: { right: number; consequence: string; fact: string };
+  /** The good answer (or answers); another is the consequence. */
+  check?: { right: number | readonly number[]; consequence: string; fact: string };
   if?: Cond;
 }
 
@@ -169,6 +191,12 @@ export interface JobDoc {
   opens: readonly string[];
   /** Who rings to offer it (the strip and the quest card). */
   from: string;
+  /** The job that must be done first (any grade): the story's chain. Without it the job opens with `opens`. */
+  after?: string;
+  /** A job outside the story's chain (offered beside it, never in its way). */
+  side?: boolean;
+  /** How the appointment is said (core/town/job.ts ClockStyle). Default 'quarter'. */
+  clock?: 'quarter' | 'half' | 'ten';
   lines: readonly JobLine[];
   facts: readonly JobFact[];
   consequences: Readonly<Record<string, JobConsequence>>;
@@ -188,6 +216,8 @@ export interface CondState {
   note: (key: string) => { value: string | undefined; right: boolean; early: boolean; late: boolean };
   flags: ReadonlySet<string>;
   hits: ReadonlySet<string>;
+  /** A flag an earlier job left (core/town/jobProgress pastFlag). */
+  past?: (ref: string) => boolean;
 }
 
 export function evalCond(c: Cond | undefined, s: CondState): boolean {
@@ -197,6 +227,7 @@ export function evalCond(c: Cond | undefined, s: CondState): boolean {
   if ('any' in c) return c.any.some((x) => evalCond(x, s));
   if ('flag' in c) return s.flags.has(c.flag);
   if ('hit' in c) return s.hits.has(c.hit);
+  if ('past' in c) return !!s.past?.(c.past);
   const n = s.note(c.note);
   if ('value' in c) return n.value === c.value;
   if (c.is === 'right') return n.right;
@@ -253,6 +284,10 @@ export function docRefs(doc: JobDoc): { lines: string[]; conds: Cond[]; conseque
     if ('if' in st && st.if) conds.push(st.if);
     switch (st.kind) {
       case 'goto':
+        if (st.deadline) {
+          said(st.deadline.lines);
+          consequences.push(st.deadline.consequence);
+        }
         break;
       case 'scene':
       case 'phone':
@@ -351,6 +386,7 @@ export function wellFormed(doc: JobDoc, w: WorldCheck): string[] {
     if (!refs.consequences.includes(id)) out.push(`consequence never used: ${id}`);
   }
   const entries = doc.steps.flatMap((s) => (s.kind === 'notebook' ? s.entries : []));
+  if (new Set(entries.map((e) => e.key)).size !== entries.length) out.push('notebook keys repeat across notebooks');
   const readsNote = (key: string): boolean => {
     const reads = (c: Cond): boolean => ('note' in c ? c.note === key : 'not' in c ? reads(c.not) : 'all' in c ? c.all.some(reads) : 'any' in c ? c.any.some(reads) : false);
     // a pickup / ride led by the entry plays it out too
@@ -377,7 +413,11 @@ export function wellFormed(doc: JobDoc, w: WorldCheck): string[] {
           if (way && (t === j.right) === !!way.line) out.push(`${j.id} ${t}: a wrong way needs a line, the right one none`);
         }
       }
-    if (s.kind === 'intent' && s.check && (s.check.right < 0 || s.check.right >= s.options.length)) out.push(`intent check out of range: ${s.who}`);
+    if (s.kind === 'intent' && s.check) {
+      const rights = typeof s.check.right === 'number' ? [s.check.right] : s.check.right;
+      if (rights.length === 0 || rights.some((r) => r < 0 || r >= s.options.length)) out.push(`intent check out of range: ${s.who}`);
+    }
+    if (s.kind === 'overhear' && s.who.length === 0) out.push('overhear without anybody');
   }
   if (!doc.steps.some((s) => s.kind === 'notebook')) out.push('no notebook');
   return out;

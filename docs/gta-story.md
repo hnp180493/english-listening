@@ -1037,3 +1037,71 @@ ngày) cho tới khi kinh tế được làm lại (plan §6).
 4. **Phi vụ 1 của tao và phi vụ M0** là hai bản nháp khác kiểu (M0: lái theo lời chỉ đường, nghe lén mật khẩu; của
    tao: đối đáp trong xe, phản diện biết người chơi đang nghe). Mày đọc / chơi rồi chọn kiểu nào để viết tiếp bảy phi
    vụ kia? Và có làm cuộc gọi từ nhà cho người đã cưới không (thêm 22 clip)?
+
+---
+
+## 8. As written (2026-11-27): phi vụ 6–8 và hai chuỗi người lạ thành dữ liệu chơi được
+
+Viết thành tài liệu phi vụ (`src/core/town/jobDoc.ts`), chơi bằng engine chung (`features/town/jobs/useCityJob.tsx`),
+cùng kiểu phi vụ 1 (`machine2.ts`, chép từ mục 6). Mỗi file có danh sách thay đổi ngay đầu file. Tóm tắt:
+
+| Phi vụ | File | Câu (kể cả nhánh) | Mở sau |
+|---|---|---|---|
+| 6 Ba kênh | `src/data/city/jobs/channels.ts` | 63 | job 5 (`job-delaney`) |
+| 7 Tiền của Tess | `src/data/city/jobs/tess.ts` | 71 | phi vụ 6 |
+| 8 Một chữ sai | `src/data/city/jobs/hearing.ts` | 74 | phi vụ 7 |
+| A1 Hộp bánh cho Chip | `src/data/city/jobs/sideOkafor.ts` | 22 | job 2 (`job-half5`) |
+| A2 Ba con số | như trên | 32 | A1 |
+| A3 Chuyến xe đầu tiên | như trên | 26 | A2 |
+| B1 Một câu, ba cách nói | `src/data/city/jobs/sideProfessor.ts` | 18 | job 2 (`job-half5`) |
+| B2 Trang chín mươi | như trên | 16 | B1 |
+| B3 Năm phút radio | như trên | 18 | B2 |
+
+**Đổi so với dàn ý ở mục 4–5, và vì sao:**
+
+1. **Không người thị trấn nào nói, nên không cần clip nào.** Phi vụ chỉ phát bằng giọng trình duyệt
+   (`core/town/jobVoice.ts`), và test chung của phi vụ cấm người thị trấn nói. Nên Sam (phi vụ 6, 8, chuỗi A), Emma
+   (phi vụ 7) và Daniel (chuỗi B) được thay: Theo làm người canh ở phi vụ 6; ở phi vụ 7 Rico đứng ở xe cà phê và hứa
+   từ nay mang cà phê cho Tess (lời của chính anh ở `ct-rico-3`, lật ngược); "Talk. Less. Rico." thành lời Tess và Gus;
+   Sam chỉ NHẮN TIN, Rico đọc to ba chữ của cậu (đúng tính Sam); trang chín mươi do Claire đọc. Muốn Sam / Emma / Daniel
+   nói thật thì engine phải phát clip Gemini cho người thị trấn trong phi vụ (mục "Cần engine" bên dưới).
+2. **Phi vụ 6:** ba chỗ đón giả là chỗ có thật trên bản đồ, theo các cặp dễ nhầm đã có trong canon (`taxiFares.ts`): rạp
+   Lumen / xưởng Loom, sân khấu / nhà ga (stage / station), nhà thuốc / bến phà (pharmacy / ferry). "Bay Street cạnh
+   cầu tàu" và "Fountain Lane" không phải chỗ trên bản đồ. Người chơi bảo Tess và Theo đứng đâu theo đúng điều mình
+   ghi; ghi nhầm thì kênh đó không được "rửa". Lời tay tài xế ("taxi for the gate") được gõ lại cho Jun ở sạp của anh.
+3. **Phi vụ 7:** hạn chót là cặp "at noon / afternoon" và thứ Năm / thứ Ba; Bridget được tìm giữa ba người ở trạm điều
+   dưỡng (bước pickup không chở ai đi); thư của Gianna là bài "hai người nói chồng nhau": bà đọc thư xen lời quát bếp,
+   rồi hỏi bạn bà vừa viết gì ("never once been late" / "paid" / "said no").
+4. **Phi vụ 8:** chi tiết bẫy là một con số (mười bốn viên ngói; nhầm thành bốn mươi hay bốn), không phải "góc phía
+   bắc": cặp "-teen / -ty" mới là thứ tai nghe nhầm thật. Chưa có nút "Đó!", nên người chơi tới bên Rico và gõ lại mấy
+   chữ làm Kemp lộ (bước password ngay sau đoạn nghe). Kemp tự đọc thư của hắn (bà Delaney bảo mỗi bên đọc to), vì câu
+   nghe lén phải có người đứng nói trong thế giới. Câu hỏi của bà Delaney là cặp "calls / cars" (giọng Anh, "cars"
+   không có r, "calls" có l tối gần như nuốt mất). Hồ sơ của hãng đọc từ chính những gì phi vụ trước để lại (điều kiện
+   `past`: phi vụ 1 trễ hoặc mất khách, job 2 ký sau năm rưỡi, phi vụ 7 nộp sau mười hai giờ, phi vụ 6 có người làm
+   chứng). Cuộc gọi từ nhà cho người đã cưới chưa làm (cần giọng Gemini của người bạn đời).
+5. **Chuỗi A** dừng lúc bà Okafor lên xe (phi vụ diễn ra ở Westbay; đầu thị trấn của chuyến xe không dựng được).
+   **Chuỗi B** thu ba người, không phải năm; khác biệt giữa ba giọng nằm ở chữ (`say` của từng câu), vì giọng trình
+   duyệt không có thói quen nói riêng.
+6. **Chỗ không có trên bản đồ** được đặt ở chỗ có thật gần nhất: trạm gác cũ ở chòi Gus, văn phòng Ban quản lý cảng ở sạp
+   Jun (ngay dưới nó), bãi xe buýt ở xe cà phê của Tess.
+7. **Chuỗi phụ có `after`, không có `side`**: test chung không cho một phi vụ `side` có `after`, mà mỗi việc nhỏ phải mở
+   sau việc trước. Nên hai chuỗi là nhánh của mạch chính (mở sau job 2, không chặn phi vụ nào khác).
+
+**Cần engine (chưa có loại bước nào làm được, đã dựng bằng loại gần nhất):**
+
+- Clip Gemini cho người thị trấn trong phi vụ (Sam, Emma, Daniel, cuộc gọi của người bạn đời).
+- Một nút "Đó!" bấm đúng câu đang được đọc (phi vụ 8), thay cho gõ lại sau.
+- Một chiếc xe Bayline thật tới đậu ở sân khấu (phi vụ 6): bây giờ chỉ có tay tài xế đứng đó và lời nói. (Bà Delaney
+  và tay tài xế đã đứng được trong thành phố nhờ `jobCast.ts` của phiên làm engine; phi vụ 6–8 gọi họ vào cảnh.)
+- Trạm gác cũ và phòng họp của Ban quản lý cảng trên bản đồ.
+
+**Đã chạy bằng script** (Edge headless trên dev server, chế độ admin, tiếng tắt nên mỗi câu "xong" ngay; script ở
+ngoài repo): phi vụ 6 một lượt ghi đúng hết (Sạch) và một lượt nghe nhầm mọi chỗ (Hỏng, đủ bốn hệ quả); phi vụ 7 và 8
+một lượt đúng hết (Sạch); A1 đúng hết (Sạch); A3 và B1 mỗi cái một chỗ ghi sai cố ý (Lộn xộn, đúng hệ quả). Lượt chạy
+đầu của phi vụ 6 lộ một lỗi dàn cảnh: Jun còn đứng ở sạp bà Mei nên người chơi phải chờ anh đi bộ về sạp, gần ba phút;
+đã sửa (một cảnh gọi Jun đứng ở sạp anh trước bước mật khẩu). **Chưa chạy:** A2, B2, B3, và lượt nghe nhầm của phi vụ 7,
+8. Ở phi vụ 8, người chơi đã biết con số từ lời Gus nên gõ được mà không cần nghe Kemp đọc: bước gõ lại chỉ kiểm được
+việc nhớ, chưa kiểm được việc nghe ra câu đó (chỗ này cần nút "Đó!").
+
+**Chưa ai kiểm:** chưa ai đọc lại lời thoại (do model viết), chưa ai nghe; chưa chạy thử bằng tay hay trên điện thoại.
+Tiền, mức kết, độ dài là đoán.

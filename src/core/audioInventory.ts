@@ -61,6 +61,8 @@ import { STREET_TALKS } from '../data/streetTalks';
 import { CAFE_ORDERS } from '../data/townCafe';
 import { TOWN_CASES } from '../data/cases';
 import { CITY_CHAPTERS, CITY_OUTINGS, CITY_SCENES } from '../data/city';
+import { CITY_JOBS } from '../data/city/jobs';
+import type { JobDoc } from './town/jobDoc';
 import { cityCastVoice, cityLineText, outingVoice } from './town/cityAudio';
 import type { CityScene } from './town/cityTypes';
 import { DELIVERIES } from '../data/townDeliveries';
@@ -150,6 +152,11 @@ export interface InventoryContent {
    */
   cityScenes?: readonly CityScene[];
   /**
+   * Westbay's jobs (data/city/jobs, core/town/jobDoc): the lines a TOWN resident says in a job (Max on the radio, Sam
+   * on the phone, Grace booking a car), connected only, in their own voice. Everybody else of a job: the browser's.
+   */
+  cityJobs?: readonly JobDoc[];
+  /**
    * Westbay's outings (data/city/outings): the partner's lines in the voice of every resident who can be courted
    * (`partners`, place ids), the child's in both children's voices; connected only.
    */
@@ -184,6 +191,7 @@ export function defaultInventoryContent(): InventoryContent {
     cityScenes: [...CITY_SCENES, ...CITY_CHAPTERS],
     cityOutings: { scenes: CITY_OUTINGS, partners: SUITORS.map((s) => s.placeId) },
     deliveries: DELIVERIES,
+    cityJobs: CITY_JOBS,
   };
 }
 
@@ -472,6 +480,16 @@ function addCityScenes(c: Collector, scenes: readonly CityScene[]): void {
   }
 }
 
+function addCityJobs(c: Collector, jobs: readonly JobDoc[]): void {
+  // features/town/jobs/jobAudio sayJobLine: a town resident's line in their own voice, connected (careful: the browser)
+  for (const job of jobs) {
+    for (const line of job.lines) {
+      const voice = cityCastVoice(line.who);
+      if (voice && !line.text.includes('{time}')) c.add('town', line.id, 'main', 'connected', cityLineText(line, job.level), false, voice);
+    }
+  }
+}
+
 function addCityOutings(c: Collector, { scenes, partners }: NonNullable<InventoryContent['cityOutings']>): void {
   // CityScenePanel → cityLinePlayback(line, level, false, { partner, kid }): the partner in their voice, the child in a
   // child's; the host and anybody else of the city are the browser's
@@ -576,6 +594,7 @@ export function buildAudioInventory(content: InventoryContent = defaultInventory
   if (content.cafeOrders) addCafe(c, content.cafeOrders);
   if (content.cases) addCases(c, content.cases);
   if (content.cityScenes) addCityScenes(c, content.cityScenes);
+  if (content.cityJobs) addCityJobs(c, content.cityJobs);
   if (content.cityOutings) addCityOutings(c, content.cityOutings);
   // (the "cảnh nghe" of data/scenes are not here: they are heard for fun, in the browser's voice only: docs/town.md §19)
   if (content.deliveries) addDeliveries(c, content.deliveries);

@@ -94,31 +94,42 @@ export const ON_TIME_GRACE = 5;
 export const dayMinute = (m: number): number => ((Math.round(m) % DAY_MIN) + DAY_MIN) % DAY_MIN;
 
 /**
- * The appointment for a call made at `nowMs`: the first quarter past or quarter to an hour at least APPOINT_AHEAD
- * game minutes ahead (a minute of the day). Always :15 or :45, so it is said "quarter past / quarter to", the pair
- * a half-listening ear mixes up.
+ * How a job says its appointment (JobDoc.clock): 'quarter' (the default) a quarter past or to an hour ("quarter to
+ * seven": past / to is the pair a careless ear mixes up); 'half' half past, said the British way ("half five", which
+ * many learners take for 4:30); 'ten' ten past or to ("ten past six" / "ten to six").
  */
-export function appointment(nowMs: number): number {
+export type ClockStyle = 'quarter' | 'half' | 'ten';
+
+/** The minutes past the hour an appointment of a style can fall on. */
+export const CLOCK_MINUTES: Readonly<Record<ClockStyle, readonly number[]>> = { quarter: [15, 45], half: [30], ten: [10, 50] };
+
+/**
+ * The appointment for a call made at `nowMs`: the first minute of the style at least APPOINT_AHEAD game minutes ahead
+ * (a minute of the day).
+ */
+export function appointment(nowMs: number, style: ClockStyle = 'quarter'): number {
   const from = Math.ceil(gameMinutes(nowMs) + APPOINT_AHEAD);
-  for (let m = from; m < from + 60; m++) {
-    const r = dayMinute(m) % 60;
-    if (r === 15 || r === 45) return dayMinute(m);
-  }
+  for (let m = from; m < from + 61; m++) if (CLOCK_MINUTES[style].includes(dayMinute(m) % 60)) return dayMinute(m);
   return dayMinute(from);
 }
 
 const HOUR_WORDS = ['twelve', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven'] as const;
 
-/** A minute of the day said the everyday way: "quarter to seven", "quarter past six", "half past", "o'clock". */
-export function timeWords(minute: number): string {
+/**
+ * A minute of the day said the everyday way: "quarter to seven", "quarter past six", "ten past six", "ten to six",
+ * "half past" ("half five" in the 'half' style), "o'clock".
+ */
+export function timeWords(minute: number, style: ClockStyle = 'quarter'): string {
   const m = dayMinute(minute);
   const h = Math.floor(m / 60);
   const mm = m % 60;
   const word = (hour: number) => HOUR_WORDS[hour % 12];
   if (mm === 0) return `${word(h)} o'clock`;
+  if (mm === 10) return `ten past ${word(h)}`;
   if (mm === 15) return `quarter past ${word(h)}`;
-  if (mm === 30) return `half past ${word(h)}`;
+  if (mm === 30) return style === 'half' ? `half ${word(h)}` : `half past ${word(h)}`;
   if (mm === 45) return `quarter to ${word(h + 1)}`;
+  if (mm === 50) return `ten to ${word(h + 1)}`;
   return `${word(h)} ${mm < 10 ? `oh ${mm}` : mm}`;
 }
 
@@ -129,11 +140,15 @@ export function clockOf(minute: number): string {
 }
 
 /**
- * The three ways to write the appointment: the right one, "past" taken for "to" (or the other way round), and the
- * hour heard but not which side of it. Quarter to H (H−1:45): H−1:45, H:15, H:45. Quarter past H: H:15, H−1:45, H:45.
+ * The three ways to write the appointment: the right one and what a half-listening ear writes instead.
+ * 'quarter': quarter to H (H−1:45) → H−1:45, H:15, H:45; quarter past H → H:15, H−1:45, H:45.
+ * 'half': half five (5:30) → 5:30, 4:30 ("half to five", as in German), 5:00 (only "five" kept).
+ * 'ten': ten past six (6:10) → 6:10, 5:50 ("to" for "past"), 7:10; ten to six (5:50) → 5:50, 6:10, 6:50.
  */
-export function timeOptions(minute: number): number[] {
+export function timeOptions(minute: number, style: ClockStyle = 'quarter'): number[] {
   const m = dayMinute(minute);
+  if (style === 'half') return [m, dayMinute(m - 60), dayMinute(m - 30)];
+  if (style === 'ten') return m % 60 === 10 ? [m, dayMinute(m - 20), dayMinute(m + 60)] : [m, dayMinute(m + 20), dayMinute(m + 60)];
   return m % 60 === 45 ? [m, dayMinute(m + 30), dayMinute(m + 60)] : [m, dayMinute(m - 30), dayMinute(m + 30)];
 }
 
@@ -156,14 +171,14 @@ export function arrivedLate(minute: number, nowMs: number): boolean {
 // ───────────────────────── the notebook ─────────────────────────
 
 /** A line with the appointment filled in: `{time}` in words in the English, in digits in the Vietnamese. */
-export function fillLine<L extends Pick<JobLine, 'text' | 'vi'>>(line: L, minute: number | null): L {
+export function fillLine<L extends Pick<JobLine, 'text' | 'vi'>>(line: L, minute: number | null, style: ClockStyle = 'quarter'): L {
   if (minute === null || !line.text.includes('{time}')) return line;
-  return { ...line, text: line.text.replaceAll('{time}', timeWords(minute)), vi: line.vi.replaceAll('{time}', clockOf(minute)) };
+  return { ...line, text: line.text.replaceAll('{time}', timeWords(minute, style)), vi: line.vi.replaceAll('{time}', clockOf(minute)) };
 }
 
 /** The options of an entry as offered, in an order fixed by `seed` (the right one not always first). */
-export function noteOptions(entry: NoteEntry, minute: number, seed: number): NoteOption[] {
-  const all = entry.key === 'time' ? timeOptions(minute).map((m) => ({ value: String(m), label: clockOf(m) })) : [...entry.options];
+export function noteOptions(entry: NoteEntry, minute: number, seed: number, style: ClockStyle = 'quarter'): NoteOption[] {
+  const all = entry.key === 'time' ? timeOptions(minute, style).map((m) => ({ value: String(m), label: clockOf(m) })) : [...entry.options];
   const k = ((Math.floor(seed) % all.length) + all.length) % all.length;
   return [...all.slice(k), ...all.slice(0, k)];
 }
@@ -251,10 +266,10 @@ export function parseLineRef(ref: string): { id: string; minute: number | null }
   return h < 24 && mm < 60 ? { id: m[1], minute: h * 60 + mm } : { id: ref, minute: null };
 }
 
-/** Every ref a templated line can have (the times an appointment can be: every :15 and :45). */
-export function templatedRefs(line: Pick<JobLine, 'id' | 'text'>): string[] {
+/** Every ref a templated line can have (every minute of the day an appointment of the style can fall on). */
+export function templatedRefs(line: Pick<JobLine, 'id' | 'text'>, style: ClockStyle = 'quarter'): string[] {
   if (!line.text.includes('{time}')) return [line.id];
   const out: string[] = [];
-  for (let m = 15; m < DAY_MIN; m += 30) out.push(lineRef(line, m));
-  return out;
+  for (let h = 0; h < 24; h++) for (const mm of CLOCK_MINUTES[style]) out.push(lineRef(line, h * 60 + mm));
+  return out.sort();
 }

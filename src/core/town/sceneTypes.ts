@@ -90,4 +90,10 @@ export const SCENE_VOICES: Readonly<Record<string, SceneVoice>> = {
   vane: { name: 'Bà Vane', gender: 'female' },
   // Act I of the story (docs/gta-story.md §2): the owner of Bayline, new, met in the jobs (data/city/jobs/)
   kemp: { name: 'Duncan Kemp', gender: 'male' },
+  // Act I's other new people (docs/gta-story.md §2; data/city/jobs/): the Harbour Trust's letting officer, Kemp's
+  // assistant, a Bayline driver, Bayline's dispatch heard over a car radio
+  delaney: { name: 'Bà Delaney', gender: 'female' },
+  shona: { name: 'Shona', gender: 'female' },
+  driver: { name: 'Tài xế Bayline', gender: 'male' },
+  baydesk: { name: 'Tổng đài Bayline', gender: 'female' },
 };

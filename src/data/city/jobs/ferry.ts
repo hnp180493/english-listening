@@ -180,6 +180,8 @@ export const JOB_FERRY: JobDoc = {
   order: 2,
   opens: ['ct-rico-1'],
   from: 'rico',
+  // a side job beside Act I's chain (the M0 sample: docs/gta-plan.md §12)
+  side: true,
   lines: LINES,
   facts: [
     { id: 'pickup', label: 'Đón ở đâu', line: id('c03'), consequence: 'wrongPlace', byAction: true },

@@ -58,6 +58,27 @@ describe('the appointment', () => {
     for (const m of [15, 45, 615, 1425]) expect(new Set(timeOptions(m)).size).toBe(3);
   });
 
+  it('other clocks: "half five" (5:30) and "ten past / to"', () => {
+    for (const style of ['half', 'ten'] as const)
+      for (let m = 0; m < 1440; m += 7) {
+        const a = appointment(at(m), style);
+        expect(style === 'half' ? [30] : [10, 50]).toContain(a % 60);
+        expect((a - m + 1440) % 1440).toBeGreaterThanOrEqual(APPOINT_AHEAD);
+        expect(new Set(timeOptions(a, style)).size).toBe(3);
+      }
+    expect(timeWords(17 * 60 + 30, 'half')).toBe('half five');
+    expect(timeWords(17 * 60 + 30)).toBe('half past five');
+    expect(timeWords(18 * 60 + 10, 'ten')).toBe('ten past six');
+    expect(timeWords(17 * 60 + 50, 'ten')).toBe('ten to six');
+    expect(timeOptions(17 * 60 + 30, 'half').map(clockOf)).toEqual(['17:30', '16:30', '17:00']);
+    expect(timeOptions(18 * 60 + 10, 'ten').map(clockOf)).toEqual(['18:10', '17:50', '19:10']);
+    expect(timeOptions(17 * 60 + 50, 'ten').map(clockOf)).toEqual(['17:50', '18:10', '18:50']);
+    expect(fillLine({ id: 'x', who: 'jun', text: 'Till {time} today.', vi: 'v' }, 17 * 60 + 30, 'half').text).toBe('Till half five today.');
+    const refs = templatedRefs({ id: 'x', text: 'Till {time}.' }, 'ten');
+    expect(refs).toHaveLength(48);
+    expect(refs.every((r) => /-t\d\d[15]0$/.test(r))).toBe(true);
+  });
+
   it('knows how late the learner is, and the real time a minute of the game comes round', () => {
     expect(minutesPast(600, at(610))).toBeCloseTo(10);
     expect(minutesPast(600, at(590))).toBeCloseTo(-10);

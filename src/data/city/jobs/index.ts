@@ -1,13 +1,23 @@
 // The jobs ("phi vụ", core/town/jobDoc.ts) of Westbay as data documents, and their lines by id and by review ref (a
-// missed line becomes a review card `talk:<ref>`: features/review/resolve.ts). Act I's job 1 "Máy số hai"
-// (./machine2.ts, docs/gta-story.md §6) and the M0 sample "Cuộn băng của Gus" (./ferry.ts), in their order.
+// missed line becomes a review card `talk:<ref>`: features/review/resolve.ts). Act I's jobs in their order (1
+// ./machine2.ts, 2 ./half5.ts, 3 ./chip.ts, 4 ./three.ts, 5 ./delaney.ts, then 6–8), chained by `after`; the M0 sample
+// "Cuộn băng của Gus" (./ferry.ts) as a side job; the two side chains.
 
 import { fillLine, parseLineRef, templatedRefs, type JobLine } from '../../../core/town/job';
 import type { JobDoc } from '../../../core/town/jobDoc';
+import { JOB_CHANNELS } from './channels';
+import { JOB_CHIP } from './chip';
+import { JOB_DELANEY } from './delaney';
 import { JOB_FERRY } from './ferry';
+import { JOB_HALF5 } from './half5';
+import { JOB_HEARING } from './hearing';
 import { JOB_MACHINE2 } from './machine2';
+import { SIDE_OKAFOR } from './sideOkafor';
+import { SIDE_PROFESSOR } from './sideProfessor';
+import { JOB_TESS } from './tess';
+import { JOB_THREE } from './three';
 
-export const CITY_JOBS: readonly JobDoc[] = [JOB_MACHINE2, JOB_FERRY].sort((a, b) => a.order - b.order);
+export const CITY_JOBS: readonly JobDoc[] = [JOB_MACHINE2, JOB_FERRY, JOB_HALF5, JOB_CHIP, JOB_THREE, JOB_DELANEY, JOB_CHANNELS, JOB_TESS, JOB_HEARING, ...SIDE_OKAFOR, ...SIDE_PROFESSOR].sort((a, b) => a.order - b.order);
 
 let byId: Map<string, { line: JobLine; job: JobDoc }> | null = null;
 
@@ -27,10 +37,10 @@ export function jobLineByRef(ref: string): { line: JobLine; job: JobDoc } | unde
   const found = jobLine(id);
   if (!found) return undefined;
   if (found.line.text.includes('{time}') && minute === null) return undefined;
-  return { line: { ...fillLine(found.line, minute), id: ref }, job: found.job };
+  return { line: { ...fillLine(found.line, minute, found.job.clock), id: ref }, job: found.job };
 }
 
 /** Every review ref a job's lines can have (the review layer keeps a card only while its ref is known). */
 export function allJobRefs(): string[] {
-  return CITY_JOBS.flatMap((j) => j.lines.flatMap((l) => templatedRefs(l)));
+  return CITY_JOBS.flatMap((j) => j.lines.flatMap((l) => templatedRefs(l, j.clock)));
 }

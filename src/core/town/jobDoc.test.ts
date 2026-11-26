@@ -22,6 +22,13 @@ describe('conditions', () => {
     expect(evalCond(undefined, s)).toBe(true);
     expect(saidNow(['a', { line: 'b', if: { flag: 'asked' } }, { line: 'c', if: { flag: 'nope' } }], s)).toEqual(['a', 'b']);
   });
+
+  it('read what an earlier job left (past), false without a reader', () => {
+    const s = { ...state({}), past: (ref: string) => ref === 'job-m2:hit:late' };
+    expect(evalCond({ past: 'job-m2:hit:late' }, s)).toBe(true);
+    expect(evalCond({ past: 'job-m2:kemp-asks-again' }, s)).toBe(false);
+    expect(evalCond({ past: 'job-m2:hit:late' }, state({}))).toBe(false);
+  });
 });
 
 const DOC = { consequences: { a: { name: 'A', rejoin: 'x' }, b: { name: 'B', rejoin: 'x' }, c: { name: 'C', rejoin: 'x' }, f: { name: 'F', rejoin: 'x', fatal: true } } };
@@ -93,5 +100,27 @@ describe('a job document, well formed', () => {
     const p = wellFormed(doc, WORLD);
     expect(p).toContain('junction off the road: j');
     expect(p).toContain('j right: a wrong way needs a line, the right one none');
+  });
+
+  it("counts a goto deadline's consequence as used, checks intent answers and overhearing, keys unique across notebooks", () => {
+    const nb = GOOD.steps[0] as Extract<JobDoc['steps'][number], { kind: 'notebook' }>;
+    const doc: JobDoc = {
+      ...GOOD,
+      consequences: { ...GOOD.consequences, late: { name: 'Muộn', rejoin: 'Vẫn tới' }, rude: { name: 'Hỗn', rejoin: 'Bỏ qua' } },
+      steps: [
+        ...GOOD.steps,
+        nb,
+        { kind: 'goto', place: 'gus', label: 'Tới', deadline: { seconds: 60, consequence: 'late', lines: ['l1'] } },
+        { kind: 'intent', who: 'rico', ask: ['l1'], options: [{ label: 'A', say: 'l1', reply: [] }, { label: 'B', say: 'l3', reply: [] }], check: { right: [0, 2], consequence: 'rude', fact: 'x' } },
+        { kind: 'overhear', at: 'gus', who: [], lines: ['l1'], passes: 1 },
+      ],
+    };
+    const p = wellFormed(doc, WORLD);
+    expect(p).not.toContain('consequence never used: late');
+    expect(p).toContain('intent check out of range: rico');
+    expect(p).toContain('overhear without anybody');
+    expect(p).toContain('notebook keys repeat across notebooks');
+    const fixed: JobDoc = { ...doc, steps: doc.steps.filter((s, i) => s !== nb || i === 0).map((s) => (s.kind === 'intent' ? { ...s, check: { ...s.check!, right: [0, 1] } } : s.kind === 'overhear' ? { ...s, who: ['kemp'] } : s)) };
+    expect(wellFormed(fixed, WORLD)).toEqual([]);
   });
 });

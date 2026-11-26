@@ -18,18 +18,34 @@ import { allJobRefs, CITY_JOBS, jobLine, jobLineByRef } from './index';
 
 const wordCount = (s: string): number => s.split(/\s+/).filter((w) => /[a-z]/i.test(w)).length;
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
-const speaker = (who: string) => who === 'player' || !!cityPerson(who) || Object.hasOwn(SCENE_VOICES, who);
+const speaker = (who: string) => who === 'player' || !!cityPerson(who) || Object.hasOwn(SCENE_VOICES, who) || Object.hasOwn(CAST_VOICES, who);
 const WORLD = {
   speaker,
   place: (id: string) => (CITY_PLACE_IDS as readonly string[]).includes(id),
   road: (x: number, y: number) => CITY_ROWS[y]?.[x] === '=',
 };
-const notebookOf = (doc: JobDoc) => doc.steps.find((s): s is Extract<Step, { kind: 'notebook' }> => s.kind === 'notebook')!;
+type Notebook = Extract<Step, { kind: 'notebook' }>;
+const notebooksOf = (doc: JobDoc) => doc.steps.filter((s): s is Notebook => s.kind === 'notebook');
+const entriesOf = (doc: JobDoc) => notebooksOf(doc).flatMap((n) => n.entries);
 
 describe('the jobs', () => {
-  it('are the two drafts, Act I job 1 first, with unique orders', () => {
-    expect(CITY_JOBS.map((j) => j.id)).toEqual(['job-m2', 'job-ferry']);
+  it('Act I in its order, with unique orders; the chain points at jobs that exist, never in a loop', () => {
+    const ids = CITY_JOBS.map((j) => j.id);
+    const act = ['job-m2', 'job-half5', 'job-chip', 'job-three', 'job-delaney'];
+    for (const id of [...act, 'job-ferry']) expect(ids).toContain(id);
+    expect(act.map((a) => ids.indexOf(a))).toEqual(act.map((a) => ids.indexOf(a)).sort((x, y) => x - y));
     expect(new Set(CITY_JOBS.map((j) => j.order)).size).toBe(CITY_JOBS.length);
+    const byId = new Map(CITY_JOBS.map((j) => [j.id, j]));
+    for (const j of CITY_JOBS) {
+      if (j.after) expect(byId.has(j.after), `${j.id} after ${j.after}`).toBe(true);
+      const seen = new Set<string>();
+      for (let k: JobDoc | undefined = j; k?.after; k = byId.get(k.after)) {
+        expect(seen.has(k.id), `${j.id}: the chain loops`).toBe(false);
+        seen.add(k.id);
+      }
+    }
+    expect(['job-half5', 'job-chip', 'job-three', 'job-delaney'].map((j) => byId.get(j)?.after)).toEqual(['job-m2', 'job-half5', 'job-chip', 'job-three']);
+    expect(byId.get('job-ferry')?.side).toBe(true);
   });
 });
 
@@ -38,16 +54,16 @@ describe.each(CITY_JOBS.map((j) => [j.id, j] as const))('job %s', (_, job) => {
     expect(wellFormed(job, WORLD)).toEqual([]);
   });
 
-  it('has its lines under its own prefix; nobody of the town speaks (no clips to generate)', () => {
+  it('has its lines under its own prefix; a town resident speaks only lines that can be clipped (no {time})', () => {
     for (const l of job.lines) {
       expect(l.id.startsWith(`${job.id}-`), l.id).toBe(true);
-      expect(l.who !== 'player' && Object.hasOwn(CAST_VOICES, l.who), `${l.id}: a town resident needs clips`).toBe(false);
+      if (l.who !== 'player' && Object.hasOwn(CAST_VOICES, l.who)) expect(l.text.includes('{time}'), `${l.id}: a resident's line is a clip`).toBe(false);
     }
   });
 
   it('plain spoken English, 3–16 words, decodable, SAPI-safe, with the appointment filled in at its longest', () => {
     for (const raw of job.lines) {
-      const l = fillLine(raw, 23 * 60 + 45);
+      const l = fillLine(raw, 23 * 60 + 45, job.clock);
       expect(l.text, l.id).toBe(l.text.trim());
       expect(l.text, l.id).toMatch(/^[A-Za-z0-9 ,.?!'-]+$/);
       expect(l.text, l.id).toMatch(/[.?!]$/);
@@ -69,9 +85,11 @@ describe.each(CITY_JOBS.map((j) => [j.id, j] as const))('job %s', (_, job) => {
     for (const l of job.lines) expect(taken.has(norm(l.text)), `${l.id}: ${l.text}`).toBe(false);
   });
 
-  it('the notebook: three or four entries, three different ways each, the answer among them, each said in the briefing', () => {
-    const nb = notebookOf(job);
-    expect(nb.entries.length).toBeGreaterThanOrEqual(3);
+  it('each notebook: two to four entries (three or four in all), three different ways each, the answer among them, each said in its briefing', () => {
+    const nbs = notebooksOf(job);
+    expect(entriesOf(job).length).toBeGreaterThanOrEqual(3);
+    for (const nb of nbs) {
+    expect(nb.entries.length).toBeGreaterThanOrEqual(nbs.length > 1 ? 2 : 3);
     expect(nb.entries.length).toBeLessThanOrEqual(4);
     const call = nb.call.map((x) => (typeof x === 'string' ? x : x.line));
     for (const e of nb.entries) {
@@ -84,13 +102,14 @@ describe.each(CITY_JOBS.map((j) => [j.id, j] as const))('job %s', (_, job) => {
       expect(new Set(e.options.map((o) => o.value)).size).toBe(3);
       expect(e.options.map((o) => o.value)).toContain(e.answer);
     }
+    }
   });
 
   it('a pickup or a ride led by an entry leads every one of its values somewhere on the map, the answer to the right place', () => {
-    const nb = notebookOf(job);
+    const entries = entriesOf(job);
     for (const s of job.steps) {
       if ((s.kind === 'pickup' || s.kind === 'ride') && s.entry) {
-        const e = nb.entries.find((x) => x.key === s.entry)!;
+        const e = entries.find((x) => x.key === s.entry)!;
         for (const o of e.options) expect(WORLD.place(s.places![o.value]), `${s.kind} ${o.value}`).toBe(true);
         expect(s.places![e.answer]).toBe(s.place);
       }

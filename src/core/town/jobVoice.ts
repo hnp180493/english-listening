@@ -7,6 +7,8 @@
 import type { SpeakVoice } from '../tts';
 import { cityPerson } from './cityPeople';
 import { SCENE_VOICES } from './sceneTypes';
+import { CAST_VOICES } from './voices';
+import { townPlace } from '../../data/town';
 
 /**
  * The learner's own lines in a job (an answer by intent; docs/gta-story.md §1 "Giọng của người chơi"). `docs/city.md`
@@ -18,6 +20,8 @@ export const PLAYER_VOICE = true;
 
 export function jobVoice(who: string, playerGender: 'male' | 'female' = 'male'): SpeakVoice | null {
   if (who === 'player') return { voice: 'scene-player', gender: playerGender };
+  // a town resident: their own Gemini voice (their clips; the browser's voice of their sex until they are generated)
+  if (who !== 'player' && Object.hasOwn(CAST_VOICES, who)) return CAST_VOICES[who];
   const gender = cityPerson(who)?.gender ?? (Object.hasOwn(SCENE_VOICES, who) ? SCENE_VOICES[who].gender : undefined);
   return gender ? { voice: `scene-${who}`, gender } : null;
 }
@@ -25,5 +29,7 @@ export function jobVoice(who: string, playerGender: 'male' | 'female' = 'male'):
 /** The speaker's name as the panels show it. */
 export function jobSpeakerName(who: string): string {
   if (who === 'player') return 'Bạn';
+  const resident = townPlace(who)?.resident;
+  if (resident) return resident;
   return cityPerson(who)?.name ?? (Object.hasOwn(SCENE_VOICES, who) ? SCENE_VOICES[who].name : who);
 }

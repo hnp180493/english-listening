@@ -9,7 +9,7 @@ import { Icon } from '../../../components/Icon';
 import SpokenSentence from '../../../components/SpokenSentence';
 import { CAREFUL_LABEL } from '../../../core/playback';
 import { clockOf, noteAnswer, type JobLine } from '../../../core/town/job';
-import type { Said, Step } from '../../../core/town/jobDoc';
+import type { Said } from '../../../core/town/jobDoc';
 import { jobSpeakerName } from '../../../core/town/jobVoice';
 import { tl } from '../../../i18n';
 import { Coin, SoundBars } from '../art';
@@ -96,11 +96,12 @@ export default function JobDebrief({ run, say, news, newsNow, lineOf, onAgain, o
     setOnAir('done');
   };
 
-  const notebook = doc.steps.find((s): s is Extract<Step, { kind: 'notebook' }> => s.kind === 'notebook');
+  // every notebook of the job (a job may have several: a briefing, then a call, then another)
+  const entries = doc.steps.flatMap((s) => (s.kind === 'notebook' ? s.entries : []));
   const labelOf = (key: string, value: string | undefined): string => {
     if (value === undefined) return '—';
     if (key === 'time') return clockOf(Number(value));
-    return notebook?.entries.find((e) => e.key === key)?.options.find((o) => o.value === value)?.label ?? value;
+    return entries.find((e) => e.key === key)?.options.find((o) => o.value === value)?.label ?? value;
   };
   const junctions = doc.steps.flatMap((s) => (s.kind === 'ride' ? (s.junctions ?? []) : []));
   const word = doc.facts.find((f) => f.id === 'word');
@@ -141,7 +142,7 @@ export default function JobDebrief({ run, say, news, newsNow, lineOf, onAgain, o
 
         <h3 className="town-ls-sub">Từng ý bạn nghe</h3>
         <ul className="job-notes">
-          {(notebook?.entries ?? []).map((e) => {
+          {entries.map((e) => {
             const value = run.picks[e.key];
             const right = value === noteAnswer(e, run.minute);
             return (
