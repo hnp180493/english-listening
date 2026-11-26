@@ -71,6 +71,8 @@ const PROP_ART: Readonly<Record<string, PlaceArt>> = {
   bus: { wall: C.mustard, roof: C.butter, h: 0.5, roofKind: 'flat' },
   terrace: { wall: C.white, roof: C.coral, h: 0.5, roofKind: 'round' },
   hut: { wall: C.sky, roof: C.teal, h: 0.55, roofKind: 'gable' },
+  // a city's blocks of flats (Westbay): drawn as low grey-roofed blocks, so its streets read as a city on the map
+  block: { wall: C.stone, roof: C.stoneDark, h: 0.9, roofKind: 'flat' },
 };
 
 function boxOf(tiles: readonly { x: number; y: number }[]): { x: number; y: number; w: number; d: number } {
@@ -177,6 +179,7 @@ export function mapScene(state: MapState, world: TownWorld = TOWN_WORLD): MapSce
   const jetties: Pt[][] = [];
   for (const s of world.scenery ?? []) {
     if (s.kind === 'hill' && s.at && s.r) hills.push({ x: s.at.x + 0.5, y: s.at.y + 0.5, r: s.r });
+    else if (s.kind === 'block' && s.tiles.length > 0) blocks.push({ id: `block:${s.tiles[0].x},${s.tiles[0].y}`, corners: footprint(boxOf(s.tiles), 0.12), h: Math.min(1.6, 0.4 + 0.25 * (s.h ?? 3)), art: PROP_ART.block, status: 'prop' });
     else if (s.kind === 'barn' && s.tiles.length > 0) blocks.push({ id: `barn:${s.tiles[0].x},${s.tiles[0].y}`, corners: footprint(boxOf(s.tiles), 0.1), h: PROP_ART.barn.h, art: PROP_ART.barn, status: 'prop' });
     else if (s.kind === 'well') for (const t of s.tiles) dots.push({ x: t.x + 0.5, y: t.y + 0.5, r: 0.3, color: C.stone, rim: C.waterDeep });
     else if (s.kind === 'haybale') for (const t of s.tiles) dots.push({ x: t.x + 0.5, y: t.y + 0.5, r: 0.3, color: C.mustard });

@@ -899,6 +899,7 @@ function taxi(p: Parts, len: number, along: 'x' | 'y'): void {
  */
 export function buildScenery(world: TownWorld): Piece[] {
   const out: Piece[] = [];
+  const blocks = new Map<string, { i: number; x0: number; y0: number; w: number; d: number; h: number; v: number }[]>();
   (world.scenery ?? []).forEach((s, i) => {
     const p = parts();
     const m = p.body;
@@ -1017,13 +1018,16 @@ export function buildScenery(world: TownWorld): Piece[] {
         return;
       }
       case 'block': {
+        // gathered by chunk below: one model for all the blocks of 12 × 12 tiles
         if (s.tiles.length === 0) return;
         const x0 = Math.min(...s.tiles.map((t) => t.x));
         const y0 = Math.min(...s.tiles.map((t) => t.y));
         const w = Math.max(...s.tiles.map((t) => t.x)) - x0 + 1;
         const d = Math.max(...s.tiles.map((t) => t.y)) - y0 + 1;
-        const top = cityBlock(p, w, d, Math.max(1, s.h ?? 3), s.v ?? 0, i);
-        out.push({ ...piece('', i, { x: x0 + w / 2, z: y0 + d / 2 }, p, top), hx: w / 2 - BLOCK_INSET, hz: d / 2 - BLOCK_INSET });
+        const key = `${Math.floor((x0 + w / 2) / BLOCK_CHUNK)},${Math.floor((y0 + d / 2) / BLOCK_CHUNK)}`;
+        const list = blocks.get(key) ?? [];
+        list.push({ i, x0, y0, w, d, h: Math.max(1, s.h ?? 3), v: s.v ?? 0 });
+        blocks.set(key, list);
         return;
       }
       case 'taxi': {
@@ -1046,5 +1050,27 @@ export function buildScenery(world: TownWorld): Piece[] {
         return;
     }
   });
+  // the blocks of flats, one model per chunk (Westbay has over a hundred: one each was hundreds of meshes for three.js
+  // to walk through every frame)
+  for (const list of blocks.values()) {
+    const p = parts();
+    const bx0 = Math.min(...list.map((b) => b.x0));
+    const by0 = Math.min(...list.map((b) => b.y0));
+    const bx1 = Math.max(...list.map((b) => b.x0 + b.w));
+    const by1 = Math.max(...list.map((b) => b.y0 + b.d));
+    const cx = (bx0 + bx1) / 2;
+    const cz = (by0 + by1) / 2;
+    let top = 0;
+    for (const b of list) {
+      const m = new Matrix4().makeTranslation(b.x0 + b.w / 2 - cx, 0, b.y0 + b.d / 2 - cz);
+      p.body.base = p.glass.base = p.bulbs.base = m;
+      top = Math.max(top, cityBlock(p, b.w, b.d, b.h, b.v, b.i));
+    }
+    p.body.base = p.glass.base = p.bulbs.base = null;
+    out.push({ ...piece('', list[0].i, { x: cx, z: cz }, p, top), hx: (bx1 - bx0) / 2 - BLOCK_INSET, hz: (by1 - by0) / 2 - BLOCK_INSET });
+  }
   return out;
 }
+
+/** Blocks of flats are merged by chunks of this many tiles a side (buildScenery). */
+const BLOCK_CHUNK = 12;

@@ -215,7 +215,7 @@ Written into the scenes of `src/data/city/` and `src/data/scenes/rides.ts`; late
 
 ## 7. The later districts (the office district, the university and the hospital, the harbour)
 
-Opened after the first three (`data/cityWorld.ts`: the city is 72 × 72 now). Six more main people with three episodes
+Opened after the first three (`data/cityWorld.ts`: laid out at 72 × 72, stretched to 96 × 96 since 2026-11-26). Six more main people with three episodes
 each, thirteen more people known with two short talks each. The same rules: every one is tied to a town resident by
 something the town's lines already said, episode 2 of a main person brings that resident up in their own voice.
 

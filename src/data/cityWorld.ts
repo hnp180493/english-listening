@@ -21,9 +21,11 @@
 // The people (core/town/cityPeople.ts) live here as "places" (one person per place, as in the town): the main people
 // with a building of their own and a story, the people known with a stall, a booth or just a pitch on the pavement.
 
+import { axisMap, stretchWorld, type Cut } from './stretchWorld';
 import type { ActivitySpot, DecorationId, DecorSpot, PlaceId, Seat, ThingId, Tile, TownWorld, WorldDistrict, WorldLife, WorldPlace, WorldProp, WorldScenery } from './townWorld';
 
-export const CITY_SIZE = 72;
+/** The map as first laid out (every coordinate below); RAW_WORLD is it stretched (CITY_CUTS_X / _Y). */
+const RAW_SIZE = 72;
 
 /** The people of Westbay, by the id of their place: the first eighteen (three districts), then the later districts'. */
 export const CITY_PLACE_IDS = [
@@ -42,7 +44,7 @@ const T = (x: number, y: number): Tile => ({ x, y });
 
 /** '.' grass, '=' street, 'o' paved square, ':' sand, '~' water, 'T' / 't' a tree, 'p' a palm on the sand, 'F' the fountain. */
 function buildRows(): string[] {
-  const S = CITY_SIZE;
+  const S = RAW_SIZE;
   const g: string[][] = Array.from({ length: S }, () => Array.from({ length: S }, () => '.'));
   const fill = (x0: number, y0: number, x1: number, y1: number, ch: string) => {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (x >= 0 && y >= 0 && x < S && y < S) g[y][x] = ch;
@@ -102,7 +104,7 @@ function buildRows(): string[] {
   return g.map((r) => r.join(''));
 }
 
-export const CITY_ROWS: readonly string[] = buildRows();
+const RAW_ROWS: readonly string[] = buildRows();
 
 // ───────────────────────── the places ─────────────────────────
 
@@ -121,7 +123,7 @@ const place = (id: CityPlaceId, name: string, resident: string, at: [number, num
 });
 
 /** Names repeat core/town/cityPeople.ts (the ids are the contract between the two files). */
-export const CITY_PLACES: readonly WorldPlace[] = [
+const RAW_PLACES: readonly WorldPlace[] = [
   // Ga & bến xe
   place('okafor', 'Ga trung tâm', 'Mrs Okafor', [4, 14, 7, 5], [7, 19], [8, 19]),
   place('pete', 'Phòng đồ thất lạc', 'Pete', [11, 17, 2, 2], [11, 19], [12, 19]),
@@ -193,7 +195,7 @@ const BENCHES: readonly WorldProp[] = [
   bench(51, 57, 's'),
 ];
 
-export const CITY_PROPS: readonly WorldProp[] = [
+const RAW_PROPS: readonly WorldProp[] = [
   // bus no. 9 waits in the bus bay (drawn when the state's `built` has 'station': the city always passes it)
   { kind: 'bus', tiles: [T(5, 29), T(6, 29)] },
   // the departures board on the plaza, in front of the station
@@ -241,7 +243,7 @@ const area = (x: number, y: number, w: number, d: number): Tile[] => {
 /** A block of flats or offices on these tiles, `h` storeys, in look `v` (three/scene/props3d.ts buildScenery 'block'). */
 const block = (x: number, y: number, w: number, d: number, h: number, v: number): WorldScenery => ({ kind: 'block', tiles: area(x, y, w, d), h, v });
 
-export const CITY_SCENERY: readonly WorldScenery[] = [
+const RAW_SCENERY: readonly WorldScenery[] = [
   // the skyline along the north edge, behind Market Street
   block(17, 3, 4, 4, 5, 0),
   block(23, 1, 5, 5, 7, 1),
@@ -291,7 +293,7 @@ const benchFront = (p: WorldProp): Tile => {
 };
 
 /** The city's things: the bus back to the town, Gianna's radio, every bench. */
-export const CITY_THINGS: Readonly<Record<ThingId, ActivitySpot>> = (() => {
+const RAW_THINGS: Readonly<Record<ThingId, ActivitySpot>> = (() => {
   const out: Record<ThingId, ActivitySpot> = {};
   BENCHES.forEach((p, n) => {
     const at = p.tiles[0];
@@ -317,7 +319,7 @@ const SEATS: readonly Seat[] = BENCHES.flatMap((p): Seat[] => {
   return [0.33, 0.67].map((k) => ({ x: at.x + k, y: at.y + 0.5, oct: SW, from }));
 });
 
-export const CITY_LIFE: WorldLife = {
+const RAW_LIFE: WorldLife = {
   seats: SEATS,
   chats: [
     [T(7, 22), T(8, 21)],
@@ -361,7 +363,7 @@ const loose = (x: number, y: number): DecorSpot => ({ x, y, solid: false });
  * The town's decorations are bought; the city's are simply there (CITY_DECOR_ON is what the page passes as bought):
  * street lamps along every street, flower beds, the fountain of the market square, strings of lights over it, flags.
  */
-export const CITY_DECORATIONS: Readonly<Record<DecorationId, readonly DecorSpot[]>> = {
+const RAW_DECORATIONS: Readonly<Record<DecorationId, readonly DecorSpot[]>> = {
   lamps1: [
     lamp(16, 23, 'right'), lamp(24, 23, 'right'), lamp(33, 23, 'right'), lamp(41, 23, 'right'), lamp(2, 23, 'right'), lamp(12, 31, 'left'),
     lamp(49, 23, 'right'), lamp(56, 22, 'right'), lamp(44, 53, 'right'), lamp(56, 53, 'right'), lamp(51, 65, 'right'), lamp(63, 65, 'right'),
@@ -386,7 +388,7 @@ export const CITY_DECORATIONS: Readonly<Record<DecorationId, readonly DecorSpot[
 export const CITY_DECOR_ON: readonly DecorationId[] = ['lamps1', 'lamps2', 'flowers', 'blossom', 'lights', 'stall', 'fountain', 'balloons', 'flags', 'cat'];
 
 /** The six districts and the seafront: the map's labels, and "đang ở …" on a person's card. */
-export const CITY_DISTRICTS: readonly WorldDistrict[] = [
+const RAW_DISTRICTS: readonly WorldDistrict[] = [
   { id: 'w-station', name: 'Ga & bến xe', x: 0, y: 0, w: 14, d: 31, arrive: T(6, 27) },
   { id: 'w-market', name: 'Chợ cũ', x: 14, y: 0, w: 30, d: 24, arrive: T(30, 20) },
   { id: 'w-arts', name: 'Phố nghệ thuật', x: 14, y: 26, w: 30, d: 14, arrive: T(27, 37) },
@@ -397,33 +399,33 @@ export const CITY_DISTRICTS: readonly WorldDistrict[] = [
 ];
 
 /** Where the bus puts the player down. */
-export const CITY_ARRIVE: Tile = T(6, 27);
+const RAW_ARRIVE: Tile = T(6, 27);
 
-export const CITY_WORLD: TownWorld = {
-  size: CITY_SIZE,
-  rows: CITY_ROWS,
-  places: CITY_PLACES,
-  props: CITY_PROPS,
-  decorations: CITY_DECORATIONS,
+const RAW_WORLD: TownWorld = {
+  size: RAW_SIZE,
+  rows: RAW_ROWS,
+  places: RAW_PLACES,
+  props: RAW_PROPS,
+  decorations: RAW_DECORATIONS,
   // the town's own activities (the pier, the farm…) have no spot here: only the things
-  activities: CITY_THINGS as TownWorld['activities'],
-  life: CITY_LIFE,
-  scenery: CITY_SCENERY,
-  districts: CITY_DISTRICTS,
+  activities: RAW_THINGS as TownWorld['activities'],
+  life: RAW_LIFE,
+  scenery: RAW_SCENERY,
+  districts: RAW_DISTRICTS,
   coast: true,
   // the roads out (owner, 2026-11-25: "bị bao quanh bởi núi và biển, đường đâu mà xe bus chạy"): Station Avenue runs on
   // west through a cutting in the range (the way to the town: the no. 9's road), Station Road, Bay Road and College
   // Road north
   range: { north: [15, 43, 55], west: [25], falls: false, roads: true },
   plaza: { x: 30.5, y: 17.5, r: 3.4 },
-  start: CITY_ARRIVE,
+  start: RAW_ARRIVE,
 };
 
 /**
  * Where a town resident who is up in the city stands about (by their place id in the town), and the door they step
  * out of sight through: near whoever they came to see (docs/city.md §4).
  */
-export const CITY_VISIT_SPOTS: Readonly<Record<string, { spot: Tile; door: Tile }>> = {
+const RAW_VISIT_SPOTS: Readonly<Record<string, { spot: Tile; door: Tile }>> = {
   station: { spot: T(8, 28), door: T(7, 19) }, // Sam, by the no. 9
   office: { spot: T(6, 22), door: T(7, 19) }, // Sarah, off the train to head office
   home: { spot: T(12, 21), door: T(11, 19) }, // Grace, by the lost property office
@@ -438,6 +440,106 @@ export const CITY_VISIT_SPOTS: Readonly<Record<string, { spot: Tile; door: Tile 
   school: { spot: T(35, 37), door: T(34, 36) }, // Daniel, at the bookshop
   board: { spot: T(40, 37), door: T(39, 36) }, // Tom, at Bay FM
 };
+
+// ───────────────────────── stretched: a city, not a village ─────────────────────────
+
+/**
+ * Where the first layout is stretched (data/stretchWorld.ts; owner, 2026-11-26: "thành phố quái gì mà bé như lỗ mũi
+ * vậy? mật độ dân số quá đông không hợp lí"): land put in between the blocks, every house the same size, streets
+ * running on. 72 × 72 becomes 96 × 96 (1.78 × the ground for the same people).
+ */
+export const CITY_CUTS_X: readonly Cut[] = [
+  { at: 2, by: 4 }, // west of the station
+  { at: 16, by: 6 }, // between Station Road and the market
+  { at: 41, by: 5 }, // the market's east end
+  { at: 44, by: 4 }, // the office park's west side
+  { at: 64, by: 5 }, // East Road's side
+];
+export const CITY_CUTS_Y: readonly Cut[] = [
+  { at: 4, by: 3 }, // the skyline behind Market Street
+  { at: 14, by: 3 }, // the market square
+  { at: 32, by: 7 }, // between the avenue and Arts Street
+  { at: 39, by: 4 }, // between Arts Street and the promenade
+  { at: 46, by: 4 }, // the bay, the peninsula
+  { at: 50, by: 3 }, // the peninsula
+];
+
+const mapX = axisMap(CITY_CUTS_X);
+const mapY = axisMap(CITY_CUTS_Y);
+const STRETCHED = stretchWorld(RAW_WORLD, CITY_CUTS_X, CITY_CUTS_Y);
+
+/**
+ * Low blocks of flats and shops on the open ground the stretch made, so it reads as a city and not as lawns: only on
+ * bare grass, one tile clear of every street, square, house, door, seat, prop and spot people use (a walk is never
+ * shut off), two or three storeys (a tall one south of a street would hide it), one tile apart. Deterministic.
+ */
+function fillers(w: TownWorld): WorldScenery[] {
+  const S = w.size;
+  const used = new Set<number>();
+  const key = (x: number, y: number) => y * S + x;
+  const mark = (x: number, y: number) => {
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) used.add(key(x + i, y + j));
+  };
+  for (const p of [...w.places, ...(w.guests ?? [])]) {
+    for (let y = p.y; y < p.y + Math.max(1, p.d); y++) for (let x = p.x; x < p.x + Math.max(1, p.w); x++) mark(x, y);
+    mark(p.door.x, p.door.y);
+    mark(p.spot.x, p.spot.y);
+  }
+  for (const v of Object.values(RAW_VISIT_SPOTS)) {
+    mark(mapX(v.spot.x), mapY(v.spot.y));
+    mark(mapX(v.door.x), mapY(v.door.y));
+  }
+  for (const p of w.props) for (const t of p.tiles) mark(t.x, t.y);
+  for (const s of w.scenery ?? []) {
+    for (const t of s.tiles) mark(t.x, t.y);
+    if (s.at) mark(Math.floor(s.at.x), Math.floor(s.at.y));
+  }
+  for (const list of Object.values(w.decorations)) for (const d of list) mark(Math.floor(d.x), Math.floor(d.y));
+  for (const a of Object.values(w.activities ?? {})) mark(a.stand.x, a.stand.y);
+  const L = w.life;
+  if (L) {
+    for (const s of L.seats) mark(s.from.x, s.from.y);
+    for (const c of L.chats) for (const t of c) mark(t.x, t.y);
+    for (const s of [...L.tend, ...L.fish, ...L.read, ...L.shop]) mark(s.at.x, s.at.y);
+    for (const t of [...L.jog, ...L.ends, ...L.via, L.inn.door, ...L.inn.yard]) mark(t.x, t.y);
+  }
+  for (const d of w.districts ?? []) mark(d.arrive.x, d.arrive.y);
+  mark(w.start.x, w.start.y);
+  // bare grass with grass all round it (a street, a square, sand or a tree next to it keeps it open)
+  const open = (x: number, y: number): boolean => {
+    if (x < 1 || y < 1 || x >= S - 1 || y >= S - 1 || used.has(key(x, y))) return false;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (w.rows[y + j][x + i] !== '.') return false;
+    return true;
+  };
+  const out: WorldScenery[] = [];
+  let n = 0;
+  for (let y = 1; y < S - 1; y++) {
+    for (let x = 1; x < S - 1; x++) {
+      // the biggest of a few sizes that fits here
+      const size = ([[4, 3], [3, 3], [3, 2], [2, 2]] as const).find(([bw, bd]) => {
+        for (let j = 0; j < bd; j++) for (let i = 0; i < bw; i++) if (!open(x + i, y + j)) return false;
+        return true;
+      });
+      if (!size) continue;
+      const [bw, bd] = size;
+      out.push(block(x, y, bw, bd, 2 + (n % 2), n % 4));
+      n++;
+      // one tile clear round it for the next
+      for (let j = -1; j <= bd; j++) for (let i = -1; i <= bw; i++) used.add(key(x + i, y + j));
+    }
+  }
+  return out;
+}
+
+export const CITY_WORLD: TownWorld = { ...STRETCHED, scenery: [...(STRETCHED.scenery ?? []), ...fillers(STRETCHED)] };
+export const CITY_SIZE = CITY_WORLD.size;
+export const CITY_ROWS: readonly string[] = CITY_WORLD.rows;
+export const CITY_PLACES: readonly WorldPlace[] = CITY_WORLD.places;
+export const CITY_ARRIVE: Tile = CITY_WORLD.start;
+const at = (t: Tile): Tile => ({ x: mapX(t.x), y: mapY(t.y) });
+export const CITY_VISIT_SPOTS: Readonly<Record<string, { spot: Tile; door: Tile }>> = Object.fromEntries(
+  Object.entries(RAW_VISIT_SPOTS).map(([id, v]) => [id, { spot: at(v.spot), door: at(v.door) }]),
+);
 
 const WITH = new Map<string, TownWorld>();
 

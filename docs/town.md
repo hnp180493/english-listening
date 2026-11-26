@@ -2577,7 +2577,13 @@ The owner, after §20 was pushed and he was told what was still missing of the p
 This is the rest of docs/city-proposal.md (its steps 2 to 4). The canon of everybody and every story is
 `docs/city.md` (§7 the later districts, §8 the six long stories, §9 the week and the festivals).
 
-**The map** (`data/cityWorld.ts`): 72 × 72 now; the first three districts keep their coordinates. New: **Khu văn
+**The map** (`data/cityWorld.ts`): laid out at 72 × 72 (every coordinate in the file), then **stretched to 96 × 96**
+(2026-11-26, owner: "thành phố quái gì mà bé như lỗ mũi vậy? mật độ dân số quá đông không hợp lí"): `CITY_CUTS_X` /
+`_Y` put land in between the blocks (`data/stretchWorld.ts`: a house, its door and spot never split, a street runs on,
+a block of flats across a cut grows), 1.78 × the ground for the same people; the new ground gets low blocks of flats
+(`fillers`: bare grass only, one tile clear of every street, square, house, door, seat and spot, two or three storeys),
+merged by 12 × 12 chunks in 3D (`buildScenery`) and drawn on the full map (`drawMap` 'block'). The first three
+districts were laid out first. New: **Khu văn
 phòng** (north-east: Meridian's head office, the Loom design studio, FreshWay's office), **Đại học & bệnh viện**
 (east: Westbay Hospital on the avenue, the phonetics lab, the library and the pharmacy on Arts Street's east end, a
 campus quad), **Bến cảng** (the peninsula in the south-east: the electronics market, the Bay FM stage, the big wheel,
