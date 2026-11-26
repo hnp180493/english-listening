@@ -9,6 +9,9 @@ import { wordIndex, type WordSource } from '../../core/review/words';
 import { speakerName } from '../../core/town/episodes';
 import type { StorySpeaker } from '../../core/town/story';
 import { storyLineById } from '../../core/town/storyLines';
+import { jobLineByRef } from '../../data/city/jobs';
+import { jobVoice, jobSpeakerName } from '../../core/town/jobVoice';
+import type { SpeakVoice } from '../../core/tts';
 import type { Chunk, Sentence } from '../../core/types';
 import { CHUNKS } from '../../data/chunks';
 import { LESSONS, type Lesson } from '../../data/lessons';
@@ -34,7 +37,7 @@ export type Resolved =
   | { kind: 'chunk'; id: CardId; ref: string; chunk: Chunk }
   | { kind: 'word'; id: CardId; ref: string; source: WordSource }
   /** A line of "Chuyện ở thị trấn" missed in town: a dictation of it, said in its speaker's voice. */
-  | { kind: 'talk'; id: CardId; ref: string; sentence: Sentence; who: StorySpeaker; placeId: string; speaker: string; episodeTitle: string; episodeOrder: number };
+  | { kind: 'talk'; id: CardId; ref: string; sentence: Sentence; who: StorySpeaker; placeId: string; speaker: string; episodeTitle: string; episodeOrder: number; job?: SpeakVoice };
 
 export interface ResolveSources {
   customs: readonly CustomSentence[];
@@ -115,6 +118,13 @@ export function createResolver(src: ResolveSources): Resolver {
         return source ? { kind, id, ref, source } : null;
       }
       case 'talk': {
+        // a line of a Westbay job (data/city/jobs): its speaker in the browser's voice, as in the city
+        const job = jobLineByRef(ref);
+        if (job) {
+          const voice = jobVoice(job.line.who);
+          if (!voice) return null;
+          return { kind, id, ref, sentence: talkSentence(id, job.line, job.job), who: job.line.who, placeId: 'westbay', speaker: jobSpeakerName(job.line.who), episodeTitle: job.job.title, episodeOrder: 0, job: voice };
+        }
         const found = storyLineById(ref);
         if (!found || !found.line.text.trim()) return null;
         const { line, episode } = found;

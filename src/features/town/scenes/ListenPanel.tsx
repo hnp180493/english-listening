@@ -6,8 +6,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
+import { isLiveId } from '../../../core/town/radio';
+import { radioHeard, radioScene } from '../../../core/town/radioStore';
 import { sceneLinePlayback } from '../../../core/town/sceneAudio';
 import type { ListenScene, SceneLine } from '../../../core/town/sceneTypes';
+import { clockLabel, SKY_NAME } from '../../../core/town/sky';
 import { loadTownProgress } from '../../../core/town/store';
 import { eventScene, overheardAt, radioNow, rideNow, SCENE_PAID_A_DAY, TOWN_EVENTS } from '../../../core/town/world';
 import { finishScene, scenesHeard, townToday } from '../../../core/town/worldStore';
@@ -17,9 +20,10 @@ import { RIDE_SCENES } from '../../../data/scenes/rides';
 import { benchNumber, thingKind, type PlaceId } from '../../../data/townWorld';
 import type { ActivityPanelProps } from '../activities/types';
 import { Portrait } from '../art';
-import { tl } from '../../../i18n';
+import { tl, tr } from '../../../i18n';
 import SceneFlow, { type FaceLook, type FlowEnd, type FlowResult } from './SceneFlow';
 import { speakerHasFace, speakerName } from './speakers';
+import { CAR_RADIO } from './things';
 
 export interface ListenPanelProps extends ActivityPanelProps {
   /** Where the panel is open: the town (the default) or Westbay. The bus goes to the other one. */
@@ -40,9 +44,10 @@ function pickScene(at: string | null | undefined, now: number, where: 'town' | '
     return { scene: ev ? eventScene(EVENT_SCENES, ev.id, today.day) : null, host: ev?.host ?? null };
   }
   const kind = at ? thingKind(at) : null;
-  if (kind === 'radio') {
-    const turn = scenesHeard(progress, today.day).filter((id) => id.startsWith('fm-')).length;
-    return { scene: radioNow(RADIO_SCENES, today.day, today.weekday, today.weather, turn, recent), host: null };
+  // the radio (the café's, or a vehicle's): Bay FM's bulletin of the moment, taking turns with the written segments
+  if (kind === 'radio' || at === CAR_RADIO) {
+    const turn = scenesHeard(progress, today.day).filter((id) => id.startsWith('fm-') && !isLiveId(id)).length;
+    return { scene: radioScene(now, at === CAR_RADIO ? 'car' : 'cafe', () => radioNow(RADIO_SCENES, today.day, today.weekday, today.weather, turn, recent)), host: null };
   }
   if (kind === 'bus') return { scene: rideNow(RIDE_SCENES, where === 'city' ? 'town' : 'city', today.day, recent), host: null };
   if (kind === 'bench' && at) return { scene: overheardAt(overheard, Math.max(0, benchNumber(at)), today.day, recent), host: null };
@@ -94,7 +99,7 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
   }, []);
   // at a bench or the radio: the player sits down, and the people who are overheard come and talk nearby
   useEffect(() => {
-    if (!scene || host || ride) return;
+    if (!scene || host || ride || focus === CAR_RADIO) return;
     onListen?.([...new Set(scene.lines.map((l) => l.who))].filter(speakerHasFace));
     return () => onListen?.(null);
     // once, for the scene this panel opened with
@@ -111,6 +116,9 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
       const notes: string[] = [];
       if (e.capped) notes.push(tl`Hôm nay đã tính đủ ${SCENE_PAID_A_DAY[scene.kind]} lượt có xu ở đây; nghe thêm vẫn tốt cho tai.`);
       if (e.bond > 0 && host) notes.push(tl`${speakerName(host)} quý bạn hơn: thân thiết +${e.bond}`);
+      // a bulletin's forecast is true of the world: say when to look (the clock in the corner)
+      const next = radioHeard(scene.id);
+      if (next) notes.push(tl`Bay FM báo cho ${clockLabel(next.at)}: ${tr(SKY_NAME[next.sky])}.`);
       return { xu: e.xu, notes };
     },
     [scene, host, onReward],

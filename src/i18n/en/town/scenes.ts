@@ -159,6 +159,9 @@ const scenes: Record<string, string> = {
   'Bạn ngồi trên xe số 9 về thị trấn, tối Chủ nhật. Hai người hàng xóm tình cờ ngồi cạnh nhau.': 'You are on the no. 9 bus back to town, Sunday evening. Two neighbours happen to sit next to each other.',
   'Túi đồ chiếm ghế': 'A bag taking up a seat',
   'Bạn ngồi trên xe số 9 về thị trấn, buổi trưa. Một ông lớn tuổi ôm túi to, một cô gái đứng tìm chỗ ngồi.': 'You are on the no. 9 bus back to town at midday. An older man holds a big bag while a young woman stands looking for a seat.',
+  'Bản tin Bay FM lúc này': 'Bay FM right now',
+  'Radio đang mở Bay FM, Marcus vừa lên sóng.': 'The radio\'s on Bay FM, and Marcus has just come on air.',
+  'Bạn bật radio trên xe, Bay FM đang phát.': 'You switch on the radio in the vehicle; Bay FM is playing.',
 };
 
 export default scenes;

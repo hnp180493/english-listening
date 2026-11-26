@@ -40,7 +40,8 @@ import { usePanelKeys } from '../panelKeys';
 import { usePlayerOnStage } from '../playerStage';
 import MiniMap from '../map/MiniMap';
 import ListenPanel from '../scenes/ListenPanel';
-import { listenTitle, thingPrompt } from '../scenes/things';
+import { CAR_RADIO, listenTitle, thingPrompt } from '../scenes/things';
+import CarRadio from '../scenes/CarRadio';
 import { playSfx } from '../sfx';
 import { narrowStage, useFullStage, useStageInsets, useTownTheme } from '../stageShell';
 import TownStage3D from '../three/TownStage3D';
@@ -54,6 +55,8 @@ import { cityQuests, followed, taxiQuest, type Quest } from '../quests';
 import { arriveTaxi, dropTaxi, useTaxiRide } from '../../../core/town/taxiStore';
 import { TAXI_ARRIVE } from '../../../core/town/taxi';
 import { taxiPlaceName } from './taxiPlace';
+import { useCityJob } from '../jobs/useCityJob';
+import { CITY_JOBS } from '../../../data/city/jobs';
 import './cityLooks';
 import './cityPlaces3d';
 import '../town.css';
@@ -249,7 +252,7 @@ export default function CityPage() {
 
   const openThing = useCallback(
     (id: ActivitySpotId) => {
-      if (sheet || !thingKind(id)) return;
+      if (sheet || (!thingKind(id) && (id as string) !== CAR_RADIO)) return;
       setWelcome(false);
       setSheet({ kind: 'thing', key: ++keys.current, id });
     },
@@ -366,6 +369,17 @@ export default function CityPage() {
       }),
     [suggested, chapters, guests, scenes, city, now, eventsToday, shiftAt],
   );
+  // a job ("phi vụ", ../jobs; docs/gta-plan.md M0): Rico rings once he has been met (at once in the admin sandbox); under
+  // way, it is THE quest and it takes the one button and the clicks on people
+  const job = useCityJob({
+    job: CITY_JOBS[0],
+    stage,
+    available: !flat && ready && (ADMIN || Object.hasOwn(city.heard, 'ct-rico-1')),
+    free: ready && !sheet && !map && !welcome,
+    nearId: near?.kind === 'resident' ? near.placeId : null,
+    sound: ui.sound,
+    onReward,
+  });
   // Rico's taxi (core/town/taxi.ts): a passenger in the car is THE quest until set down; the job is there for whoever met him
   const taxiRide = useTaxiRide();
   const ridingTo = taxiRide?.state === 'riding' ? taxiRide.fare.to : null;
@@ -375,10 +389,15 @@ export default function CityPage() {
     [ridingTo, taxiOpen, quests],
   );
   const riding = !!ridingTo;
-  const quest = riding ? allQuests[0] : followed(allQuests, questPick);
+  const questList = useMemo(() => (job.quest ? [job.quest, ...allQuests] : allQuests), [job.quest, allQuests]);
+  const quest = job.active ? job.quest : riding ? allQuests[0] : followed(questList, questPick);
   // a main story chapter to get to in time (data/city/seasonsMain.ts `rush`): the clock starts when it is taken on
   const [rush, setRush] = useState<{ id: string; until: number } | null>(null);
   const goQuest = (q: Quest) => {
+    if (q.id.startsWith('job:')) {
+      job.start();
+      return;
+    }
     setQuestPick(q.id);
     const clock = q.rush ? (rush?.id === q.id ? rush : { id: q.id, until: Date.now() + q.rush * 1000 }) : null;
     if (clock && clock !== rush) setRush(clock);
@@ -446,7 +465,7 @@ export default function CityPage() {
   const nearId = near?.kind === 'resident' ? near.placeId : null;
   const nearNow = nearId ? sceneNow(scenes, nearId, city, now) : null;
   const nearThing = near?.kind === 'activity' ? near.id : null;
-  const prompt = nearThing
+  const pagePrompt = nearThing
     ? { icon: thingKind(nearThing) === 'bus' ? BusFront : Ear, text: thingKind(nearThing) === 'bus' ? 'Lên xe số 9 về thị trấn' : (thingPrompt(nearThing) ?? ''), run: () => openThing(nearThing) }
     : nearId && nearNow
       ? chapterAt(nearId)
@@ -459,6 +478,7 @@ export default function CityPage() {
         : suggested
           ? { icon: Footprints, text: tl`Tới gặp ${nameOf(suggested.at)}`, run: () => void stage.current?.walkTo(suggested.at as PlaceId, () => startScene(suggested.at)) }
           : null;
+  const prompt = job.prompt ?? (job.active ? null : pagePrompt);
   // beside a host with the partner along: today's outing there, once a day
   const dayNumber = Number(today.day.replaceAll('-', ''));
   const outingHere = nearId && partner && came.has(partner) && cityPerson(nearId) ? outingToday(CITY_OUTINGS, nearId, !!kid, dayNumber) : null;
@@ -514,20 +534,22 @@ export default function CityPage() {
         world={world}
         ref={stage}
         state={state}
-        onTalk={(id) => startScene(id)}
+        onTalk={(id) => {
+          if (!job.talk(id)) startScene(id);
+        }}
         onTalkCancel={closeSheet}
         onNear={setNear}
         onIdleAct={onIdleAct}
         onActivity={openThing}
         onReady={() => setReady(true)}
         onFail={() => setFlat(true)}
-        speaking={speaking}
+        speaking={job.speaking ?? speaking}
         inset={insets.panel}
         safe={insets.safe}
         hint={!sheet && suggested ? (suggested.at as PlaceId) : null}
         guide={!sheet ? (quest?.target ?? null) : null}
         full={full.full}
-        paused={!ready || !!sheet || !!map}
+        paused={!ready || !!sheet || !!map || job.sheet}
         className={[sceneUp ? 'is-talking' : shownSheet ? 'is-building' : '', full.full ? 'is-full' : ''].filter(Boolean).join(' ') || undefined}
         label={flat ? 'Westbay' : 'Thành phố Westbay nhìn từ trên cao. Dùng danh sách nút ngay sau đây để tới gặp từng người.'}
         loading="Đang dựng thành phố…"
@@ -578,8 +600,9 @@ export default function CityPage() {
           </ul>
         )}
 
-        {!flat && ready && !sheet && !welcome && !map && <QuestTracker quests={allQuests} current={quest} stage={stage} onPick={goQuest} deadline={riding ? (taxiRide?.until ?? null) : rush && rush.id === quest?.id ? rush.until : null} />}
+        {!flat && ready && !sheet && !welcome && !map && <QuestTracker quests={questList} current={quest} stage={stage} onPick={goQuest} deadline={job.active ? job.deadline : riding ? (taxiRide?.until ?? null) : rush && rush.id === quest?.id ? rush.until : null} />}
         {!flat && ready && !sheet && !welcome && !map && <RideButton stage={stage} />}
+        {!flat && ready && !sheet && !welcome && !map && <CarRadio stage={stage} onOpen={() => openThing(CAR_RADIO as ActivitySpotId)} />}
         <div className="town-hud">
           <div className="town-level is-new" role="img" aria-label={tl`Westbay, ${weekday}`}>
             <span className="town-level-title">
@@ -674,6 +697,8 @@ export default function CityPage() {
             )}
           </div>
         )}
+
+        {!flat && job.node}
 
         <p className="town-toast" role="status">
           {toast && !sheet ? <span className="town-toast-box">{toast}</span> : null}

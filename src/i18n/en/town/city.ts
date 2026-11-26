@@ -935,6 +935,19 @@ const city: Record<string, string> = {
   'Bạn chọn {}. Nghe lại khách nói:': 'You picked {0}. Hear what they said again:',
   'Nghỉ thôi': 'Take a break',
   'Khách tiếp': 'Next passenger',
+  'Cuộn băng của Gus': 'Gus\'s tape',
+  'Bayline nghe lén bộ đàm của Rico để cướp khách. Rico gọi điện cho bạn thay vì nói qua bộ đàm.': 'Bayline listens in on Rico\'s radio to steal his fares. So Rico phones you instead of using the radio.',
+  'Đón ở đâu': 'Pickup',
+  'Trước xưởng thiết kế Loom': 'Outside the Loom design studio',
+  'Trước rạp Lumen': 'Outside the Lumen cinema',
+  'Ở bến phà': 'At the ferry',
+  'Mấy giờ': 'Time',
+  'Nhận ra khách thế nào': 'How to spot him',
+  'Tóc bạc, đeo kính, com-lê xám': 'Grey hair, glasses, grey suit',
+  'Tóc bạc, đeo kính, áo len xanh lá': 'Grey hair, glasses, green cardigan',
+  'Tóc vàng, áo khoác xanh lá, thắt cà vạt': 'Fair hair, green jacket, a tie',
+  'Tránh đường nào': 'Street to avoid',
+  'Station Avenue (đại lộ)': 'Station Avenue',
 };
 
 export default city;

@@ -79,11 +79,14 @@ export function usePlayer(
     onListen?: (kind: ListenKind) => void;
     /** Who says the sentence (Ôn tập of a town episode line: its speaker); omitted = the app's voice. */
     voice?: SpeakVoice | null;
+    /** Never the paid AI voice (Ôn tập of a line of a Westbay job: the city's people speak in the browser's voice). */
+    browserOnly?: boolean;
   },
 ): Player {
   const settings = useSettings();
   const { connected, careful, level } = audio;
   const voice = opts.voice;
+  const browserOnly = !!opts.browserOnly;
   const canSpeak = ttsSupported();
   const [playing, setPlaying] = useState<PlayMode | null>(null);
   const [chunkPos, setChunkPos] = useState(-1);
@@ -142,7 +145,7 @@ export function usePlayer(
           }
         } else {
           const p = playbackFor(mode, { connected, careful, level }, rateRef.current);
-          await speak(p.text, { rate: p.rate, owner, mode: p.mode, slow: p.slow, auto, voice });
+          await speak(p.text, { rate: p.rate, owner, mode: p.mode, slow: p.slow, auto, voice, ...(browserOnly ? { browserOnly } : {}) });
         }
       } catch {
         // speech errors end playback quietly
@@ -152,7 +155,7 @@ export function usePlayer(
       setPlaying(null);
       setChunkPos(-1);
     },
-    [canSpeak, chunks, connected, careful, level, stop, owner, voice],
+    [canSpeak, chunks, connected, careful, level, stop, owner, voice, browserOnly],
   );
 
   // stop audio on unmount (sentence change, tab change)

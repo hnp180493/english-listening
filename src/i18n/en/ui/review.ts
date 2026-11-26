@@ -115,6 +115,7 @@ const review: Record<string, string> = {
   'Xong phiên ôn!': 'Session done!',
   'Ôn tiếp (': 'Keep reviewing (',
   'mục)': '{#|item|items})',
+  '{} · Phi vụ ở Westbay: {}': '{0} · Westbay job: {1}',
 };
 
 export default review;

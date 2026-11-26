@@ -487,3 +487,20 @@ From the second visits, the outings, the later districts' episodes and talks. La
   the town's goods at Frank's stall, Ben packs them, they go up on the first no. 9 (seven orders the first week).
   Frank's stall stands by Ben's door on Saturdays. Hal lost a third of his customers to the station supermarket's fish
   counter.
+
+## 13. What the first job added (now canon)
+
+From the sample job of milestone M0 of docs/gta-plan.md (`data/city/jobs/ferry.ts`, "Cuộn băng của Gus"). It is set
+after the main story's part 2; nothing in it assumes the learner has heard it.
+
+- **Bayline** is a rival taxi firm in Westbay. It listens in on other people's radios and has been stealing Rico's
+  fares by listening to his channel; its cars wait on Station Avenue in the evenings. So Rico phones the learner for
+  jobs instead of using the radio.
+- **Gus** recorded Bayline's own radio channel on a tape for Rico (his radio picks up channels it should not). He
+  hands it over only for the password he and Rico picked ("out of order", like his kettle). Rico wrote the password on
+  his hand and washed it off. **Gus's kettle** has been out of order since the spring; Gus tells Captain Odile
+  everything.
+- **Mr Whitlock** was at a do outside the Loom (Vivian's studio) and took the last ferry across the bay; giving
+  directions he mixes up Quay Street and Pier Road (as he mixes up the names of the stops of the no. 9).
+- The streets named in it: College Road, East Road, Arts Street, Quay Street, Pier Road, Station Avenue, Station Road,
+  Market Street (data/cityWorld.ts).

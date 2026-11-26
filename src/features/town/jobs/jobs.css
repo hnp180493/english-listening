@@ -1,0 +1,209 @@
+/* Westbay's jobs (features/town/jobs): the strip over the stage, the notebook, the password, the debrief.
+   Tokens only (docs/design-system.md); the frames are the town's (.town-welcome, .town-build, .town-reply). */
+
+.job-strip {
+  align-items: center;
+}
+.job-strip-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.job-strip.is-ringing .job-strip-icon {
+  animation: job-ring 1.1s var(--ease) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .job-strip.is-ringing .job-strip-icon {
+    animation: none;
+  }
+}
+@keyframes job-ring {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0);
+  }
+  10%,
+  30%,
+  50% {
+    transform: rotate(-14deg);
+  }
+  20%,
+  40% {
+    transform: rotate(14deg);
+  }
+}
+.job-strip-hear {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.job-sheet .town-build-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* the notebook */
+.job-note {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.job-note-label {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.job-note-opts {
+  display: grid;
+  gap: var(--space-2);
+}
+.job-note-opt.town-reply {
+  min-height: 44px;
+  padding-block: 10px;
+}
+.job-note-opt[aria-pressed='true'] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  font-weight: 600;
+}
+.job-note-plays {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* the password */
+.job-pass-input {
+  width: 100%;
+  font-size: var(--fs-md);
+}
+.job-pass-hint {
+  margin: 0;
+  color: var(--warn);
+  font-size: var(--fs-sm);
+}
+
+/* the debrief */
+.job-grade {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.job-grade.is-clean {
+  background: var(--ok-bg);
+}
+.job-grade.is-broken {
+  background: var(--bad-bg);
+}
+.job-grade-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+}
+.job-grade-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.job-problems {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--fs-sm);
+}
+.job-notes {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+}
+.job-notes-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--space-2);
+  align-items: start;
+}
+.job-notes-row.is-right > svg {
+  color: var(--ok);
+}
+.job-notes-row.is-wrong > svg {
+  color: var(--bad);
+}
+.job-notes-label {
+  font-weight: 600;
+}
+.job-notes-val {
+  grid-column: 2;
+  color: var(--text-muted);
+}
+.job-missed {
+  box-shadow: inset 3px 0 0 var(--bad);
+  padding-left: var(--space-3);
+}
+.job-missed-tag {
+  margin-left: var(--space-2);
+  color: var(--bad);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+/* the notebook's per-fact count and "Xin nhắc lại" */
+.job-note-label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.job-note-count {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  margin-left: var(--space-2);
+}
+.job-note-again {
+  justify-self: start;
+}
+
+/* a junction: the ways out */
+.job-junction {
+  flex-wrap: wrap;
+}
+.job-junction .town-welcome-text {
+  flex: 1 1 200px;
+}
+.job-turns {
+  display: flex;
+  flex: 1 1 100%;
+  gap: var(--space-2);
+}
+.job-turn.town-reply {
+  flex: 1 1 0;
+  justify-content: center;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px var(--space-2);
+}

@@ -555,6 +555,11 @@ export interface SpeakOptions {
    * one of its gender (pickSpeakerVoice). Omitted = the app's voice (Kore clips, the learner's browser voice).
    */
   voice?: SpeakVoice | null;
+  /**
+   * 0 … 1, the browser voice only (default 1): a talk overheard from a distance in Westbay's jobs
+   * (features/town/jobs, core/town/job overhearVolume). Pair it with browserOnly.
+   */
+  volume?: number;
 }
 
 /**
@@ -866,6 +871,7 @@ function speakBrowser(text: string, opts: SpeakOptions, resolve: () => void, id:
   }
   const rate = Math.min(2, Math.max(0.3, slowRate(opts.rate, settings.rate, { mode: opts.mode, slow: opts.slow, engine: 'browser' })));
   u.rate = rate;
+  if (opts.volume !== undefined) u.volume = Math.max(0, Math.min(1, opts.volume));
   let done = false;
   let watchdog: ReturnType<typeof setTimeout> | undefined;
   const settle = () => {

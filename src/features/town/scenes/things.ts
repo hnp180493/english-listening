@@ -3,6 +3,9 @@
 import { thingKind } from '../../../data/townWorld';
 import { TOWN_EVENTS } from '../../../core/town/world';
 
+/** The radio of a vehicle being ridden (scenes/CarRadio): a "listen" panel's focus, like a thing's id. */
+export const CAR_RADIO = 'radio:car';
+
 /** Vietnamese; the callers put them through the interface language (tr). */
 const NAMES = { bench: 'Ghế: ngồi nghe', radio: 'Radio Bay FM', bus: 'Xe buýt số 9' } as const;
 const PROMPTS = { bench: 'Ngồi xuống nghe', radio: 'Nghe radio', bus: 'Lên xe buýt số 9' } as const;
@@ -23,6 +26,7 @@ export function thingPrompt(id: string): string | null {
 /** What the "listen" panel is about: a thing's id ('thing:bench-3', 'thing:radio') or a get-together ('event:games'). */
 export function listenTitle(at: string | null | undefined): string {
   if (!at) return 'Nghe';
+  if (at === CAR_RADIO) return TITLES.radio;
   if (at.startsWith('event:')) return TOWN_EVENTS.find((e) => e.id === at.slice(6))?.name ?? 'Buổi gặp mặt';
   const k = thingKind(at);
   return k ? TITLES[k] : 'Nghe';

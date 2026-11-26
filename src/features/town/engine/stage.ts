@@ -108,6 +108,10 @@ export interface TownStageHandle {
   joinTalk: (host: PlaceId, who: readonly PlaceId[]) => void;
   /** The scene is over: the player gets up, the ones who talked go back to their day. */
   endListen: () => void;
+  /** People of a Westbay job (features/town/jobs) stand in a loose group in front of a place's door until endListen. */
+  gather: (at: PlaceId, who: readonly PlaceId[]) => void;
+  /** A passenger of a Westbay job (features/town/jobs): out of sight in the vehicle while `on`, then set down beside the player. */
+  passenger: (id: PlaceId, on: boolean) => void;
   /** A little picture popping up over somebody's head. */
   emote: (target: 'player' | PlaceId, kind: EmoteKind) => void;
   /** Somebody plays a short animation once: a nod ('yes'), a head shake ('no'), a wave. Nothing under reduced motion. */

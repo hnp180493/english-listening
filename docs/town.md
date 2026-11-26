@@ -2871,6 +2871,12 @@ in code again.
   from the bike's model), hands to the bars; a scooter and a motorbike knees forward; a horse astride; a car legs
   out in front, hands on the wheel. No see-through hole is cut round the player in their own vehicle
   (`fadeInFront`; "ngồi trong xe mà sao mờ mờ").
+- **Hats and held things** (2026-11-26): a hat of the wardrobe goes on the avatar's own head (`putHat`: the
+  code body's hat geometry brought down to this head by the eye gap; `Character3DPlus.hatId`), and what the pose
+  says is held (cup, watering can, rod, book: the same weights as the code body, `PROP_PLACES`) is put in the
+  avatar's right hand, kept upright in the body's frame, the book in front of the chest; the fishing line runs to
+  its float (`castLine`). Seen on the admin sheet (`?worn`): the cup at the mouth, the can, the rod, six hats; the
+  book was edge-on to that camera and not made out.
 - **Size**: an avatar stands `TALLER` 1.85 × the code body (1.4 at first: "người quái có chút xíu vầy"; a slim
   figure at the code body's height reads tiny beside the houses). Benches come to its knees.
 - **Cost**: `slim()` drops the outline pass and merges skinned meshes that share a material (a sample's 90–130
@@ -2887,8 +2893,7 @@ in code again.
   `?cast` every resident's avatar, `?acts` the actions, `?bases` the twelve samples), and `LookPreview.tsx` (the 16
   faces; 13 new pieces of street furniture, `scene/furniture.ts`, proposed and not in the town).
 
-**Not done, not known.** Things held in the hand (cup, can, rod, book), hats and outfit colours do not show on an
-avatar. Portraits and thumbnails are untouched, and so are pets. Past the nearest fourteen, people are still the
+**Not done, not known.** An avatar of a RESIDENT keeps its baked clothes whatever outfit colour is set. Portraits and thumbnails are untouched, and so are pets. Past the nearest fourteen, people are still the
 round code-built figures (a crowd in Westbay is mixed). A tall slim figure among round trees and low benches
 is a clash of styles nobody has judged in motion. Seen only as pictures from `scripts/town-shot.mjs` (the software
 renderer): the sheet of all 13, eleven of them on the plaza by day, one at night, the action sheet; a seated avatar
@@ -2930,3 +2935,53 @@ town at the game's noon). Residents still live by the REAL clock (their week, th
 Seen in six pictures from `scripts/town-shot.mjs` (dawn, noon, dusk, night, rain at 13:00, a storm at 20:30) and the
 HUD pill; nobody has heard the rain or the thunder (the headless browser is mute), watched a sky ease into another,
 or seen a flash. The loudness and the odds are guesses.
+
+## 25. Bay FM, true of the game (2026-11-26)
+
+Section 4.5 of docs/gta-plan.md, the part that does not wait for M0: the radio says things that are TRUE in the game
+at the moment it is heard, so listening to it tells the player something they can act on.
+
+**What is read.** `core/town/radio.ts` (pure, `bulletinAt`) builds a bulletin from the real time, the day's own
+weather at any time (`weatherOf` of that local day), the weekday, the month, the town's get-togethers and any news
+queued about the player. Marcus says, in his own manner (pieces in `data/scenes/radioLive.ts`): a greeting by the
+game's hour and an ident; the time by the game's clock to five minutes ("It's just gone quarter to eight", "coming up
+to", "exactly", sometimes with the weekday); the player's news, if any; the sky now (day and night lines); a forecast
+read off `sky.ts skyAt` at future times, every five minutes of the clock for the next 12 hours of the game: up to two
+changes, each named by the full hour after it is seen when the sky is already so all the way to that hour ("Expect
+rain by six this evening", "After that, expect clear skies by midnight", "six tomorrow morning"), else the clock; or,
+with no change, "it should stay that way until at least …"; what is on today (the town's get-together and Westbay's
+day, or its festival when the town has none); a sign-off. Its questions are the scene format's (`gist`, `detail`), so
+ListenPanel / SceneFlow play it like a written segment: the sky now and next (three look-alike summaries), then either
+WHEN the sky changes (the time said, and the same hour six hours either side) or what is on today (today's event
+against two of other days). A line under the result says what the forecast holds ("Bay FM báo cho 18:00: Trời mưa").
+
+**Proved by tests** (`core/town/radio.test.ts`): for hundreds of times and each day's weather, plus a day's weather that
+jumps mid-stretch, the sky said now is `skyAt` now, every change named is so at the time named and at every game
+minute from when it is first seen to it, and nothing changes before that; the time check matches the game clock; the
+line read names the same time as the "when" answer; every bulletin is whole (no empty slot, plain English of 3–16
+words that decodes and is SAPI-safe, three different answers, the right one in every position); today's events are the
+data's (Westbay's copy checked against `data/city/events.ts`, kept apart so the town's chunk does not load the city's
+scenes).
+
+**Where.** The café's radio (`thing:radio`) and, while riding any vehicle, a "Radio" pill above the ride button
+(`features/town/scenes/CarRadio.tsx`, in the town and in Westbay; focus `CAR_RADIO`; it reads `rideState`, never
+changes it, and the player is not sat down or got off). `core/town/radioStore.ts radioScene`: a bulletin and a
+written segment (`radioNow`, as before) take turns, the bulletin first, always the bulletin while news waits (the turn
+is counted in memory).
+
+**Pay**: exactly a radio segment's (`world.ts scenePay`): 2 xu a question right at the first try, within the day's 3
+paid radio scenes shared with the written ones; one id per hour of the game (`fm-live-<n>`, two real minutes), so one
+edition never pays twice. Nothing new is stored or synced. Listening time is not logged (it is app-voice listening).
+
+**News about the player** (`core/town/radioNews.ts`): `queueRadioNews({ id, lines: [{ text, vi, say? }] })` queues up
+to 4 of Marcus's lines for the next bulletin (at most 3 items, the same id replaces, forgotten after 6 real hours or a
+reload: in memory only); read after the time check, dropped once that bulletin is heard through. Not wired to M0.
+
+**Voice**: Marcus is a Westbay person: the browser's voice, never a clip (nothing goes into the clip inventory).
+
+**Not known.** Nobody has heard a bulletin (the headless browser is mute): how the browser voice reads nine lines in a
+row, the pace, whether "twenty-five to two" is caught. Looked at only in pictures from `scripts/town-shot.mjs`: the
+café's radio at its first question (rain at 22:40, the gist "Trời mưa, lát nữa …"), the pill while on a bike at
+1400×900 and 390×844 and its panel on a phone; the pill in Westbay was not looked at. The English of the pieces was
+written by a model and read by nobody else; the Vietnamese meanings are shown in Vietnamese in English mode, like every
+meaning (docs/i18n.md §4).

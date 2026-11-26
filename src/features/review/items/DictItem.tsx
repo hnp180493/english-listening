@@ -10,6 +10,7 @@ import { dictationErrors, gradeDictation, recordReview } from '../../../core/rev
 import { recordAttempt } from '../../../core/stats';
 import { KEYS, saveJSON } from '../../../core/storage';
 import { voiceOf } from '../../../core/town/voices';
+import { tl } from '../../../i18n';
 import Exercise, { type CheckedInfo } from '../../dictation/Exercise';
 import { loadProgressOr } from '../../dictation/pageModel';
 import type { Resolved } from '../resolve';
@@ -30,7 +31,8 @@ export default function DictItem({ item, graded, onGraded, onNext, onRetry, onSk
   // Read once at mount: `graded` flips in the same batch as the first check and must not change that verdict.
   const [retried] = useState(graded);
   // a town line is said by its own speaker (the same voice, so the same shipped clip, as in the town)
-  const [voice] = useState(() => (item.kind === 'talk' ? voiceOf(item.who, item.placeId) : null));
+  // (a line of a Westbay job: its speaker in the browser's voice, never a clip or the paid voice)
+  const [voice] = useState(() => (item.kind === 'talk' ? (item.job ?? voiceOf(item.who, item.placeId)) : null));
 
   const onChecked = (info: CheckedInfo) => {
     if (graded || doneRef.current) return; // a retry is practice only
@@ -92,7 +94,7 @@ export default function DictItem({ item, graded, onGraded, onNext, onRetry, onSk
         <div className="row-between rev-media-note">
           <span className="muted rev-media-label">
             <Icon icon={MessageCircle} size={15} />
-            {item.speaker} · Tập {item.episodeOrder}: {item.episodeTitle} · giọng đọc máy
+            {item.job ? tl`${item.speaker} · Phi vụ ở Westbay: ${item.episodeTitle}` : <>{item.speaker} · Tập {item.episodeOrder}: {item.episodeTitle}</>} · giọng đọc máy
           </span>
           <a className="btn btn-ghost btn-sm" href={hrefFor('town')}>
             <Icon icon={ExternalLink} size={14} />
@@ -100,7 +102,7 @@ export default function DictItem({ item, graded, onGraded, onNext, onRetry, onSk
           </a>
         </div>
       )}
-      <Exercise sentence={item.sentence} known={retried} autoPlay focusOnMount onChecked={onChecked} onNext={onNext} onRetry={onRetry} onSkip={onSkip} voice={voice} />
+      <Exercise sentence={item.sentence} known={retried} autoPlay focusOnMount onChecked={onChecked} onNext={onNext} onRetry={onRetry} onSkip={onSkip} voice={voice} browserOnly={item.kind === 'talk' && !!item.job} />
     </div>
   );
 }

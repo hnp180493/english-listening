@@ -11,6 +11,7 @@ import { sanitizeChunks } from '../../features/drill/chunkData';
 import { sanitizeLibrary } from '../../features/media/library';
 import { parseCardId, parseMediaRef } from './ids';
 import { allStoryLines } from '../town/storyLines';
+import { allJobRefs } from '../../data/city/jobs';
 import { wordIndex } from './words';
 import type { CardId } from './types';
 
@@ -80,7 +81,7 @@ export function staticContentIds(): StaticIds {
     chunkIds: new Set(sanitizeChunks(CHUNKS).map((c) => c.id)),
     pairSetIds: new Set(Object.keys(PAIR_SET_ITEMS)),
     wordRefs: new Set(wordIndex().all.map((w) => w.ref)),
-    storyLineIds: new Set(allStoryLines().map((l) => l.id)),
+    storyLineIds: new Set([...allStoryLines().map((l) => l.id), ...allJobRefs()]),
   };
   return staticIds;
 }

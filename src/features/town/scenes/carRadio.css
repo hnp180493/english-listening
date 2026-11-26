@@ -1,0 +1,18 @@
+/* The vehicle's radio (CarRadio.tsx): right above the ride button (town.css .town-ride), shown only while riding.
+   (Two classes: town.css's .town-pill, loaded after this file, would put it back in the flow.) */
+.town-pill.town-carradio {
+  position: absolute;
+  right: var(--space-3);
+  bottom: calc(var(--space-3) + 48px);
+  z-index: 2;
+  width: auto;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  font-weight: 600;
+}
+/* a narrow stage: the ride button sits above the main button's row, this one above it */
+@media (max-width: 640px) {
+  .town-pill.town-carradio {
+    bottom: calc(var(--space-3) + 58px + 48px);
+  }
+}

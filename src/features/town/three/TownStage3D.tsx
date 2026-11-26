@@ -488,6 +488,12 @@ export default function TownStage3D({
       endListen: () => {
         if (!flatRef.current) engineRef.current?.endListen();
       },
+      gather: (at, who) => {
+        if (!flatRef.current) engineRef.current?.gather(at, who);
+      },
+      passenger: (id, on) => {
+        if (!flatRef.current) engineRef.current?.passenger(id, on);
+      },
       crowd: (except) => {
         if (!flatRef.current) engineRef.current?.crowd(except);
       },

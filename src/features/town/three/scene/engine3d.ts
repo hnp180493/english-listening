@@ -1109,6 +1109,52 @@ export class TownEngine3D {
     this.sim.endAside();
   }
 
+  /**
+   * People of a Westbay job (features/town/jobs) stand in a loose group in front of a place's door (on its street),
+   * wherever they were, until endListen: the crowd at a pickup, two people talking where they can be overheard.
+   * They walk in from a few steps off where there is room. Whoever is not in the world is left out.
+   */
+  gather(at: PlaceId, who: readonly PlaceId[]): void {
+    const place = this.world.places.find((q) => q.id === at) ?? this.world.guests?.find((q) => q.id === at);
+    const here = who.filter((id) => this.sim.residents.has(id));
+    if (!place || here.length === 0) return;
+    const c = { x: place.door.x + 0.5, y: place.door.y + 1.6 };
+    const fits = (q: { x: number; y: number }) => walkable({ x: Math.floor(q.x), y: Math.floor(q.y) }, this.sim.world) && bodyFits(q.x, q.y, PLAYER_RADIUS, this.sim.world);
+    const spots: { x: number; y: number }[] = [];
+    for (const r of [here.length > 2 ? 1.3 : 0.55, 2.1, 2.9]) {
+      for (let k = 0; k < 12 && spots.length < here.length; k++) {
+        const a = (k / (here.length > 2 ? Math.max(here.length, 5) : 2)) * Math.PI * 2 + 0.3;
+        const q = { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r };
+        if (fits(q) && spots.every((s) => Math.hypot(s.x - q.x, s.y - q.y) > 0.85)) spots.push(q);
+      }
+    }
+    const ids = here.slice(0, spots.length);
+    const from = spots.map((s) => {
+      for (const k of [3.5, 2.2]) {
+        const q = { x: s.x + (s.x - c.x) * k, y: s.y + (s.y - c.y) * k };
+        if (fits(q)) return q;
+      }
+      return null;
+    });
+    this.sim.talkAside(ids, spots, from);
+  }
+
+  /**
+   * A passenger of a Westbay job (features/town/jobs): out of sight while `on` (in the vehicle with the player), then
+   * set down beside the player, where everyday life takes them on.
+   */
+  passenger(id: PlaceId, on: boolean): void {
+    if (!this.sim.residents.has(id)) return;
+    const p = this.sim.player;
+    if (on) {
+      this.sim.goInside(id, p.tile, 3600);
+      return;
+    }
+    const fits = (c: { x: number; y: number }) => walkable({ x: Math.floor(c.x), y: Math.floor(c.y) }, this.sim.world) && bodyFits(c.x, c.y, PLAYER_RADIUS, this.sim.world);
+    const spots = [[0.95, 0], [0, 0.95], [-0.95, 0], [0, -0.95]].map(([dx, dy]) => ({ x: p.x + dx, y: p.y + dy }));
+    this.sim.jumpResident(id, spots.find(fits) ?? { x: p.x, y: p.y });
+  }
+
   crowd(except: readonly PlaceId[]): void {
     const p = this.sim.player;
     const ids = [...this.sim.residents.keys()].filter((id) => !except.includes(id));

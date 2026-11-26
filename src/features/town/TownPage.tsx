@@ -73,6 +73,8 @@ import { useGreeting } from './friends/useGreeting';
 import { getTownUi, setTownUi, useTownUi } from './townUi';
 import QuestTracker from './QuestTracker';
 import RideButton from './RideButton';
+import CarRadio from './scenes/CarRadio';
+import { CAR_RADIO } from './scenes/things';
 import { followed, townQuests } from './quests';
 import './town.css';
 import { tl, tr } from '../../i18n';
@@ -1131,6 +1133,7 @@ export default function TownPage() {
           />
         )}
         {!flat && townReady && !talk && !build && !activity && !map && !showWelcome && <RideButton stage={stage} />}
+        {!flat && townReady && !talk && !build && !activity && !map && !showWelcome && <CarRadio stage={stage} onOpen={() => { setListenAt(CAR_RADIO); openActivity('listen', 'hud'); }} />}
         <TownHud
           overview={overview}
           sound={ui.sound}

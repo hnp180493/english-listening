@@ -64,6 +64,8 @@ export interface ExerciseProps {
   onHint?: () => void;
   /** Who says the sentence (Ôn tập of a town episode line: its speaker, core/town/storyAudio); omitted = the app's voice. */
   voice?: SpeakVoice | null;
+  /** Never the paid AI voice (Ôn tập of a line of a Westbay job: the browser's voice, as in the city). */
+  browserOnly?: boolean;
 }
 
 export default function Exercise({
@@ -80,6 +82,7 @@ export default function Exercise({
   onListen,
   onHint,
   voice,
+  browserOnly,
 }: ExerciseProps) {
   const decoded = useMemo(() => safeDecode(sentence.text), [sentence.text]);
   const targetRaw = useMemo(() => targetTokens(decoded, sentence.text), [decoded, sentence.text]);
@@ -102,6 +105,7 @@ export default function Exercise({
     autoPlay,
     initial: heardBefore,
     voice,
+    browserOnly,
     // only the plays before the check belong to the sentence's tally: the answer is on screen after it
     onListen: (kind) => {
       if (!checkedAtRef.current) onListen?.(kind);
