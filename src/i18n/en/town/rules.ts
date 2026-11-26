@@ -171,6 +171,7 @@ const rules: Record<string, string> = {
   'Mười cuộc một ca, gọi dồn dập hơn; khách chờ máy bên kia không bị Bayline cướp.': 'Ten calls a shift, coming thicker and faster; a caller waiting on the other line is not taken by Bayline.',
   'Thính giả gọi tới': 'Caller',
   'Ông Ashby · Coastline': 'Mr Ashby · Coastline',
+  'Người áo xám': 'The man in the grey coat',
 };
 
 export default rules;

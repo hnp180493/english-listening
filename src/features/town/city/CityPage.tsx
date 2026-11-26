@@ -78,6 +78,11 @@ import { useTownHideout } from '../../../core/town/hideoutStore';
 import { useHeat } from '../jobs/heatStore';
 import { HIDEOUT_QUEST_ID, hideoutQuest } from '../hideout/hideoutQuest';
 import { KeyRound } from 'lucide-react';
+// the clock as a rule: opening hours (docs/town.md §33)
+import { hourLabel, opensAt } from '../../../data/city/hours';
+import { makeHoursLayer } from './hours3d';
+import { skyNow } from '../../../core/town/skyNow';
+import { useGameHour, withHours } from './hoursQuest';
 import '../town.css';
 import './city.css';
 
@@ -231,6 +236,12 @@ export default function CityPage() {
   const startScene = useCallback(
     (id: string) => {
       if (sheet) return;
+      // a place shut by the game's clock (data/city/hours.ts): nobody is about; say when it opens
+      const opens = ADMIN ? null : opensAt(id, skyNow().hour);
+      if (opens !== null) {
+        setToast(tl`${nameOf(id)} đang đóng cửa. Mở lúc ${hourLabel(opens)}.`);
+        return;
+      }
       // today's chapter of a long story at this person's place comes before anything else they have
       const ch = chaptersToday(CITY_SEASONS, loadTownCity(), Date.now()).find((c) => c.chapter.where !== 'town' && c.chapter.at === id);
       const s: SceneNow | null = ch ? { kind: 'new', scene: ch.chapter } : sceneNow(scenes, id, loadTownCity(), Date.now());
@@ -437,7 +448,9 @@ export default function CityPage() {
     const room = hideoutQuest(hideoutOwned, heat);
     return [...allQuests, dispatchQuest(DISPATCH_SHIFTS_A_DAY - shiftsPaidToday()), ...(room ? [room] : [])];
   }, [officeOpen, allQuests, hideoutOwned, heat]);
-  const questList = useMemo(() => [...job.quests, ...withOffice], [job.quests, withOffice]);
+  // (a card to somebody whose place is shut says when it opens: ./hoursQuest.ts)
+  const gameHourNow = useGameHour();
+  const questList = useMemo(() => [...job.quests, ...withHours(withOffice, gameHourNow, ADMIN)], [job.quests, withOffice, gameHourNow]);
   const quest = job.active ? job.quests[0] : riding ? allQuests[0] : followed(questList, questPick);
   // a main story chapter to get to in time (data/city/seasonsMain.ts `rush`): the clock starts when it is taken on
   const [rush, setRush] = useState<{ id: string; until: number } | null>(null);
@@ -516,6 +529,14 @@ export default function CityPage() {
     return () => window.clearInterval(id);
   }, [ridingTo, doorDistance]);
   useEffect(() => () => dropTaxi(), []);
+  // opening hours (data/city/hours.ts): a shut place's person goes inside and a CLOSED board stands at its door; not
+  // while a job or a scene decides where people are
+  const busyRef = useRef(false);
+  busyRef.current = job.active || !!sheet;
+  useEffect(() => {
+    if (!ready || flat) return;
+    return stage.current?.addExtra((ctx) => makeHoursLayer(ctx, () => busyRef.current)) ?? undefined;
+  }, [ready, flat]);
 
   // ── the one button ──
   const nearId = near?.kind === 'resident' ? near.placeId : null;

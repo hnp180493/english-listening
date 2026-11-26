@@ -591,3 +591,51 @@ chưa ai đọc lại; trong ảnh, người chơi có vẻ đứng sau đuôi x
 lượt chạy song song bốn trình duyệt có lúc trễ nhịp chuyển mạch (một lượt Jun phải chạy lại riêng): nhịp của bước ba mạch
 và "Đó!" chưa được chỉnh với giọng thật; xe tuần tra trong phi vụ đêm chạy ngay chứ không chờ giờ game; độ dài 0,7 giây của
 tiếng rè, 3 giây dạo đầu, 1,5 giây cho "Đó!" là đoán.
+
+## 19. "Độ khó là lời nói" as built (2026-11-27): năm bậc cho phi vụ và văn phòng điều xe
+
+Theo §4.9 và §11 mục 3. Luật thuần ở `src/core/town/difficulty.ts` (+ test). Mỗi bậc chỉ đổi những gì giọng đang có làm được
+thật; KHÔNG trộn tiếng ồn đè lên lời (§11 mục 5); giọng vùng miền là chọn người nói, không phải một tham số.
+
+| Bậc | Tốc độ (× Tốc độ đọc của người học) | Nhắc lại miễn phí | Kiên nhẫn | Giờ giống nhau trong sổ tay | Nghe lén (× khoảng cách) | Câu đứt quãng | Hai mạch cùng lúc | Tiền công |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 0,85 | +2 | × 1,5 | 3 | × 1,3 | đọc liền | không (lần lượt) | × 0,85 |
+| 2 | 0,92 | +1 | × 1,25 | 3 | × 1,15 | đứt một nửa | không (lần lượt) | × 0,92 |
+| 3 | 1 | như phi vụ viết | × 1 | 3 | × 1 | như viết | có (3 giây dạo đầu) | × 1 |
+| 4 | 1,06 | −1 | × 0,85 | 4 | × 0,9 | như viết | có (1,5 giây) | × 1,1 |
+| 5 | 1,12 | −1 | × 0,7 | 4 | × 0,8 | đứt cả ở dấu phẩy | có (không dạo đầu) | × 1,2 |
+
+Bậc 3 là phi vụ đúng như đã viết. "Kiên nhẫn" nhân vào: hạn giờ tính bằng giây của bước `goto`, lúc khách bỏ đi khi tới quá
+muộn, thời gian người gọi đổ chuông và chờ ở văn phòng điều xe. "Nhắc lại miễn phí" dời ngưỡng câu "hết kiên nhẫn" của sổ
+tay, ngưỡng bực của hành khách ở ngã rẽ và của người gọi ở văn phòng. Giờ thứ tư trong sổ tay là cùng chữ lệch một tiếng
+(hoặc nửa tiếng). Nghe lén: đứng xa hơn vẫn rõ ở bậc dễ, và phải lại gần hơn mới bị phát hiện.
+
+**Tự chỉnh theo người học, quanh 85% đúng** (như quầy cà phê, `core/town/cafe.ts`): một trung bình chậm (α = 0,05, khoảng
+hai mươi câu gần nhất) của "nghe đúng ngay lần đầu"; lên một bậc khi trên 95%, xuống khi dưới 72%; chỉ sau ít nhất 12 câu
+kể từ lần đổi trước; đổi tối đa một bậc mỗi lượt (một phi vụ, một ca), không bao giờ nhảy hai bậc. Một lượt phi vụ đếm từng
+sự thật đã được nói trong lượt (đúng = hệ quả của nó không dính) và từng ngã rẽ đã nghe; một ca điều xe đếm từng cuộc đã
+nghe máy (đúng = cả hai chỗ đúng ngay lần đầu). Test: thang khó dần ở mọi núm; người đúng 85% đứng yên ở mọi bậc; người
+đúng 98% lên tới 5, người đúng 55% xuống tới 1, không bậc nào bị nhảy; giữa hai lần đổi ít nhất ba lượt; người học có tỉ lệ
+đúng phụ thuộc bậc (95% ở bậc 2, 85% ở bậc 3, 70% ở bậc 4) ở bậc 3 hơn 90% thời gian.
+
+**Ghim tay:** một chỗ duy nhất, mục "Độ khó lời nói" trong bảng điện thoại ở Westbay: "Tự động" (mặc định) hoặc bậc 1–5,
+kèm một ô "Bậc đổi những gì?" và lời nói thật: bậc là điểm trò chơi, không đo trình độ. Lượt chơi ở bậc ghim không làm đổi
+bậc tự động.
+
+**Lưu ở đâu:** trường `speech` của khóa `town-jobs` (theo người học, đồng bộ): phần tự động gộp theo lúc ghi (`at`), phần
+ghim gộp theo lúc chọn (`pin.changedAt`); có trong test luật merger. Không khóa mới.
+
+**Kết quả có bậc:** `payJob` (`core/town/jobStore.ts`) trả `{ xu, take, level }`; ca điều xe: `endShift`
+(`core/town/dispatchStore.ts`) trả `ShiftEnd` có `level`. Phi vụ: `JobRunState.speech` (và `pinned`); màn xem lại ghi
+"Bậc lời nói: 3 (tự động)" hoặc "(bạn chọn)". Mô hình kinh tế (`core/town/economyModel.ts`): người học hiểu nhiều hơn ngồi ở
+bậc cao hơn (`speechLevelFor`, một con số đoán) nên phi vụ và ca trả hơn một chút; mọi tính chất kinh tế cũ vẫn đúng, thêm
+test "bậc khó trả hơn, không quá × 1,25".
+
+**Đã kiểm:** test (difficulty, job: giờ thứ tư, dispatch: kiên nhẫn và nhắc lại theo bậc, luật merger, kinh tế); chơi bằng
+kịch bản trên dev server riêng: "Đường dây chéo" ghim bậc 5 (sổ tay có 4 giờ, tiền +112 thay vì +93, màn xem lại ghi bậc 5,
+bậc tự động không đổi), và tự động với người đang đúng 96% (lên bậc 4 sau một lượt sạch, được lưu). Ảnh:
+`.assets-try/previews/speech-levels-1400.png`, `speech-levels-375.png`.
+
+**Đoán / chưa kiểm:** mọi con số của thang (tốc độ, kiên nhẫn, khoảng cách, tiền), α, 95% / 72%, 12 câu, và bậc theo tỉ lệ
+hiểu trong mô hình kinh tế đều là đoán. Chưa ai nghe bằng tai hay chơi bằng tay; chưa chạy một ca điều xe bằng kịch bản ở các
+bậc (chỉ test thuần); trong ảnh, popup bộ đàm cảnh sát của phiên đường phố đè lên đầu bảng điện thoại.

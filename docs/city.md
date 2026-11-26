@@ -643,3 +643,31 @@ From the engine's samples (docs/gta-plan.md §17, `data/city/jobs/chip.ts`, `hal
 - **Gus**: one call to his hut opens the harbour gate's side lane for Rico's cars (he said so on Bay FM, through Marcus).
 - The learner has a phone in Westbay: a job not answered leaves "call me back before …"; called back too late, the job
   is gone for that day ("Too late now, that one's gone. Ring me again tomorrow.").
+
+## 21. Act III, "Thành phố nghe thấy": what docs/gta-story-3.md adds (built: canon, if the owner keeps it)
+
+Six jobs (`data/city/jobs/act3*.ts`: `job-forged`, `job-twomarcus`, `job-samcall`, `job-splice`, `job-tomcall`,
+`job-live`). Every line of them must agree with this section and with the speech habits in docs/gta-story-3.md §2.
+
+- **Kemp fights back with forged tapes.** Coastline only paused his bid; its review asks whether the listeners' side is
+  honest. Kemp sends "proof" that it is not: tapes in Rico's, Marcus's, Sam's and Tom's voices. Two ways: **cut** from the
+  twenty years of tapes he keeps (each word real, but a fact gone old gives it away) and **imitated** by **Lyle Penn**
+  (new: a voice actor hired from another city, a long grey coat, "the man in the grey coat"; browser voice), reading
+  scripts Shona writes (they break the person's speech habits). Kemp signs none of it.
+- **The old timetable**: years ago the last no. 9 home left at ten; it has left at **ten fifteen** for years (Bay FM:
+  "still goes at ten fifteen").
+- **Ninety-one point five** is a frequency nobody owns: the pirate station plays the cut "Marcus" every night at eleven,
+  loudest by Hal's fish stall, broadcast from a back room above **Twin Ovens** that Poppy let, for cash, to "a lady in a
+  navy blazer" (Shona).
+- **Rico never said nine thirty in his life**: he says "half nine". Lyle, coached by Shona, learned "partner" and saying
+  everything twice, never that.
+- **The firm's new code** (after "Sam" rang phone two for it): channel **fourteen**; the station is **"Biscuit"** (Chip's
+  favourite; Sam picked it). "Grace's" is still the hospital. Sam's dog Chip was the test: the impostor said "Buddy".
+- **Bay FM has fourteen phone lines**; line three is Marcus's own, **line thirteen** the spare nobody rang for years. The
+  signal for Lyle to ring in was Marcus's "lines are open".
+- **Tom came up to Westbay** on the twelve forty on a Sunday to answer the fake himself, and met the learner by Nora's
+  flower shop (not the fish: he gets sick). He rang the show again, "the real one", ums and all.
+- **The review was live on Bay FM on a Friday**, Mr Ashby listening from Coastline's head office; Claire read the books on
+  air ("Not one dollar has moved"). The outcome depends on what the learner kept (docs/gta-story-3.md §6): at best Kemp's bid
+  is withdrawn and **Mrs Delaney is asked back** by the Trust; in the middle the listeners' bid stands "for now"; at worst the
+  sale is paused another month. Kemp is never arrested.

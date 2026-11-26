@@ -3487,3 +3487,56 @@ with the camera turned or from the boat. No warehouse but fifteen opens; none ha
 the patrol and the "lamp over the side door" are the jobs' to stage. The boat does not rock with the waves beyond a
 small bob, has no wake, and nobody steers it. Seen only in pictures on the software renderer
 (`.assets-try/previews/wh-*`); nobody has watched the boat move or walked the quay by hand.
+
+## 33. The clock and the weather as rules (2026-11-27)
+
+docs/gta-plan.md §4.7: the hour and the sky (§24) were only seen and heard; now each has one small consequence that
+says itself in a sentence. Pure rules in `core/town/skyRules.ts` (tested in `skyRules.test.ts`); every number is a
+guess until somebody plays it.
+
+1. **Wet roads are slippery.** `rideGrip(wet)` (from `sunPath.ts wetAt`): a vehicle the learner rides turns slower (up
+   to 0.45 × the turn rate) and takes longer to stop when let go (up to +0.6 s); walking is never affected. The engine
+   gives it to the sim twice a second (`TownSim.setGrip`, used in `move` only while riding: `engine/grip.test.ts` rides
+   a sim dry and soaked). Westbay's traffic cruises slower (`trafficPace`, down to 0.75 ×, `TrafficCtx.pace`, read
+   every two seconds through `skyNow.ts wetSoon`). The cars the jobs drive for the learner are the job engine's and
+   are not changed.
+2. **Rain drowns voices.** One rule for everything overheard: above half rain a talk overheard is heard a step worse
+   (`muffle`; the jobs' `overhearClarity` now calls it, same behaviour as M0), and a bench's overheard talk ("Ngồi xuống
+   nghe", town and Westbay) is said at 0.6 of its volume (`overheardVolume`, `scenes/ListenPanel.tsx`). Nothing is ever
+   mixed over a voice.
+3. **A storm breaks the radio up.** In a storm (storm ≥ 0.35, the lightning's threshold) Bay FM's live bulletin loses a
+   word or two of its FILLER lines only (the greeting and ident, the leads into the news, the events and the advert,
+   the sign-off: `radio.ts isRadioFiller`), said in pieces with a 0.7 s silence where the signal dropped, as the jobs'
+   `broken` lines are (`staticCut`, `staticPieces`). The time check, the sky, the forecast, the news, the events and the
+   advert are never cut, so every question is still answered by what was heard (tested over 120 bulletins). The police
+   scanner loses only the call sign at the start of a call ("All units,", "Unit twelve,"): a silence, then the rest; the
+   street, the heading, the vehicle, the top and the place stay (`scannerStatic`, `streets/scannerVoice.ts`). The
+   written segments and the call-in show are not broken (their questions could rest on any word).
+4. **Opening hours** (`data/city/hours.ts`, by the game's clock): the night market (Mei, Sol) 17:00–02:00, the offices
+   (Priya 08–19, Vivian 09–19, Colin 08–19), the library (Finch 09–21), the fish stall (Hal 05–15). Shut: the person goes
+   inside, out of sight (`city/hours3d.ts`, a stage extra through `addExtra` that renews the sim's `goInside` every
+   1.5 s for 5 s, so they come back out a moment after opening; paused while a job is on or a sheet is open, the job's
+   staging decides then), a CLOSED board stands at the door; clicking them says "Mei đang đóng cửa. Mở lúc 17:00.";
+   a quest card to them says "Đang đóng cửa · mở lúc 17:00" (`city/hoursQuest.ts`). No place is shut more than sixteen
+   game hours (32 real minutes, tested); the admin sandbox has no hours; a job's own cards and staging ignore them.
+5. **Waiting for an hour ("Ngủ tới tối / tới sáng"): NOT built, a proposal.** The game's clock is a pure function of
+   the real time and is the same on every machine; it is read in at least thirteen places that pass `Date.now()`
+   themselves (`core/town/job.ts`, `phone.ts`, `radio.ts` and its forecast, `office.ts`, `hideout.ts`, `sky.ts skyAt`,
+   `sunPath.ts`, the engine's sun and night, `SkyChip.tsx`, `stageShell.ts`, `useCityJob.tsx`, `ListenPanel.tsx`). An
+   offset per machine would have to go through all of them (some in the job engine, which another session is changing),
+   and while it lasts this machine's hour, sky, radio forecast, rests and phone deadlines would disagree with the
+   account's other machines; when it ends the clock jumps back. Proposal, if the owner wants it: one `gameNow()` in
+   `core/town/sky.ts` (real time + an offset of whole game hours, device-local key, never synced) read everywhere the
+   GAME's time is meant, the offset ending at the next real game dawn or dusk so the jump back lands at the same light;
+   the weather keeps the real time (shared). "Ca đêm" would then call `sleepUntil('night')`. Until then the night jobs
+   wait for the real game night (24 real minutes at most).
+6. **The HUD** (`SkyChip.tsx`): after the hour, the rules in force in a word or two ("Đường trơn", "Mưa át tiếng",
+   "Radio rè"; `rulesNow`), what each does in the pill's title. No new pill. The pill is hidden under 560 px, so a phone
+   does not show the words.
+
+Dev: `window.__town3d.debugSky(21, 'storm', 1)` now also holds the sky for the rules (`skyNow.ts holdSky`): the HUD's
+words, the radio's static, the slippery roads and the traffic follow the held sky.
+
+**Not known.** Nobody has driven a wet road by hand (the feel of the slide is a guess), heard a broken bulletin or a
+muffled bench (the headless browser is mute), or waited at a shut stall. Seen in pictures only
+(`.assets-try/previews/rules-*`, `hours-*`).

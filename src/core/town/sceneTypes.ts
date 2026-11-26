@@ -113,4 +113,9 @@ export const SCENE_VOICES: Readonly<Record<string, SceneVoice>> = {
   'caller-mumbling-f': { name: 'Thính giả gọi tới', gender: 'female', rate: 0.97, volume: 0.6 },
   'caller-mumbling-m': { name: 'Thính giả gọi tới', gender: 'male', rate: 0.97, volume: 0.6 },
   'caller-badline-f': { name: 'Thính giả gọi tới', gender: 'female', volume: 0.8 },
+  // Act III (docs/gta-story-3.md): Lyle Penn, the impersonator Kemp hires (first met as "the man in the grey coat"), and
+  // the forged voices of two town residents: heard as a browser voice, never their own Gemini clips
+  lyle: { name: 'Người áo xám', gender: 'male' },
+  'sam-fake': { name: 'Sam', gender: 'male' },
+  'tom-fake': { name: 'Tom', gender: 'male' },
 };
