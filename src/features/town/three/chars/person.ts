@@ -91,13 +91,17 @@ export function createPerson(id: CharacterId, look: CharacterLook = castLook(id)
   mesh.boundingSphere = new Sphere(new Vector3(0, 0.55 + LEG_GROW / 2, 0), 0.85 + LEG_GROW / 2);
 
   // face on the head bone
-  const faceStyle = (hasExtra(look, 'lashes') ? 1 : 0) + (hasExtra(look, 'freckles') ? 2 : 0);
+  const faceStyle = look.face ?? (hasExtra(look, 'lashes') ? 1 : 0) + (hasExtra(look, 'freckles') ? 2 : 0);
   const face = faceGeometry(HEAD.R, HEAD.stretch, faceStyle);
   const faceMesh = new Mesh(face.geometry, mats.face);
   faceMesh.name = 'face';
   faceMesh.position.set(HEAD.center[0], HEAD.center[1] + LEG_GROW - BONE_REST[J.head].pos[1], HEAD.center[2]);
   faceMesh.renderOrder = 1;
   bones[J.head].add(faceMesh);
+  // the head's shape: the head bone scaled from the neck (the face, the hair and a hat on it follow)
+  const HEAD_SHAPES = { round: [1, 1, 1], oval: [0.95, 1.07, 0.97], wide: [1.08, 0.94, 1.03], long: [0.93, 1.1, 0.96] } as const;
+  const hs = HEAD_SHAPES[look.head ?? 'round'];
+  bones[J.head].scale.set(hs[0], hs[1], hs[2]);
 
   // body pivot: heading, scale to tiles, squash
   const pivot = new Group();

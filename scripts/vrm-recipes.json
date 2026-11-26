@@ -1,0 +1,15 @@
+{
+  "square":  { "base": "AvatarSample_C",     "hair": "#3b2a22", "skin": "#c98f66", "clothes": { "Tops": "#f19a74", "Bottoms": "#56658a", "Shoes": "#f3efe6" } },
+  "cafe":    { "base": "Vivi",               "hair": "#8a4f2f", "skin": "#f4d2b8", "clothes": {} },
+  "friend":  { "base": "HairSample_Female",  "hair": "#2c2430", "skin": "#f1cba9", "clothes": { "Tops": "#bba7e6" } },
+  "home":    { "base": "Sendagaya_Shino",    "hair": "#d9d4ce", "skin": "#f2d6c6", "clothes": { "Tops": "#e2a3ae", "Bottoms": "#8f82a8", "AccessoryNeck": "#8f82a8" } },
+  "shop":    { "base": "Sakurada_Fumiriya",  "hair": "#6b4630", "skin": "#e8b892", "clothes": { "Tops": "#5f9472", "Bottoms": "#5c6074" } },
+  "office":  { "base": "Darkness_Shibu",     "hair": "#c9583f", "skin": "#f8dccb", "clothes": { "Tops": "#4a5f8f" } },
+  "school":  { "base": "Sakurada_Fumiriya",  "hair": "#231c1c", "skin": "#8e5c3e", "clothes": { "Tops": "#dcb45e", "Bottoms": "#5e5148", "AccessoryNeck": "#7b3f4f" } },
+  "station": { "base": "AvatarSample_C",     "hair": "#2a2222", "skin": "#dba67f", "clothes": { "Tops": "#40639a", "Bottoms": "#2f3a55" } },
+  "clinic":  { "base": "Sendagaya_Shibu",    "hair": "#1f1b22", "skin": "#f1d0ad", "clothes": { "Tops": "#e9f1f3", "Bottoms": "#9fd0da", "AccessoryNeck": "#9fd0da" } },
+  "cinema":  { "base": "AvatarSample_B",     "hair": "#e48fbf", "skin": "#a8714f", "clothes": { "Tops": "#f4d36e", "Bottoms": "#6f8fc0" } },
+  "phone":   { "base": "HairSample_Male",    "hair": "#c49a5c", "skin": "#efc29c", "clothes": { "Tops": "#4f5b69", "Bottoms": "#c8b48a" } },
+  "park":    { "base": "Victoria_Rubin",     "hair": "#e3a472", "skin": "#f6d6bf", "clothes": { "Tops": "#a6d394" } },
+  "board":   { "base": "HairSample_Male",    "hair": "#1c1818", "skin": "#70482f", "clothes": { "Tops": "#e0675c", "Bottoms": "#3f475c" } }
+}

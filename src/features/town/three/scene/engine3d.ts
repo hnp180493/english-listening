@@ -21,6 +21,7 @@ import { paletteFor, type TownPalette } from '../../engine/palette';
 import { Particles } from '../../engine/particles';
 import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
 import { createCharacter, createPet, passerLook, type Character3DPlus } from '../characters';
+import { dressWhenNear } from '../chars/vrmPeople';
 import type { CharAction, Character3D, Pet3D } from '../contracts';
 import { cameraPosition, fitDistance, followLead, followStiffness, FOLLOW_W, followPoint, FOV, groundHalfExtent, HOLD_RUN, holdDirection, insetShift, keyDirection, PITCH, restDistance, YAW0, yawAfter, zoomAfter } from './cameraRig';
 import { angleDiff, headingOf, octantHeading, towardViewer, type P3 } from './coords';
@@ -2645,6 +2646,9 @@ export class TownEngine3D {
       return;
     }
     p.ch.root.position.set(p.rx, this.town.lift(p.rx, p.rz), p.rz);
+    // a resident with a VRoid avatar wears it once they are near the middle of the view (chars/vrmPeople.ts: the
+    // learner's own choice; one file at a time)
+    if (a.kind === 'resident') dressWhenNear(p.ch, p.rx - this.target.x, p.rz - this.target.z);
     // the legs walk at the sim's own pace (the feet are planted where the body goes: chars/anim.ts)
     const pace = a.moving ? a.v : 0;
     p.speed = pace;

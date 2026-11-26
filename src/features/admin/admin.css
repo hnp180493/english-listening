@@ -172,3 +172,62 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
+/* the faces' preview */
+.adm-looks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+.adm-look {
+  display: grid;
+  gap: 6px;
+}
+.adm-look-pair {
+  display: flex;
+  gap: 8px;
+}
+.adm-pic {
+  display: block;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.adm-faces {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.adm-faces li {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+.adm-thing {
+  width: 150px;
+  text-align: center;
+}
+.adm-model {
+  text-align: center;
+}
+.adm-cmp {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: 8px 20px;
+  overflow-x: auto;
+}
+.adm-cmp-row {
+  display: contents;
+}
+.adm-cmp-row > .adm-scene {
+  grid-column: 1 / -1;
+  margin-bottom: 12px;
+}
+.adm-cmp .adm-look-pair {
+  align-items: flex-start;
+}

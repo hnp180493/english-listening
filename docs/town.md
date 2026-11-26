@@ -2724,3 +2724,68 @@ every page. "Làm lại từ đầu" throws the sandbox away; "Tắt chế độ
 of every line is folded under it. Tried in the dev server: turned on (25 things bought, 99,109 coins after the
 purchases, 10 hearts each, all 55 city entries open with no "meet … first", 5 shifts), the real town-progress byte for
 byte unchanged, turned off. Not tried: the deployed site, a signed-in account in admin mode (sync is off by design).
+
+## 23. The residents as VRoid avatars, with a way back (2026-11-26)
+
+The owner: "thấy mặt nhân vật nào nhân vật nấy y chang nhau, mày không làm đẹp được như stardew valley à?" The
+people are built in code from one round body (chars/body.ts), so only colour, hair and the face texture differ. What
+was tried that day, all looked at by the owner as pictures: more faces and head shapes on the same body
+(`FACE_PRESETS`, `CharacterLook.face` / `head`: still one mould); free CC0 packs (Kenney Mini Characters: "vuông vầy
+đâu ra con người"; Quaternius' packs of 2019 and 2022: "vẫn xấu dã man"); and **VRoid avatars** (anime, VRM files),
+which he chose: "làm tiếp VRoid nhưng có setting cho chọn model trở lại như cũ", meaning EVERYBODY, not a trial
+("rõ ràng tao bảo mày sửa hết").
+
+**What is built.** All 13 residents of the town are shown as a VRoid avatar; the learner can pick the bodies built
+in code again.
+
+- **The files**: `public/vrm/<placeId>.vrm`, 2.0–2.9 MB each, 30 MB together, baked by `scripts/vrm-bake.py`
+  (Python 3 + Pillow, run by hand) from pixiv's free VRoid sample avatars after `scripts/vrm-recipes.json` (which
+  sample, the resident's hair, skin and clothes colours, taken from the code-built cast). The bake recolours the
+  textures by material class (skin: a per-channel multiply; hair, brows, clothes: a luminance-preserving recolour),
+  shrinks them (512 px, the face 1024, WebP), drops the morph targets no kept expression uses and the morphed
+  normals, and repacks the file: 221 MB of samples became 30 MB. The samples themselves are NOT in git
+  (`.assets-try/vroid`, fetched from github.com/madjin/vrm-samples, a mirror): nine declare CC0 in their own meta
+  (HairSample_Female / _Male, Sakurada_Fumiriya, Sendagaya_Shibu / _Shino, Darkness_Shibu, Victoria_Rubin, Vita,
+  Vivi); AvatarSample_A, B, C are "not CC0" but their VRoid Hub pages, read on 2026-11-26, allow corporate and
+  individual commercial use, redistribution and alterations, attribution not required. `fem_vroid` / `masc_vroid`
+  of that mirror have no clear licence and are not used.
+- **Who is who** (`data/townVrm.ts`, the recipes): Leo and Sam = AvatarSample_C; Emma = Vivi; Mia =
+  HairSample_Female (its cat ears are part of the hair); Grace = Sendagaya_Shino with grey hair and glasses; Ben and
+  Daniel = Sakurada_Fumiriya; Sarah = Darkness_Shibu; Kim = Sendagaya_Shibu; Zoe = AvatarSample_B; Max and Tom =
+  HairSample_Male; Lily = Victoria_Rubin. Twelve samples, three of them men: the six men share three faces. Every
+  face is a young anime face: Grace is not an old lady, Ben has no beard and is not bald, and nobody looks like their
+  drawn portrait (those stay in every panel).
+- **On the head, in code** (`vrmBody.ts wear`): glasses (Grace, Daniel), sunglasses (Tom), a cap (Sam), placed by
+  the eye bones; `tall` per resident.
+- **The engine**: `chars/vrmPeople.ts` (`dressWhenNear`, asked each frame for residents: an avatar is fetched only
+  for somebody within 16 tiles of the middle of the view, one file at a time; `dressInVrm` at once in a room,
+  `roomStage.ts`) and `chars/vrmBody.ts` (`wearVrm`; lazy, with `@pixiv/three-vrm` and three's glTF loader in the
+  chunk `vrm`, about 220 kB). A file that fails to load leaves the code body (so does the portable build opened
+  from disk, which cannot fetch).
+- **No animation files.** The hidden code body keeps its Animator; its pose is copied onto the VRM's humanoid bones
+  each frame, so walk, run, sit, talk, wave, yes / no, cheer and the head's look carry over, with the face as
+  expressions (blink, happy, the mouth while talking). Bridged: the arms (the code body rests arms down, a VRM in a
+  T), the legs (a VRM's are about three times as long: the swing is cut to `STRIDE` 0.62 and sitting is posed for
+  its own legs), VRM 0.x looking down −z.
+- **Cost**: `slim()` drops the outline pass and merges skinned meshes that share a material (a sample's 90–130
+  draw calls become about 23). With 11 avatars on the stage the software renderer counted 423 draw calls and 1.03 M
+  triangles (the town alone: about 100 and 0.5 M).
+- Night: a VRM's colours are multiplied towards `NIGHT` with the scene's night amount. The name tag sits over its
+  head (`headTop`). It stands `TALLER` 1.4 × the code body.
+- **The way back**: `townUi.people` `'anime' | 'classic'` (device-local, default anime), Cài đặt → Hiển thị → "Nhân
+  vật trong thị trấn". It applies when the town is opened.
+- The service worker keeps avatars cache-first in their own cache (`nghe-noi-am-vrm`); `VRM_VERSION` in the address
+  goes up when the files are baked again.
+- The admin page has the sheets used to look at all this, dev server only (`features/admin/ModelPreview.tsx`:
+  `?cast` every resident's avatar, `?acts` the actions, `?bases` the twelve samples), and `LookPreview.tsx` (the 16
+  faces; 13 new pieces of street furniture, `scene/furniture.ts`, proposed and not in the town).
+
+**Not done, not known.** Things held in the hand (cup, can, rod, book), hats and outfit colours do not show on an
+avatar. The player, the passers-by, the children, the 37 people of Westbay, portraits and thumbnails are untouched:
+the learner is a round code-built figure among tall anime ones. A tall slim figure among round trees and low benches
+is a clash of styles nobody has judged in motion. Seen only as pictures from `scripts/town-shot.mjs` (the software
+renderer): the sheet of all 13, eleven of them on the plaza by day, one at night, the action sheet; a seated avatar
+on a real bench and a room were not looked at. The feet slide a little by design of `STRIDE`. Nobody has watched it
+move, measured it on a real GPU or opened it on a phone (13 avatars are 30 MB to fetch and about 0.5 M triangles
+more: "Kiểu cũ" is the way out, nothing switches by itself). Residents made in VRoid Studio would replace a file
+one by one (`public/vrm/<id>.vrm`, bump `VRM_VERSION`).

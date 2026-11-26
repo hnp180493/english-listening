@@ -15,9 +15,14 @@ export interface TownUi {
   hi: Record<string, { id: string; at: number }>;
   /** Memory greetings said on this browser, by greeting id (core/town/friendship MEMORY_GREETING_PLAYS). */
   said: Record<string, number>;
+  /**
+   * How the residents who have a VRoid avatar are shown (data/townVrm.ts): as it ('anime', the default) or as the
+   * body built in code like everybody else ('classic'). Per browser: an avatar is heavy for a weak phone.
+   */
+  people: 'anime' | 'classic';
 }
 
-export const DEFAULT_TOWN_UI: TownUi = { sound: true, welcomed: false, greet: true, hi: {}, said: {} };
+export const DEFAULT_TOWN_UI: TownUi = { sound: true, welcomed: false, greet: true, hi: {}, said: {}, people: 'anime' };
 
 const HI_ID = /^[a-z][a-z0-9-]{0,59}$/;
 
@@ -45,7 +50,7 @@ function parseSaid(raw: unknown): TownUi['said'] {
 export function parseTownUi(raw: unknown): TownUi {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...DEFAULT_TOWN_UI, hi: {}, said: {} };
   const r = raw as Record<string, unknown>;
-  return { sound: typeof r.sound === 'boolean' ? r.sound : DEFAULT_TOWN_UI.sound, welcomed: r.welcomed === true, greet: typeof r.greet === 'boolean' ? r.greet : DEFAULT_TOWN_UI.greet, hi: parseHi(r.hi), said: parseSaid(r.said) };
+  return { sound: typeof r.sound === 'boolean' ? r.sound : DEFAULT_TOWN_UI.sound, welcomed: r.welcomed === true, greet: typeof r.greet === 'boolean' ? r.greet : DEFAULT_TOWN_UI.greet, hi: parseHi(r.hi), said: parseSaid(r.said), people: r.people === 'classic' ? 'classic' : 'anime' };
 }
 
 let cache: TownUi | null = null;

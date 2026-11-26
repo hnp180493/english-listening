@@ -110,9 +110,14 @@ const webBuild: UserConfig['build'] = {
           // the text scenes of courtship, marriage and children (data/romance, docs/town.md §15) and the street meetings
           { name: 'romance', test: /src[/\\]data[/\\](romance[/\\]|streetTalks[/\\]|cases[/\\]|townStreet|townCafe|townDeliveries)/ },
           { name: 'content', test: /src[/\\]data[/\\](courses[/\\]|lessons|sentences|chunks|realClips)/ },
-          { name: 'three', test: /node_modules[/\\]three[/\\]/ },
+          // three.js, all but its glTF loader (that is the VRoid people's alone). First of the three: a group takes what
+          // its modules import as well, and three's core must stay here, not go with the loader
+          { name: 'three', test: /node_modules[/\\]three[/\\](?!examples[/\\]jsm[/\\]loaders[/\\]GLTFLoader)/, priority: 3 },
+          // the VRoid people (features/town/three/chars/vrmBody.ts: three-vrm and the glTF loader), loaded only when a
+          // resident with an avatar is on the stage and the learner wants avatars
+          { name: 'vrm', test: /node_modules[/\\](@pixiv[/\\]three-vrm|three[/\\]examples[/\\]jsm[/\\]loaders[/\\]GLTFLoader)|src[/\\]features[/\\]town[/\\]three[/\\]chars[/\\]vrmBody/, priority: 2 },
           // the town's people (bodies, faces, hair, portraits; three/chars): code-built, loaded with the town page
-          { name: 'town-people', test: /src[/\\]features[/\\]town[/\\]three[/\\]chars[/\\]/ },          // the English dictionaries (src/i18n/en, docs/i18n.md): one chunk per bundle, loaded only in English mode
+          { name: 'town-people', test: /src[/\\]features[/\\]town[/\\]three[/\\]chars[/\\]/, priority: 1 },        // the English dictionaries (src/i18n/en, docs/i18n.md): one chunk per bundle, loaded only in English mode
           { name: 'en-ui', test: /src[/\\]i18n[/\\]en[/\\]ui/ },
           { name: 'en-content', test: /src[/\\]i18n[/\\]en[/\\]content/ },
           { name: 'en-town', test: /src[/\\]i18n[/\\]en[/\\]town/ },

@@ -5,7 +5,7 @@
 // right answer marked. It READS ONLY: nothing is paid, nothing is written, nobody's progress changes, nothing waits
 // for a day or for another scene to be heard first.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, LogOut, Map as MapIcon, Play, RotateCcw, Square, Volume2 } from 'lucide-react';
 import { ADMIN, clearAdminSandbox, setAdmin } from '../../core/admin';
 import { hrefFor } from '../../core/nav';
@@ -25,6 +25,11 @@ import { townPlace } from '../../data/town';
 import { tl } from '../../i18n';
 import { speakerName } from '../town/scenes/speakers';
 import './admin.css';
+
+/** The new faces, to look at before they go into the game (three.js: loaded when opened). */
+const LookPreview = lazy(() => import('./LookPreview'));
+/** Artist-made people on trial: the dev server only (its models are not in a build, so neither is the page). */
+const ModelPreview = import.meta.env.DEV ? lazy(() => import('./ModelPreview')) : null;
 
 interface Item {
   id: string;
@@ -283,6 +288,17 @@ function ContentReview() {
   );
 }
 
+/** A preview drawn only once opened (three.js loads then). */
+function PreviewDetails({ title, children }: { title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details className="how" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary>{title}</summary>
+      {open && <Suspense fallback={null}>{children}</Suspense>}
+    </details>
+  );
+}
+
 /** A shift's request, as the shift says it: the browser's voice of the caller's sex. */
 function sayOrder(text: string, level: number, say: string | undefined, gender: 'male' | 'female'): Promise<void> {
   const p = sceneLinePlayback({ who: '', text, ...(say ? { say } : {}) }, level);
@@ -338,6 +354,14 @@ export default function AdminPage() {
           </>
         )}
       </section>
+      {ModelPreview && (
+        <PreviewDetails title="Xem thử: nhân vật mô hình thật">
+          <ModelPreview />
+        </PreviewDetails>
+      )}
+      <PreviewDetails title="Xem thử: mặt nhân vật mới">
+        <LookPreview />
+      </PreviewDetails>
       <details className="how">
         <summary>Đọc toàn bộ lời thoại</summary>
         <ContentReview />

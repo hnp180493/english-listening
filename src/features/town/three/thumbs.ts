@@ -9,6 +9,7 @@ import { canvasOf, charStudio, frame, paint, townStudio, type Studio } from './o
 import { makeMaterials, type Materials } from './scene/materials';
 import { buildPlace } from './scene/places3d';
 import { buildDecorations, type Piece } from './scene/props3d';
+import { buildFurniture, type FurnitureId } from './scene/furniture';
 import { C } from './scene/palette3d';
 import { Merge, shapes } from './scene/merge';
 import { WATER_LEVEL } from './scene/terrain';
@@ -128,4 +129,21 @@ export function disposeThumbs(): void {
   cache.clear();
   mats?.dispose();
   mats = null;
+}
+
+/** A picture of a PROPOSED piece of street furniture (scene/furniture.ts, the admin's preview). Not cached. */
+export function renderFurniture(id: FurnitureId, w: number, h: number): HTMLCanvasElement | null {
+  mats ??= makeMaterials();
+  const t = buildFurniture(id);
+  const g = new Group();
+  const meshes = meshesOf(t, mats);
+  for (const mesh of meshes) g.add(mesh);
+  const studio = townStudio();
+  studio.scene.add(g);
+  frame(studio, g, { aspect: w / h, fill: 0.82, pitch: 0.42 });
+  const out = canvasOf(w, h);
+  const drawn = paint(studio, out);
+  studio.scene.remove(g);
+  meshes.forEach((x) => x.geometry.dispose());
+  return drawn ? out : null;
 }

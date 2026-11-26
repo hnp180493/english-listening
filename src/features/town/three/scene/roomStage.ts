@@ -7,6 +7,7 @@
 
 import { PerspectiveCamera, Scene, Vector3, type Object3D } from 'three';
 import { createCharacter, createPet, passerLook, type Character3DPlus } from '../characters';
+import { dressInVrm } from '../chars/vrmPeople';
 import type { CharAction, Character3D, Pet3D } from '../contracts';
 import type { RoomAnchor, RoomShot } from '../interiors/contracts';
 import { entryPath, gazePoint, headHeight, type RoomSet } from '../interiors/rooms';
@@ -121,11 +122,14 @@ export class RoomStage {
     this.rng = seeded(seed * 7919 + room.id.length * 31);
     this.scene.add(room.root);
     const host = this.add(cast.host, createCharacter(cast.host) as Character3DPlus, room.host);
+    // (who has a VRoid avatar wears it indoors too: chars/vrmPeople.ts)
+    dressInVrm(host.ch);
     const guest = this.add('player', createCharacter('player') as Character3DPlus, room.guest);
     cast.dress(guest.ch);
     void host;
     if (cast.visitor) {
       const v = this.add(cast.visitor, createCharacter(cast.visitor) as Character3DPlus, room.visitor);
+      dressInVrm(v.ch);
       // in from the right of the picture, along the back of the room (from the left would be across the front, under
       // the lens); no way in round the furniture: they appear at their spot (a step from it)
       const er = { size: room.size, blocks: room.blocks, host: room.host, guest: room.guest, extras: room.extras, outdoor: room.id === 'park' };

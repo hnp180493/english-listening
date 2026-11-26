@@ -29,6 +29,10 @@ export interface CharacterLook {
   extras?: readonly string[];
   /** 1 = adult; children about 0.75. */
   scale?: number;
+  /** Which face (chars/face.ts FACE_PRESETS). Left out: one of the old four, from 'lashes' / 'freckles'. */
+  face?: number;
+  /** The head's shape (default round). */
+  head?: 'round' | 'oval' | 'wide' | 'long';
 }
 
 export interface Character3D {

@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent, type CSSProperties } from 'react';
+import { anyVrm } from '../../data/townVrm';
+import { setTownUi, useTownUi } from '../town/townUi';
 import {
   Check,
   Download,
@@ -266,10 +268,17 @@ const LANG_OPTIONS: { value: Lang; label: string }[] = [
   { value: 'en', label: 'English' },
 ];
 
+/** How the town's residents who have a VRoid avatar are shown (features/town/townUi.ts `people`, this browser only). */
+const PEOPLE_OPTIONS: { value: 'anime' | 'classic'; label: string }[] = [
+  { value: 'anime', label: 'Anime 3D' },
+  { value: 'classic', label: 'Kiểu cũ' },
+];
+
 function DisplaySection() {
   const settings = useSettings();
   const uid = useId();
   const theme = sanitizeTheme(settings.theme);
+  const townUi = useTownUi();
   return (
     <section className="card set-section" aria-labelledby={`${uid}-h`}>
       <SectionHead id={`${uid}-h`} title="Hiển thị" sub="Ngôn ngữ, giao diện sáng/tối và phiên âm." />
@@ -300,6 +309,16 @@ function DisplaySection() {
           }))}
         />
       </div>
+
+      {anyVrm() && (
+        <div className="set-row">
+          <span className="set-row-text">
+            <span className="set-label">Nhân vật trong thị trấn</span>
+            <span className="set-hint">Anime 3D nặng hơn; máy yếu thì chọn kiểu cũ. Chỉ lưu trên máy này, mở lại Thị trấn là thấy.</span>
+          </span>
+          <Segmented ariaLabel="Nhân vật trong thị trấn" value={townUi.people} onChange={(people) => setTownUi({ people })} options={PEOPLE_OPTIONS} />
+        </div>
+      )}
 
       <label className="set-row set-switch-row" htmlFor={`${uid}-ipa`}>
         <span className="set-row-text">

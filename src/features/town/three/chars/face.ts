@@ -1,6 +1,11 @@
-// Faces: one shared canvas atlas (every eye state × 4 eye styles, every mouth) and, per person, a small geometry of
-// two patches that hug the front of the head (eyes + cheeks, mouth). Changing an expression rewrites a few UVs; all
-// faces share one texture and one material (one draw call per face).
+// Faces: one shared canvas atlas, a row per face (FACE_PRESETS: its eyes, brows, nose and cheeks in every eye state,
+// its mouth in every mouth state) and, per person, a small geometry of two patches that hug the front of the head
+// (eyes + cheeks, mouth). Changing an expression rewrites a few UVs; all faces share one texture and one material (one
+// draw call per face).
+//
+// Until 2026-11-26 every face was the same four (plain, lashes, freckles, both): owner, "thấy mặt nhân vật nào nhân vật
+// nấy y chang nhau". The first four presets are those four, unchanged (a look without `face` keeps its old one); the
+// rest give people eyes of their own shape and colour, brows, a nose, lines of age, a moustache, fuller lips.
 
 import { BufferAttribute, BufferGeometry, CanvasTexture, DataTexture, LinearMipmapLinearFilter, RGBAFormat, SRGBColorSpace, type Texture } from 'three';
 import type { EyeState, MouthState } from './anim';
@@ -8,8 +13,74 @@ import { shell } from './build';
 
 export const EYE_STATES: readonly EyeState[] = ['open', 'half', 'closed', 'happy', 'wide'];
 export const MOUTH_STATES: readonly MouthState[] = ['smile', 'neutral', 'talkA', 'talkO', 'grin', 'o'];
-/** Eye styles: plain, lashes, plain + freckles, lashes + freckles. */
-export const EYE_STYLES = 4;
+/** How one face is drawn. */
+export interface FacePreset {
+  eyes: 'round' | 'almond' | 'small' | 'sleepy' | 'sharp';
+  /** The colour of the iris (the old faces: a dark plum). */
+  iris: string;
+  brows: 'none' | 'thin' | 'thick' | 'arched' | 'straight';
+  browColor: string;
+  nose: 'none' | 'dot' | 'button' | 'long';
+  mouth: 'plain' | 'full' | 'wide' | 'small' | 'moustache';
+  lashes: boolean;
+  freckles: boolean;
+  /** Lines of age at the eyes' corners and under them. */
+  wrinkles: boolean;
+  /** 0..1.2 */
+  blush: number;
+}
+
+const OLD = '#2b1d2a';
+const F = (eyes: FacePreset['eyes'], iris: string, brows: FacePreset['brows'], browColor: string, nose: FacePreset['nose'], mouth: FacePreset['mouth'], o: Partial<Pick<FacePreset, 'lashes' | 'freckles' | 'wrinkles' | 'blush'>> = {}): FacePreset => ({
+  eyes,
+  iris,
+  brows,
+  browColor,
+  nose,
+  mouth,
+  lashes: !!o.lashes,
+  freckles: !!o.freckles,
+  wrinkles: !!o.wrinkles,
+  blush: o.blush ?? 1,
+});
+
+/**
+ * The faces (a look's `face`: an index). 0–3 are the old four (plain, lashes, freckles, lashes + freckles); a look
+ * without `face` takes one of them from its lashes / freckles as before.
+ */
+export const FACE_PRESETS: readonly FacePreset[] = [
+  F('round', OLD, 'none', '#4a3428', 'none', 'plain'),
+  F('round', OLD, 'none', '#4a3428', 'none', 'plain', { lashes: true }),
+  F('round', OLD, 'none', '#4a3428', 'none', 'plain', { freckles: true }),
+  F('round', OLD, 'none', '#4a3428', 'none', 'plain', { lashes: true, freckles: true }),
+  // 4: almond brown eyes, thin arched brows, a dot nose, full lips (a young woman)
+  F('almond', '#5a3a26', 'arched', '#3a2820', 'dot', 'full', { lashes: true, blush: 0.8 }),
+  // 5: sharp grey-blue eyes, straight brows, a long nose (a sharp woman of fifty)
+  F('sharp', '#5d7590', 'straight', '#6f6a68', 'long', 'small', { lashes: true, wrinkles: true, blush: 0.4 }),
+  // 6: small kind eyes, thick brows, a button nose, a moustache (a big friendly man)
+  F('small', '#4a3020', 'thick', '#3a2a22', 'button', 'moustache', { blush: 0.6 }),
+  // 7: sleepy green eyes, thin brows, freckles (a quiet young man)
+  F('sleepy', '#4f7a52', 'thin', '#7a4a2a', 'dot', 'plain', { freckles: true, blush: 0.5 }),
+  // 8: round blue eyes, arched light brows, a button nose (a bright girl)
+  F('round', '#3f6fae', 'arched', '#b8904a', 'button', 'small', { lashes: true, freckles: true, blush: 1.1 }),
+  // 9: almond dark eyes, thick straight brows, a long nose, a wide mouth (a lean man)
+  F('almond', '#2e2020', 'straight', '#1f1818', 'long', 'wide', { blush: 0.3 }),
+  // 10: small eyes with lines, thin grey brows, a dot nose (an old man)
+  F('small', '#5a4636', 'thin', '#c9c2ba', 'dot', 'plain', { wrinkles: true, blush: 0.5 }),
+  // 11: round hazel eyes with lines, arched grey brows, full lips (an old woman)
+  F('round', '#7a5a2e', 'arched', '#cfc9c2', 'button', 'full', { lashes: true, wrinkles: true, blush: 0.7 }),
+  // 12: sharp brown eyes, thick brows, a moustache, lines (a tough older man)
+  F('sharp', '#4a3020', 'thick', '#5a4636', 'long', 'moustache', { wrinkles: true, blush: 0.3 }),
+  // 13: sleepy brown eyes, arched brows, full lips (a calm woman)
+  F('sleepy', '#5a3a26', 'arched', '#2e2220', 'dot', 'full', { lashes: true, blush: 0.7 }),
+  // 14: round green eyes, thin red brows, freckles, a wide grin (a cheerful redhead)
+  F('round', '#4f8a5b', 'thin', '#b8492e', 'button', 'wide', { freckles: true, lashes: true, blush: 1 }),
+  // 15: almond blue eyes, straight brows, a small mouth (a reserved man)
+  F('almond', '#456d9a', 'straight', '#4a3428', 'dot', 'small', { blush: 0.4 }),
+];
+
+/** Rows of the atlas: one a face. */
+export const EYE_STYLES = FACE_PRESETS.length;
 
 /** Where the patches sit on the head (polar angle from the crown, azimuth from the front), radians. */
 export const EYE_PATCH = { thetaMin: 1.25, thetaMax: 2.0, phiMin: -0.75, phiMax: 0.75 } as const;
@@ -19,12 +90,13 @@ export const EYE_PHI = 0.4;
 export const EYE_THETA = 1.64;
 
 const W = 2048;
-const H = 1024;
-const EYE_W = 384;
-const EYE_H = 192;
-const MOUTH_W = 192;
-const MOUTH_H = 96;
-const MOUTH_Y = 4 * EYE_H;
+const H = 2048;
+/** A row a face: its eyes in every eye state, then its mouths in every mouth state (top half of the row). */
+const EYE_W = 256;
+const EYE_H = 128;
+const MOUTH_W = 96;
+const MOUTH_H = 64;
+const MOUTH_X = EYE_W * 5;
 
 export interface UvRect {
   u0: number;
@@ -38,8 +110,8 @@ const rect = (x: number, y: number, w: number, h: number): UvRect => ({ u0: x / 
 export function eyeRect(style: number, state: EyeState): UvRect {
   return rect(EYE_STATES.indexOf(state) * EYE_W, (style % EYE_STYLES) * EYE_H, EYE_W, EYE_H);
 }
-export function mouthRect(state: MouthState): UvRect {
-  return rect(MOUTH_STATES.indexOf(state) * MOUTH_W, MOUTH_Y, MOUTH_W, MOUTH_H);
+export function mouthRect(state: MouthState, style = 0): UvRect {
+  return rect(MOUTH_X + MOUTH_STATES.indexOf(state) * MOUTH_W, (style % EYE_STYLES) * EYE_H, MOUTH_W, MOUTH_H);
 }
 
 // ───────────────────────── the atlas ─────────────────────────
@@ -60,9 +132,10 @@ export function faceAtlas(): Texture {
   const g = cv.getContext('2d');
   if (!g) throw new Error('2d canvas');
   for (let style = 0; style < EYE_STYLES; style++) {
-    for (const st of EYE_STATES) drawEyeCell(g, EYE_STATES.indexOf(st) * EYE_W, style * EYE_H, style, st);
+    const f = FACE_PRESETS[style];
+    for (const st of EYE_STATES) drawEyeCell(g, EYE_STATES.indexOf(st) * EYE_W, style * EYE_H, f, st);
+    for (const m of MOUTH_STATES) drawMouthCell(g, MOUTH_X + MOUTH_STATES.indexOf(m) * MOUTH_W, style * EYE_H, m, f);
   }
-  for (const m of MOUTH_STATES) drawMouthCell(g, MOUTH_STATES.indexOf(m) * MOUTH_W, MOUTH_Y, m);
   const tex = new CanvasTexture(cv);
   tex.colorSpace = SRGBColorSpace;
   tex.anisotropy = 4;
@@ -95,10 +168,10 @@ const EYE_MID = '#5b3a4c';
 const EYE_GLOW = '#9a6a7c';
 const LINE = '#3a2630';
 
-function drawEyeCell(g: CanvasRenderingContext2D, x0: number, y0: number, style: number, state: EyeState): void {
+function drawEyeCell(g: CanvasRenderingContext2D, x0: number, y0: number, f: FacePreset, state: EyeState): void {
   const pen = cellPen(g, x0, y0, EYE_W, EYE_H, EYE_PATCH);
-  const lashes = style === 1 || style === 3;
-  const freckles = style >= 2;
+  const lashes = f.lashes;
+  const freckles = f.freckles;
   pen.clip();
   // blush
   for (const side of [-1, 1]) {
@@ -107,8 +180,8 @@ function drawEyeCell(g: CanvasRenderingContext2D, x0: number, y0: number, style:
     const rx = 0.15 * pen.sx;
     const ry = 0.075 * pen.sy;
     const grd = g.createRadialGradient(cx, cy, 0, cx, cy, rx);
-    grd.addColorStop(0, 'rgba(255,128,150,0.55)');
-    grd.addColorStop(0.55, 'rgba(255,140,160,0.3)');
+    grd.addColorStop(0, `rgba(255,128,150,${0.55 * f.blush})`);
+    grd.addColorStop(0.55, `rgba(255,140,160,${0.3 * f.blush})`);
     grd.addColorStop(1, 'rgba(255,150,170,0)');
     g.save();
     g.translate(cx, cy);
@@ -135,15 +208,104 @@ function drawEyeCell(g: CanvasRenderingContext2D, x0: number, y0: number, style:
   for (const side of [-1, 1]) {
     const cx = pen.x(side * EYE_PHI);
     const cy = pen.y(EYE_THETA);
-    drawEye(g, cx, cy, pen.sx, pen.sy, state, lashes, side);
+    drawEye(g, cx, cy, pen.sx, pen.sy, state, lashes, side, f);
+    drawBrow(g, cx, cy, pen.sx, pen.sy, side, f, state);
+    if (f.wrinkles) drawLines(g, cx, cy, pen.sx, pen.sy, side);
   }
+  drawNose(g, pen.x(0), pen.y(1.9), pen.sx, pen.sy, f);
   g.restore();
 }
 
-function drawEye(g: CanvasRenderingContext2D, cx: number, cy: number, sx: number, sy: number, state: EyeState, lashes: boolean, side: number): void {
+/** The eye's size by its shape (radians on the head, × the cell's scale). */
+function eyeSize(f: FacePreset): { rx: number; ry: number } {
+  switch (f.eyes) {
+    case 'almond':
+      return { rx: 0.1, ry: 0.105 };
+    case 'small':
+      return { rx: 0.062, ry: 0.085 };
+    case 'sleepy':
+      return { rx: 0.09, ry: 0.12 };
+    case 'sharp':
+      return { rx: 0.1, ry: 0.095 };
+    default:
+      return { rx: 0.088, ry: 0.135 };
+  }
+}
+
+function drawBrow(g: CanvasRenderingContext2D, cx: number, cy: number, sx: number, sy: number, side: number, f: FacePreset, state: EyeState): void {
+  if (f.brows === 'none') return;
+  const lift = state === 'wide' ? -0.03 : state === 'happy' ? -0.015 : 0;
+  const by = cy - (0.2 + lift) * sy;
+  const w = f.brows === 'thin' ? 0.075 : 0.095;
+  const thick = f.brows === 'thick' ? 0.05 : f.brows === 'thin' ? 0.022 : 0.032;
+  g.strokeStyle = f.browColor;
+  g.lineCap = 'round';
+  g.lineWidth = thick * sy;
+  g.beginPath();
+  const inner = cx - side * w * sx;
+  const outer = cx + side * w * sx;
+  if (f.brows === 'straight') {
+    g.moveTo(inner, by + 0.005 * sy);
+    g.lineTo(outer, by - 0.008 * sy);
+  } else {
+    // a soft arch, higher for 'arched'
+    const arch = f.brows === 'arched' ? 0.06 : 0.035;
+    g.moveTo(inner, by + 0.012 * sy);
+    g.quadraticCurveTo(cx + side * 0.01 * sx, by - arch * sy, outer, by + 0.01 * sy);
+  }
+  g.stroke();
+}
+
+/** Lines of age: a little fan at the outer corner, a soft line under the eye. */
+function drawLines(g: CanvasRenderingContext2D, cx: number, cy: number, sx: number, sy: number, side: number): void {
+  g.strokeStyle = 'rgba(120,70,60,0.45)';
+  g.lineWidth = 0.012 * sy;
+  g.lineCap = 'round';
+  const ox = cx + side * 0.13 * sx;
+  for (const a of [-0.35, 0, 0.35]) {
+    g.beginPath();
+    g.moveTo(ox, cy + a * 0.06 * sy);
+    g.lineTo(ox + side * 0.035 * sx, cy + a * 0.11 * sy);
+    g.stroke();
+  }
+  g.beginPath();
+  g.moveTo(cx - 0.06 * sx, cy + 0.17 * sy);
+  g.quadraticCurveTo(cx, cy + 0.2 * sy, cx + 0.06 * sx, cy + 0.17 * sy);
+  g.stroke();
+}
+
+function drawNose(g: CanvasRenderingContext2D, cx: number, cy: number, sx: number, sy: number, f: FacePreset): void {
+  if (f.nose === 'none') return;
+  g.lineCap = 'round';
+  if (f.nose === 'dot') {
+    g.fillStyle = 'rgba(160,85,75,0.4)';
+    g.beginPath();
+    g.ellipse(cx, cy, 0.022 * sx, 0.016 * sy, 0, 0, Math.PI * 2);
+    g.fill();
+    return;
+  }
+  g.strokeStyle = 'rgba(140,72,62,0.55)';
+  g.lineWidth = 0.016 * sy;
+  g.beginPath();
+  if (f.nose === 'button') {
+    g.moveTo(cx - 0.03 * sx, cy - 0.005 * sy);
+    g.quadraticCurveTo(cx, cy + 0.03 * sy, cx + 0.03 * sx, cy - 0.005 * sy);
+  } else {
+    // long: down the middle, then a small turn
+    g.moveTo(cx + 0.005 * sx, cy - 0.1 * sy);
+    g.quadraticCurveTo(cx + 0.02 * sx, cy - 0.02 * sy, cx + 0.03 * sx, cy + 0.01 * sy);
+    g.quadraticCurveTo(cx + 0.005 * sx, cy + 0.03 * sy, cx - 0.025 * sx, cy + 0.01 * sy);
+  }
+  g.stroke();
+}
+
+function drawEye(g: CanvasRenderingContext2D, cx: number, cy: number, sx: number, sy: number, state: EyeState, lashes: boolean, side: number, f: FacePreset): void {
   const big = state === 'wide' ? 1.12 : 1;
-  const rx = 0.088 * sx * big;
-  const ry = 0.135 * sy * big;
+  const size = eyeSize(f);
+  const rx = size.rx * sx * big;
+  const ry = size.ry * sy * big;
+  // a sleepy face's open eyes are half under the lid
+  if (f.eyes === 'sleepy' && state === 'open') state = 'half';
   g.lineCap = 'round';
   g.lineJoin = 'round';
   if (state === 'closed') {
@@ -175,11 +337,22 @@ function drawEye(g: CanvasRenderingContext2D, cx: number, cy: number, sx: number
     g.rect(cx - rx * 2, cy - ry * 0.12, rx * 4, ry * 3);
     g.clip();
   }
-  // the eye: dark, a warm glow at the bottom
+  // the eye: dark, a warm glow at the bottom (the old faces); a face of its own has its iris colour in the middle.
+  // An almond or sharp eye is cut by two arcs into a pointed shape, the sharp one tilted up at its outer corner.
+  if (f.eyes === 'almond' || f.eyes === 'sharp') {
+    const tilt = f.eyes === 'sharp' ? 0.12 * ry : 0;
+    g.beginPath();
+    g.moveTo(cx - side * rx * 1.05, cy + tilt * 0.4);
+    g.quadraticCurveTo(cx, cy - ry * 1.55, cx + side * rx * 1.05, cy - tilt);
+    g.quadraticCurveTo(cx, cy + ry * 1.45, cx - side * rx * 1.05, cy + tilt * 0.4);
+    g.closePath();
+    g.clip();
+  }
+  const own = f.iris !== OLD;
   const grd = g.createLinearGradient(cx, cy - ry, cx, cy + ry);
   grd.addColorStop(0, EYE_DARK);
-  grd.addColorStop(0.55, EYE_MID);
-  grd.addColorStop(1, EYE_GLOW);
+  grd.addColorStop(0.55, own ? f.iris : EYE_MID);
+  grd.addColorStop(1, own ? f.iris : EYE_GLOW);
   g.fillStyle = grd;
   g.beginPath();
   g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
@@ -230,12 +403,14 @@ function lash(g: CanvasRenderingContext2D, x: number, y: number, side: number, s
   g.stroke();
 }
 
-function drawMouthCell(g: CanvasRenderingContext2D, x0: number, y0: number, m: MouthState): void {
+function drawMouthCell(g: CanvasRenderingContext2D, x0: number, y0: number, m: MouthState, f: FacePreset): void {
   const pen = cellPen(g, x0, y0, MOUTH_W, MOUTH_H, MOUTH_PATCH);
   pen.clip();
   const cx = pen.x(0);
   const cy = pen.y(2.08);
-  const sx = pen.sx;
+  // a wide or small mouth: the same strokes, wider or narrower
+  const k = f.mouth === 'wide' ? 1.3 : f.mouth === 'small' ? 0.72 : 1;
+  const sx = pen.sx * k;
   const sy = pen.sy;
   g.lineCap = 'round';
   g.lineJoin = 'round';
@@ -301,6 +476,25 @@ function drawMouthCell(g: CanvasRenderingContext2D, x0: number, y0: number, m: M
       g.fill();
       break;
   }
+  if (f.mouth === 'full' && (m === 'smile' || m === 'neutral')) {
+    // a soft lower lip
+    g.fillStyle = 'rgba(225,110,125,0.55)';
+    g.beginPath();
+    g.ellipse(cx, cy + 0.035 * sy, 0.045 * sx, 0.018 * sy, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+  if (f.mouth === 'moustache') {
+    // over the mouth, in two curls
+    g.fillStyle = f.browColor;
+    for (const side of [-1, 1]) {
+      g.beginPath();
+      g.moveTo(cx, cy - 0.035 * sy);
+      g.quadraticCurveTo(cx + side * 0.06 * pen.sx, cy - 0.065 * sy, cx + side * 0.11 * pen.sx, cy - 0.01 * sy);
+      g.quadraticCurveTo(cx + side * 0.06 * pen.sx, cy - 0.025 * sy, cx, cy - 0.012 * sy);
+      g.closePath();
+      g.fill();
+    }
+  }
   g.restore();
 }
 
@@ -314,7 +508,7 @@ export interface FaceGeometry {
 
 /**
  * The two patches of one face, in head space: centred on the head centre, radius `r`, stretched like the head
- * (`scale`). `style` = 0 plain, 1 lashes, 2 freckles, 3 both.
+ * (`scale`). `style` = the face (FACE_PRESETS index; 0 plain, 1 lashes, 2 freckles, 3 both: the old four).
  */
 export function faceGeometry(r: number, scale: readonly [number, number, number], style: number): FaceGeometry {
   const eyes = shell({ cols: 20, rows: 10, phiMin: EYE_PATCH.phiMin, phiMax: EYE_PATCH.phiMax, thetaMin: () => EYE_PATCH.thetaMin, thetaMax: () => EYE_PATCH.thetaMax, radius: () => r * 1.008 });
@@ -378,7 +572,7 @@ export function faceGeometry(r: number, scale: readonly [number, number, number]
         curE = e;
       }
       if (m !== curM) {
-        apply(nE, nM, mouthRect(m));
+        apply(nE, nM, mouthRect(m, style));
         curM = m;
       }
     },

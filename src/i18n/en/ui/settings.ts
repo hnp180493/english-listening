@@ -263,6 +263,9 @@ const settings: Record<string, string> = {
   'Giữ Ctrl (hoặc Alt) rồi bấm một phím. Esc để hủy.': 'Hold Ctrl (or Alt) and press a key. Esc to cancel.',
   'Phím của ô gõ, không đổi được.': 'The answer box\'s own key; can\'t be changed.',
   'Khôi phục mặc định': 'Restore defaults',
+  'Kiểu cũ': 'Classic',
+  'Nhân vật trong thị trấn': 'People in the town',
+  'Anime 3D nặng hơn; máy yếu thì chọn kiểu cũ. Chỉ lưu trên máy này, mở lại Thị trấn là thấy.': 'Anime 3D is heavier; pick classic on a weak device. Kept on this device only; open the Town again to see it.',
 };
 
 export default settings;

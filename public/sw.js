@@ -56,6 +56,10 @@ const SCOPE_URL = new URL(self.registration.scope);
 const SHELL_URL = new URL('./', SCOPE_URL).href; // index.html served at the scope root
 const ASSETS_PATH = new URL('./assets/', SCOPE_URL).pathname;
 const AUDIO_PATH = new URL('./audio/', SCOPE_URL).pathname;
+// the town's VRoid avatars (public/vrm/<id>.vrm?v=N, 2-3 MB each; src/data/townVrm.ts VRM_VERSION): cache-first in
+// a cache of their own that survives deploys; a new version of somebody's file replaces the old copy
+const VRM_PATH = new URL('./vrm/', SCOPE_URL).pathname;
+const VRM_CACHE = CACHE_PREFIX + 'vrm';
 const AUDIO_MANIFEST_URL = new URL('./audio/' + AUDIO_MANIFEST_NAME, SCOPE_URL).href;
 /** Synthetic entry of AUDIO_META_CACHE: the clip cache name of the current manifest. */
 const AUDIO_TAG_URL = new URL('./audio/__clip-cache-name', SCOPE_URL).href;
@@ -151,7 +155,7 @@ self.addEventListener('activate', (event) => {
       await Promise.all(
         keys
           // an older deploy's cache, the old single clip cache, and the town's old picture cache ('nghe-noi-am-art')
-          .filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE && k !== AUDIO_META_CACHE && !k.startsWith(AUDIO_CLIPS_PREFIX))
+          .filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE && k !== AUDIO_META_CACHE && k !== VRM_CACHE && !k.startsWith(AUDIO_CLIPS_PREFIX))
           .map((k) => caches.delete(k)),
       );
       await self.clients.claim();
@@ -192,6 +196,24 @@ async function networkFirstNavigation(event) {
       { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
     );
   }
+}
+
+/** An avatar: the cached copy of exactly this address (its ?v= included); a fresh one replaces older copies of the file. */
+async function vrmCacheFirst(request) {
+  const cache = await caches.open(VRM_CACHE);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const res = await fetch(request);
+  if (res.ok && res.type === 'basic') {
+    const path = new URL(request.url).pathname;
+    const copy = res.clone();
+    cache
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => new URL(k.url).pathname === path).map((k) => cache.delete(k))))
+      .then(() => cache.put(request, copy))
+      .catch(() => undefined);
+  }
+  return res;
 }
 
 async function cacheFirst(request, cacheName = CACHE) {
@@ -425,6 +447,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(cacheFirst(request, CACHE));
   } else if (url.pathname.startsWith(AUDIO_PATH) && AUDIO_FILE_RE.test(url.pathname)) {
     event.respondWith(audioCacheFirst(event));
+  } else if (url.pathname.startsWith(VRM_PATH) && url.pathname.endsWith('.vrm')) {
+    event.respondWith(vrmCacheFirst(request));
   } else if (url.pathname === AUDIO_PATH + AUDIO_MANIFEST_NAME) {
     event.respondWith(audioManifestNetworkFirst(event));
   } else if (url.pathname === new URL('./sw.js', SCOPE_URL).pathname) {
