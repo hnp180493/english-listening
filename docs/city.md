@@ -528,3 +528,68 @@ From Rico's dispatch office (`data/city/dispatch/`, docs/town.md §27).
   nights the ferry does not need its mechanic; he hardly says a word on the radio). Rico talks on the radio as much as
   in the car.
 - A caller left waiting too long is picked up by a Bayline car: "they listen to everything".
+
+## 16. What Act I's jobs 6–8 and its two side chains added (now canon, if the owner keeps them)
+
+From `data/city/jobs/channels.ts`, `tess.ts`, `hearing.ts`, `sideOkafor.ts`, `sideProfessor.ts` (docs/gta-story.md §4–5,
+§8 "As written").
+
+- **Mrs Delaney** is the Harbour Trust's letting officer: red glasses, a clipboard, believes only paper, fair to the
+  point of being annoying. The Trust talks about its bids on the harbour gate's radio channel, the one Gus uses.
+- **The trap of three channels** (Mei's idea, after her false grandson): Rico's channel said the Lumen, the gate's said
+  the Bay FM stage by the big wheel, the ferry office's said the pharmacy; a Bayline car came to the stage asking for
+  "a taxi for the gate". Kemp listens to the Trust's own channel.
+- **The deposit**: the firm was eight hundred short; **Tess** put in her café money ("four walls and a lemon cake"); Rico
+  has promised to bring her coffee every morning from then on. References: Mrs Okafor ("I have never once ridden in
+  Rico's taxi. And I recommend it to everybody else."), Bridget (who folds sheets the way Grace taught her), Gianna (Rico
+  "never once late" for her). A Bayline woman (Kemp's assistant **Shona**) asked them all first.
+- **The hearing**, at the Trust's office over the electronics market on Quay Street: Gus had told the Trust's radio the
+  gatehouse roof needs fourteen tiles, a number he made up; Kemp's letter "allowed for the fourteen tiles the roof
+  needs". His bid was withdrawn; the old gatehouse is let to "Rico and partner". Rico's firm took 212 calls the week
+  before. Kemp bought **warehouse fifteen** that morning at a quiet tender (Rico heard "fifty" again).
+- **Bay FM's night show is off the air** for now: Bayline, its sponsor, left. Gus's nights are quiet.
+- **Mrs Okafor** sent Chip a tin of biscuits on the 7:05 from stand four; once lost her voice and had the learner ring
+  Sam with three times (Sam texted three words back; Rico read them out); then took the no. 9 for the first time, on a
+  day off, with Pete minding her window ("say ten past for everything").
+- **Professor Adeyemi** keeps a drawer of ferry tickets; recorded Rico ("whatcha gonna"), Mrs Okafor (every word) and
+  Hal ("what're you gonna"). **Claire** read page ninety of Daniel's book aloud for his tape (a woman leaves her umbrella
+  on the ten forty ferry, sings in the rain, never goes back for it; Daniel allowed it "as long as nobody laughs").
+  **Kit**'s tape archive is in lettered boxes (M for market nights); **Yuki** got the Heritage Fund night for her five
+  minutes a day.
+
+## 17. Westbay's streets by name, its traffic and its police (now canon)
+
+From the streets of milestone M2 (`core/town/streets.ts`, docs/town.md §28).
+
+- The streets: **Station Avenue** (east–west, the no. 9's road in from the west), **Market Street**, **Arts Street**,
+  **Quay Street** and **Pier Road** on the harbour; **Station Road**, **Bay Road**, **College Road** and **East Road**
+  north–south. For people only: **Fountain Lane** (through the market square, past the fountain), **the Promenade**
+  along the bay and **the park path** through Station Park.
+- Westbay drives on the left. Its main crossings have traffic lights (nine: where two car streets cross and both run
+  on). About ten cars are on the road at any time, besides Rico's, Tess's and Theo's.
+- The police are heard more than seen: **Dispatch** (a woman) and a patrol unit (a man; units seven, twelve, fifteen
+  and twenty) talk on the scanner; one officer stops people. They are polite, they fine, they never chase anybody into a
+  crash. New characters, only heard: the browser's voice, never a clip.
+
+## 18. What Act I's jobs 2–5 added (now canon, if the owner keeps them)
+
+From `data/city/jobs/half5.ts`, `chip.ts`, `three.ts`, `delaney.ts` (docs/gta-story.md §4, docs/gta-plan.md §16).
+
+- **The re-signing**: the Harbour Trust had every harbour stall sign its lease again, in person, by half past five on
+  a Friday, or go to tender on Monday; Sol and Fay were the last two. Mei had signed at nine that morning ("In ink.
+  Twice.") and minded Sol's lanterns for half an hour; "If it's urgent, it's lying." Mrs Delaney signed Fay's form at the
+  foot of the stairs, since Fay will not climb them. Kemp's bid for the big wheel's pitch was "the thick one". Bayline
+  drove stallholders to the Trust for free that day. The Trust needs "the green copy" of an old lease.
+- **The code** (Max, on his monthly visit to Jun, changed every radio of Rico's firm): the firm talks on **channel
+  thirteen**; **"Chip"** is the station (Sam's dog waits there), **"Grace's"** is the hospital (her Wednesdays). Bayline's
+  desk never worked out what Chip was ("Boss says leave it"). **Bridget** loved that the hospital is "Grace's"; Grace
+  taught her in London and still checks her bandages. **Nell** rides with Bridget back to the hospital's pharmacy.
+- **Who writes the traffic news**: **Shona**, Kemp's assistant, hands Kit the bulletin typed; Bayline pays for Bay FM's
+  whole night show. One night six Bayline cars parked across Gus's gate on Pier Road to make the "delays" true. Sam, in
+  the driver's seat of the no. 9, directed Rico's car after Bayline car nine by phone, three words at a time ("That
+  was. Actually fun." "Don't. Tell. Mom.").
+- **Mrs Delaney's visit**: she sat on the only chair in Rico's office and watched phone two; she writes everything
+  down, and found the firm "a real business. Small. Loud. Real." Kemp booked a real car to the Trust's hearing,
+  Thursday at nine, and asked about his offer in front of her. Tess makes her coffee with milk, no sugar (she asked
+  Gus).
+- **The Bayline driver** and **Bayline's desk** are heard on a car's radio by Gus's hut (new, browser voice only).

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Play, Square, VolumeX, type LucideIcon } from 'lucide-react';
 import type { SpeechMode } from '../core/playback';
-import { speak, stopSpeakingIfOwner, ttsSupported, useSpeechPending } from '../core/tts';
+import { speak, stopSpeakingIfOwner, ttsSupported, useSpeechPending, type SpeakVoice } from '../core/tts';
 import { Icon } from './Icon';
 import { PENDING_ARIA, PENDING_LABEL } from './pendingLabel';
 
@@ -23,6 +23,10 @@ export interface PlayButtonProps {
   slow?: boolean;
   /** Icon at rest (default Play, filled). */
   icon?: LucideIcon;
+  /** Who speaks (SpeakOptions.voice: a town resident, a Westbay speaker); omitted = the app's voice. */
+  voice?: SpeakVoice | null;
+  /** Never the paid AI voice for this playback (SpeakOptions.browserOnly). */
+  browserOnly?: boolean;
 }
 
 /** Speak `text` with TTS. Click again while playing to stop (or, while the AI voice is generating, to cancel). */
@@ -39,6 +43,8 @@ export default function PlayButton({
   mode,
   icon,
   slow,
+  voice,
+  browserOnly,
 }: PlayButtonProps) {
   const [playing, setPlaying] = useState(false);
   const alive = useRef(true);
@@ -78,7 +84,7 @@ export default function PlayButton({
     }
     setPlaying(true);
     onPlay?.();
-    await speak(text, { rate, owner, mode, slow });
+    await speak(text, { rate, owner, mode, slow, ...(voice ? { voice } : {}), ...(browserOnly ? { browserOnly } : {}) });
     if (alive.current && gen === playGen.current) setPlaying(false);
   };
 

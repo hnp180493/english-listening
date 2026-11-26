@@ -361,3 +361,110 @@ Tải lại trang là về 0.
 **Chưa làm / chưa kiểm**: không ai nghe bằng tai, không ai chơi bằng tay hay trên điện thoại; lời thoại chưa ai đọc
 lại; trạm gác cũ và văn phòng Ban quản lý cảng chưa có trên bản đồ; độ nóng chưa có tác dụng gì ngoài con số; các cờ
 "Kemp biết bạn chưa được trả công" / "Kemp sẽ hỏi lại" được nhớ trong lượt chơi nhưng chưa được lưu cho phi vụ 5.
+
+## 14. M2 as built (2026-11-27): đường phố có luật, cảnh sát nghe bằng bộ đàm
+
+Làm theo §4.1 và §4.8, chỉ ở Westbay, không bạo lực, không thêm khóa lưu hay đồng bộ (độ nóng, xe tuần tra, bản tin
+nằm trong bộ nhớ; tiền phạt đi qua `town-progress` như một khoản đã tiêu). Chi tiết: `docs/town.md` §28.
+
+- **Đường có tên** (`core/town/streets.ts`): 12 con đường của bản đồ Westbay, 9 đường có xe, 9 ngã tư có đèn; hướng la
+  bàn theo bản đồ (bắc lên trên), xe chạy bên trái.
+- **Giao thông** (`core/town/traffic.ts`, vẽ ở `three/scene/traffic.ts`): 10 xe bám làn, rẽ ở ngã tư, dừng đèn đỏ /
+  vàng, dừng trước người và xe; không bao giờ lái đầu xe vào người. Đèn là hàm thuần của đồng hồ thật (chu kỳ 26 giây).
+- **Vi phạm khi đang lái / cưỡi**: vượt đèn đỏ (+3 độ nóng), tông xe (+2), tông đổ đồ trên phố (+1). Đèn vàng không tính.
+- **Cảnh sát** (`core/town/police.ts`): từ độ nóng 3 có một xe tuần tra đi tìm theo đường, theo những gì đã được TẢ.
+  Thoát: ra khỏi tầm nhìn 25 giây, hoặc không còn giống lời tả (xuống xe, đổi xe, đổi áo), hoặc một chỗ hạ nhiệt
+  (`coolDownAt(placeId)` cho chỗ ẩn). Bị bắt: dừng lại, cảnh sát hỏi một câu, trả lời bằng ý; trả lời đúng câu được hỏi
+  thì phạt 3/4; phạt 30–120 xu theo độ nóng, không bao giờ quá số xu đang có; độ nóng về 0; không có thua.
+- **Bộ đàm** (`core/town/scanner.ts`, lời ở `data/city/streets/scannerLines.ts`): bản tin sinh từ trạng thái thật (xe gì,
+  màu gì, áo màu gì, đường nào, hướng nào, gần chỗ nào); test kiểm mọi bản tin đúng với dữ liệu sinh ra nó. Giọng trình
+  duyệt: Dispatch, một xe tuần tra, một cảnh sát. Pill "Bộ đàm" có Nghe lại / Nghe chậm bằng phím tắt chung.
+
+**Chưa có:** quán tính xe, xe khác chạy ở thị trấn, cảnh sát đi bộ, nhiều xe tuần tra một lúc, đường cấm. Chưa ai nghe
+bản tin bằng tai, chưa ai lái thật qua một ngã tư bằng phím, chưa thử trên điện thoại hay card đồ họa thật.
+
+## 15. M3 as built (2026-11-27), phần chỗ ẩn
+
+Chi tiết: `docs/town.md` §29. Hãng xe của Rico (vòng điều phối) đã có từ trước (`docs/town.md` §27); phần này là chỗ ẩn.
+
+- **Ở đâu**: căn phòng gạch một gian sau chòi gác của Gus trên Pier Road, cạnh trạm gác cũ nơi Rico đặt văn phòng.
+  Trước khi mua: cửa cuốn kéo xuống, cửa sổ đóng ván, biển TO LET, không đèn. Sau khi mua: cửa sổ có rèm, đêm sáng đèn,
+  đèn trên cửa, cửa cuốn kéo lên một nửa.
+- **Mua**: 800 xu qua kho xu sẵn có (như xe trong gara), mua một lần là của mình trên mọi máy. Khóa đồng bộ mới
+  `town-hideout` (lúc mua, lần nghỉ cuối, chỗ trống cho nâng cấp), có merger và test luật.
+- **Vào trong**: cùng kiểu chuyển cảnh tối như các phòng ở thị trấn; trong phòng chỉ có người chơi và thú cưng. Giường,
+  bàn có máy băng cassette và radio, tủ quần áo, bản đồ Westbay ghim trên tường.
+- **Làm gì trong đó**: "Nghe lại băng" (những câu nghe sót ở phi vụ và văn phòng điều xe, mới nhất trước, nghe trước rồi
+  chữ mới hiện, không chấm điểm, có lối sang Ôn tập khi có câu đến hạn); "Đổi đồ" (Tủ đồ của thị trấn); "Nằm nghỉ"
+  (mỗi giờ game một lần: gọi `coolDownAt` của cảnh sát, độ nóng về 0).
+- **Thẻ nhiệm vụ**: mở cùng lúc với văn phòng của Rico (`cs-bigdeal-6`); chưa mua thì là thẻ "cho thuê · 800 xu", mua
+  rồi thì chỉ hiện khi còn độ nóng.
+
+**Chưa làm / chưa biết**: nâng cấp chỗ ẩn, ngủ qua đêm, người nhà ghé chơi. Giá 800 xu và "mỗi giờ game một lần" là đoán.
+Chỉ xem qua ảnh chụp bằng bộ dựng hình phần mềm; chưa ai vào phòng bằng tay, chưa ai nghe băng bằng tai, chưa thử trên
+điện thoại.
+
+## 16. Act I jobs 2–5 as built (2026-11-27)
+
+(Điều phối gọi phần này là "§14"; §14 và §15 đã có người viết trước, nên nó thành §16.)
+
+**Tiến độ truyện được lưu.** Khóa đồng bộ mới `town-jobs` (`core/town/jobProgress.ts`, IO `jobsStore.ts`): mỗi phi vụ
+nhớ lần đầu xong, hạng tốt nhất, số lần, lần cuối, và các cờ của những lượt chơi (lựa chọn như `kemp-asks-again`, hệ
+quả đã dính như `hit:late`). Merger `mergeJobs` (lần đầu sớm hơn, hạng tốt hơn, số lần lớn hơn, lần cuối muộn hơn, hợp
+các cờ) có test luật trong `syncMerge.props.test.ts`. "Xóa dữ liệu", khôi phục và tombstone đi chung đường với các khóa
+thị trấn khác (khóa nằm trong bản sao lưu). Tài liệu phi vụ có thêm `after` (phi vụ phải xong trước, hạng nào cũng
+được) và `side` (phi vụ ngoài chuỗi: "Cuộn băng của Gus"). Thẻ nhiệm vụ chỉ mời phi vụ kế tiếp của chuỗi (và các chuỗi
+phụ đã mở); phi vụ đã xong hiện thành thẻ "Chơi lại" (xu vẫn mỗi ngày một lần). Chế độ admin mở hết.
+
+**Bộ máy thêm** (chỉ THÊM trường, không đổi tên; ghi ở đầu `core/town/jobDoc.ts`): Cond `past` (cờ / hệ quả của một
+phi vụ TRƯỚC: `job-m2:hit:late`); `goto.deadline` (tới muộn = một hệ quả; theo giây, hoặc theo giờ hẹn; thẻ hiện giờ
+người chơi ĐÃ GHI, chấm theo giờ thật); `pickup.board: false` (tìm được người nhưng không chở đi); `notebook.via`
+('phone' / 'radio' / 'scene'); nhiều sổ tay trong một phi vụ (khóa không trùng); `overhear.who` nhiều người (nghe theo
+người gần nhất); `intent.check.right` là danh sách; `JobDoc.clock` ('quarter' / 'half' "half five" / 'ten' "ten past
+six", `core/town/job.ts`). `wellFormed` kiểm thêm: câu trả lời ngoài khoảng, nghe lén không có ai, khóa sổ tay trùng.
+Câu của người thị trấn trong phi vụ đi giọng Gemini của họ (`jobAudio.ts`, `jobVoice.ts`), chỉ bản nối âm, và nằm
+trong danh mục clip (`audioInventory` `cityJobs`); khi chưa có clip thì đọc bằng giọng trình duyệt.
+
+**Phi vụ 2 "Nửa sáu"** (`data/city/jobs/half5.ts`, 64 câu, sau `job-m2`). Jun gọi; bà Mei trông sạp cho Sol (đáp theo
+ý: "gấp lắm" thì bị bắt chờ); Fay không leo cầu thang; tìm bà Delaney ở chân cầu thang; nghe Kemp gọi Shona; chọn đơn
+nào nộp trước. Đổi so với dàn ý: văn phòng Ban quản lý cảng (chưa có trên bản đồ) dựng ở sạp của Jun trên phố Quay;
+hạn chót là đồng hồ game nói kiểu "half {giờ}"; lựa chọn thứ ba "the cream copy"; chỗ nghe nhầm thứ ba là Meridian
+(không có chỗ nào trên Bay Road); "phóng qua thanh chắn" là Gus quát qua bộ đàm; ghi "chỉ Sol" thì bà Delaney bắt
+quay lại tìm Fay. Người thị trấn: 0.
+
+**Phi vụ 3 "Chip là ga"** (`chip.ts`, 60 câu, sau `job-half5`). Max giảng mật mã qua bộ đàm MỚI từ sạp Jun (không có
+mặt ở trạm gác: người thị trấn không đứng trong thế giới Westbay khi làm phi vụ); Rico gọi MỘT cuốc bằng mật mã (bẫy
+"two / to"), không phải ba; kênh sai = Rico gọi điện thoại, mất một cuốc; "Chip" nghe thành con chip = sạp Jun;
+"Grace's" lựa chọn thứ ba là quán Gianna; khách thứ hai là Nell (dược sĩ), bị bỏ lại thì tự gọi cho người chơi; xe
+Bayline là một tài xế đứng cạnh chòi Gus, bộ đàm bật to (tổng đài chỉ nghe tiếng). **Người thị trấn: Max, 13 câu.**
+
+**Phi vụ 4 "Ba chữ một lần"** (`three.ts`, 60 câu, sau `job-chip`, đồng hồ 'ten'). Rico dặn ở bến taxi; chờ ở ga
+(chỗ xe buýt của Sam đứng) trước giờ xe rời bến; bám đuôi qua bốn ngã rẽ theo lời Sam (trái ở góc bến; phải vào
+Market Street; phải SAU tiệm bánh, vì ở tiệm bánh không có đường; phải vào Arts Street); rẽ sai thì "No. Other right."
+và xe quay lại; bắt Sam nhắc quá hai lần là một hệ quả. Đổi: lựa chọn thứ ba của "car nine" là chính xe buýt số 9,
+của "a bus length" là "a block"; "at eight" của Shona thành "in half an hour" (đồng hồ game chạy tiếp); sau khi nghe
+lén Rico hỏi họ nói gì (đáp theo ý), đúng thì chạy báo Gus trong 75 giây, sai thì không ai báo Gus. **Người thị trấn:
+Sam, 22 câu** (nhiều hơn dàn ý 9 câu vì mỗi ngã rẽ, mỗi lần rẽ sai, mỗi hệ quả đều là một câu ba chữ của Sam).
+
+**Phi vụ 5 "Ghế của bà Delaney"** (`delaney.ts`, 60 câu, sau `job-three`). Văn phòng dựng ở chòi Gus như phi vụ 1; không
+có bản đồ tường để điều xe: mỗi cuộc gọi là một sổ tay hai mục, ghi sai mục nào của cuộc đó cũng là MỘT hệ quả của
+cuộc đó, bà Delaney đọc lại ở cuối. Grace: "me and Bridget" (hai người), "the five forty" (5:14, 4:50). Nell: "half six.
+No, sorry, half seven" và "to the ferry" (khu hội chợ, quầy vé của Fay). Kemp: "to the hearing" (bến cảng; "herring":
+sạp cá của Hal), "Thursday at nine" (thứ Ba lúc 9; thứ Năm lúc 5). Rico đọc lại sai giờ của Grace dù ghi gì: sửa anh
+là câu trả lời đúng. Đáp Kemp trước mặt bà Delaney: lịch sự hoặc chuyển máy là đúng, đốp lại là hệ quả. Câu hỏi của
+Kemp đổi nếu phi vụ 1 chọn "Để nghĩ đã"; đơn khiếu nại chỉ hỏi khi phi vụ 1 có trễ. **Người thị trấn: Grace, 7 câu.**
+
+**Clip phải tạo:** 42 câu của người thị trấn (Max 13, Sam 22, Grace 7), chỉ bản nối âm, `npm run audio:generate` (chủ dự
+án chạy). Đến lúc đó họ nói bằng giọng trình duyệt.
+
+**Đã kiểm:** test (`jobs.test.ts`, `jobDoc.test.ts`, `job.test.ts`, `jobProgress.test.ts`, luật merger); mỗi phi vụ chơi
+bằng kịch bản trong Edge không đầu (dev server, bộ dựng hình phần mềm, giọng đọc giả 120 ms một câu) hai lượt: một lượt
+sạch (hạng Sạch, 0 hệ quả) và một lượt ghi sai MỌI mục, hỏi nhầm người trước, rẽ sai ở mọi ngã rẽ, nhắc lại quá kiên
+nhẫn, lại quá gần khi nghe lén, chọn ý sai (hạng Hỏng, 6–7 hệ quả); cả 8 lượt tới màn xem lại. Sau mỗi lượt tải lại
+trang: `town-jobs` còn nguyên, và chỉ phi vụ kế tiếp được mời (sau phi vụ 5 là "Ba kênh" của session kia). Lượt sai
+của phi vụ 5 có cờ `hit:late` và `kemp-asks-again` của phi vụ 1: đơn khiếu nại hiện ra. Kịch bản đọc trạng thái qua
+`window.__job` (chỉ có ở bản dev). Thẻ nhiệm vụ đặt phi vụ của chuỗi trước phi vụ phụ.
+
+**Chưa làm / chưa kiểm:** không ai nghe bằng tai, không ai chơi bằng tay hay trên điện thoại; lời thoại do model viết,
+chưa ai đọc lại; văn phòng Ban quản lý cảng và trạm gác cũ vẫn chưa có trên bản đồ; độ nóng vẫn chỉ là con số trong
+bộ nhớ; tiền công, thời gian (75 giây tới chòi Gus) và ngưỡng kiên nhẫn là đoán.

@@ -22,6 +22,8 @@ import { mergeTownCafe, parseTownCafe } from './town/cafe';
 import { mergeTownCases, parseTownCases } from './town/cases';
 import { mergeTownCity, parseTownCity } from './town/city';
 import { mergeTownShifts, parseTownShifts } from './town/shift';
+import { mergeTownJobs, parseTownJobs } from './town/jobProgress';
+import { mergeTownHideout, parseTownHideout } from './town/hideout';
 
 /** Full storage key (with prefix) → raw stored JSON string, as in Backup.data. */
 export type DataMap = Record<string, string>;
@@ -630,6 +632,18 @@ export const mergeCity: Merger = (newer, older) => mergeTownCity(parseTownCity(n
  */
 export const mergeShifts: Merger = (newer, older) => mergeTownShifts(parseTownShifts(newer), parseTownShifts(older));
 
+/**
+ * town-jobs (Thị trấn: Westbay's jobs, core/town/jobProgress): per job the earlier first time, the better grade, the
+ * higher count, the later last time, the union of its flags.
+ */
+export const mergeJobs: Merger = (newer, older) => mergeTownJobs(parseTownJobs(newer), parseTownJobs(older));
+
+/**
+ * town-hideout (Thị trấn: the learner's hideout in Westbay, core/town/hideout): the earlier buying time, the later
+ * rest, each upgrade at its earlier time.
+ */
+export const mergeHideout: Merger = (newer, older) => mergeTownHideout(parseTownHideout(newer), parseTownHideout(older));
+
 /** Short key (without prefix) → merge strategy. Keys not listed (unknown): newer side wins. */
 const MERGERS: Record<string, Merger> = {
   settings: mergeSettings,
@@ -655,6 +669,8 @@ const MERGERS: Record<string, Merger> = {
   'town-cases': mergeCases,
   'town-city': mergeCity,
   'town-shifts': mergeShifts,
+  'town-jobs': mergeJobs,
+  'town-hideout': mergeHideout,
 };
 
 function tryParse(raw: string): { ok: true; value: unknown } | { ok: false } {

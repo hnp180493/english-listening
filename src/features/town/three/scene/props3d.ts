@@ -584,7 +584,17 @@ function stringLights(p: Parts, a: { x: number; y: number; z: number }, b: { x: 
 // ───────────────────────── town projects ─────────────────────────
 
 /** A town project's pieces at the spots engine/extraDecor.ts gives (unknown ids: nothing). */
+/** Models of "projects" made outside the town's chunk (Westbay's hideout: features/town/hideout/hideout3d.ts). */
+const MORE_PROJECTS: Record<string, (at: Tile, index: number) => Piece> = {};
+
+/** Add project models by id (the town's own ids cannot be replaced). */
+export function registerProjects(more: Readonly<Record<string, (at: Tile, index: number) => Piece>>): void {
+  for (const [id, make] of Object.entries(more)) if (!id.startsWith('proj-')) MORE_PROJECTS[id] = make;
+}
+
 export function buildProject(id: string, spots: readonly Tile[]): Piece[] {
+  const more = Object.hasOwn(MORE_PROJECTS, id) ? MORE_PROJECTS[id] : null;
+  if (more) return spots.map((s, i) => more(s, i));
   return spots.map((s, i) => {
     const p = parts();
     const m = p.body;

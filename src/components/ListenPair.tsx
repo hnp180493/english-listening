@@ -1,5 +1,6 @@
 import { ExternalLink, Turtle } from 'lucide-react';
 import { CAREFUL_ARIA, CAREFUL_LABEL, CAREFUL_RATE, CAREFUL_TITLE, CONNECTED_TITLE, carefulPlan, connectedPlan, writtenText, youglishUrl, type MaybeSpeakable } from '../core/playback';
+import type { SpeakVoice } from '../core/tts';
 import { Icon } from './Icon';
 import PlayButton from './PlayButton';
 import './ListenPair.css';
@@ -23,6 +24,12 @@ export interface ListenPairProps {
    */
   asWritten?: boolean;
   className?: string;
+  /** Who speaks (SpeakOptions.voice), on both buttons; omitted = the app's voice. */
+  voice?: SpeakVoice | null;
+  /** Never the paid AI voice (SpeakOptions.browserOnly): a Westbay speaker's line, as its review card plays it. */
+  browserOnly?: boolean;
+  /** Called when either button starts playing (a page that shows the text only after listening). */
+  onPlay?: () => void;
 }
 
 /**
@@ -30,7 +37,7 @@ export interface ListenPairProps {
  *  - "Nghe": the CONNECTED version (say ?? speakText ?? text) at the normal rate, like real speech;
  *  - "Rõ từng từ" (turtle): the STANDARD written text, slower: the deliberate contrast.
  */
-export default function ListenPair({ text, decoded, say, size = 'sm', variant = 'soft', rate, asWritten, className }: ListenPairProps) {
+export default function ListenPair({ text, decoded, say, size = 'sm', variant = 'soft', rate, asWritten, className, voice, browserOnly, onPlay }: ListenPairProps) {
   const fast = asWritten ? { text: writtenText(text, say), mode: undefined, rate } : connectedPlan(text, decoded, say, rate);
   const slow = carefulPlan(text, CAREFUL_RATE);
   return (
@@ -44,6 +51,9 @@ export default function ListenPair({ text, decoded, say, size = 'sm', variant = 
         variant={variant}
         title={asWritten ? 'Nghe câu' : CONNECTED_TITLE}
         ariaLabel={asWritten ? undefined : tl`Nghe, ${tr(CONNECTED_TITLE).toLowerCase()}`}
+        voice={voice}
+        browserOnly={browserOnly}
+        onPlay={onPlay}
       />
       <PlayButton
         text={slow.text}
@@ -55,6 +65,9 @@ export default function ListenPair({ text, decoded, say, size = 'sm', variant = 
         variant="ghost"
         title={CAREFUL_TITLE}
         ariaLabel={CAREFUL_ARIA}
+        voice={voice}
+        browserOnly={browserOnly}
+        onPlay={onPlay}
       />
     </div>
   );

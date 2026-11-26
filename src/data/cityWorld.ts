@@ -302,6 +302,9 @@ const RAW_THINGS: Readonly<Record<ThingId, ActivitySpot>> = (() => {
   });
   out['thing:radio'] = { stand: T(36, 12), look: { x: 36.5, y: 11.5 }, box: { x: 36.5, y: 11.5, w: 0.9, d: 0.9, h: 1.0 } };
   out['thing:bus'] = { stand: T(5, 28), look: { x: 6, y: 29.5 }, box: { x: 6, y: 29.5, w: 1.9, d: 0.8, h: 1.3 } };
+  // the learner's hideout behind Gus's hut (data/city/hideout.ts, in the stretched map's coordinates: its lot 69–71 ×
+  // 86–87, the door's tile 70, 88; here before the stretch, cityWorld.test checks they agree)
+  out['thing:hideout'] = { stand: T(51, 64), look: { x: 51.5, y: 63.5 }, box: { x: 51.5, y: 63, w: 2.9, d: 1.9, h: 1.4 } };
   return out;
 })();
 

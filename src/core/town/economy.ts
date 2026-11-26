@@ -19,9 +19,10 @@
 import { placeLines, TOWN_DECORATIONS, TOWN_PLACES, townDecoration, townPlace } from '../../data/town';
 import { EGG_COST } from '../../data/townGame';
 import { garageVehicle } from '../../data/townGarage';
+import { HIDEOUT_COST, HIDEOUT_ID } from '../../data/city/hideout';
 import { TOWN_GIFTS } from '../../data/townGifts';
 import { noteConversation, noteLine, type TaskPayout } from './daily';
-import { addBought, addEarned, addTyped, earnedTotal, eggCountTotal, giftCount, hasBought, isLineId, lineProgress, linesStats, recordLine, type LineBest, type TownProgress, type TownStats } from './progress';
+import { addBought, addEarned, addTyped, earnedTotal, eggCountTotal, finesTotal, giftCount, hasBought, isLineId, lineProgress, linesStats, recordLine, type LineBest, type TownProgress, type TownStats } from './progress';
 import { allStoryLines, storyLineById } from './storyLines';
 import { VISIT_SIZE, type LineOutcome, type TownPlace, type TypedMark } from './types';
 
@@ -86,7 +87,7 @@ export function conversationBonus(outcomes: readonly LineOutcome[], size: number
 
 // ───────────────────────── buying ─────────────────────────
 
-export type TownItemKind = 'place' | 'decoration' | 'vehicle';
+export type TownItemKind = 'place' | 'decoration' | 'vehicle' | 'hideout';
 
 export interface TownItem {
   id: string;
@@ -103,7 +104,9 @@ export function townItem(id: string): TownItem | undefined {
   if (d) return { id: d.id, kind: 'decoration', name: d.name, cost: d.cost };
   // a vehicle of the garage (data/townGarage.ts): bought and kept like a decoration
   const g = garageVehicle(id);
-  return g ? { id: g.id, kind: 'vehicle', name: g.name, cost: g.cost } : undefined;
+  if (g) return { id: g.id, kind: 'vehicle', name: g.name, cost: g.cost };
+  // the learner's hideout in Westbay (data/city/hideout.ts): bought and kept like a vehicle
+  return id === HIDEOUT_ID ? { id, kind: 'hideout', name: 'Chỗ ẩn', cost: HIDEOUT_COST } : undefined;
 }
 
 /**
@@ -114,7 +117,7 @@ export function spentTotal(progress: TownProgress): number {
   let sum = 0;
   for (const id of progress.bought) sum += townItem(id)?.cost ?? 0;
   for (const g of TOWN_GIFTS) sum += giftCount(progress, 'bought', g.id) * g.cost;
-  return sum + eggCountTotal(progress, 'bought') * EGG_COST;
+  return sum + eggCountTotal(progress, 'bought') * EGG_COST + finesTotal(progress);
 }
 
 /**
@@ -138,7 +141,7 @@ export function isBuilt(progress: TownProgress, placeId: string): boolean {
 
 /** Whether the learner has it: a built place (the three free ones always) or a bought decoration. */
 export function owns(progress: TownProgress, id: string): boolean {
-  return townPlace(id) ? isBuilt(progress, id) : !!(townDecoration(id) || garageVehicle(id)) && hasBought(progress, id);
+  return townPlace(id) ? isBuilt(progress, id) : !!(townDecoration(id) || garageVehicle(id) || id === HIDEOUT_ID) && hasBought(progress, id);
 }
 
 /** The places that stand, in their listed order. */

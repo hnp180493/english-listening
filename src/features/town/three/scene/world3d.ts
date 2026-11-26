@@ -5,7 +5,7 @@
 
 import { BufferGeometry, CanvasTexture, DirectionalLight, Float32BufferAttribute, Group, HemisphereLight, Mesh, Object3D, PointLight, Points, PointsMaterial, AdditiveBlending, Scene, type Material, Color } from 'three';
 import { BUS_THING, groundHeight, type ActivitySpotId, type PlaceId, type TownWorld } from '../../../../data/townWorld';
-import { EXTRA_DECOR } from '../../engine/extraDecor';
+import { extraDecorSpots } from '../../engine/extraDecor';
 import type { StageState } from '../../engine/sim';
 import { hash2, middleOf } from './coords';
 import { cropsKey, fireflySpots, lamps, layoutKey, lotState, mapTrees, natureOf, nearestLamps, tufts, type Lamp, type TreeSpot } from './layout';
@@ -408,7 +408,7 @@ export class TownScene {
     const decor = this.reuse('decor:' + square + ':' + state.decorations.join(','), () => buildDecorations(world, state.decorations, square)) as Piece[];
     for (const pc of decor) add(pc, pc.pop, pc.index, pc.pop !== 'lilies');
     for (const id of state.extraDecor ?? []) {
-      const spots = EXTRA_DECOR[id];
+      const spots = extraDecorSpots(id);
       if (!spots) continue;
       for (const pc of this.reuse('proj:' + id, () => buildProject(id, spots.map((s) => s.at))) as Piece[]) add(pc, id, pc.index, id !== 'proj-lake-lights');
     }

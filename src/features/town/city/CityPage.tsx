@@ -61,11 +61,23 @@ import { DISPATCH_QUEST_ID, dispatchQuest } from '../dispatch/dispatchQuest';
 import { OFFICE_AT } from '../../../data/city/dispatch/places';
 import { PhoneCall } from 'lucide-react';
 import { useCityJob } from '../jobs/useCityJob';
+import { useStreetsLayer } from '../streets/useStreetsLayer';
+import { useStreets } from '../streets/streetsStore';
+import Scanner from '../streets/Scanner';
+import StopPanel from '../streets/StopPanel';
 import { withJobCast } from '../jobs/jobCast';
 import type { JobDoc } from '../../../core/town/jobDoc';
 import { CITY_JOBS } from '../../../data/city/jobs';
 import './cityLooks';
 import './cityPlaces3d';
+// the learner's hideout behind Gus's hut (../hideout, docs/town.md §29): its two looks, the panel, the quest card
+import '../hideout/hideout3d';
+import { HIDEOUT_DOOR, HIDEOUT_HOME, HIDEOUT_LET, HIDEOUT_THING } from '../../../data/city/hideout';
+import { ownsHideout } from '../../../core/town/hideout';
+import { useTownHideout } from '../../../core/town/hideoutStore';
+import { useHeat } from '../jobs/heatStore';
+import { HIDEOUT_QUEST_ID, hideoutQuest } from '../hideout/hideoutQuest';
+import { KeyRound } from 'lucide-react';
 import '../town.css';
 import './city.css';
 
@@ -75,6 +87,7 @@ const CityToday = lazy(() => import('./CityToday'));
 const CityEventPanel = lazy(() => import('./CityEventPanel'));
 const ShiftPanel = lazy(() => import('./ShiftPanel'));
 const TaxiPanel = lazy(() => import('./TaxiPanel'));
+const HideoutPanel = lazy(() => import('../hideout/HideoutPanel'));
 /** Rico's dispatch office in the old gatehouse (../dispatch, docs/town.md §27). */
 const DispatchOffice = lazy(() => import('../dispatch/DispatchOffice'));
 /** The full map (M, or the minimap): the town's, on Westbay's world. */
@@ -94,6 +107,7 @@ type Sheet =
   | { kind: 'shift'; key: number; id: string }
   | { kind: 'taxi'; key: number }
   | { kind: 'dispatch'; key: number }
+  | { kind: 'hideout'; key: number }
   | { kind: 'event'; key: number; event: CityEvent };
 
 /** What the one button offers beside somebody. */
@@ -110,6 +124,9 @@ export default function CityPage() {
   const ui = useTownUi();
   const city = useTownCity();
   const progress = useTownProgress();
+  const hideoutRecord = useTownHideout();
+  const hideoutOwned = ownsHideout(progress.bought, hideoutRecord);
+  const heat = useHeat();
   const life = useTownLife();
   const player = usePlayerOnStage();
   const stage = useRef<TownStageHandle>(null);
@@ -165,8 +182,8 @@ export default function CityPage() {
       const own = scenes.filter((x) => x.at === id);
       lit[id] = own.length ? own.filter((x) => Object.hasOwn(city.heard, x.id)).length / own.length : 0;
     }
-    return { built: [...CITY_PLACE_IDS, ...guests, 'station'], decorations: CITY_DECOR_ON, lit, marker, theme, ...player };
-  }, [scenes, city, guests, now, theme, player, chapterAt]);
+    return { built: [...CITY_PLACE_IDS, ...guests, 'station'], decorations: CITY_DECOR_ON, extraDecor: [hideoutOwned ? HIDEOUT_HOME : HIDEOUT_LET], lit, marker, theme, ...player };
+  }, [scenes, city, guests, now, theme, player, chapterAt, hideoutOwned]);
 
   // ── sound, toast ──
   const sfx = useCallback((name: Parameters<typeof playSfx>[0]) => playSfx(name, ui.sound), [ui.sound]);
@@ -197,6 +214,8 @@ export default function CityPage() {
         stage.current?.endListen();
         stage.current?.endTalk();
       }
+      // out of the hideout's room through the dark (nothing happens when it was not entered)
+      if (s?.kind === 'hideout') stage.current?.endTalk();
       return null;
     });
     setArrived(null);
@@ -262,7 +281,13 @@ export default function CityPage() {
 
   const openThing = useCallback(
     (id: ActivitySpotId) => {
-      if (sheet || (!thingKind(id) && (id as string) !== CAR_RADIO)) return;
+      if (sheet) return;
+      if (id === HIDEOUT_THING) {
+        setWelcome(false);
+        setSheet({ kind: 'hideout', key: ++keys.current });
+        return;
+      }
+      if (!thingKind(id) && (id as string) !== CAR_RADIO) return;
       setWelcome(false);
       setSheet({ kind: 'thing', key: ++keys.current, id });
     },
@@ -382,6 +407,9 @@ export default function CityPage() {
   // a job ("phi vụ", ../jobs; docs/gta-plan.md M0): Rico rings once he has been met (at once in the admin sandbox); under
   // way, it is THE quest and it takes the one button and the clicks on people
   const jobOpen = useCallback((d: JobDoc) => !flat && ready && (ADMIN || d.opens.every((s) => Object.hasOwn(city.heard, s))), [flat, ready, city]);
+  // Westbay's streets (../streets, docs/town.md §28): traffic, lights, offences, the police and their scanner
+  const streetStop = useStreets().stop;
+  useStreetsLayer(stage, ready, flat, !!sheet || !!map || !!streetStop);
   const job = useCityJob({
     jobs: CITY_JOBS,
     stage,
@@ -403,7 +431,12 @@ export default function CityPage() {
   const riding = !!ridingTo;
   // Rico's dispatch office (../dispatch): open once Gus offered him the gatehouse (the main story's part 2)
   const officeOpen = dispatchOpen(city);
-  const withOffice = useMemo(() => (officeOpen ? [...allQuests, dispatchQuest(DISPATCH_SHIFTS_A_DAY - shiftsPaidToday())] : allQuests), [officeOpen, allQuests]);
+  const withOffice = useMemo(() => {
+    if (!officeOpen) return allQuests;
+    // the hideout behind Gus's hut is offered with the office (../hideout/hideoutQuest.ts)
+    const room = hideoutQuest(hideoutOwned, heat);
+    return [...allQuests, dispatchQuest(DISPATCH_SHIFTS_A_DAY - shiftsPaidToday()), ...(room ? [room] : [])];
+  }, [officeOpen, allQuests, hideoutOwned, heat]);
   const questList = useMemo(() => [...job.quests, ...withOffice], [job.quests, withOffice]);
   const quest = job.active ? job.quests[0] : riding ? allQuests[0] : followed(questList, questPick);
   // a main story chapter to get to in time (data/city/seasonsMain.ts `rush`): the clock starts when it is taken on
@@ -437,6 +470,10 @@ export default function CityPage() {
     if (kind === 'event') {
       const ev = eventsToday.find((x) => x.event.id === key);
       if (ev) openEvent(ev.event);
+      return;
+    }
+    if (q.id === HIDEOUT_QUEST_ID) {
+      void stage.current?.travelTo({ kind: 'activity', id: HIDEOUT_THING }, 'walk', () => openThing(HIDEOUT_THING));
       return;
     }
     if (q.id === DISPATCH_QUEST_ID) {
@@ -484,7 +521,9 @@ export default function CityPage() {
   const nearId = near?.kind === 'resident' ? near.placeId : null;
   const nearNow = nearId ? sceneNow(scenes, nearId, city, now) : null;
   const nearThing = near?.kind === 'activity' ? near.id : null;
-  const pagePrompt = nearThing
+  const pagePrompt = nearThing === HIDEOUT_THING
+    ? { icon: KeyRound, text: hideoutOwned ? 'Vào chỗ ẩn' : 'Xem căn phòng cho thuê', run: () => openThing(HIDEOUT_THING) }
+    : nearThing
     ? { icon: thingKind(nearThing) === 'bus' ? BusFront : Ear, text: thingKind(nearThing) === 'bus' ? 'Lên xe số 9 về thị trấn' : (thingPrompt(nearThing) ?? ''), run: () => openThing(nearThing) }
     : nearId && nearNow
       ? chapterAt(nearId)
@@ -513,7 +552,7 @@ export default function CityPage() {
   const full = useFullStage(stageBox);
   const insets = useStageInsets(stageBox, `${shownSheet?.key ?? '-'}|${sceneUp ? 's' : '-'}|${full.full ? 'f' : '-'}|${prompt ? 'p' : '-'}|${welcome ? 'w' : '-'}`);
   const [narrow] = useState(narrowStage);
-  const showPrompt = (ready || flat) && !sheet && !map && !!prompt;
+  const showPrompt = (ready || flat) && !sheet && !map && !!prompt && !streetStop;
 
   const onListen = useCallback((who: readonly string[] | null) => {
     const s = stage.current;
@@ -568,7 +607,7 @@ export default function CityPage() {
         hint={!sheet && suggested ? (suggested.at as PlaceId) : null}
         guide={!sheet ? (quest?.target ?? null) : null}
         full={full.full}
-        paused={!ready || !!sheet || !!map || job.sheet}
+        paused={!ready || !!sheet || !!map || job.sheet || !!streetStop}
         className={[sceneUp ? 'is-talking' : shownSheet ? 'is-building' : '', full.full ? 'is-full' : ''].filter(Boolean).join(' ') || undefined}
         label={flat ? 'Westbay' : 'Thành phố Westbay nhìn từ trên cao. Dùng danh sách nút ngay sau đây để tới gặp từng người.'}
         loading="Đang dựng thành phố…"
@@ -589,6 +628,13 @@ export default function CityPage() {
                     </li>
                   ) : null;
                 })}
+                {officeOpen && (
+                  <li>
+                    <button type="button" className="btn btn-ghost" onClick={() => setSheet({ kind: 'hideout', key: ++keys.current })}>
+                      Chỗ ẩn
+                    </button>
+                  </li>
+                )}
                 {officeOpen && (
                   <li>
                     <button type="button" className="btn btn-ghost" onClick={() => setSheet({ kind: 'dispatch', key: ++keys.current })}>
@@ -731,6 +777,8 @@ export default function CityPage() {
         )}
 
         {!flat && job.node}
+        {!flat && ready && !map && !welcome && !streetStop && <Scanner muted={!!sheet || job.sheet} />}
+        {streetStop && !sheet && <StopPanel key={streetStop.id} stop={streetStop} />}
 
         <p className="town-toast" role="status">
           {toast && !sheet ? <span className="town-toast-box">{toast}</span> : null}
@@ -771,6 +819,13 @@ export default function CityPage() {
           <CitySheet title="Chạy taxi cho Rico" onClose={closeSheet}>
             <Suspense fallback={<p className="town-build-hint">Đang mở…</p>}>
               <TaxiPanel key={shownSheet.key} sound={ui.sound} distanceTo={doorDistance} onReward={onReward} onClose={closeSheet} />
+            </Suspense>
+          </CitySheet>
+        )}
+        {shownSheet?.kind === 'hideout' && (
+          <CitySheet title="Chỗ ẩn" onClose={closeSheet}>
+            <Suspense fallback={<p className="town-build-hint">Đang mở…</p>}>
+              <HideoutPanel key={shownSheet.key} sound={ui.sound} onReward={onReward} onClose={closeSheet} enter={flat ? null : (ready) => stage.current?.enterOwnRoom('hideout', HIDEOUT_DOOR, Math.PI / 2, ready) ?? false} />
             </Suspense>
           </CitySheet>
         )}

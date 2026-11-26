@@ -23,7 +23,9 @@ export type InteriorId =
   | 'phone'
   | 'park'
   | 'board'
-  | 'inn';
+  | 'inn'
+  // the learner's own room in Westbay (data/city/hideout.ts): nobody lives there but them (no host in the room)
+  | 'hideout';
 
 /** Where someone stands, sits or works in a room. `heading` = radians on the ground plane, atan2(dz, dx). */
 export interface RoomAnchor {

@@ -19,6 +19,8 @@ import {
   mergeCases,
   mergeCity,
   mergeShifts,
+  mergeJobs,
+  mergeHideout,
   mergeValue,
 } from './syncMerge';
 import { parseDrillStore, rollDaily } from '../features/drill/drillStore';
@@ -262,6 +264,34 @@ describe('merger laws', () => {
     };
   });
   // town-shifts (Westbay's "Ca làm việc", core/town/shift): per shift best and last run's misses, per-order counts, days
+  // town-jobs (Westbay's jobs, core/town/jobProgress): per job earlier first, better grade, more times, later last, flags
+  checkLaws('town jobs', mergeJobs, () => {
+    if (maybe(0.05)) return pick<unknown>([null, 'junk', [], { done: 7 }]);
+    return {
+      version: 1,
+      done: Object.fromEntries(
+        ['job-m2', 'job-half5', 'job-ferry', 'Bad Id', '__proto__'].filter(() => maybe(0.6)).map((id) => [
+          id,
+          pick<unknown>([
+            { first: pick([T0, T0 + 1, T0 + 4]), best: pick(['clean', 'messy', 'broken']), times: 1 + ri(4), last: pick([T0 + 2, T0 + 9]), flags: ['hit:late', 'asked', 'kemp-asks-again'].filter(() => maybe()) },
+            { first: 0, best: 'clean' },
+            { first: T0, best: 'super' },
+            'x',
+          ]),
+        ]),
+      ),
+    };
+  });
+  // town-hideout (docs/town.md §29): the earlier buying, the later rest, each upgrade at its earlier time
+  checkLaws('town hideout', mergeHideout, () => {
+    if (maybe(0.05)) return pick<unknown>([null, 'junk', [], { bought: 'x' }]);
+    return {
+      version: 1,
+      bought: pick<unknown>([null, T0, T0 + 1, T0 + 7, 'x', -3]),
+      rested: pick<unknown>([0, T0 + 2, T0 + 9, null]),
+      upgrades: Object.fromEntries(['desk', 'bed', 'Bad Id', '__proto__'].filter(() => maybe()).map((id) => [id, pick<unknown>([T0, T0 + 3, 'x'])])),
+    };
+  });
   checkLaws('town shifts', mergeShifts, () => {
     if (maybe(0.05)) return pick<unknown>([null, 'junk', [], { days: 7 }]);
     const shiftIds = ['taxi', 'flowers', 'Bad Id', '__proto__'];

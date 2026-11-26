@@ -7,12 +7,16 @@ import { cafe, friend, home, shop } from './recipes/a';
 import { clinic, office, phone, school } from './recipes/b';
 import { cinema, station } from './recipes/c';
 import { board, inn, park, square } from './recipes/d';
+import { hideout } from './recipes/hideout';
 
 export type { RoomSet } from './build';
 export type { InteriorId } from './contracts';
 
 /** Every room, in the order of the town (the 13 places, then the boarding house). */
 export const INTERIOR_IDS: readonly InteriorId[] = ['square', 'cafe', 'friend', 'home', 'shop', 'office', 'school', 'station', 'clinic', 'cinema', 'phone', 'park', 'board', 'inn'];
+
+/** Rooms of the learner's own, entered alone (no resident hosts them): the hideout in Westbay. */
+export const OWN_ROOMS: readonly InteriorId[] = ['hideout'];
 
 /** The standard room: 5.4 × 4.2 tiles, walls 1.7 high (a grown-up is 0.79). */
 const STD = { W: 5.4, D: 4.2, H: 1.7 };
@@ -32,10 +36,12 @@ const RECIPES: Readonly<Record<InteriorId, { spec: Omit<RoomSpec, 'id'>; build: 
   park: { spec: { W: 6.2, D: 5.0, H: 1.7, outdoor: true }, build: park },
   board: { spec: STD, build: board },
   inn: { spec: STD, build: inn },
+  // a small lock-up: smaller and lower than a place's room
+  hideout: { spec: { W: 4.4, D: 3.6, H: 1.6 }, build: hideout },
 };
 
 export function isInteriorId(id: string): id is InteriorId {
-  return (INTERIOR_IDS as readonly string[]).includes(id);
+  return (INTERIOR_IDS as readonly string[]).includes(id) || (OWN_ROOMS as readonly string[]).includes(id);
 }
 
 export function buildInterior(id: InteriorId): RoomSet {

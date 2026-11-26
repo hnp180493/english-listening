@@ -3197,3 +3197,140 @@ calls, the ring and decide limits, the car speed), the pay and the difficulty mi
 difficulty yet (gta-plan §11.3 wants one around 85 % right). The 44 calls and the radio lines were written by a model
 and read by nobody. The places are shown by English labels on the wall map (what the caller says), their Vietnamese
 names in the slots and the debrief.
+
+## 29. The hideout: a room of your own in Westbay (2026-11-27)
+
+docs/gta-plan.md §4.4 and §6, milestone M3: the "home of your own" that was never built. The learner lives in the town
+and comes up on the no. 9 (docs/gta-story.md §1); the last bus home is at 10:15 at night, so a room up here is where a
+late job ends. It is where heat cools, where clothes are changed, and where the lines heard wrong are heard again.
+
+**Where.** Behind Gus's hut on Pier Road, between the ferry and College Road (Westbay's stretched map: lot 69–71 ×
+86–87, the door's tile 70, 88), beside the old gatehouse where Rico's office is. `data/city/hideout.ts` holds the lot,
+the door, the price (`HIDEOUT_COST` 800 xu) and room for upgrades (`HIDEOUT_UPGRADES`, none yet); the thing to click is
+`thing:hideout` in `data/cityWorld.ts` RAW_THINGS (before the stretch; `data/city/hideout.test.ts` checks they agree,
+that the lot is bare ground nobody uses, and that with its walls up the door and Gus are still reached from the bus).
+
+**Drawn** (`features/town/hideout/hideout3d.ts`, registered by the city's page, nothing in the town's chunk): a one-room
+brick lock-up with a flat roof, in two looks the stage builds as Westbay's own "projects" (`engine/extraDecor.ts`
+`CITY_EXTRA_DECOR`, `extraDecorSpots`; `three/scene/props3d.ts registerProjects`): **to let** (the window boarded, the
+roller shutter down, a red TO LET board over it, weeds, no glass and no light) and **lived in** (a window with curtains
+and a flower box, glass that glows at night like every lit window, a lamp over a teal door, the shutter half up, a
+brass number, a mat, plants). The city's StageState carries `extraDecor: ['hideout-let' | 'hideout-home']`, so buying it
+rebuilds only that piece. Its walls block (`engine/sim.ts PROJECT_HALF`, the size of the drawn walls); the town's own
+projects and their tests are untouched.
+
+**Bought** with xu through the town's store (`core/town/economy.ts townItem`: kind 'hideout', like a garage vehicle; the
+id `hideout` goes into town-progress `bought`, its cost into what was spent). Its own record is the new synced key
+**`town-hideout`** (`core/town/hideout.ts`, IO `hideoutStore.ts`, merger `core/syncMerge mergeHideout`, laws in
+`syncMerge.props.test.ts`): when it was first bought (the earlier wins), the last rest (the later), upgrades (each the
+earlier time). Owned = the `bought` list OR the record, so either copy alone keeps it bought on every machine. Reset
+paths are the generic ones (every synced key). The admin sandbox has 99,999 xu and does not own it, so buying can be
+tried there.
+
+**The room** (`three/interiors/recipes/hideout.ts`, 4.4 × 3.6 tiles, walls 1.6): a bed under the little window, a
+wardrobe with a suitcase on top, a desk with a tape deck (its counter glows), a teal radio and a lamp, a map of Westbay
+pinned on the wall (the bay, the streets, red pins and a string), a rug, a crate for a table, a floor lamp, a plant, a
+clock. It is one of the learner's OWN rooms (`interiors/rooms.ts OWN_ROOMS`), not one of the town's fourteen, and is
+entered alone: `TownStageHandle.enterOwnRoom('hideout', door, out, ready)` → `engine3d enterOwnRoom` stages it like a
+talk inside with no resident (the same dip to dark, `cut`), `RoomStage` builds no host when there is none, the player
+and their pet stand in the room; `endTalk` brings them out at the door. Tests: `interiors/hideoutRoom.test.ts`.
+
+**The panel "Chỗ ẩn"** (`features/town/hideout/HideoutPanel.tsx`), opened by clicking the building, E at its door
+("Xem căn phòng cho thuê" / "Vào chỗ ẩn"), its quest card or the list mode; one primary action per state:
+- **not bought**: what it is for, the price, what is missing, "Mua · 800 xu" (disabled while short). Bought → the dip
+  into the room at once.
+- **bought** (in the room): the heat line, and three actions, the primary one by state (resting when there is heat to
+  cool, else the tape, else the wardrobe):
+  - **"Nghe lại băng"**: the review cards `talk:job-…` and `talk:disp-…` that are enrolled and not suspended, the
+    newest first (`hideoutTape`, at most 40), each played as Ôn tập plays it (its speaker's browser voice, connected,
+    with "Rõ từng từ"; `ListenPair` now takes `voice` / `browserOnly` / `onPlay`), its words and meaning shown only
+    after it was played (`hideout/tape.ts`). Nothing is scored: a link opens Ôn tập when some are due.
+  - **"Đổi đồ"**: the town's own Tủ đồ panel (`activities/WardrobePanel`, lazy), shown in the sheet; what is worn shows
+    on the player in Westbay at once.
+  - **"Nằm nghỉ"**: once an hour of the game (two real minutes; the wait counts down on the button): the police's
+    `features/town/streets/streetsStore coolDownAt('hideout')` (the search called off, the heat to 0) and the heat store
+    set to 0 as well (the list mode has no streets layer). The time is written to `town-hideout`.
+- "Ra ngoài" / closing the sheet: out of the room through the dark.
+
+**Quest card** (`hideout/hideoutQuest.ts`): offered with Rico's office (the same gate, `dispatchOpen`: `cs-bigdeal-6`
+heard; at once in admin). Not bought: "Căn phòng sau chòi gác cho thuê · 800 xu", walking there; bought: a card only
+while there is heat ("Về chỗ ẩn nằm nghỉ"). Its target is the thing, so the minimap and the map's guide point there.
+
+**Not done, not known.** No upgrades (the data has room for them), nothing stored in the room, no sleeping through the
+night or missing the last bus on purpose, the partner and children never come here. The room was seen only in pictures
+on the software renderer (`.assets-try/previews/hideout-*`); nobody has walked into it by hand, watched the dip, heard a
+line of the tape, or tried it on a phone. 800 xu and "an hour of the game" are guesses to tune with real play. The
+English strings were written by the same model that wrote the code.
+
+## 28. Westbay's streets: traffic, lights, police and the scanner (2026-11-27)
+
+Milestone M2 of `docs/gta-plan.md` (§4.1 heat and police, §4.8 traffic; "M2 as built" is §14 there). The owner's
+"tự auto đi, nhớ làm hết". The point stays the app's: the police radio is the listening, and what is heard is answered
+by acting (leave that road, get off, change, wait it out). Westbay only.
+
+**Streets by name** (`core/town/streets.ts`, pure, tested). The twelve two-tile bands of paving of the city's map, with
+the names of `docs/city.md` §17: nine for cars (Station Avenue, Market Street, Arts Street, Quay Street, Pier Road; Station
+Road, Bay Road, College Road, East Road), three for people (Fountain Lane, the Promenade, the park path). Written in the
+map's first layout and moved by its stretch; a test walks every tile of every street on the stretched map. Junctions are
+where an east–west band and a north–south band share a 2 × 2 box; nine have lights (two car streets that both run on past
+it). The compass reads the map north up (+x east, +y south); Westbay drives on the left (`laneOf`).
+
+**Lights.** `lightAt(net, junction, nowMs)` is a pure function of the real clock, like the sky: a 26-second cycle
+(east–west green 10 s, amber 2, all red 1, north–south green 10, amber 2, all red 1), each junction 7 s after the one
+before. Nothing stored; the same on every machine. Drawn (`three/scene/traffic.ts`): a post at each corner of the box
+(one merged mesh), three bulbs a head (one instanced mesh, lit or dim, written only when a phase changes). The posts stop
+a walker (bodies of the sim, `TownSim.extraBodies`).
+
+**Traffic** (`core/town/traffic.ts`, pure, tested; ten cars). Each keeps to its lane, picks a way out at a junction (never
+back unless there is nothing else), turns where its new lane crosses, turns round at a dead end, stops before the box on
+red (and on amber unless already close), keeps its distance from the car ahead, and stops for anybody in its lane: the
+player, the residents, the patrol. The rule that keeps moving things from trapping the player: a car never brings its
+middle within `BODY_GAP` (1.1 tiles) of a body ahead, and `blockersFor` never gives the sim a car's circle or the patrol
+when the player already stands inside it, so they can always walk off (a ten-minute test round a walker standing in the
+road and at three junctions). Drawn as three instanced meshes (one a colour): about five draw calls for the whole layer
+with the lights.
+
+**Offences, while riding or driving** (`features/town/streets/streetsWorld.ts`): into a lit junction's box against red
+(+3 heat; an amber never counts), touching a car at speed (+2), knocking into a thing of the street at speed (+1: bins,
+a postbox, a news box…). The heat is the jobs' (`features/town/jobs/heatStore.ts`, its API unchanged): the same pill.
+Without a search it cools by one every 40 s.
+
+**Police** (`core/town/police.ts`, pure, tested). From heat 3 a patrol car (unit seven, twelve, fifteen or twenty) sets
+off from a lit junction 16–34 tiles away and drives the streets (`dispatchRoads.ts`) to where the learner was last KNOWN.
+It sees them within 8 tiles if they still look as described (`sameLook`: on foot or on what, its colour, the colour of
+their top). Seen: the last sighting is now. Within 1.7 tiles for 1.2 s: stopped. Out of sight 25 s: lost, the heat drops
+under 3. Getting off or onto something else, or another top, makes them nobody the patrol is looking for.
+`coolDownAt(placeId)` (`features/town/streets/streetsStore.ts`) calls a search off and clears the heat: for the hideout.
+
+**The scanner** (`core/town/scanner.ts`, words in `data/city/streets/scannerLines.ts`). Bulletins made from the facts:
+"All units, a red light was run on Market Street. Suspect on a pink scooter, heading east. Unit twenty, copy. On my
+way."; every 16 s while searching, the last sighting ("Unit seven, last seen on Bay Road, heading north" / "…near the
+ferry"); "I have them" on being seen again; "Nobody on a pink scooter round here now" when the look changed. A test
+builds bulletins for every look, heading, road or none, and offence, and checks each names exactly the road, heading,
+place, vehicle, colour and top it was made from. Voices: Dispatch (a woman), the unit and the officer (men), all the
+browser's, never a clip. The pill "Bộ đàm" (`Scanner.tsx`) sits under the heat pill while a search is on or a bulletin is
+fresh; a bulletin is said once as it comes; opened, it has "Nghe lại" / "Nghe chậm" (the shared practice keys) and,
+folded, the words with their meaning. Generated lines: no review cards, listening time not logged.
+
+**Stopped** (`StopPanel.tsx`): the officer says what was done and asks one of three questions (why I stopped you / whose
+is it / where are you off to); the learner answers by intent (keys 1–3). The answer to the question asked: three quarters
+of the fine; another: the full fine. 30–120 xu by heat, never more than the learner has, paid through town-progress
+(`fines`, a new per-browser field that only grows and merges by max, so a sync never gives a fine back:
+`core/town/progress.ts addFine`, `economy.ts spentTotal`); heat to zero; no game over.
+
+**Engine hooks** (a few lines): `engine3d.addExtra` (something driven each frame: `three/scene/stageExtra.ts`), the
+stage handle's `addExtra`, `rideLook()` (the vehicle ridden and its colour), `TownSim.extraBodies`.
+
+**Seen / not seen.** Looked at in pictures on the software renderer (`.assets-try/previews/streets-*`: a junction with
+cars and lights by day and at dusk, the patrol car coming, the scanner open at 1400 and 375 wide, a stop at 1400 and
+375). Measured at the same view with the layer hidden and shown: +9 draw calls (270 → 279 by day, 303 → 312 at dusk;
+the layer itself is 5 meshes, the rest their shadows) and about +89 k triangles. Scripted in a headless dev server of
+its own (no hot reload), both runs from a red light on Market Street × Bay Road on a borrowed scooter: (1) heat 3, unit
+twelve sent, "All units, a red light was run on Market Street. Suspect on a pink scooter, heading east." Off the road
+and out of sight: "Unit twelve. I have lost them near Meridian. All units, stand down.", heat 2. (2) staying put: the
+patrol pulls up, the stop, the question; the right intent: 45 xu, another: 60 xu; heat 0. On the software renderer the
+engine's frames are slow and its step is capped (0.05 s), so 25 s of the game's time took over a minute of real time.
+The script moves the player by `placePlayer` steps, not by keys; once it brushed a car and knocked over a news box on
+the way, and both offences were counted and said truly ("a newspaper box was knocked over near the paper kiosk"). Nobody has heard a bulletin, driven through a junction with real
+keys, watched the traffic move, or tried it on a phone or a real GPU. The numbers (ten cars, the cycle, the heat, the
+sight, the fines) are guesses.

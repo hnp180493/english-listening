@@ -121,13 +121,15 @@ export class RoomStage {
     this.visitor = cast.visitor;
     this.rng = seeded(seed * 7919 + room.id.length * 31);
     this.scene.add(room.root);
-    const host = this.add(cast.host, createCharacter(cast.host) as Character3DPlus, room.host);
-    // (who has a VRoid avatar wears it indoors too: chars/vrmPeople.ts)
-    dressInVrm(host.ch);
+    // (no host: the learner's own room, entered alone: docs/town.md §29)
+    if (cast.host) {
+      const host = this.add(cast.host, createCharacter(cast.host) as Character3DPlus, room.host);
+      // (who has a VRoid avatar wears it indoors too: chars/vrmPeople.ts)
+      dressInVrm(host.ch);
+    }
     const guest = this.add('player', createCharacter('player') as Character3DPlus, room.guest);
     dressInVrm(guest.ch);
     cast.dress(guest.ch);
-    void host;
     if (cast.visitor) {
       const v = this.add(cast.visitor, createCharacter(cast.visitor) as Character3DPlus, room.visitor);
       dressInVrm(v.ch);
