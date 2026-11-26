@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { panelSpans, parseName, SHEET_LAYOUT as SCRIPT_LAYOUT } from '../../../scripts/portraits.mjs';
+import { CITY_PEOPLE, panelSpans, parseName, SHEET_LAYOUT as SCRIPT_LAYOUT } from '../../../scripts/portraits.mjs';
+import { CITY_PLACE_IDS } from '../../data/cityWorld';
 import { PORTRAIT_SHEETS } from './portraitFiles';
 import { MOOD_FALLBACK, SHEET_LAYOUT, sheetCell, type PortraitMood } from './portraitSheet';
 
@@ -43,6 +44,11 @@ describe('drawn portraits: one 3 × 3 grid per resident', () => {
     }
   });
 
+  it("knows every one of Westbay's people, and none of them is a town resident's name or place", () => {
+    expect([...CITY_PEOPLE].sort()).toEqual([...CITY_PLACE_IDS].sort());
+    for (const id of CITY_PEOPLE) expect(parseName(`${id}.png`)?.id).toBe(id);
+  });
+
   it('reads the owner’s file names', () => {
     expect(parseName('Zoe.PNG')).toEqual({ id: 'cinema', kind: 'auto' });
     expect(parseName('zoe-luoi.png')).toEqual({ id: 'cinema', kind: 'grid' });
@@ -51,6 +57,11 @@ describe('drawn portraits: one 3 × 3 grid per resident', () => {
     expect(parseName('kim_lolang.png')).toEqual({ id: 'clinic', kind: 'cell', mood: 'worried' });
     expect(parseName('cafe-pout.webp')).toEqual({ id: 'cafe', kind: 'cell', mood: 'pout' });
     expect(parseName('bob.png')).toBeNull();
+    // Westbay's people by their id, a title before it allowed
+    expect(parseName('rico.png')).toEqual({ id: 'rico', kind: 'auto' });
+    expect(parseName('Mrs-Okafor.PNG')).toEqual({ id: 'okafor', kind: 'auto' });
+    expect(parseName('dr osei-cuoi.webp')).toEqual({ id: 'osei', kind: 'cell', mood: 'happy' });
+    expect(parseName('mrs-nobody.png')).toBeNull();
     expect(parseName('constructor.png')).toBeNull();
     expect(parseName('emma.txt')).toBeNull();
   });

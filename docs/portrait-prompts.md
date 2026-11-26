@@ -4,6 +4,9 @@ Avatar của 13 người dân Thị trấn là ảnh vẽ (nửa người, kiể
 hoặc ChatGPT bản miễn phí. Ai chưa có ảnh thì app vẫn dùng avatar 3D. Nhân vật người chơi tự tạo luôn dùng avatar 3D
 (quá nhiều kiểu tóc / màu da để vẽ trước).
 
+**Người Westbay (nhân vật mới, 37 người):** prompt riêng ở `docs/portraits/westbay/`, ảnh tải về bỏ vào
+`portraits-src/westbay/`, cùng `npm run portraits` (xem `README.md` trong đó).
+
 **Mỗi người MỘT ảnh: 9 vẻ mặt xếp lưới 3 × 3.** Mỗi người có một file riêng, dán là xong: `docs/portraits/<tên>.md`
 (`emma.md`, `leo.md`…). Phần dưới là bản gộp (khung chung + mô tả từng người) để sửa cho tất cả một lần; sửa ở đây
 thì tạo lại các file riêng cho khớp.

@@ -1,5 +1,6 @@
 export declare const SHEET_LAYOUT: readonly string[];
 export declare const RESIDENTS: Readonly<Record<string, string>>;
+export declare const CITY_PEOPLE: readonly string[];
 export type ParsedName = { id: string; kind: 'auto' | 'grid' } | { id: string; kind: 'cell'; mood: string };
 export declare function parseName(file: string): ParsedName | null;
 export declare function panelSpans(gap: readonly boolean[]): [number, number][] | null;

@@ -55,6 +55,15 @@ export const RESIDENTS = {
 };
 const PLACE_IDS = new Set(Object.values(RESIDENTS));
 
+/**
+ * Westbay's people (data/cityWorld.ts CITY_PLACE_IDS; prompts in docs/portraits/westbay/): the file name is their id,
+ * which is also their place id in the city ("rico.png" → public/portraits/rico.webp). A title before it is allowed
+ * ("Mrs-Okafor.png", "dr osei.png"). Their pictures may sit in a folder of their own, <from>/westbay/.
+ */
+export const CITY_PEOPLE = ['okafor', 'pete', 'tess', 'rico', 'nora', 'theo', 'frank', 'poppy', 'gianna', 'hal', 'amira', 'jonah', 'bo', 'dana', 'iris', 'wren', 'claire', 'kit', 'priya', 'whitlock', 'vivian', 'hana', 'colin', 'dev', 'osei', 'bridget', 'adeyemi', 'finch', 'yuki', 'nell', 'jun', 'marcus', 'fay', 'odile', 'gus', 'mei', 'sol'];
+const CITY_IDS = new Set(CITY_PEOPLE);
+const TITLES = new Set(['mr', 'mrs', 'ms', 'dr', 'prof', 'captain', 'cap']);
+
 /** A word in the file name → the mood of one face (portraitSheet.ts PortraitMood). */
 const MOODS = {
   cuoi: 'happy',
@@ -93,8 +102,10 @@ export function parseName(file) {
     .replace(/đ/gi, 'd')
     .toLowerCase()
     .trim();
-  const [name, ...rest] = base.split(/[-_ ]+/);
-  const id = Object.hasOwn(RESIDENTS, name) ? RESIDENTS[name] : PLACE_IDS.has(name) ? name : null;
+  const words = base.split(/[-_ ]+/);
+  if (words.length > 1 && TITLES.has(words[0]) && CITY_IDS.has(words[1])) words.shift();
+  const [name, ...rest] = words;
+  const id = Object.hasOwn(RESIDENTS, name) ? RESIDENTS[name] : PLACE_IDS.has(name) || CITY_IDS.has(name) ? name : null;
   if (!id) return null;
   if (rest.some((w) => GRID_WORDS.has(w))) return { id, kind: 'grid' };
   const mood = rest.map((w) => (Object.hasOwn(MOODS, w) ? MOODS[w] : null)).find(Boolean);
@@ -362,7 +373,7 @@ function readList() {
 function writeList(moods = {}, colours = {}, lifts = {}) {
   const before = readList();
   const list = {};
-  for (const id of [...PLACE_IDS].sort()) {
+  for (const id of [...PLACE_IDS, ...CITY_IDS].sort()) {
     const file = join(OUT_DIR, `${id}.webp`);
     const has = moods[id] ?? before[id]?.has;
     if (!existsSync(file) || !has?.length) continue;
@@ -430,14 +441,17 @@ async function main() {
   /** placeId → its files: the grids / plain pictures first, then the single faces. */
   const people = new Map();
   const skipped = [];
-  for (const f of readdirSync(from).sort()) {
+  // the folder itself, and Westbay's people in <from>/westbay/ (docs/portraits/westbay/README.md)
+  const westbay = join(from, 'westbay');
+  const files = [...readdirSync(from).map((f) => ({ dir: from, f })), ...(existsSync(westbay) ? readdirSync(westbay).map((f) => ({ dir: westbay, f })) : [])];
+  for (const { dir, f } of files.sort((a, b) => a.f.localeCompare(b.f))) {
     const p = parseName(f);
     if (!p) {
       if (EXT.has(extname(f).toLowerCase())) skipped.push(f);
       continue;
     }
     const jobs = people.get(p.id) ?? [];
-    jobs.push({ file: join(from, f), name: f, ...p });
+    jobs.push({ file: join(dir, f), name: f, ...p });
     people.set(p.id, jobs);
   }
   if (!people.size) {
@@ -485,7 +499,8 @@ async function main() {
     await page.close();
   }
   const list = writeList(moods, colours, lifts);
-  console.log(`Xong. Có ảnh vẽ: ${Object.keys(list).length}/13 người.`);
+  const ids = Object.keys(list);
+  console.log(`Xong. Có ảnh vẽ: ${ids.filter((id) => PLACE_IDS.has(id)).length}/13 người thị trấn, ${ids.filter((id) => CITY_IDS.has(id)).length}/${CITY_IDS.size} người Westbay.`);
   if (skipped.length) console.log(`Bỏ qua (tên không khớp người nào): ${skipped.join(', ')}`);
 }
 
