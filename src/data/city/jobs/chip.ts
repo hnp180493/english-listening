@@ -15,7 +15,15 @@
 //   - the Bayline car is a driver standing by Gus's hut with his radio on loud (the dispatcher is heard, not seen); too
 //     near and he turns it off.
 // Max is of the town ('phone'): his lines are clips (connected only), the browser voice until the owner makes them.
+//
+// The engine's samples for Act II (docs/gta-plan.md §17): a CREW (picked before the job) changes how the Bayline car's
+// radio is heard. Alone: overheard by the distance, too near and the driver notices. With Jun (open once his first talk
+// up here is heard): he stands by Gus's hut with their desk on his scanner and passes it to the learner's radio, heard
+// whole wherever they are, nobody notices; he takes a share. With Max (open at 3 hearts): his coin recorder under their bumper; the tape is a notebook, heard as often as
+// wanted (each time counted), two things noted, a wrong note has its consequence; he takes a friend's cut and rides
+// along. The Bayline car really pulls in and waits by the hut while it is heard (`park`).
 
+import { CREW_CUT } from '../../../core/town/crew';
 import type { NoteEntry } from '../../../core/town/job';
 import type { JobDoc } from '../../../core/town/jobDoc';
 
@@ -77,6 +85,13 @@ const LINES = [
   { id: id('o04'), who: 'driver', text: 'Not on mine. Boss says leave it, then?', vi: 'Bản đồ của tôi thì không. Sếp bảo thôi kệ à?' },
   { id: id('o05'), who: 'baydesk', text: 'Boss says leave it. Park up by the gate tonight.', vi: 'Sếp bảo kệ. Tối nay đỗ xe cạnh cổng cảng.' },
   { id: id('o06'), who: 'driver', text: "Is it a pub? A dog? I checked the map. Nothing.", vi: 'Là quán rượu à? Con chó à? Tôi xem bản đồ rồi. Chẳng có gì.' },
+  // ── with Jun: the desk on his scanner ──
+  { id: id('j-01'), who: 'jun', text: 'Got their desk on my scanner. Here it comes, listen.', vi: 'Tôi bắt được tổng đài của họ trên máy quét rồi. Tới rồi, nghe này.' },
+  { id: id('j-02'), who: 'jun', text: "That's all they've got. They don't know a thing.", vi: 'Họ chỉ có thế thôi. Họ chẳng biết gì cả.' },
+  // ── with Max: the coin recorder's tape ──
+  { id: id('m-01'), who: 'phone', text: "Coin recorder's under their bumper, mate. Here's what it caught.", vi: 'Máy ghi âm cỡ đồng xu nằm dưới cản xe họ rồi. Đây là cái nó ghi được.' },
+  { id: id('m-02'), who: 'rico', text: "Bayline's parked across the gate, and nobody told me.", vi: 'Bayline đỗ chắn ngang cổng mà chẳng ai báo tôi.' },
+  { id: id('m-03'), who: 'rico', text: "Parking by the gate, are they? Then I'll take the side lane.", vi: 'Đỗ cạnh cổng à? Vậy tôi đi đường phụ.' },
   { id: id('o-seen'), who: 'driver', text: "Can I help you? No? Then I'll have my window up.", vi: 'Cần gì không? Không à? Vậy tôi kéo kính lên đây.' },
   // ── beat 4 ──
   { id: id('e1'), who: 'phone', text: "Told you. Nobody up here's ever heard of Chip.", vi: 'Đã bảo mà. Trên này chưa ai nghe tới Chip bao giờ.' },
@@ -127,6 +142,32 @@ const CODE: NoteEntry[] = [
   },
 ];
 
+// Max's tape (a notebook: heard as often as wanted, each time counted)
+const TAPE: NoteEntry[] = [
+  {
+    key: 'deskplan',
+    label: 'Bayline định làm gì tối nay',
+    line: id('o05'),
+    answer: 'gate',
+    options: [
+      { value: 'gate', label: 'Đỗ xe cạnh cổng cảng' },
+      { value: 'leave', label: 'Bỏ về, không làm gì' },
+      { value: 'map', label: 'Đi xem lại bản đồ' },
+    ],
+  },
+  {
+    key: 'deskwho',
+    label: 'Ai quyết',
+    line: id('o04'),
+    answer: 'boss',
+    options: [
+      { value: 'boss', label: 'Sếp của họ' },
+      { value: 'driver', label: 'Anh tài xế' },
+      { value: 'desk', label: 'Cô tổng đài' },
+    ],
+  },
+];
+
 const FARE: NoteEntry[] = [
   {
     key: 'count',
@@ -168,7 +209,15 @@ export const JOB_CHIP: JobDoc = {
     { id: 'graces', label: '"Grace\'s" là', line: id('a06'), consequence: 'wrongStop', byAction: true },
     { id: 'count', label: 'Mấy khách', line: id('b02'), consequence: 'leftBehind' },
     { id: 'who', label: 'Khách là ai', line: id('b03'), consequence: 'wrongPerson', byAction: true },
+    { id: 'deskplan', label: 'Bayline định làm gì tối nay', line: id('o05'), consequence: 'tape' },
+    { id: 'deskwho', label: 'Ai quyết', line: id('o04'), consequence: 'tape' },
   ],
+  crew: {
+    roles: [
+      { who: 'jun', role: 'Thợ bộ đàm', listen: 'Jun bắt tổng đài Bayline trên máy quét: bạn nghe trọn qua bộ đàm, khỏi phải lại gần xe.', opens: { heard: ['ct-jun-1'] }, cut: CREW_CUT.share, with: { at: 'gus' } },
+      { who: 'phone', role: 'Máy ghi âm', listen: 'Max gài máy ghi âm dưới xe Bayline: bạn nghe lại cuộn băng bao nhiêu lần cũng được, rồi ghi hai điều.', opens: { hearts: 3 }, cut: CREW_CUT.friend, with: 'ride' },
+    ],
+  },
   consequences: {
     lostFare: { name: 'Ghi nhầm kênh: không nghe thấy Rico, một cuốc sang tay Bayline', rejoin: 'Rico gọi điện thoại, bạn chuyển kênh và nhận cuốc sau.' },
     wrongPlace: { name: 'Tới nhầm chỗ "Chip"', rejoin: 'Người ở đó chỉ ga; hai cô y tá chờ lâu hơn.' },
@@ -176,6 +225,7 @@ export const JOB_CHIP: JobDoc = {
     leftBehind: { name: 'Ghi "to" thay vì "two": bỏ lại người khách thứ hai', rejoin: 'Nell gọi Rico, Rico tự quay xe đón cô.' },
     wrongStop: { name: 'Chở khách tới nhầm "Grace\'s"', rejoin: 'Bridget đi bộ lên bệnh viện; muộn hơn một chút.' },
     noticed: { name: 'Tài xế Bayline thấy bạn nghe lén', rejoin: 'Hắn kéo kính lên; bạn đã nghe đủ để biết mật mã giữ được.' },
+    tape: { name: 'Ghi sai cuộn băng của Max: Rico không biết Bayline đỗ chắn cổng', rejoin: 'Rico tự vòng đường phụ; muộn một cuốc.' },
   },
   steps: [
     // beat 1: Max on the new set
@@ -210,7 +260,25 @@ export const JOB_CHIP: JobDoc = {
     },
     { kind: 'phone', lines: [id('n01'), id('n02')], if: COUNT_WRONG },
     // beat 3: a Bayline car by Gus's hut, its radio on loud
-    { kind: 'overhear', at: 'gus', who: ['driver'], lines: ['o01', 'o02', 'o03', 'o06', 'o04', 'o05'].map(id), passes: 2, noticed: { line: id('o-seen'), consequence: 'noticed' }, word: id('o05') },
+    // alone: overheard by the distance; with Jun: whole, on his scanner; with Max: his tape, noted (the car waits by the hut)
+    {
+      kind: 'overhear',
+      at: 'gus',
+      who: ['driver'],
+      lines: ['o01', 'o02', 'o03', 'o06', 'o04', 'o05'].map(id),
+      passes: 2,
+      noticed: { line: id('o-seen'), consequence: 'noticed' },
+      word: id('o05'),
+      park: [{ at: 'gus', look: 2 }],
+      if: { all: [{ not: { crew: 'jun' } }, { not: { crew: 'phone' } }] },
+    },
+    { kind: 'radio', lines: ['j-01', 'o01', 'o02', 'o03', 'o06', 'o04', 'o05', 'j-02'].map(id), if: { crew: 'jun' } },
+    { kind: 'notebook', via: 'radio', call: ['m-01', 'o01', 'o02', 'o03', 'o04', 'o05'].map(id), entries: TAPE, if: { crew: 'phone' } },
+    {
+      kind: 'phone',
+      lines: [{ line: id('m-02'), if: { any: [{ note: 'deskplan', is: 'wrong' }, { note: 'deskwho', is: 'wrong' }] } }, { line: id('m-03'), if: { all: [{ note: 'deskplan', is: 'right' }, { note: 'deskwho', is: 'right' }] } }],
+      if: { crew: 'phone' },
+    },
   ],
   ending: {
     clean: [id('e1'), id('e2'), id('e7')],

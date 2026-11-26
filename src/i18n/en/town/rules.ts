@@ -163,6 +163,14 @@ const rules: Record<string, string> = {
   'Mưa giông': 'Thunderstorm',
   'Bà Delaney': 'Mrs Delaney',
   'Tổng đài Bayline': 'Bayline desk',
+  'Bản đồ có tên phố': 'A map with street names',
+  'Tên các phố hiện trên tấm bản đồ ở tường.': 'The streets\' names show on the wall map.',
+  'Xe thứ tư': 'A fourth car',
+  'Jas lái xe thứ tư: thường có một xe gần khách hơn.': 'Jas drives a fourth car: there is more often a car near the caller.',
+  'Đường dây thứ hai': 'A second line',
+  'Mười cuộc một ca, gọi dồn dập hơn; khách chờ máy bên kia không bị Bayline cướp.': 'Ten calls a shift, coming thicker and faster; a caller waiting on the other line is not taken by Bayline.',
+  'Thính giả gọi tới': 'Caller',
+  'Ông Ashby · Coastline': 'Mr Ashby · Coastline',
 };
 
 export default rules;

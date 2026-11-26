@@ -2,7 +2,9 @@
 // when last, and the flags of its runs that later jobs read (`flags`: a choice made, a consequence hit as `hit:<id>`).
 // Stored under KEYS.townJobs (synced, merged by core/syncMerge mergeJobs: per job the earlier first time, the better
 // grade, the higher count, the later last time, the union of flags). The chain of the story: a job with `after` opens
-// once that job is done (any grade). Pure: the IO is ./jobsStore.ts.
+// once that job is done (any grade). Also the learner's clues (gta-plan §4.2, §17): `clue:<id>` lines earned by hearing
+// them (on a bench, on Bay FM, in a job), with when first earned; merged by the earlier time. Pure: the IO is
+// ./jobsStore.ts.
 
 import type { JobGrade } from './job';
 
@@ -23,9 +25,12 @@ export interface JobRecord {
 export interface TownJobs {
   version: number;
   done: Record<string, JobRecord>;
+  /** Clues earned (id → when first, ms). Missing in records written before clues: none. */
+  clues?: Record<string, number>;
 }
 
 export const emptyTownJobs = (): TownJobs => ({ version: JOBS_VERSION, done: {} });
+const okClue = (id: string) => /^[a-z0-9][a-z0-9-]{0,39}$/.test(id);
 
 const GRADE_RANK: Readonly<Record<JobGrade, number>> = { broken: 0, messy: 1, clean: 2 };
 const isGrade = (g: unknown): g is JobGrade => g === 'clean' || g === 'messy' || g === 'broken';
@@ -48,11 +53,17 @@ export function parseTownJobs(raw: unknown): TownJobs {
   const out = emptyTownJobs();
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
   const done = (raw as Record<string, unknown>).done;
-  if (!done || typeof done !== 'object' || Array.isArray(done)) return out;
-  for (const [id, r] of Object.entries(done)) {
+  const records = done && typeof done === 'object' && !Array.isArray(done) ? Object.entries(done) : [];
+  for (const [id, r] of records) {
     if (!okId(id)) continue;
     const rec = parseRecord(r);
     if (rec) out.done[id] = rec;
+  }
+  const clues = (raw as Record<string, unknown>).clues;
+  if (clues && typeof clues === 'object' && !Array.isArray(clues)) {
+    const kept: Record<string, number> = {};
+    for (const [id, at] of Object.entries(clues)) if (okClue(id) && time(at) > 0) kept[id] = time(at);
+    if (Object.keys(kept).length > 0) out.clues = kept;
   }
   return out;
 }
@@ -75,8 +86,24 @@ export function mergeTownJobs(a: TownJobs, b: TownJobs): TownJobs {
     const y = b.done[id];
     out.done[id] = x && y ? mergeRecord(x, y) : (x ?? y)!;
   }
+  const clues: Record<string, number> = {};
+  for (const id of [...new Set([...Object.keys(a.clues ?? {}), ...Object.keys(b.clues ?? {})])].sort()) {
+    const x = a.clues?.[id];
+    const y = b.clues?.[id];
+    clues[id] = x !== undefined && y !== undefined ? Math.min(x, y) : (x ?? y)!;
+  }
+  if (Object.keys(clues).length > 0) out.clues = clues;
   return out;
 }
+
+/** A clue earned (kept with the first time it was). */
+export function grantClueTo(state: TownJobs, id: string, now: number): TownJobs {
+  if (!okClue(id) || state.clues?.[id] !== undefined) return state;
+  return { ...state, clues: { ...state.clues, [id]: Math.round(now) } };
+}
+
+/** Holds this clue? */
+export const hasClue = (state: TownJobs, id: string): boolean => state.clues?.[id] !== undefined;
 
 /** A run is over: written down (the better grade kept, flags added). */
 export function recordJob(state: TownJobs, jobId: string, grade: JobGrade, flags: readonly string[], now: number): TownJobs {
@@ -90,15 +117,16 @@ export function recordJob(state: TownJobs, jobId: string, grade: JobGrade, flags
 /** Done (any grade)? */
 export const jobDone = (state: TownJobs, jobId: string): boolean => Object.hasOwn(state.done, jobId);
 
-/** A flag an earlier job left (`<job id>:<flag>`, e.g. `job-m2:hit:late`). */
+/** A flag an earlier job left (`<job id>:<flag>`, e.g. `job-m2:hit:late`), or a bare job id: done. */
 export function pastFlag(state: TownJobs, ref: string): boolean {
   const i = ref.indexOf(':');
-  if (i < 0) return false;
+  // a bare job id: that job is done (any grade)
+  if (i < 0) return okId(ref) && jobDone(state, ref);
   const rec = state.done[ref.slice(0, i)];
   return !!rec && rec.flags.includes(ref.slice(i + 1));
 }
 
 /** What the story offers: a job is open when the one before it in the chain (`after`) is done; the sandbox opens all. */
-export function jobUnlocked(job: { after?: string }, state: TownJobs, all = false): boolean {
-  return all || !job.after || jobDone(state, job.after);
+export function jobUnlocked(job: { after?: string; afterAll?: readonly string[] }, state: TownJobs, all = false): boolean {
+  return all || ((!job.after || jobDone(state, job.after)) && (job.afterAll ?? []).every((id) => jobDone(state, id)));
 }

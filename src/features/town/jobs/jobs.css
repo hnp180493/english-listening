@@ -262,3 +262,72 @@
 .job-own .town-ls-line-who {
   color: var(--accent);
 }
+
+/* the crew picker (./CrewPicker.tsx): one choice per person, the cut shown before choosing */
+.job-crew-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.job-crew-opt.town-reply {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+}
+.job-crew-opt[aria-checked='true'] {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.job-crew-opt:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+.job-crew-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+.job-crew-role {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.job-crew-listen,
+.job-crew-cut {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* Act II's tools (./JobTools.tsx): the clips to pick from, the "Đó!" button */
+.job-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.job-pick-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.job-pick-choose.town-reply {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+.job-spot.town-reply {
+  flex: 1 1 100%;
+  justify-content: center;
+  min-height: 52px;
+  font-size: var(--fs-lg, 18px);
+  font-weight: 700;
+}
+.job-turn[aria-pressed='true'] {
+  box-shadow: 0 0 0 2px var(--accent);
+}

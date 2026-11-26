@@ -9,6 +9,7 @@
 
 import { dictationAudio } from '../../features/dictation/decodeCache';
 import { CAREFUL_RATE } from '../playback';
+import { getSettings } from '../settings';
 import type { SpeakOptions, SpeakVoice } from '../tts';
 import { SCENE_VOICES, type SceneLine } from './sceneTypes';
 import { CAST_VOICES } from './voices';
@@ -32,5 +33,11 @@ export function sceneVoice(who: string): SpeakVoice | null {
 export function sceneLinePlayback(line: Pick<SceneLine, 'who' | 'text' | 'say'>, level: number, careful = false): SceneLinePlayback {
   const audio = dictationAudio({ text: line.text, level, ...(line.say ? { say: line.say } : {}) });
   const voice = sceneVoice(line.who);
-  return careful ? { text: audio.careful.trim(), options: { mode: 'careful', rate: CAREFUL_RATE, voice, browserOnly: true } } : { text: audio.connected.trim(), options: { mode: 'connected', voice, browserOnly: true } };
+  if (careful) return { text: audio.careful.trim(), options: { mode: 'careful', rate: CAREFUL_RATE, voice, browserOnly: true } };
+  // a heard-only speaker's manner (Bay FM's callers): faster, quieter (the learner's own rate times theirs)
+  const manner = Object.hasOwn(SCENE_VOICES, line.who) ? SCENE_VOICES[line.who] : undefined;
+  const options: SpeakOptions = { mode: 'connected', voice, browserOnly: true };
+  if (manner?.rate) options.rate = Math.min(1.6, (getSettings().rate || 1) * manner.rate);
+  if (manner?.volume) options.volume = manner.volume;
+  return { text: audio.connected.trim(), options };
 }

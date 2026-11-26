@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from 'react';
 import { KEYS, onAppWrite, saveJSON, STORAGE_PREFIX } from '../storage';
 import type { JobGrade } from './job';
-import { emptyTownJobs, mergeTownJobs, parseTownJobs, recordJob, type TownJobs } from './jobProgress';
+import { emptyTownJobs, grantClueTo, hasClue, mergeTownJobs, parseTownJobs, recordJob, type TownJobs } from './jobProgress';
 
 let session: TownJobs | null = null;
 let cacheRaw: string | null | undefined;
@@ -86,5 +86,24 @@ export function finishJobRun(jobId: string, grade: JobGrade, flags: readonly str
     notify();
   } catch {
     // progress is best effort; the run's pay is already written
+  }
+}
+
+/**
+ * A clue earned by hearing it (gta-plan §17): the one call the bench scenes, Bay FM's bulletins and the jobs make.
+ * Returns true when it is new. Never throws.
+ */
+export function grantClue(id: string, now: number = Date.now()): boolean {
+  try {
+    const state = loadTownJobs();
+    if (hasClue(state, id)) return false;
+    const next = grantClueTo(state, id, now);
+    if (next === state) return false;
+    const saved = saveJSON(KEYS.townJobs, next);
+    session = saved ? null : next;
+    notify();
+    return true;
+  } catch {
+    return false;
   }
 }

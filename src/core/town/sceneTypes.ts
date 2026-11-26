@@ -67,6 +67,9 @@ export interface ListenScene {
 export interface SceneVoice {
   name: string;
   gender: 'male' | 'female';
+  /** A manner of speaking (Bay FM's callers: the dispatch office's four, core/town/dispatch.ts Manner): a speed against the learner's own rate, and a loudness. */
+  rate?: number;
+  volume?: number;
 }
 
 /**
@@ -96,4 +99,18 @@ export const SCENE_VOICES: Readonly<Record<string, SceneVoice>> = {
   shona: { name: 'Shona', gender: 'female' },
   driver: { name: 'Tài xế Bayline', gender: 'male' },
   baydesk: { name: 'Tổng đài Bayline', gender: 'female' },
+  // Act II of the story (docs/gta-story-2.md): Bay FM's owners' man, and the police scanner heard in a job
+  ashby: { name: 'Ông Ashby · Coastline', gender: 'male' },
+  'scanner-desk': { name: 'Bộ đàm cảnh sát', gender: 'female' },
+  'scanner-unit': { name: 'Bộ đàm cảnh sát', gender: 'male' },
+  // the fourth car of Rico's office (core/town/office.ts)
+  jas: { name: 'Jas', gender: 'female' },
+  // Bay FM's call-in show (data/scenes/radioCalls.ts): listeners nobody has met, each in a manner
+  'caller-clear-f': { name: 'Thính giả gọi tới', gender: 'female' },
+  'caller-clear-m': { name: 'Thính giả gọi tới', gender: 'male' },
+  'caller-hurried-f': { name: 'Thính giả gọi tới', gender: 'female', rate: 1.15 },
+  'caller-hurried-m': { name: 'Thính giả gọi tới', gender: 'male', rate: 1.15 },
+  'caller-mumbling-f': { name: 'Thính giả gọi tới', gender: 'female', rate: 0.97, volume: 0.6 },
+  'caller-mumbling-m': { name: 'Thính giả gọi tới', gender: 'male', rate: 0.97, volume: 0.6 },
+  'caller-badline-f': { name: 'Thính giả gọi tới', gender: 'female', volume: 0.8 },
 };

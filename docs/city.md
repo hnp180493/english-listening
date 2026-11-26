@@ -528,6 +528,14 @@ From Rico's dispatch office (`data/city/dispatch/`, docs/town.md §27).
   nights the ferry does not need its mechanic; he hardly says a word on the radio). Rico talks on the radio as much as
   in the car.
 - A caller left waiting too long is picked up by a Bayline car: "they listen to everything".
+- **Jas** (2026-11-27, docs/town.md §30): drives the fourth car once the office has bought one; new to the firm, keen and
+  polite on the radio ("They gave me a tip"), waits by the Lumen. Heard only (the browser's voice), never met.
+- **Tess** leaves the office a spoken word once a day with a sum in it: the night's takings, the tyres, the fuel. She
+  keeps the books as dryly as she drives.
+- Bay FM takes calls from listeners (a lost green umbrella, thirty years married, the fog on the bay, a nurse on nights)
+  and reads adverts for Westbay's places: two films for one at the Lumen before eight, Harbour Press open till nine on
+  Fridays, Bo's big room booked from nine every Thursday, Twin Ovens' back door from five, the big wheel's last ride at
+  quarter to ten, Tess's cart from six (data/scenes/radioCalls.ts). New facts, now canon.
 
 ## 16. What Act I's jobs 6–8 and its two side chains added (now canon, if the owner keeps them)
 
@@ -593,3 +601,45 @@ From `data/city/jobs/half5.ts`, `chip.ts`, `three.ts`, `delaney.ts` (docs/gta-st
   Thursday at nine, and asked about his offer in front of her. Tess makes her coffee with milk, no sugar (she asked
   Gus).
 - **The Bayline driver** and **Bayline's desk** are heard on a car's radio by Gus's hut (new, browser voice only).
+
+## 19. Act II: what docs/gta-story-2.md needs (built in part: canon, if the owner keeps it)
+
+All ten jobs of Act II are built (`data/city/jobs/act2*.ts`: 1, 3a, 3b, 5a, 5b by the story session, docs/gta-story-2.md
+§11; 2a, 2b, 4a, 4b and 10 by the engine session, docs/gta-plan.md §18): what they say is canon now, if the owner keeps it.
+
+- **Coastline Radio** owns Bay FM ("head office", `ct-kit-2`) and is selling it; **Mr Ashby** handles the sale; the floor is
+  forty thousand; the board meets on the thirteenth. Duncan Kemp has bid. The off-air **talkback link** between the Bay FM
+  stage on the harbour and the studio is on open air.
+- **Warehouse fifteen** is Bayline's harbour store, leased from the Harbour Trust: Bayline's archive of what its scanners
+  heard (boxes by letter; box M under the stairs holds Bay FM's talkback), and a few boxes of Vane's old papers. A Bayline
+  driver watches it at night, ten till two. The front door is painted black; the movers use the back door; a water door
+  opens on the jetty.
+- Kemp has six pork dumplings from Mei's stall every night at nine.
+- (Built.) **Shona** has worked for Kemp eight years ("since his very first car"); she told Mei he "keeps every word" and
+  that he eats prawn (he eats pork: her lie). She came in on the eight forty from the city with Mr Ashby (green Coastline
+  jacket, grey hair). Marcus was given one last week of nights; on its first, **Tom rang the show** (his first call on
+  air) to thank him for every letter. Ashby dined with Kemp at **Gianna's, table nine**; the boxes go out **Thursday night
+  by the water door**, during Marcus's last show. The movers are booked for **Friday, half six in the morning, at the back
+  door**. One daytime hour of pledges: Frank thirty, Gianna a hundred and eighty, Hal twenty ("twelve, no, twenty"), Nora
+  and Theo sixty; Harbour Press (Claire) holds the money. A caller "Mr Pryce" (Bayline's) asked only for the price.
+- (Built, 2a / 2b / 4a / 4b / 10.) The talkback link is on **eighteen point two**, loudest at the corner of Quay Street and
+  East Road; Kit tests it with "Testing, one, two, the kettle's on." Kemp's office phone in warehouse fifteen is an old
+  cordless on open air; Kemp told Mr Ashby his bid "stands at forty-one". Unit twelve patrols Quay Street at night. Gus counts
+  every boat in the harbour; the **Kittiwake**, new at berth nine, comes round to fifteen's water door at night with its
+  lights off, steered by **Shona's cousin** (not a sailor); the boxes were to go out by water on Thursday night, during
+  Marcus's last show. Captain Odile lent the learner the ferry's launch; Theo knows every engine on the bay by ear. Inside
+  warehouse fifteen the reels had their labels taken off; the talkback reel (box M, under the stairs) has Mr Ashby saying,
+  off air, "the board will take anything over forty thousand". A false call in Gus's name sent Mrs Delaney to "warehouse
+  fifty" (the row stops at twenty-two). Coastline paused Kemp's bid; the listeners' bid stands and **Bay FM is the
+  listeners'**; the night show is back; **Mrs Delaney was suspended** after Kemp complained; Kemp: "Keep the tape. I have
+  the rest." Vane's old papers were sealed.
+
+## 20. What the crew, the phone and the clues added (now canon, if the owner keeps them)
+
+From the engine's samples (docs/gta-plan.md §17, `data/city/jobs/chip.ts`, `half5.ts`, `three.ts`, `data/city/clues.ts`).
+
+- **Jun** keeps a scanner that picks up Bayline's desk; he can stand by Gus's hut and pass it to the firm's radio.
+  **Max** brought a recorder the size of a coin, and hides it under a car's bumper.
+- **Gus**: one call to his hut opens the harbour gate's side lane for Rico's cars (he said so on Bay FM, through Marcus).
+- The learner has a phone in Westbay: a job not answered leaves "call me back before …"; called back too late, the job
+  is gone for that day ("Too late now, that one's gone. Ring me again tomorrow.").

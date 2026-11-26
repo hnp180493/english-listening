@@ -3064,6 +3064,21 @@ is counted in memory).
 paid radio scenes shared with the written ones; one id per hour of the game (`fm-live-<n>`, two real minutes), so one
 edition never pays twice. Nothing new is stored or synced. Listening time is not logged (it is app-voice listening).
 
+**The call-in show and adverts** (2026-11-27, gta-plan §4.5). The radio now takes turns three ways: a bulletin of the
+moment, a call of the call-in show, a written segment (news waiting always gets the bulletin; `radioStore.radioScene`).
+A call (`data/scenes/radioCalls.ts`, nine, ids `fm-call-<n>`) is a short exchange: Marcus takes it, a listener says what
+they rang about, Marcus answers; then one question. The callers are nobody the learner has met: the browser's voice, in
+one of the dispatch office's four manners through their speaker key (`caller-clear-f` … `caller-badline-f` in
+`SCENE_VOICES`, which now carries a manner's `rate` and `volume`, applied by `sceneAudio.sceneLinePlayback`; a bad line
+repeats its own words). The ladder: three clear and unhurried calls, three hurried, three mumbling or on a bad line;
+`radio.ts callNow` offers the lowest rung that still has a call not heard lately. Paid as a radio segment, inside the
+radio's three a day. Each generated bulletin reads one advert before its sign-off (`RADIO_ADS`, nine, for real places
+of Westbay and the town, true of them); three say something a job could use (`RADIO_CLUE_ADS`: `ad-bo`, Bo's big room
+booked from nine on Thursdays; `ad-twin-ovens`, the bakery's back door from five; `ad-wheel`, the big wheel's last
+ride at quarter to ten), exported with stable ids for the job engine's `clue:<id>` and NOT wired from the radio.
+Checked by `radioCalls.test.ts` (the scene rules, the ladder, the manners, the places, the clue ids, an advert in every
+bulletin); nobody has heard a caller.
+
 **News about the player** (`core/town/radioNews.ts`): `queueRadioNews({ id, lines: [{ text, vi, say? }] })` queues up
 to 4 of Marcus's lines for the next bulletin (at most 3 items, the same id replaces, forgotten after 6 real hours or a
 reload: in memory only); read after the time check, dropped once that bulletin is heard through. Not wired to M0.
@@ -3314,9 +3329,15 @@ folded, the words with their meaning. Generated lines: no review cards, listenin
 
 **Stopped** (`StopPanel.tsx`): the officer says what was done and asks one of three questions (why I stopped you / whose
 is it / where are you off to); the learner answers by intent (keys 1–3). The answer to the question asked: three quarters
-of the fine; another: the full fine. 30–120 xu by heat, never more than the learner has, paid through town-progress
+of the fine; another: the full fine. 30–120 xu by heat, never more than 40 % of what the learner has (`FINE_SHARE_MAX`, the stop says so when it applies), paid through town-progress
 (`fines`, a new per-browser field that only grows and merges by max, so a sync never gives a fine back:
 `core/town/progress.ts addFine`, `economy.ts spentTotal`); heat to zero; no game over.
+
+**A job's patrol** (2026-11-27, for Act II): `jobPatrol({ street, from?, to?, seconds, lines? })` and
+`sayOnScanner(lines)` (`features/town/streets/jobPolice.ts`; rules `core/town/jobPatrol.ts`, tested) let a job send a
+patrol car down one named street (its ends by compass or by a crossing street) while the scanner says the job's own
+lines, and learn `{ seen }`: in sight (8 tiles) longer than 0.8 s, never while indoors. It stops and fines nobody; the
+heat and the ordinary search wait while it drives. Dev hook `window.__jobPolice`.
 
 **Engine hooks** (a few lines): `engine3d.addExtra` (something driven each frame: `three/scene/stageExtra.ts`), the
 stage handle's `addExtra`, `rideLook()` (the vehicle ridden and its colour), `TownSim.extraBodies`.
@@ -3334,3 +3355,135 @@ The script moves the player by `placePlayer` steps, not by keys; once it brushed
 the way, and both offences were counted and said truly ("a newspaper box was knocked over near the paper kiosk"). Nobody has heard a bulletin, driven through a junction with real
 keys, watched the traffic move, or tried it on a phone or a real GPU. The numbers (ten cars, the cycle, the heat, the
 sight, the fines) are guesses.
+
+## 30. The dispatch office grows: upgrades and the manager's word (2026-11-27)
+
+`docs/gta-plan.md` §4.4 and §6: a sink that does not run out quickly, and the firm's takings coming in through a spoken
+line ("quản lý gọi báo việc bằng lời, nghe sót thì lỗ"). Rules `core/town/office.ts` (pure, `office.test.ts`), IO
+`core/town/officeStore.ts`, the panel `features/town/dispatch/OfficeExtras.tsx` under "Bắt đầu ca".
+
+**Upgrades** (bought with xu, once each, 500 / 1,200 / 2,500):
+- **Bản đồ có tên phố** (500): in a district's view the wall map shows the streets' names (`DispatchMap streetNames`,
+  from `core/town/streets.ts westbayNet`). Labels can still sit under a place's or a car's label here and there.
+- **Xe thứ tư** (1,200): Jas drives a fourth car (`DriverId` 'jas', starting by the Lumen; her radio lines in
+  `data/city/dispatch/lines.ts`, a browser voice; docs/city.md §15).
+- **Đường dây thứ hai** (2,500): ten calls a shift, closer together (`TWO_LINE_TIMES`), so more pay and harder listening;
+  a call ringing while the other line is busy is held and Bayline does not take it (`Shift.lines`, `tick`).
+- **Where they are kept**: as store items of the town, like the hideout: the id in town-progress `bought` (its merger
+  already keeps every id ever bought), the cost counted by `economy.spentTotal` (`townItem` kind 'office'). No new
+  stored or synced key. (The hideout's own `upgrades` map in `town-hideout` is left for the hideout's upgrades.)
+
+**The manager's word**: once a game day (at most two a real day, `WORDS_PAID_A_DAY`), Tess leaves one spoken line with
+a sum of pounds in it, said in words (`numberWords`; 130 … 390, tens of thirty and up so it has a "-teen" look-alike:
+"a hundred and forty" / "a hundred and fourteen"; `data/city/dispatch/managerWords.ts`, four lines: takings, tyres,
+fuel). Two plays at most, then the learner picks the sum (three options: the sum, its "-teen" look-alike, another
+hundred). Right keeps the day's takings (`officeTakings`: 5 xu, +3 / +4 / +5 with each upgrade), wrong loses half
+(`WORD_LOSS`, rounded). Paid as `dp-word-<game day>` in the daily set `heard`. The browser's voice (Tess is Westbay's).
+
+Seen in pictures (`.assets-try/previews/econ-office-1400.png`, `econ-office-375.png` after an answer and a purchase,
+`econ-office-375-en.png`, `econ-map-streets-1400.png`): no horizontal scroll at 375. Nobody has heard Tess's word, played
+a ten-call shift by hand, or watched Jas's car; the prices and takings are guesses.
+
+## 31. Kinh tế: the economy on one page (2026-11-27)
+
+`core/town/economyModel.ts` lists every source and sink of xu with its REAL constant imported from where it lives, and
+simulates three learners over 60 days (10, 20 and 40 minutes a day, understanding 70 %, 80 % and 85 %, each with a
+stated mix of what they like; their minutes shared out by the mix, a source at its daily cap or out of content gives
+its share back). They buy in order: the town's lots, its decorations, then (once the city's story has opened it) the
+hideout, the office's upgrades, vehicles; a fine every five days once they drive in Westbay. **Every number in the
+model (minutes a thing takes, the share understood, when the city and the office open) is a guess until real play.**
+`economyModel.test.ts` pins the properties, not the numbers.
+
+**What was changed** (as few constants as possible; nothing in the town's own loop was touched):
+
+| Constant | Before | After | Why |
+|---|---|---|---|
+| `job.ts JOB_PAY` (clean / messy / broken) | 30 / 15 / 5 | 64 / 32 / 10 | a job now pays more than the same 12 minutes of quick chats (clean > fresh lines, messy > known lines) |
+| `job.ts JOB_LEVEL_FACTOR` (level 1 / 2 / 3) | none | 1 / 1.2 / 1.45 | a harder job pays more (level 2 clean 77, level 3 clean 93) |
+| `job.ts JOBS_PAID_A_DAY` | none (each job once a day: up to 14) | 2 | replaying every job daily is not a living |
+| `police.ts fineFor` | at most the whole balance | at most 40 % of it (`FINE_SHARE_MAX`) | a fine hurts, it never empties |
+| office upgrades, Tess's takings | none | 500 / 1,200 / 2,500; 5 xu (+3 / +4 / +5), twice a day at most | a sink that does not run out quickly; a steady source that needs a number heard |
+
+The calls of the call-in show and the adverts are paid inside the radio's existing three a day; nothing else changed.
+No price of anything that can already be bought went up (a price raised would lower what a learner holds: the test
+pins every price of 2026-11-27 as a ceiling).
+
+**The model, before and after** (the day each thing is bought):
+
+| Learner | Lots done | Decorations done | Hideout | Office upgrades (after only) |
+|---|---|---|---|---|
+| 10 min, 70 % | day 16 → 15 | 22 → 21 | 43 → 40 | map day 51; nothing else in 60 days |
+| 20 min, 80 % | 9 → 9 | 12 → 12 | 25 → 23 | map 30, fourth car 45, second line after day 60 |
+| 40 min, 85 % | 5 → 5 | 7 → 6 | 17 → 17 | map 17, fourth car 24, second line 40 |
+
+The 20-minute learner earns about 79 → 83 xu a day in the first two weeks, 77 → 86 in the next two, 77 → 94 after a
+month; the busiest source of their day is the daily tasks, 30 % → 28 %, then 25 % (Tess's takings about 15 % once the
+office has its upgrades). The hideout (800) comes 11 days after the town's lots and decorations, about 9 days of their
+city-time income. A clean job pays 5.3 xu a minute against 5.1 for quick chats with fresh lines and 2.4 with lines
+already known.
+
+**Pinned by the tests**: the lots take 7–11 days at 20 minutes (12–19 at 10, 4–7 at 40); the hideout is 7–16 days
+after the town's needs and 7–14 days of the city's income; the office's upgrades are not all bought in 60 days at 20
+minutes; no source is above 40 % of the 20-minute learner's day in any stretch; a job beats quick chats by grade and
+level; every source pays more to a learner who understands more; a misheard number loses part of the takings, never
+all; a fine is at most 40 % of the balance and never empties it; no price went up.
+
+**Not known.** Nobody has played the economy over days. The minutes per activity, the share understood, the mixes and
+when the story opens the city and the office are guesses; the farm is modelled as twenty due cards a day, the fine
+every five days at heat 4. Change a constant, run the tests, and read the model again before believing a number here.
+
+
+## 32. The harbour's warehouses, number fifteen's room, a boat that moves (2026-11-27)
+
+For Act II (docs/gta-story-2.md §3; jobs 4a "Ca đêm", 4b "Cửa nước", 10 "Kho 15"; its §7 items 5 and 9).
+
+**The row** (`data/city/warehouses.ts`): brick warehouses along the east shore of the bay, their backs to the water,
+their fronts on a quay lane (x 51, kept open of the filler blocks: `cityWorld.ts fillers(…, quayLane())`). Twelve, 4 × 2
+tiles each: **11–14** south of Quay Street (from Pier Road up), **15–22** north of it (from Quay Street up to the far end
+of the quay). The harbour's sheds go up to twenty-two (`cs-bigdeal-4`); one to ten are older sheds further along, not
+drawn. They are scenery of their own kind `'warehouse'` (`v` = the number): solid by `core/town/colliders.ts`
+(`WAREHOUSE_INSET`), drawn by `features/town/city/warehouses3d.ts` through `three/scene/props3d.ts registerScenery` (the
+maker gets every warehouse at once: one model per run of the row; measured at the quay on the software renderer, in
+one page, the twelve cost 9 draw calls and 89 k triangles with the shadow pass: 123 calls / 0.85 M with them, 114 / 0.76 M
+with them hidden), imported by
+`cityPlaces3d.ts`, so nothing of them is in the town's chunk. Each has its number painted large in white on its roof,
+turned to read from the usual camera, and on a black board over its doors; a big sliding door and a side door with a
+lamp over it (the "side door / slide door" of job 4a); high windows that glow at night like every lit window. A palm,
+an umbrella and four trees that stood on that shore were taken away.
+
+**Fifteen** (Bayline's, rented from the Harbour Board): a **black side door** on the quay lane (`W15_DOORS.front`, tile
+51, 77), a **back door** on Quay Street (`back`, 48, 78) and a **water gate** on the bay (`water`, the slipway's top on
+the sand, 46, 77) with a stone slipway down to the water and two mooring posts. It is the first warehouse north of Quay
+Street, so it is found by its number from the corner.
+
+**"Warehouse fifty"**: there is none. The false call of job 10 sends whoever believes it to the far north end of the quay
+(`ROW_FAR_END`, in front of twenty-two), where the row stops and the beach begins; Gus's "There is no fifty. There never
+was." is said there. Nothing is drawn for fifty: the row's last number, 22, is the answer the eye can check.
+
+**The room** (`three/interiors/recipes/warehouse.ts`, 6 × 4.6 tiles, walls 2.3): steel shelves of tape boxes without
+labels along the back wall, a staircase up the left wall to an office door, crates marked **M** under the stairs ("the
+one under the stairs") and **N** stacked in the open, the back door on the back wall, the water gate on the left wall
+(the bay side) with chains and a strip of water under it, one hanging bulb. Anchors for a job's people: the host by the
+shelves, the learner in the middle, a visitor by the crates, two more at the water gate and the back door (`extras`).
+It is one of the rooms that are not a place of the town (`interiors/rooms.ts OWN_ROOMS`); RoomStage now takes `more`
+(people by id at the extras' anchors, in place of passers-by) and `TownStageHandle.enterOwnRoom` a `cast` (host,
+visitor, more). Tests: `interiors/warehouseRoom.test.ts`.
+
+**For the job engine** (`features/town/city/warehouse.ts`, nothing in the job engine changed):
+- `enterWarehouse(stage, { door?: 'front' | 'back' | 'water'; host?; visitor?; more? }, ready): boolean`: into fifteen by
+  that door through the dark, with the job's people; `ready` once inside; `stage.endTalk()` brings the learner out at the
+  same door. False = no 3D stage or another talk staged.
+- `runBoat(stage, { from?, to?, aboard?, speed?, landing? }): { arrived: Promise<void>; stop: () => void } | null`: a small
+  launch (one mesh, the shared material) runs over the bay from `from` (default the seafront jetty's end) to `to`
+  (default fifteen's water gate), the learner standing in it when `aboard` (the camera follows them) and set down on the
+  shore at the end (the slipway's top at fifteen); `arrived` resolves on arrival (at once under reduced motion); the boat
+  stays moored until `stop()`. Drawn through the stage's `addExtra` (no engine change). Its way is `boatRoute` (pure):
+  A* over OPEN water tiles (water all round), smoothed into straight legs that stay over open water; tests sample the
+  whole way and check every point is on a water tile inside the drawn waterline (`shoreDistance` < 0) and keeps clear of
+  the boats moored on the bay.
+
+**Not done, not known.** The water gate cannot be seen from the usual camera (it faces the bay, away from it): only
+with the camera turned or from the boat. No warehouse but fifteen opens; none has a name or a tenant; the night guard,
+the patrol and the "lamp over the side door" are the jobs' to stage. The boat does not rock with the waves beyond a
+small bob, has no wake, and nobody steers it. Seen only in pictures on the software renderer
+(`.assets-try/previews/wh-*`); nobody has watched the boat move or walked the quay by hand.

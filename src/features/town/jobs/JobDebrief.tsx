@@ -97,7 +97,8 @@ export default function JobDebrief({ run, say, news, newsNow, lineOf, onAgain, o
   };
 
   // every notebook of the job (a job may have several: a briefing, then a call, then another)
-  const entries = doc.steps.flatMap((s) => (s.kind === 'notebook' ? s.entries : []));
+  // (only the notebooks this run played: a crew's own notebook is not shown to someone who went without them)
+  const entries = doc.steps.flatMap((s) => (s.kind === 'notebook' ? s.entries : [])).filter((e) => run.picks[e.key] !== undefined || (run.heard[e.key] ?? 0) > 0);
   const labelOf = (key: string, value: string | undefined): string => {
     if (value === undefined) return '—';
     if (key === 'time') return clockOf(Number(value));
@@ -106,6 +107,7 @@ export default function JobDebrief({ run, say, news, newsNow, lineOf, onAgain, o
   const junctions = doc.steps.flatMap((s) => (s.kind === 'ride' ? (s.junctions ?? []) : []));
   const word = doc.facts.find((f) => f.id === 'word');
   const checks = doc.facts.filter((f) => Object.hasOwn(run.checks, f.id));
+  const crewRole = run.crew ? (doc.crew?.roles.find((r) => r.who === run.crew) ?? null) : null;
 
   return (
     <aside ref={boxRef} className="town-build town-activity-sheet job-sheet city-scene-sheet" role="dialog" aria-label={tl`Phi vụ: ${doc.title}`} tabIndex={-1}>
@@ -127,6 +129,11 @@ export default function JobDebrief({ run, say, news, newsNow, lineOf, onAgain, o
           </p>
           <p className="job-grade-note">{GRADE_NOTE[grade]}</p>
         </div>
+        {crewRole && (
+          <p className="town-build-hint job-crew-came">
+            {tl`Đi cùng: ${jobSpeakerName(crewRole.who)} (${crewRole.role})`} · {run.crewTake > 0 ? tl`lấy ${run.crewTake} xu` : 'không lấy gì hôm nay'}
+          </p>
+        )}
         {hits.length > 0 ? (
           <ul className="job-problems">
             {hits.map((h) => (

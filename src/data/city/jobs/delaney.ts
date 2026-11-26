@@ -14,7 +14,9 @@
 //     nine; Thursday at five);
 //   - Rico's read-back gets Grace's train wrong whatever was noted: correcting him is the answer by intent;
 //   - the complaint about job 1 is asked only when job 1 was late (`past: 'job-m2:hit:late'`), and Kemp's question
-//     changes when job 1 ended with "Để nghĩ đã" (`past: 'job-m2:kemp-asks-again'`).
+//     changes when job 1 ended with "Để nghĩ đã" (`past: 'job-m2:kemp-asks-again'`);
+//   - Nell's call is a VOICE MESSAGE on the learner's phone (notebook `via: 'voicemail'`, the engine's sample for
+//     gta-plan §17): heard from the phone, then noted. She says everything twice anyway.
 // Grace is of the town ('home'): her four lines are clips (connected only), the browser voice until the owner makes them.
 
 import type { NoteEntry } from '../../../core/town/job';
@@ -205,7 +207,7 @@ export const JOB_DELANEY: JobDoc = {
     { kind: 'scene', at: 'gus', who: ['delaney', 'rico', 'tess'], lines: [id('d01'), id('d02'), id('d03'), id('d04')] },
     // beat 1: phone two, three calls
     { kind: 'notebook', call: ['g01', 'g02', 'g03', 'g04'].map(id), entries: GRACE, repeat: { gcount: [id('g02r')], gtrain: [id('g03r')] }, patience: { after: 2, line: id('g05') } },
-    { kind: 'notebook', call: ['l01', 'l02', 'l03', 'l04'].map(id), entries: NELL, repeat: { nto: [id('l02r')], ntime: [id('l03r')] }, patience: { after: 2, line: id('l05') } },
+    { kind: 'notebook', via: 'voicemail', call: ['l01', 'l02', 'l03', 'l04'].map(id), entries: NELL, repeat: { nto: [id('l02r')], ntime: [id('l03r')] }, patience: { after: 2, line: id('l05') } },
     { kind: 'notebook', call: ['k01', 'k02', 'k03', 'k04'].map(id), entries: KEMP, repeat: { kto: [id('k02r')], kday: [id('k03r')] }, patience: { after: 2, line: id('k12') } },
     // beat 2: the read-back
     {

@@ -536,7 +536,7 @@ export default function CityPage() {
         : suggested
           ? { icon: Footprints, text: tl`Tới gặp ${nameOf(suggested.at)}`, run: () => void stage.current?.walkTo(suggested.at as PlaceId, () => startScene(suggested.at)) }
           : null;
-  const prompt = job.prompt ?? (job.active ? null : pagePrompt);
+  const prompt = job.prompt ?? (job.active || job.sheet ? null : pagePrompt);
   // beside a host with the partner along: today's outing there, once a day
   const dayNumber = Number(today.day.replaceAll('-', ''));
   const outingHere = nearId && partner && came.has(partner) && cityPerson(nearId) ? outingToday(CITY_OUTINGS, nearId, !!kid, dayNumber) : null;

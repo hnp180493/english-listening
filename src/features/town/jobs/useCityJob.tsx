@@ -12,7 +12,7 @@
 // said is in the browser's voice (Westbay's people and the new ones; the learner's own lines: PLAYER_VOICE).
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUp, Ear, Flame, MessageCircle, MessageCircleQuestion, Phone, PhoneIncoming, Radio, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUp, CassetteTape, Ear, Flame, MessageCircle, MessageCircleQuestion, Phone, PhoneIncoming, Radio, Siren, Voicemail, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import { useShortcuts } from '../../../components/useShortcuts';
@@ -42,10 +42,24 @@ import {
   type NoteEntry,
   type Turn,
 } from '../../../core/town/job';
-import { evalCond, gradeHits, saidNow, type CondState, type IntentStep, type JobDoc, type Said, type Step } from '../../../core/town/jobDoc';
+import { evalCond, gradeHits, saidNow, type CondState, type CrewRole, type IntentStep, type JobDoc, type Said, type Step, type Track } from '../../../core/town/jobDoc';
 import { enrolJobMisses, payJob } from '../../../core/town/jobStore';
-import { jobDone, jobUnlocked, pastFlag } from '../../../core/town/jobProgress';
-import { finishJobRun, loadTownJobs, useTownJobs } from '../../../core/town/jobsStore';
+import { hasClue, jobDone, jobUnlocked, pastFlag } from '../../../core/town/jobProgress';
+import { finishJobRun, grantClue, loadTownJobs, useTownJobs } from '../../../core/town/jobsStore';
+import { clockOf, timeWords } from '../../../core/town/job';
+import { RING_MS } from '../../../core/town/phone';
+import { PHONE_LINES } from '../../../data/city/phoneLines';
+import { callBack, leaveVoicemail, logCall, missCall, offerHeld, phoneState, ringing as phoneRinging, usePhone } from '../phone/phoneStore';
+import CrewPicker from './CrewPicker';
+import PhonePanel, { PhoneButton } from '../phone/PhonePanel';
+import { makeParkedLayer, setParked } from './jobCars';
+import { JOB_SPOTS } from '../../../data/city/jobs/spots';
+import { hideoutOwned } from '../../../core/town/hideoutStore';
+import { jobPatrol, sayOnScanner, type JobScanLine } from '../streets/jobPolice';
+import { enterWarehouse, runBoat } from '../city/warehouse';
+import { W15_MOORING } from '../../../data/city/warehouses';
+import { JobPick, JobSpot, JobThreads } from './JobTools';
+import { contactsOf, useCrewWorld } from './crewWorld';
 import { ADMIN } from '../../../core/admin';
 import { jobSpeakerName, PLAYER_VOICE } from '../../../core/town/jobVoice';
 import { judgeTyped } from '../../../core/town/typing';
@@ -59,7 +73,7 @@ import { SoundBars } from '../art';
 import type { TownStageHandle } from '../engine/stage';
 import type { Quest } from '../quests';
 import { setHeat, useHeat, getHeat } from './heatStore';
-import { lineSeconds, sayJobLine } from './jobAudio';
+import { lineSeconds, sayJobLine, sayPhoneLine } from './jobAudio';
 import { JobDebrief, JobNotebook, JobPassword } from './jobPanels';
 import Intents from './JobIntents';
 import { GRADE_NAME } from './jobText';
@@ -98,9 +112,12 @@ export interface JobRunState {
   xu: number;
   missed: string[];
   enrolled: number;
+  /** Who came along (core/town/crew.ts; null: alone), and what they took of the pay. */
+  crew: string | null;
+  crewTake: number;
 }
 
-type UiKind = 'idle' | 'ringing' | 'call' | 'notes' | 'go' | 'find' | 'ride' | 'phone' | 'radio' | 'scene' | 'overhear' | 'intent' | 'password' | 'closing' | 'debrief';
+type UiKind = 'idle' | 'ringing' | 'crew' | 'voicemail' | 'patrol' | 'threads' | 'pick' | 'spot' | 'call' | 'notes' | 'go' | 'find' | 'ride' | 'phone' | 'radio' | 'scene' | 'overhear' | 'intent' | 'password' | 'closing' | 'debrief';
 
 /** What is on the screen now. */
 interface Ui {
@@ -118,7 +135,12 @@ interface Ui {
   password?: Extract<Step, { kind: 'password' }> | null;
   noticed?: boolean;
   /** Who says the briefing being heard (a notebook's `via`). */
-  via?: 'phone' | 'radio' | 'scene';
+  via?: 'phone' | 'radio' | 'scene' | 'voicemail' | 'tape';
+  /** A `threads` step: its tracks and the one listened to. */
+  tracks?: readonly Track[];
+  track?: string;
+  /** A `pick` step: how many clips. */
+  clips?: number;
   /** A goto with a deadline: the card counts down to it. */
   timed?: boolean;
 }
@@ -126,9 +148,19 @@ interface Ui {
 const CANCEL = Symbol('cancel');
 
 const doorOf = (id: string): { x: number; y: number } | null => {
+  const spot = JOB_SPOTS[id];
+  if (spot) return { x: spot.x + 0.5, y: spot.y + 0.5 };
   const p = CITY_PLACES.find((q) => (q.id as string) === id);
   return p ? { x: p.door.x + 0.5, y: p.door.y + 0.5 } : null;
 };
+/** Where the quest card and the car take the learner: a place, or a job spot's tile (data/city/jobs/spots.ts). */
+const targetOf = (id: string) => (JOB_SPOTS[id] ? ({ kind: 'tile', x: JOB_SPOTS[id].x, y: JOB_SPOTS[id].y } as const) : ({ kind: 'place', id: id as PlaceId } as const));
+/** A pause in a broken-up line (the hiss), ms. */
+const HISS_MS = 700;
+/** Before the threads of a `threads` step start, a moment to choose one (ms). */
+const THREADS_LEAD_MS = 3000;
+/** After the line to spot ends, a press still counts this long (ms). */
+const SPOT_GRACE_MS = 1500;
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 const nameOf = (id: string) => cityPerson(id)?.name ?? jobSpeakerName(id);
 const bump = (h: Record<string, number>, keys: readonly string[]) => {
@@ -167,6 +199,8 @@ const blank = (doc: JobDoc, now: number): JobRunState => ({
   xu: 0,
   missed: [],
   enrolled: 0,
+  crew: null,
+  crewTake: 0,
 });
 
 /** Every notebook entry of a job. */
@@ -233,6 +267,16 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
   const [note, setNote] = useState<string | null>(null);
   const [heard, setHeard] = useState<Clarity>('none');
   const heat = useHeat();
+  // the phone (../phone): its log, whether its panel is open, the voice message a job waits on, a clock for deadlines
+  const phone = usePhone();
+  const [phoneOpen, setPhoneOpen] = useState(false);
+  const vmRef = useRef<string | null>(null);
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setClock(Date.now()), 5000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const genderRef = useRef(playerGender);
   useEffect(() => {
     genderRef.current = playerGender;
@@ -274,6 +318,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
    * speaker's). `slow`: a little slower (asked again). `volume(who, id)`: per line, for a talk overheard. The
    * learner's own lines are shown, and said only with PLAYER_VOICE.
    */
+  /** When each line was last said, start and end (a `spot` step reads it). */
+  const lineTimes = useRef(new Map<string, { at: number; end: number }>());
   const say = useCallback(
     async (ids: readonly string[], bubble: string | null = null, o: { volume?: (who: string, id: string) => number; slow?: boolean } = {}): Promise<boolean> => {
       const mineTok = ++speech.current;
@@ -286,8 +332,19 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
         const volume = o.volume ? o.volume(said.line.who, id) : undefined;
         setSpeaking(own ? 'player' : (bubble ?? said.line.who));
         setMine(own ? said.line.text : null);
+        lineTimes.current.set(id, { at: Date.now(), end: 0 });
         if (volume === 0 || (own && !PLAYER_VOICE)) await new Promise((r) => window.setTimeout(r, lineSeconds(said.line.text) * 1000));
-        else await sayJobLine(said.line, runRef.current?.doc.level ?? 2, { ...(volume !== undefined ? { volume } : {}), ...(o.slow ? { slow: true } : {}), ...(own ? { gender: genderRef.current } : {}) });
+        else if (said.line.broken) {
+          // a line over a bad radio: its pieces, a silence at every "..." (no noise mixed in)
+          const pieces = said.line.text.split(/\s*\.\.\.\s*/).filter((x) => /[a-z0-9]/i.test(x));
+          for (let k = 0; k < pieces.length; k++) {
+            if (speech.current !== mineTok) return false;
+            await sayJobLine({ who: said.line.who, text: pieces[k] }, runRef.current?.doc.level ?? 2, { ...(volume !== undefined ? { volume } : {}), ...(o.slow ? { slow: true } : {}) });
+            if (k < pieces.length - 1) await new Promise((r) => window.setTimeout(r, HISS_MS));
+          }
+        } else await sayJobLine(said.line, runRef.current?.doc.level ?? 2, { ...(volume !== undefined ? { volume } : {}), ...(o.slow ? { slow: true } : {}), ...(own ? { gender: genderRef.current } : {}) });
+        const lt = lineTimes.current.get(id);
+        if (lt) lt.end = Date.now();
         if (speech.current !== mineTok) return false;
         await new Promise((r) => window.setTimeout(r, 250));
       }
@@ -316,6 +373,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       flags: new Set(r.flags),
       hits: new Set(r.hits),
       past: (ref) => pastFlag(loadTownJobs(), ref),
+      crew: r.crew,
+      clue: (id) => hasClue(loadTownJobs(), id),
     };
   }, []);
   const now = useCallback((list: readonly Said[] | undefined) => saidNow(list ?? [], condState()), [condState]);
@@ -359,7 +418,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       new Promise((res) => {
         const st = stage.current;
         if (!st) return res();
-        const target = to.kind === 'place' ? ({ kind: 'place', id: to.id as PlaceId } as const) : to;
+        const target = to.kind === 'place' ? targetOf(to.id) : to;
         if (!st.travelTo(target, 'walk', () => res()) && !st.travelTo(target, 'warp', () => res())) res();
       }),
     [stage],
@@ -391,6 +450,81 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
     [condState, flag, hit, now, patch, say, show, wait],
   );
 
+  /** Inside warehouse fifteen (an `enter` not yet left), the boats of the run, the clips of a `pick`, a `spot`'s press. */
+  const inRoomRef = useRef(false);
+  const boatsRef = useRef<(() => void)[]>([]);
+  const pickRef = useRef<readonly string[] | null>(null);
+  const spotRef = useRef<{ at: string; pressed: 'early' | 'right' | 'late' | null } | null>(null);
+  /** A `threads` step: which thread is listened to now. */
+  const trackRef = useRef<string>('');
+  /**
+   * Several threads of talk at once (jobDoc §6): each thread's lines go by on their own clock (a line takes as long as
+   * it would be said); only the thread listened to is heard (said aloud, logged); a key line that goes by on another
+   * is that thread's consequence. Switching stops what was being said.
+   */
+  const playThreads = useCallback(
+    async (tracks: readonly Track[], tok: number) => {
+      type Due = { track: Track; id: string; at: number; dur: number };
+      const due: Due[] = [];
+      for (const t of tracks) {
+        let at = 0;
+        for (const id of now(t.lines)) {
+          const dur = lineSeconds(jobLine(id)!.line.text) * 1000 + 600;
+          due.push({ track: t, id, at, dur });
+          at += dur;
+        }
+      }
+      due.sort((a, b) => a.at - b.at);
+      trackRef.current = tracks[0].id;
+      show({ kind: 'threads', tracks, track: tracks[0].id });
+      // a moment to see the threads and pick one before anything is said
+      await new Promise((r) => window.setTimeout(r, THREADS_LEAD_MS));
+      if (!alive(tok)) return;
+      const t0 = Date.now();
+      const end = Math.max(...due.map((d) => d.at + d.dur));
+      let k = 0;
+      while (alive(tok) && Date.now() - t0 < end) {
+        const t = Date.now() - t0;
+        while (k < due.length && due[k].at <= t) {
+          const d = due[k++];
+          if (d.track.id === trackRef.current) {
+            const said = lineOf(d.id);
+            patch((x) => (x.log.some((y) => y.ref === said.ref) ? x : { ...x, log: [...x.log, said] }));
+            setSpeaking(said.line.who === 'player' ? 'player' : said.line.who);
+            void sayJobLine(said.line, runRef.current?.doc.level ?? 2);
+          } else if (d.track.consequence && (d.track.key ?? []).includes(d.id)) hit(d.track.consequence);
+        }
+        await new Promise((r) => window.setTimeout(r, 120));
+      }
+      setSpeaking(null);
+    },
+    [hit, lineOf, now, patch, show],
+  );
+  const switchTrack = useCallback(
+    (id: string) => {
+      trackRef.current = id;
+      stopSpeaking();
+      setSpeaking(null);
+      show({ ...uiRef.current, track: id });
+    },
+    [show],
+  );
+  const pressSpot = useCallback(() => {
+    const sp = spotRef.current;
+    if (!sp || sp.pressed) return;
+    const t = lineTimes.current.get(sp.at);
+    if (!t) sp.pressed = 'early';
+    else if (t.end === 0 || Date.now() - t.end <= SPOT_GRACE_MS) sp.pressed = 'right';
+    else sp.pressed = 'late';
+    show({ ...uiRef.current, label: sp.pressed });
+  }, [show]);
+  /** The job's car layer on the stage (registered the first time a step parks a car; gone when the run ends). */
+  const carsOff = useRef<(() => void) | null>(null);
+  const unpark = useCallback(() => {
+    setParked([]);
+    carsOff.current?.();
+    carsOff.current = null;
+  }, []);
   const playStep = useCallback(
     async (st: Step, next: Step | undefined, tok: number): Promise<void> => {
       if ('if' in st && st.if && !evalCond(st.if, condState())) return;
@@ -426,9 +560,26 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
         case 'notebook': {
           const keys = st.entries.map((e) => e.key);
           nbRef.current = st;
+          if (st.via === 'voicemail') {
+            const from = now(st.call).map((id) => jobLine(id)?.line.who).find((w) => w && w !== 'player') ?? r0.doc.from;
+            const vm = leaveVoicemail(r0.doc.id, from, now(st.call));
+            vmRef.current = vm.id;
+            show({ kind: 'voicemail', via: 'voicemail', label: from });
+            const heardIt = await wait<true>('voicemail');
+            vmRef.current = null;
+            if (heardIt === CANCEL || !alive(tok)) return;
+          }
+          if (st.via === 'tape') {
+            // the tape is listened to at the hideout when the learner owns it, else at Jun's stall
+            const at = hideoutOwned() ? 'hideout' : 'jun';
+            show({ kind: 'go', target: at, label: at === 'hideout' ? tr('Về chỗ ẩn nghe lại cuộn băng') : tr('Tới sạp Jun nghe lại cuộn băng') });
+            const there = await until(near(at));
+            if (!there || !alive(tok)) return;
+          }
           patch((r) => ({ ...r, heard: bump(r.heard, keys) }));
           show({ kind: 'call', entries: st.entries, via: st.via ?? 'phone' });
           await say(now(st.call), st.via === 'scene' ? null : 'player');
+          if (st.via === 'voicemail') setPhoneOpen(false);
           if (!alive(tok)) return;
           show({ kind: 'notes', entries: st.entries, via: st.via ?? 'phone' });
           const go = await wait<true>('notes');
@@ -628,8 +779,97 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           if (res === 'none') hit(st.consequence);
           return;
         }
+        case 'patrol': {
+          // a police car drives one street now; the scanner says the job's lines (features/town/streets/jobPolice.ts)
+          show({ kind: 'patrol', label: st.street });
+          const scan: JobScanLine[] = (st.lines ?? []).map((l) => {
+            const said = lineOf(l.line);
+            patch((x) => (x.log.some((y) => y.ref === said.ref) ? x : { ...x, log: [...x.log, said] }));
+            return { who: said.line.who === 'scanner-desk' ? 'dispatch' : 'unit', text: said.line.text, vi: said.line.vi, ...(l.at !== undefined ? { at: l.at } : {}) };
+          });
+          const { seen } = await jobPatrol({ street: st.street, ...(st.from ? { from: st.from } : {}), ...(st.to ? { to: st.to } : {}), seconds: st.seconds, lines: scan });
+          if (!alive(tok)) return;
+          if (seen && st.seen) {
+            if (st.seen.consequence) hit(st.seen.consequence);
+            if (st.seen.flag) flag(st.seen.flag);
+            show({ kind: 'phone' });
+            await say(now(st.seen.lines), 'player');
+          }
+          return;
+        }
+        case 'scanner': {
+          show({ kind: 'patrol', label: '' });
+          const ids = now(st.lines);
+          const said = ids.map((id) => lineOf(id));
+          patch((x) => ({ ...x, log: [...x.log, ...said.filter((l) => !x.log.some((y) => y.ref === l.ref))] }));
+          await sayOnScanner(said.map((l) => ({ who: l.line.who === 'scanner-desk' ? 'dispatch' : 'unit', text: l.line.text, vi: l.line.vi })));
+          return;
+        }
+        case 'enter': {
+          // to that door of warehouse fifteen, then in through the dark with the job's people
+          const door = st.door ?? 'front';
+          const spot = `w15-${door}`;
+          show({ kind: 'go', target: spot, label: st.label ?? tr('Tới cửa kho mười lăm') });
+          const there = await until(near(spot, 3));
+          if (!there || !alive(tok)) return;
+          await new Promise<void>((res) => {
+            const ok = enterWarehouse(stage.current, { door, ...(st.host ? { host: st.host } : {}), ...(st.visitor ? { visitor: st.visitor } : {}), ...(st.more ? { more: st.more } : {}) }, () => res());
+            if (!ok) res();
+            else window.setTimeout(res, 6000);
+          });
+          inRoomRef.current = true;
+          return;
+        }
+        case 'leave': {
+          if (inRoomRef.current) stage.current?.endTalk();
+          inRoomRef.current = false;
+          await new Promise((r) => window.setTimeout(r, 900));
+          return;
+        }
+        case 'boat': {
+          const from = st.from && st.from !== 'jetty' ? doorOf(st.from) : null;
+          const to = st.to && st.to !== 'w15-water' ? doorOf(st.to) : W15_MOORING;
+          show({ kind: 'scene', label: 'boat' });
+          const b = runBoat(stage.current, { ...(from ? { from } : {}), ...(to ? { to } : {}), aboard: !!st.aboard });
+          if (!b) return;
+          boatsRef.current.push(b.stop);
+          await b.arrived;
+          return;
+        }
+        case 'threads': {
+          await playThreads(st.tracks, tok);
+          return;
+        }
+        case 'pick': {
+          await say(now(st.ask), 'player');
+          if (!alive(tok)) return;
+          show({ kind: 'pick', clips: st.clips.length });
+          pickRef.current = st.clips;
+          const choice = await wait<number>('pick');
+          pickRef.current = null;
+          if (choice === CANCEL || !alive(tok)) return;
+          const right = choice === st.right;
+          patch((x) => ({ ...x, checks: { ...x.checks, [st.fact]: right } }));
+          if (!right) hit(st.consequence);
+          return;
+        }
+        case 'spot': {
+          // the lines play; "Đó!" when the line `at` is said (until a moment after it ends)
+          spotRef.current = { at: st.at, pressed: null };
+          lineTimes.current.delete(st.at);
+          show({ kind: 'spot', via: st.via === 'scanner' ? 'radio' : st.via === 'scene' ? 'scene' : st.via === 'phone' ? 'phone' : 'radio' });
+          await say(now(st.lines), st.via === 'scene' ? null : 'player');
+          if (!alive(tok)) return;
+          if (!spotRef.current.pressed) await new Promise((r) => window.setTimeout(r, SPOT_GRACE_MS));
+          const outcome = spotRef.current.pressed ?? 'never';
+          spotRef.current = null;
+          patch((x) => ({ ...x, checks: { ...x.checks, [st.fact]: outcome === 'right' } }));
+          if (outcome !== 'right') hit(st[outcome]);
+          return;
+        }
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [condState, flag, hit, now, patch, playIntent, say, show, snapshot, stage, travel, until, wait],
   );
 
@@ -645,7 +885,13 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       await say(now(doc.ending[grade]), 'player');
       if (!alive(tok)) return;
       const t = Date.now();
-      const xu = payJob(doc.id, grade, t);
+      const role = r.crew ? doc.crew?.roles.find((x) => x.who === r.crew) : undefined;
+      const { xu, take } = payJob(doc.id, grade, t, role?.cut ?? 0);
+      if (role?.with === 'ride') stage.current?.passenger(role.who as PlaceId, false);
+      unpark();
+      for (const stop of boatsRef.current.splice(0)) stop();
+      if (inRoomRef.current) stage.current?.endTalk();
+      inRoomRef.current = false;
       // the lines behind what was not caught: a fact whose consequence was hit, a junction taken wrong, the password
       // not typed right at once; only what was said in this run
       const said = new Set(runRef.current!.log.map((l) => l.ref));
@@ -660,48 +906,112 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       setHeat(heatAfter(getHeat(), grade, hits.size, fatal));
       // what the story remembers: the grade, and the flags and consequences later jobs read
       finishJobRun(doc.id, grade, [...runRef.current!.flags.filter((f) => !f.startsWith('aboard:') && !f.startsWith('asked:')), ...[...hits].map((h) => `hit:${h}`)], t);
-      patch((x) => ({ ...x, xu, missed, enrolled }));
+      patch((x) => ({ ...x, xu, missed, enrolled, crewTake: take }));
       show({ kind: 'debrief' });
       onReward({ label: tl`Phi vụ xong: ${tr(GRADE_NAME[grade])}`, ...(xu > 0 ? { xu } : {}) });
     },
-    [lineOf, now, onReward, patch, say, show, stage],
+    [lineOf, now, onReward, patch, say, show, stage, unpark],
   );
 
+  /** One step with what goes round it: a car parked for its length, a call in the phone's log, the clue it gives. */
+  const runStep = useCallback(
+    async (st: Step, next: Step | undefined, tok: number): Promise<void> => {
+      if ('if' in st && st.if && !evalCond(st.if, condState())) return;
+      const park = (st.kind === 'scene' || st.kind === 'overhear') && st.park?.length ? st.park : null;
+      if (park) {
+        if (!carsOff.current) carsOff.current = stage.current?.addExtra(makeParkedLayer) ?? null;
+        setParked(park.map((c) => ({ at: c.at, look: c.look ?? 0 })));
+      }
+      // a call on the learner's phone goes into its log (a voice message is logged when it is left)
+      if (st.kind === 'phone' || (st.kind === 'notebook' && (st.via ?? 'phone') === 'phone')) {
+        const first = now(st.kind === 'phone' ? st.lines : st.call).map((id) => jobLine(id)?.line.who).find((w) => w && w !== 'player');
+        if (first) logCall(first, runRef.current?.doc.id);
+      }
+      await playStep(st, next, tok);
+      if (park) setParked([]);
+      // a clue the step gives (data/city/clues.ts): heard through, it is the learner's
+      if (alive(tok) && 'clue' in st && st.clue) grantClue(st.clue);
+    },
+    [condState, now, playStep, stage],
+  );
   const direct = useCallback(
     async (doc: JobDoc) => {
       const tok = token.current;
       const steps = doc.steps;
       for (let i = 0; i < steps.length; i++) {
         if (!alive(tok)) return;
-        await playStep(steps[i], steps[i + 1], tok);
+        await runStep(steps[i], steps[i + 1], tok);
       }
       if (alive(tok)) await finish(tok);
     },
-    [finish, playStep],
+    [finish, runStep],
   );
 
   // ── starting, giving up ──
-  const ringing = ui.kind === 'idle' ? (open.find((d) => !d.side && !declined.includes(d.id)) ?? null) : null;
+  // a job whose offer is held by the phone (a missed call waiting to be returned, or gone until the next game day) does not ring
+  const ringing = ui.kind === 'idle' ? (open.find((d) => !d.side && !declined.includes(d.id) && !offerHeld(d.id, clock)) ?? null) : null;
   const [ringFor, setRingFor] = useState<JobDoc | null>(null);
-  const offered = ui.kind === 'ringing' ? ringFor : free ? ringing : null;
+  const offered = ui.kind === 'ringing' ? ringFor : free && !phoneOpen ? ringing : null;
+  // a job not answered: a missed call with the caller's voice message and a deadline by the game's clock
+  const missJob = useCallback((jobId: string) => {
+    const doc = jobs.find((d) => d.id === jobId);
+    if (!doc) return;
+    missCall(jobId, doc.from);
+    if (uiRef.current.kind === 'ringing') {
+      setRingFor(null);
+      show({ kind: 'idle' });
+    }
+  }, [jobs, show]);
+  // the phone knows what rings; unanswered for RING_MS it is a missed call ("call me back before …", core/town/phone.ts)
+  const offeredId = offered?.id ?? null;
+  useEffect(() => {
+    phoneRinging(offeredId, offeredId ? (jobs.find((d) => d.id === offeredId)?.from ?? '') : '');
+    if (!offeredId) return;
+    const id = window.setTimeout(() => missJob(offeredId), RING_MS);
+    return () => window.clearTimeout(id);
+  }, [offeredId, jobs, missJob]);
   const start = useCallback(
     (jobId: string) => {
       const doc = jobs.find((d) => d.id === jobId);
       if (!doc || (uiRef.current.kind !== 'idle' && uiRef.current.kind !== 'ringing')) return;
+      const held = offerHeld(jobId);
+      if (held === 'gone') return;
+      if (held === 'waiting') {
+        setPhoneOpen(true);
+        return;
+      }
       setRingFor(doc);
       show({ kind: 'ringing' });
     },
-    [jobs, show],
+    [jobs, show, setPhoneOpen],
   );
   const accept = useCallback(
     (doc: JobDoc) => {
       cancelAll();
+      phoneRinging(null);
       runRef.current = blank(doc, Date.now());
       setRun(runRef.current);
       setNote(null);
+      if (doc.crew?.roles.length) {
+        show({ kind: 'crew' });
+        return;
+      }
       void direct(doc);
     },
-    [cancelAll, direct],
+    [cancelAll, direct, show],
+  );
+  /** The crew picked (null: alone): they stand or ride where the job says, then the job starts. */
+  const pickCrew = useCallback(
+    (role: CrewRole | null) => {
+      const r = runRef.current;
+      if (!r) return;
+      patch((x) => ({ ...x, crew: role?.who ?? null, flags: role ? [...x.flags, `crew:${role.who}`] : x.flags }));
+      if (role?.with === 'ride') stage.current?.passenger(role.who as PlaceId, true);
+      else if (role?.with) stage.current?.gather(role.with.at as PlaceId, [role.who as PlaceId]);
+      show({ kind: 'call' });
+      void direct(r.doc);
+    },
+    [direct, patch, show, stage],
   );
   const quit = useCallback(() => {
     const r = runRef.current;
@@ -709,6 +1019,13 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
     stage.current?.endListen();
     const aboard = r ? aboardOf(r.flags) : '';
     if (aboard) stage.current?.passenger(aboard as PlaceId, false);
+    const role = r?.crew ? r.doc.crew?.roles.find((x) => x.who === r.crew) : undefined;
+    if (role?.with === 'ride') stage.current?.passenger(role.who as PlaceId, false);
+    unpark();
+    for (const stop of boatsRef.current.splice(0)) stop();
+    if (inRoomRef.current) stage.current?.endTalk();
+    inRoomRef.current = false;
+    phoneRinging(null);
     if (r) setDeclined((d) => [...d, r.doc.id]);
     else if (ringFor) setDeclined((d) => [...d, ringFor.id]);
     runRef.current = null;
@@ -717,7 +1034,33 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
     setNote(null);
     show({ kind: 'idle' });
     stage.current?.focus();
-  }, [cancelAll, ringFor, show, stage]);
+  }, [cancelAll, ringFor, show, stage, unpark]);
+  /** A missed call returned from the phone: in time the job starts; late, the caller says it is gone. */
+  const returnCall = useCallback(
+    async (entryId: string) => {
+      const e = phoneState().log.find((x) => x.id === entryId);
+      const doc = e?.jobId ? jobs.find((d) => d.id === e.jobId) : undefined;
+      if (!e || !doc || (uiRef.current.kind !== 'idle' && uiRef.current.kind !== 'ringing')) return;
+      const res = callBack(entryId);
+      if (!res) return;
+      setPhoneOpen(false);
+      await sayPhoneLine(res === 'ok' ? PHONE_LINES.there : PHONE_LINES.tooLate, doc.from, null);
+      if (res === 'ok') accept(doc);
+    },
+    [accept, jobs, setPhoneOpen],
+  );
+  /** A voice message played from the phone: a job's briefing goes on; another is said again. */
+  const playVoicemail = useCallback(
+    (entryId: string) => {
+      const e = phoneState().log.find((x) => x.id === entryId);
+      if (!e) return;
+      if (vmRef.current === entryId && resolve('voicemail', true)) return;
+      setPhoneOpen(false);
+      if (e.kind === 'missed' && e.deadline) void sayPhoneLine(PHONE_LINES.ringBack, e.from, timeWords(e.deadline.minute));
+      else if (e.lines?.length) void (async () => { for (const id of e.lines!) { const l = jobLine(id)?.line; if (l) await sayJobLine(l, 2); } })();
+    },
+    [resolve, setPhoneOpen],
+  );
 
   // ── the panels' actions ──
   const replayCall = useCallback(
@@ -797,12 +1140,18 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
 
   // ── the quest cards ──
   const active = ui.kind !== 'idle' && ui.kind !== 'ringing';
+  const crewWorld = useCrewWorld();
   const quests = useMemo<Quest[]>(() => {
     const tag = tr('Phi vụ');
     if (!active || !run)
       return [
         // the story's next job first (a page may show only the first card), the side jobs after it
-        ...[...open.filter((d) => !d.side), ...open.filter((d) => d.side)].map((d) => ({ id: `job:${d.id}`, tag, title: d.title, step: tl`${nameOf(d.from)} có việc cho bạn`, target: null })),
+        ...[...open.filter((d) => !d.side), ...open.filter((d) => d.side)]
+          .filter((d) => offerHeld(d.id, clock) !== 'gone')
+          .map((d) => {
+            const missed = offerHeld(d.id, clock) === 'waiting' ? phone.log.find((e) => e.kind === 'missed' && e.jobId === d.id && e.deadline) : undefined;
+            return { id: `job:${d.id}`, tag, title: d.title, step: missed?.deadline ? tl`Gọi lại ${nameOf(d.from)} trước ${clockOf(missed.deadline.minute)}` : tl`${nameOf(d.from)} có việc cho bạn`, target: null };
+          }),
         ...replays.map((d) => ({ id: `job:${d.id}`, tag: tr('Chơi lại'), title: d.title, step: tr('Phi vụ đã làm. Chơi lại để thử cách khác'), target: null })),
       ];
     const doc = run.doc;
@@ -811,6 +1160,18 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       switch (ui.kind) {
         case 'call':
           return tr('Đang nghe điện thoại');
+        case 'crew':
+          return tr('Chọn người đi cùng');
+        case 'patrol':
+          return tr('Nghe bộ đàm cảnh sát');
+        case 'threads':
+          return tr('Ba chuyện cùng lúc: chọn nghe chuyện nào');
+        case 'pick':
+          return tr('Nghe từng đoạn, chọn đúng cuộn');
+        case 'spot':
+          return tr('Bấm "Đó!" đúng lúc câu đó được nói');
+        case 'voicemail':
+          return tr('Mở điện thoại nghe tin nhắn thoại');
         case 'notes':
           return tr('Ghi vào sổ tay');
         case 'go':
@@ -830,8 +1191,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           return tr('Nghe cho kỹ');
       }
     })();
-    return [{ ...base, step, target: ui.kind === 'go' && ui.target ? { kind: 'place', id: ui.target as PlaceId } : null }];
-  }, [active, run, open, replays, ui]);
+    return [{ ...base, step, target: ui.kind === 'go' && ui.target ? targetOf(ui.target) : null }];
+  }, [active, run, open, replays, ui, clock, phone]);
 
   // ── what is drawn over the stage ──
   const pill = heatLevel(heat) !== 'none' && (
@@ -866,10 +1227,10 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
             type="button"
             className="btn btn-ghost btn-sm btn-icon"
             onClick={() => {
-              // "later": this job rings no more in this visit (its quest card still lists it)
+              // "later": a missed call on the phone, to be returned before its deadline (core/town/phone.ts)
               const id = offered.id;
+              missJob(id);
               quit();
-              setDeclined((d) => (d.includes(id) ? d : [...d, id]));
             }}
             aria-label="Để sau"
             title="Để sau"
@@ -892,14 +1253,48 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
         return (
           <div className="town-welcome job-strip" role="status">
             <span className="job-strip-icon" aria-hidden="true">
-              <Icon icon={ui.via === 'radio' ? Radio : ui.via === 'scene' ? MessageCircle : Phone} size={20} />
+              <Icon icon={ui.via === 'radio' ? Radio : ui.via === 'scene' ? MessageCircle : ui.via === 'tape' ? CassetteTape : Phone} size={20} />
             </span>
             <p className="town-welcome-text">
-              <span className="town-welcome-name">{ui.via === 'radio' ? 'Bộ đàm' : ui.via === 'scene' ? (speaking && speaking !== 'player' ? nameOf(speaking) : 'Nghe họ nói') : 'Điện thoại'}</span>
+              <span className="town-welcome-name">{ui.via === 'radio' ? 'Bộ đàm' : ui.via === 'scene' ? (speaking && speaking !== 'player' ? nameOf(speaking) : 'Nghe họ nói') : ui.via === 'tape' ? 'Cuộn băng' : 'Điện thoại'}</span>
               {hearing(speaking !== null ? 'Đang nói… chỉ nghe thôi, không có chữ.' : 'Đã dập máy.')}
             </p>
           </div>
         );
+      case 'voicemail':
+        return (
+          <div className="town-welcome job-strip is-ringing" role="status">
+            <span className="job-strip-icon" aria-hidden="true">
+              <Icon icon={Voicemail} size={20} />
+            </span>
+            <p className="town-welcome-text">
+              <span className="town-welcome-name">{tl`Tin nhắn thoại mới · ${nameOf(ui.label ?? '')}`}</span>
+              Mở điện thoại để nghe.
+            </p>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPhoneOpen(true)}>
+              <Icon icon={Phone} size={16} />
+              Mở điện thoại
+            </button>
+          </div>
+        );
+      case 'patrol':
+        return (
+          <div className="town-welcome job-strip" role="status">
+            <span className="job-strip-icon" aria-hidden="true">
+              <Icon icon={Siren} size={20} />
+            </span>
+            <p className="town-welcome-text">
+              <span className="town-welcome-name">{ui.label ? tl`Xe tuần tra trên ${ui.label}` : 'Bộ đàm cảnh sát'}</span>
+              {ui.label ? 'Nghe bộ đàm. Đừng đứng giữa đường khi xe tới.' : 'Nghe bộ đàm cảnh sát.'}
+            </p>
+          </div>
+        );
+      case 'threads':
+        return ui.tracks ? <JobThreads tracks={ui.tracks} current={ui.track ?? ''} speaking={speaking !== null} onSwitch={switchTrack} /> : null;
+      case 'pick':
+        return <JobPick count={ui.clips ?? 0} onPlay={(i) => pickRef.current && void say([pickRef.current[i]], 'player')} onPick={(i) => resolve('pick', i)} />;
+      case 'spot':
+        return <JobSpot speaking={speaking !== null} pressed={ui.label ?? null} onPress={pressSpot} />;
       case 'radio':
         return (
           <div className="town-welcome job-strip" role="status">
@@ -1002,7 +1397,22 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
   const node = (
     <>
       {pill}
-      {free && strip}
+      {free && <PhoneButton waiting={phone.log} ringing={!!phone.incoming} now={clock} onOpen={() => setPhoneOpen(true)} />}
+      {phoneOpen && (
+        <PhonePanel
+          log={phone.log}
+          now={clock}
+          nameOf={nameOf}
+          contacts={contactsOf(jobs, crewWorld)}
+          clues={loadTownJobs().clues ?? {}}
+          busy={active && ui.kind !== 'voicemail'}
+          onCallBack={(id) => void returnCall(id)}
+          onPlay={playVoicemail}
+          onClose={() => setPhoneOpen(false)}
+        />
+      )}
+      {ui.kind === 'crew' && run && run.doc.crew && <CrewPicker doc={run.doc} world={crewWorld} nameOf={nameOf} onPick={pickCrew} onClose={quit} />}
+      {free && !phoneOpen && strip}
       {free && mineNode}
       {ui.kind === 'notes' && run && ui.entries && (
         <Suspense fallback={null}>
@@ -1067,8 +1477,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
 
   // dev only: headless replays of a job read where the run stands and press what the panels press (gta-plan §16)
   useEffect(() => {
-    if (import.meta.env.DEV) (window as unknown as { __job?: unknown }).__job = { ui, run, ask, choose, askAgain, quests };
-  });
+    if (import.meta.env.DEV) (window as unknown as { __job?: unknown }).__job = { ui, run, ask, choose, askAgain, quests, phone, pickCrew, returnCall, playVoicemail, openPhone: setPhoneOpen, missCall: missJob, switchTrack, pressSpot, pick: (i: number) => resolve('pick', i) };
+  }, [ui, run, ask, choose, askAgain, quests, phone, pickCrew, returnCall, playVoicemail, missJob, switchTrack, pressSpot, resolve]);
 
   return {
     active,
@@ -1078,7 +1488,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
     talk,
     start,
     speaking,
-    sheet: ui.kind === 'notes' || ui.kind === 'password' || ui.kind === 'debrief' || ui.kind === 'ride',
+    sheet: ui.kind === 'notes' || ui.kind === 'password' || ui.kind === 'debrief' || ui.kind === 'ride' || ui.kind === 'crew' || ui.kind === 'pick' || phoneOpen,
     node,
   };
 }

@@ -280,6 +280,8 @@ describe('merger laws', () => {
           ]),
         ]),
       ),
+      // the clues earned (gta-plan §17): id → first time; junk ids and times dropped
+      ...(maybe(0.6) ? { clues: Object.fromEntries(['fay-heights', 'gate-one-call', 'Bad Clue'].filter(() => maybe()).map((id) => [id, pick<unknown>([T0, T0 + 3, 0, 'x'])])) } : {}),
     };
   });
   // town-hideout (docs/town.md §29): the earlier buying, the later rest, each upgrade at its earlier time

@@ -17,6 +17,9 @@
 //     on it; a wrong answer to Rico about what was heard means nobody warns Gus;
 //   - Sam's "Wrong. Car. Sorry." follows a wrong car at once; the overheard talk then starts a line late.
 // Sam is of the town ('station'): his lines are clips (connected only), the browser voice until the owner makes them.
+//
+// A clue (gta-plan §17, data/city/clues.ts `gate-one-call`, read on Bay FM until the learner has heard it): the learner
+// who heard that one call to Gus's hut opens the side lane rings him instead of running to the gate against the clock.
 
 import type { Junction, NoteEntry } from '../../../core/town/job';
 import type { JobDoc } from '../../../core/town/jobDoc';
@@ -24,6 +27,7 @@ import type { JobDoc } from '../../../core/town/jobDoc';
 const id = (key: string) => `job-three-${key}`;
 const T = (x: number, y: number) => ({ x, y });
 const CAR_WRONG = { note: 'car', is: 'wrong' as const };
+const ONE_CALL = { clue: 'gate-one-call' };
 
 const LINES = [
   // ── beat 1: the taxi rank ──
@@ -81,6 +85,8 @@ const LINES = [
   { id: id('g01'), who: 'gus', text: "Six of them? I'll open the side gate. Rico's lot only.", vi: 'Sáu chiếc á? Tôi mở cổng phụ. Chỉ cho xe của Rico.' },
   { id: id('g02'), who: 'gus', text: "Too late, they're here. Six of them, parked across my gate.", vi: 'Muộn rồi, tụi nó tới rồi. Sáu chiếc, đỗ chắn ngang cổng tôi.' },
   { id: id('g03'), who: 'gus', text: "My gate's jammed solid. Six Bayline cars. Where were you?", vi: 'Cổng tôi tắc cứng. Sáu xe Bayline. Bạn đi đâu thế?' },
+  { id: id('g05'), who: 'player', text: 'Gus, six Bayline cars on Pier Road soon. The side lane, please?', vi: 'Gus ơi, sắp có sáu xe Bayline trên đường Pier. Mở giúp cổng phụ nhé?' },
+  { id: id('g06'), who: 'gus', text: "One call's all it takes. Side lane's open for Rico's lot.", vi: 'Một cuộc gọi là đủ. Cổng phụ mở cho xe của Rico.' },
   { id: id('g04'), who: 'gus', text: 'Off you go, then. And thanks, mind.', vi: 'Đi đi. Mà cảm ơn nhé.' },
   // ── beat 4 ──
   { id: id('e1'), who: 'station', text: 'That was. Actually fun.', vi: 'Vụ này. Vui thật.' },
@@ -229,8 +235,10 @@ export const JOB_THREE: JobDoc = {
       ],
       check: { right: 0, consequence: 'jam', fact: 'gate' },
     },
-    { kind: 'goto', place: 'gus', label: 'Chạy tới báo Gus', deadline: { seconds: 75, consequence: 'jam', lines: [id('g02')] }, if: { flag: 'warned' } },
-    { kind: 'scene', at: 'gus', who: ['gus'], lines: [id('g01'), id('g04')], if: { all: [{ flag: 'warned' }, { not: { hit: 'jam' } }] } },
+    { kind: 'goto', place: 'gus', label: 'Chạy tới báo Gus', deadline: { seconds: 75, consequence: 'jam', lines: [id('g02')] }, if: { all: [{ flag: 'warned' }, { not: ONE_CALL }] } },
+    { kind: 'scene', at: 'gus', who: ['gus'], lines: [id('g01'), id('g04')], if: { all: [{ flag: 'warned' }, { not: { hit: 'jam' } }, { not: ONE_CALL }] } },
+    // heard on Bay FM that one call opens Gus's side lane: a call, no run
+    { kind: 'phone', lines: [id('g05'), id('g06')], if: { all: [{ flag: 'warned' }, ONE_CALL] } },
     // nobody warned him
     { kind: 'phone', lines: [id('g03')], if: { not: { flag: 'warned' } } },
   ],

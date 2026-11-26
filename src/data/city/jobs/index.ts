@@ -5,6 +5,16 @@
 
 import { fillLine, parseLineRef, templatedRefs, type JobLine } from '../../../core/town/job';
 import type { JobDoc } from '../../../core/town/jobDoc';
+import { JOB_CALLIN } from './act2Callin';
+import { JOB_CROSSED } from './act2Crossed';
+import { JOB_DUMPLINGS } from './act2Dumplings';
+import { JOB_LINK } from './act2Link';
+import { JOB_NIGHT } from './act2Night';
+import { JOB_FAREWELL } from './act2Farewell';
+import { JOB_SALE } from './act2Sale';
+import { JOB_SECOND } from './act2Second';
+import { JOB_WAREHOUSE } from './act2Warehouse';
+import { JOB_WATER } from './act2Water';
 import { JOB_CHANNELS } from './channels';
 import { JOB_CHIP } from './chip';
 import { JOB_DELANEY } from './delaney';
@@ -17,7 +27,7 @@ import { SIDE_PROFESSOR } from './sideProfessor';
 import { JOB_TESS } from './tess';
 import { JOB_THREE } from './three';
 
-export const CITY_JOBS: readonly JobDoc[] = [JOB_MACHINE2, JOB_FERRY, JOB_HALF5, JOB_CHIP, JOB_THREE, JOB_DELANEY, JOB_CHANNELS, JOB_TESS, JOB_HEARING, ...SIDE_OKAFOR, ...SIDE_PROFESSOR].sort((a, b) => a.order - b.order);
+export const CITY_JOBS: readonly JobDoc[] = [JOB_MACHINE2, JOB_FERRY, JOB_HALF5, JOB_CHIP, JOB_THREE, JOB_DELANEY, JOB_CHANNELS, JOB_TESS, JOB_HEARING, ...SIDE_OKAFOR, ...SIDE_PROFESSOR, JOB_SALE, JOB_SECOND, JOB_DUMPLINGS, JOB_CALLIN, JOB_FAREWELL, JOB_LINK, JOB_CROSSED, JOB_NIGHT, JOB_WATER, JOB_WAREHOUSE].sort((a, b) => a.order - b.order);
 
 let byId: Map<string, { line: JobLine; job: JobDoc }> | null = null;
 

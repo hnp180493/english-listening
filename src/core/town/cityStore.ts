@@ -9,6 +9,7 @@ import { addFriendPoints } from './friendship';
 import { addEarned, townDay, updateDaily } from './progress';
 import { commitTown, loadTownProgress, townDevice } from './store';
 import { TOWN_PLACES } from '../../data/town';
+import { heardScene } from './clueStore';
 
 let session: TownCity | null = null;
 let cacheRaw: string | null | undefined;
@@ -146,6 +147,7 @@ export function finishCityScene(scene: CityScene, result: CityResult, now: numbe
   const again = done.get(result);
   if (again) return again;
   const heard = hearScene(loadTownCity(), scene, result, TOWN_IDS, now);
+  heardScene(scene.id, now); // a clue it gives (data/city/clues.ts)
   write(heard.city);
   const device = townDevice();
   let progress = loadTownProgress();

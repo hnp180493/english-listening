@@ -25,3 +25,8 @@ export function sayJobLine(line: Pick<JobLine, 'who' | 'text' | 'say'>, level: n
 export function lineSeconds(text: string): number {
   return 0.6 + text.split(/\s+/).length * 0.36;
 }
+
+/** A caller's line on the learner's phone (data/city/phoneLines.ts), `{time}` filled with the deadline said. */
+export function sayPhoneLine(line: { text: string }, who: string, time: string | null): Promise<void> {
+  return sayJobLine({ who, text: time === null ? line.text : line.text.replace('{time}', time) }, 2);
+}

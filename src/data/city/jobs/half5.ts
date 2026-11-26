@@ -15,6 +15,9 @@
 //     the job's consequences as for every job (core/town/heat.ts);
 //   - a job with "Sol only" written down goes to the office without Fay, and Mrs Delaney sends the learner back.
 // Nobody of the town speaks: no clips.
+//
+// A clue (gta-plan §17, data/city/clues.ts `fay-heights`, earned on the Sunday ferry, `ce-ferry-2`): the learner who
+// heard Fay say she never goes up high skips the visit to the big wheel and goes straight to Mrs Delaney.
 
 import type { NoteEntry } from '../../../core/town/job';
 import type { JobDoc } from '../../../core/town/jobDoc';
@@ -77,6 +80,7 @@ const LINES = [
   { id: id('o02'), who: 'kemp', text: "If they're not in by {time}, they go to tender on Monday.", vi: 'Nếu tới {time} chưa nộp, thứ Hai đem ra đấu thầu.' },
   { id: id('o03'), who: 'kemp', text: 'The wheel first. My bid for the wheel is the thick one.', vi: 'Vòng đu quay trước. Hồ sơ thầu vòng đu quay của tôi là bộ dày.' },
   { id: id('o04'), who: 'kemp', text: "Yes, I'm on the bench. I'm always on the bench.", vi: 'Ừ, tôi đang ngồi ghế. Lúc nào tôi cũng ngồi ghế.' },
+  { id: id('d10'), who: 'delaney', text: "Fay won't climb? Then I'll come down. I always do.", vi: 'Fay không leo được à? Vậy tôi xuống. Lúc nào tôi cũng xuống.' },
   { id: id('d07'), who: 'delaney', text: 'Right. Two forms, one pen. Whose do I take first?', vi: 'Rồi. Hai tờ đơn, một cây bút. Tôi nhận của ai trước?' },
   { id: id('d07a'), who: 'player', text: "The big wheel first, please. Fay's.", vi: 'Vòng đu quay trước ạ. Của Fay.' },
   { id: id('d07b'), who: 'player', text: "Sol's lantern stall first, please.", vi: 'Sạp lồng đèn của Sol trước ạ.' },
@@ -134,6 +138,7 @@ const NOTEBOOK: NoteEntry[] = [
 
 const NO_FAY = WHO('sol');
 const COPY_WRONG = { note: 'copy', is: 'wrong' as const };
+const KNOWS_FAY = { clue: 'fay-heights' };
 
 export const JOB_HALF5: JobDoc = {
   id: 'job-half5',
@@ -188,8 +193,9 @@ export const JOB_HALF5: JobDoc = {
       ],
       check: { right: [1, 2], consequence: 'waited', fact: 'rule' },
     },
-    { kind: 'goto', place: 'fay', label: 'Tới vòng đu quay của Fay', if: { not: NO_FAY } },
-    { kind: 'scene', at: 'fay', who: ['fay'], lines: [id('f01'), id('f02'), id('f03')], if: { not: NO_FAY } },
+    // a learner who heard Fay never goes up high (the clue) goes straight to the office
+    { kind: 'goto', place: 'fay', label: 'Tới vòng đu quay của Fay', if: { all: [{ not: NO_FAY }, { not: KNOWS_FAY }] } },
+    { kind: 'scene', at: 'fay', who: ['fay'], lines: [id('f01'), id('f02'), id('f03')], if: { all: [{ not: NO_FAY }, { not: KNOWS_FAY }] } },
     // beat 3: the office (at the electronics market), Mrs Delaney at the foot of the stairs
     {
       kind: 'pickup',
@@ -204,7 +210,7 @@ export const JOB_HALF5: JobDoc = {
       ask: [id('q01')],
       notMe: { jun: [id('x-jun')], gus: [id('x-gus')], dev: [id('x-dev')] },
       wrongPerson: 'wrongPerson',
-      greet: [id('d01'), { line: id('d02'), if: COPY_WRONG }, { line: id('d03'), if: COPY_WRONG }, { line: id('d04'), if: { not: COPY_WRONG } }, { line: id('d05'), if: NO_FAY }, { line: id('d06'), if: { any: [{ flag: 'late' }, { note: 'time', is: 'late' }] } }],
+      greet: [id('d01'), { line: id('d02'), if: COPY_WRONG }, { line: id('d03'), if: COPY_WRONG }, { line: id('d04'), if: { not: COPY_WRONG } }, { line: id('d05'), if: NO_FAY }, { line: id('d10'), if: { all: [KNOWS_FAY, { not: NO_FAY }] } }, { line: id('d06'), if: { any: [{ flag: 'late' }, { note: 'time', is: 'late' }] } }],
     },
     // a wrong copy or a forgotten Fay: back to the wheel, and back again
     { kind: 'goto', place: 'fay', label: 'Quay lại vòng đu quay', if: { any: [COPY_WRONG, NO_FAY] } },

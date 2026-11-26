@@ -148,6 +148,9 @@ tờ, dụ kẻ xấu nói ra trên băng, phát lên sóng. Đúng với hai ph
 **Kinh truyện Hồi I** (người chơi, phản diện Duncan Kemp, tám phi vụ, hai chuỗi người lạ, phi vụ 1 viết đủ):
 `docs/gta-story.md` (đề xuất 2026-11-26, chờ chủ dự án đọc).
 
+**Kinh truyện Hồi II** ("Băng bến cảng": băng nhóm và kiểu nghe của từng người, Kemp mua Bay FM, mười phi vụ tới
+"Kho 15", phi vụ "Hộp há cảo" viết đủ): `docs/gta-story-2.md` (đề xuất 2026-11-27).
+
 **Việc phụ: "Người lạ" (8 chuỗi, mỗi chuỗi 3 việc).** Ví dụ: giáo sư Adeyemi (ngữ âm) trả tiền để mày đi thu "băng
 giọng" của 12 người trong thành phố; một người gọi lên đài lúc nửa đêm; trường đua ngựa với lời bình luận.
 
@@ -468,3 +471,123 @@ của phi vụ 5 có cờ `hit:late` và `kemp-asks-again` của phi vụ 1: đ�
 **Chưa làm / chưa kiểm:** không ai nghe bằng tai, không ai chơi bằng tay hay trên điện thoại; lời thoại do model viết,
 chưa ai đọc lại; văn phòng Ban quản lý cảng và trạm gác cũ vẫn chưa có trên bản đồ; độ nóng vẫn chỉ là con số trong
 bộ nhớ; tiền công, thời gian (75 giây tới chòi Gus) và ngưỡng kiên nhẫn là đoán.
+
+## 17. Crew, phone, clues as built (2026-11-27)
+
+Những mảnh bộ máy Hồi II cần (§4.2, §4.3, §4.6 và "NEEDS ENGINE" của gta-story): chung cho mọi phi vụ, mỗi mảnh chứng
+minh bằng một mẫu nhỏ trong phi vụ đã có, không phải nội dung Hồi II. Trường chỉ THÊM, ghi ở đầu `core/town/jobDoc.ts`.
+
+**Băng (người đi cùng).** `JobDoc.crew.roles`: mỗi người có `role` (họ làm gì), `listen` (phi vụ nghe khác đi thế nào),
+`opens` (cư dân thị trấn: số tim; người Westbay: các cảnh đã nghe với họ trong `town-city`, trên này không có tim),
+`cut` (phần tiền công, lấy từ hằng số có tên `CREW_CUT` trong `core/town/crew.ts` để phiên kinh tế chỉnh một chỗ), `with`
+(đứng trước cửa một chỗ, hoặc `'ride'`: ngồi trên xe cùng người chơi; cư dân thị trấn chỉ được `'ride'` vì họ không có
+thân 3D ở Westbay trừ khi đang lên chơi). Bước và câu thuộc về ai thì có điều kiện `{ crew: '<id>' }`. `wellFormed` xét
+riêng từng lựa chọn (và đi một mình): mỗi sự thật vẫn có hệ quả diễn ra, vẫn có sổ tay; người, chỗ, phần chia đều được
+kiểm. Bảng chọn trước phi vụ (`features/town/jobs/CrewPicker.tsx`): phần chia hiện TRƯỚC khi chọn (bao nhiêu xu nếu Sạch),
+người chưa mở nói rõ còn thiếu gì, một nút chính. `payJob` trừ phần chia trước khi trả; màn xem lại ghi "Đi cùng: Jun
+(Thợ bộ đàm) · lấy 15 xu". Lựa chọn được lưu thành cờ `crew:<id>` của phi vụ (phi vụ sau đọc được bằng `past`).
+
+Mẫu: **"Chip là ga"** (`data/city/jobs/chip.ts`). Đi một mình: nghe lén xe Bayline theo khoảng cách như trước. Với
+**Jun** (mở khi đã nghe chuyện đầu với anh, lấy 20%): anh đứng ở chòi Gus với máy quét, chuyền tổng đài Bayline sang bộ
+đàm của người chơi, nghe trọn ở đâu cũng được, không ai phát hiện. Với **Max** (3 tim, lấy 10%, ngồi trên xe): máy ghi
+âm dưới cản xe; cuộn băng là một sổ tay (nghe lại bao nhiêu lần cũng được, lần nào cũng đếm), ghi hai điều, ghi sai thì
+Rico không biết Bayline chắn cổng. Max có 1 câu mới (clip).
+
+**Xe của phi vụ đỗ thật.** `park: [{ at, look }]` trên bước `scene` / `overhear`: một chiếc xe (mô hình xe của giao thông,
+`three/scene/vehicles3d.ts`) chạy vào và đỗ ở làn đường trước cửa chỗ đó suốt bước (`features/town/jobs/jobCars.ts`, đăng
+ký với sân khấu qua `addExtra`, gỡ khi phi vụ xong). Mẫu: xe Bayline đỗ cạnh chòi Gus khi nghe lén ở "Chip là ga". Xe chỉ
+vẽ, không chặn đường đi.
+
+**Điện thoại** (`core/town/phone.ts`, `features/town/phone/`). Nút trên HUD ở Westbay, có số đếm (cuộc gọi nhỡ còn hạn,
+tin nhắn chưa nghe), rung khi có phi vụ gọi. Phi vụ đổ chuông 30 giây không nghe (hoặc bấm "Để sau") thành **cuộc gọi
+nhỡ** có tin nhắn "Call me back before {giờ}": hạn là giờ chẵn đầu tiên cách ít nhất 90 phút game. Gọi lại trước hạn thì
+phi vụ bắt đầu; quá hạn thì việc biến mất tới ngày game sau (thẻ nhiệm vụ không còn, chuông không reo), gọi lại muộn
+thì người gọi nói "Too late now, that one's gone." Thẻ nhiệm vụ ghi "Gọi lại Rico trước 18:00". **Tin nhắn thoại**: sổ
+tay `via: 'voicemail'` để lại tin trên điện thoại, nghe từ đó rồi mới ghi; mẫu: cuộc của Nell ở "Ghế của bà Delaney".
+Câu nghe hụt trong tin nhắn vào Ôn tập và băng ở chỗ ẩn như mọi câu phi vụ. **Danh bạ** là băng (ai đã mở, ai còn thiếu
+gì). Cuộc gọi trong phi vụ (bước `phone`, sổ tay qua điện thoại) vào nhật ký. Tất cả trong bộ nhớ; không khóa mới.
+
+**Manh mối** (`data/city/clues.ts`, lưu trong `town-jobs` mục `clues`, merger lấy lúc sớm hơn, có trong test luật). Một
+câu người chơi đã nghe thật; hiện trong "Manh mối" của điện thoại. Một hàm cấp duy nhất `grantClue` (`core/town/jobsStore.ts`):
+cảnh nghe xong (ghế đá, buổi gặp mặt ở thị trấn và Westbay: `core/town/clueStore.ts heardScene`), bản tin Bay FM nghe
+xong (`radioStore radioHeard`; Bay FM đọc manh mối của mình cho tới khi người chơi có nó), bước phi vụ có `clue`. Bước có
+`if: { clue }` là đường tắt chỉ người đã nghe mới có. Hai mẫu thật:
+- `fay-heights`, từ cảnh có sẵn `ce-ferry-2` (phà Chủ nhật, Fay: "Up there, no thanks."): ở "Nửa sáu" bỏ được chuyến tới
+  vòng đu quay, đi thẳng tới bà Delaney (bà nói "Fay won't climb? Then I'll come down.");
+- `gate-one-call`, từ Bay FM (Marcus: Gus nhắn một cuộc gọi tới chòi là mở cổng phụ): ở "Ba chữ một lần" thay cuộc chạy
+  75 giây tới chòi Gus bằng một cuộc gọi.
+
+**Đã kiểm:** tsc, oxlint, test (crew, phone, phoneStore, jobDoc, jobProgress, luật merger, clues, jobs); chơi bằng kịch
+bản trong Edge không đầu trên dev server riêng (cổng 5178): chọn Jun ở "Chip là ga" (bước nghe lén thành bộ đàm, Jun lấy
+15 xu, cờ `crew:jun` lưu lại); để chuông reo 30 giây, mở điện thoại, tua đồng hồ trong trang qua hạn 18:00 (việc biến khỏi
+danh sách), gọi lại muộn, tua sang ngày game sau (Rico gọi lại); "Nửa sáu" có manh mối Fay (không còn bước tới vòng đu
+quay), "Ba chữ một lần" có manh mối radio (một cuộc gọi thay cuộc chạy); "Ghế của bà Delaney" qua tin nhắn thoại; chạy
+lại "Ba chữ một lần" và "Ghế của bà Delaney" ghi sai hết tới màn xem lại. Ảnh: `.assets-try/previews/crew-*.png`,
+`phone-*.png` (1400 và 375).
+
+**Chưa làm / chưa kiểm:** chưa ai nghe bằng tai hay chơi bằng tay, chưa thử trên điện thoại thật; chưa ai thấy xe chạy vào
+đỗ (chỉ ảnh lúc đã đỗ); manh mối radio chỉ được cấp khi Bay FM đọc bản tin sống (cứ hai lần bật radio một lần) và nghe
+hết; cảnh `ce-ferry-2` chỉ ra vào ngày có phà và theo lượt; điện thoại nằm trong bộ nhớ nên tải lại trang là mất cuộc gọi
+nhỡ; phần chia, 30 giây đổ chuông, 90 phút game là đoán. Người chơi đi bộ cũng "chở" người `'ride'` (họ chỉ biến mất khỏi
+đường); người đi cùng chưa nói câu nào ở các phi vụ khác.
+
+## 18. Act II's engine and five of its jobs as built (2026-11-27)
+
+Theo `docs/gta-story-2.md` §7 "NEEDS ENGINE". Trường chỉ THÊM, ghi ngay ở đầu `core/town/jobDoc.ts` (đánh số như kinh
+truyện); `wellFormed` và test cho từng thứ; mỗi thứ được chơi bằng kịch bản qua một phi vụ thật.
+
+**Bộ máy (`core/town/jobDoc.ts`, `features/town/jobs/useCityJob.tsx`, `jobs/JobTools.tsx`):**
+1. `afterAll: [...]` (Kho 15 mở sau cả bốn phi vụ b) và điều kiện `{ count: [...], min?, max? }` (bao nhiêu điều kiện đúng:
+   "chuỗi làm sau cùng"); `{ past: 'job-link' }` (id trơn) = phi vụ đó đã xong.
+2. `JobLine.broken: true`: câu nói thành từng mảnh, một khoảng lặng 0,7 giây ở mỗi "..." (không trộn tiếng ồn).
+3. Sổ tay `via: 'tape'`: tới chỗ ẩn nếu đã mua (sạp Jun nếu chưa), rồi nghe cuộn băng; tua lại thoải mái, có đếm.
+4. Bước `patrol` (gọi `features/town/streets/jobPolice.ts` của phiên đường phố: xe tuần tra chạy một con phố, bộ đàm nói câu
+   viết sẵn; bị thấy → hệ quả và / hoặc cờ; không phạt ai) và bước `scanner` (chỉ bộ đàm).
+5. Bước `enter` / `leave` (đi tới cửa kho 15 rồi vào qua màn tối với người của phi vụ: `features/town/city/warehouse.ts` của
+   phiên 3D; ra ở đúng cửa đó). "Chỗ" của phi vụ (`data/city/jobs/spots.ts`): ba cửa kho 15, cửa kho 14, cuối dãy kho (chỗ
+   "kho năm mươi" đưa người tới), góc Quay Street × East Road, cửa chỗ ẩn, đầu cầu tàu.
+6. Bước `threads`: nhiều mạch nói cùng lúc, nghe một mạch, chuyển bằng nút; câu then chốt trôi qua ở mạch không nghe là hệ quả
+   của mạch đó; 3 giây dạo đầu để chọn.
+7. Bước `pick`: năm đoạn ngắn không chữ, mỗi đoạn nghe bao nhiêu lần cũng được, chọn một.
+8. Bước `spot`: nút "Đó!" bấm khi câu được nói (tới 1,5 giây sau khi câu dứt); sớm, muộn, không bấm là ba hệ quả.
+9. Bước `boat` (gọi `runBoat`: xuồng chạy trên vịnh, người chơi đứng trên đó).
+11. (xem 1: `count`.) Màn xem lại chỉ hiện sổ tay mà lượt chơi đã chơi (sổ tay của người đi cùng không thành "ghi sai").
+
+**Năm phi vụ** (mỗi file liệt kê chỗ đổi so với kinh truyện ở đầu):
+- **2a "Đường truyền ngoài trời"** (`data/city/jobs/act2Link.ts`, 43 câu, sau `job-sale`): Jun dặn ở sạp; góc phố là "chỗ"
+  `quay-east`; câu thử của Kit là câu đứt quãng, nghe trên máy quét, gõ lại ở sạp Jun (bước mật khẩu thay cho sổ tay); đi
+  cùng: Kit (nói thử lần hai, chậm) hoặc Tess (thấy một xe Bayline đỗ, xe được vẽ ra). Người thị trấn: 0.
+- **2b "Đường dây chéo"** (`act2Crossed.ts`, 42 câu, sau `job-link`, đồng hồ 'ten'): tin nhắn thoại của Jun; xe tuần tra
+  thật trên Quay Street; cuộc gọi Kemp – Ashby qua tiếng rè (câu đứt quãng); đi với Max: băng ghi âm (`via: 'tape'`), đi với
+  Gus: xe tuần tra vòng lại, Gus báo trước; Mei trước Jun (`past: 'job-second'`) thêm một câu; chuỗi làm sau cùng (`count`
+  ba phi vụ b kia) thêm một câu về Shona. Để lại `hit:floor` / `hit:date`. **Người thị trấn: Max 6 câu** (chỉ khi đi cùng).
+- **4a "Ca đêm"** (`act2Night.ts`, 40 câu, sau `job-sale`, đồng hồ 'quarter'): xe tuần tra thật; không chờ được tới đêm game
+  nên giờ tuần tra được nói chứ không chờ; ghi sai giờ thì Gus quát; ca gác sai thì gặp người gác ở cửa; đèn sai thì Gus sửa;
+  5a trước 4a (`past: 'job-callin:watchman'`) thêm một câu; đi cùng: Tess hoặc Rico. Người thị trấn: 0.
+- **4b "Cửa nước"** (`act2Water.ts`, 40 câu, sau `job-night`, đồng hồ 'half'): xuồng thật từ cầu tàu tới cửa nước kho 15;
+  nghe lén tài xế Bayline và Shona ở cầu tàu cạnh chòi Gus (không thêm người mới: anh họ Shona chỉ được nhắc); đi cùng: Odile
+  (bộ đàm bến phà) hoặc Theo (gọi tên từng tiếng máy, bấm "Đó!" khi anh nói tới Kittiwake). Người thị trấn: 0.
+- **10 "Kho 15"** (`act2Warehouse.ts`, 67 câu, sau `job-sale` + `afterAll` bốn phi vụ b, bà Delaney mời): vào kho 15 thật;
+  chọn MỘT người vào trong (Jun: chỉ cuộn có tiếng rè; Mei: giữ Shona ở cửa, bắt lời dối); ngoài luôn có Gus, Rico, Marcus;
+  Max trên bộ đàm khi 3b đi với Max (`past: 'job-dumplings:crew:phone'`). Ba mạch cùng lúc (trong kho / ở cửa / bộ đàm), năm
+  cuộn không nhãn (chọn bằng tai), "Đó!" ở câu "anything over forty thousand", cuộc gọi giả "warehouse fifty" đáp theo ý. Kết
+  như kinh truyện: Kemp bị dừng, đài về tay người nghe, bà Delaney bị đình chỉ, "Keep the tape. I have the rest."
+  **Người thị trấn: Max 3 câu** (kinh truyện nói 4).
+- Thứ tự phi vụ: 11, 12, 15, 16, 19 (các phi vụ của gta-story là 10, 13, 14, 17, 18).
+
+**Clip phải tạo:** 9 câu của Max (6 ở 2b, 3 ở Kho 15), chỉ bản nối âm, `npm run audio:generate` (chủ dự án chạy).
+
+**Đã kiểm:** tsc, oxlint, test (jobDoc: `count`, các bước mới, vào / ra kho theo từng người đi cùng; jobProgress: `afterAll`,
+id trơn; jobs: năm phi vụ well-formed với mọi lựa chọn đi cùng). Chơi bằng kịch bản trong Edge không đầu trên dev server
+riêng (cổng 5178), giọng giả đọc theo độ dài câu: 2a sạch / sai hết; 2b với Max (băng nghe lại ở sạp Jun vì chưa có chỗ ẩn)
+và với Gus sai hết (xe tuần tra vòng lại); 4a với Rico sạch (tránh khỏi phố khi xe tới: không bị thấy) và với Tess sai hết;
+4b với Theo sạch ("Đó!" đúng), với Theo sai hết (bấm sớm, quá gần khi nghe lén) và một lượt một mình để thấy xuồng chạy
+(vị trí người chơi đổi theo xuồng); Kho 15 một mình, với Jun, với Mei đều Sạch, và một lượt sai hết (kho năm mươi, mạch
+không chuyển, chọn nhầm cuộn, "Đó!" muộn, tin cuộc gọi giả) tới màn xem lại. Sau mỗi lượt tải lại: tiến độ còn, phi vụ kế
+mở đúng. Ảnh: `.assets-try/previews/act2-threads-1400.png`, `act2-pick-1400.png`, `act2-boat-1400.png`.
+
+**Chưa làm / chưa kiểm:** chưa ai nghe bằng tai hay chơi bằng tay, chưa thử trên điện thoại thật; lời thoại do model viết,
+chưa ai đọc lại; trong ảnh, người chơi có vẻ đứng sau đuôi xuồng chứ không ở trong xuồng (phần `runBoat` của phiên 3D); các
+lượt chạy song song bốn trình duyệt có lúc trễ nhịp chuyển mạch (một lượt Jun phải chạy lại riêng): nhịp của bước ba mạch
+và "Đó!" chưa được chỉnh với giọng thật; xe tuần tra trong phi vụ đêm chạy ngay chứ không chờ giờ game; độ dài 0,7 giây của
+tiếng rè, 3 giây dạo đầu, 1,5 giây cho "Đó!" là đoán.

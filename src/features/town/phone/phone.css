@@ -1,0 +1,78 @@
+/* The learner's phone in Westbay (./PhonePanel.tsx): a HUD button under the counts, and its panel. */
+.phone-button {
+  position: absolute;
+  top: 104px;
+  right: var(--space-3);
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+  color: var(--text);
+  cursor: pointer;
+}
+.phone-button.is-ringing {
+  color: var(--accent);
+  animation: job-ring 0.9s ease-in-out infinite;
+}
+.phone-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--bad);
+  color: var(--surface);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+}
+.phone-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+.phone-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+.phone-row.is-late {
+  color: var(--text-muted);
+}
+.phone-who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+.phone-what {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.phone-clue .phone-what [lang='en'] {
+  color: var(--text);
+}
+.phone-note {
+  color: var(--text-muted);
+}
+.phone-acts {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}

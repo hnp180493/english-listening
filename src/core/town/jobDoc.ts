@@ -20,6 +20,39 @@
 // the briefing, and how the strip shows it); several notebooks in one job (keys unique across them); overhear `who` of
 // any length (each line heard by the distance to the nearest of them); intent `check.right` a list of good answers.
 //
+// Added for Act II (gta-plan §17 "Crew, phone, clues as built"; again only ADDED): JobDoc `crew` (the people who may
+// come along: what opens each one, their cut of the pay, where they stand or ride) with Cond `crew` (the steps and
+// lines that are theirs); Cond `clue` (a clue the learner earned by hearing it: data/city/clues.ts, kept in town-jobs)
+// and a step's `clue` (playing the step through gives it); scene / overhear `park` (a drawn car waits at a place for
+// the length of the step); notebook `via: 'voicemail'` (the briefing is a voice message left on the learner's phone:
+// heard from the phone, then noted). `wellFormed` checks each crew choice (and going alone) on its own: every fact still
+// plays out and the job still has its notebook.
+//
+// Added for Act II's jobs (docs/gta-story-2.md §7 "NEEDS ENGINE", gta-plan §18; only ADDED). By the bible's numbers:
+//   1  JobDoc `afterAll: [...]` (every one of these jobs done first, any grade); Cond `{ count: [conds], min?, max? }`
+//      (how many of the conditions hold: e.g. how many of the other chains are done); Cond `past` with a bare job id
+//      (`{ past: 'job-link' }`) = that job is done.
+//   2  JobLine `broken: true`: said in pieces, a silence (a hiss, no noise mixed in) at every "..." of its text.
+//   3  notebook `via: 'tape'`: the learner first goes to the hideout when they own it (Jun's stall when not), then the
+//      tape plays; rewinding (the replay keys, "Xin nhắc lại") is free and counted, as for any notebook.
+//   4  step `patrol` { street, from?, to?, seconds, lines?: [{ line, at? }], seen?: { consequence?, flag?, lines? } }:
+//      a police car drives one street now (features/town/streets/jobPolice.ts jobPatrol) while the scanner says the
+//      lines (speakers 'scanner-desk' / 'scanner-unit'); seen → the consequence and / or the flag. Nobody is fined.
+//      Step `scanner` { lines }: lines said on the police scanner, no car.
+//   5  step `enter` { door?: 'front' | 'back' | 'water', host?, visitor?, more? }: walk to that door of warehouse
+//      fifteen and go in through the dark with those people (features/town/city/warehouse.ts); the steps after it are
+//      inside; step `leave` comes out at the same door. Places may also be the job SPOTS of data/city/jobs/spots.ts
+//      ('w15-front', 'w15-back', 'w15-water', 'w14-front', 'row-end', 'quay-east', 'hideout', 'jetty').
+//   9  step `boat` { from?, to?, aboard? } (spots): a launch runs over the bay (warehouse.ts runBoat); the step ends
+//      when it arrives; the boat stays moored till the job ends.
+//   6  step `threads` { tracks: [{ id, label, lines, key?, consequence? }] }: several threads of talk go on at once;
+//      the learner hears one at a time and switches; a key line that goes by on a thread not listened to is that
+//      thread's consequence.
+//   7  step `pick` { ask?, clips: [line ids], right, consequence, fact }: short clips with no text, each played as
+//      often as wanted; pick one.
+//   8  step `spot` { lines, at, early, late, never, fact, via? }: the lines play; the learner presses "Đó!" when the
+//      line `at` is said (until a moment after it ends); too early, too late and never are each a consequence.
+//
 // Facts and consequences (owner's review, gta-plan §11.4): every fact the learner can mishear has ONE consequence that
 // plays out in the world and then rejoins the main line; the grade counts the consequences hit. `wellFormed` (tested
 // for every job: data/city/jobs/jobs.test.ts) checks that each fact has its consequence and its rejoin, and that the
@@ -34,6 +67,9 @@ export type Cond =
   | { flag: string }
   | { hit: string }
   | { past: string }
+  | { crew: string }
+  | { clue: string }
+  | { count: readonly Cond[]; min?: number; max?: number }
   | { not: Cond }
   | { all: readonly Cond[] }
   | { any: readonly Cond[] };
@@ -52,6 +88,39 @@ export interface IntentOption {
   flag?: string;
 }
 
+/** A drawn car of the job waiting at a place for the length of a step (features/town/jobs/jobCars.ts). */
+export interface Park {
+  at: string;
+  /** Which of the car model's colours (0–2). */
+  look?: number;
+}
+
+/** Someone who may come along on a job (gta-plan §4.3): who, what they do, what opens them, their cut, where they are. */
+export interface CrewRole {
+  /** A Westbay person's id (core/town/cityPeople) or a town resident's place id (data/town CAST_VOICES). */
+  who: string;
+  /** What they are on this job, in Vietnamese ("Thợ bộ đàm"). */
+  role: string;
+  /** How the job's listening changes with them, in Vietnamese (shown before choosing). */
+  listen: string;
+  /** A town resident: hearts of friendship; a Westbay person: the city scenes heard with them (there are no hearts up there). */
+  opens: { hearts: number } | { heard: readonly string[] };
+  /** Their share of the pay (core/town/crew.ts CREW_CUT). */
+  cut: number;
+  /** Where they are during the job: beside a place's door, or in the vehicle with the learner. */
+  with?: 'ride' | { at: string };
+}
+
+/** One thread of a `threads` step: a label (Vietnamese: "Trong kho"), its lines, the lines that must be heard on it. */
+export interface Track {
+  id: string;
+  label: string;
+  lines: readonly Said[];
+  /** Lines that matter: one going by while another thread is listened to is `consequence`. */
+  key?: readonly string[];
+  consequence?: string;
+}
+
 export type Step =
   | {
       kind: 'goto';
@@ -61,15 +130,15 @@ export type Step =
       deadline?: { seconds?: number; consequence: string; lines: readonly Said[] };
       if?: Cond;
     }
-  | { kind: 'scene'; at?: string; who?: readonly string[]; lines: readonly Said[]; if?: Cond }
-  | { kind: 'phone'; lines: readonly Said[]; if?: Cond }
-  | { kind: 'radio'; lines: readonly Said[]; if?: Cond }
+  | { kind: 'scene'; at?: string; who?: readonly string[]; lines: readonly Said[]; park?: readonly Park[]; clue?: string; if?: Cond }
+  | { kind: 'phone'; lines: readonly Said[]; clue?: string; if?: Cond }
+  | { kind: 'radio'; lines: readonly Said[]; clue?: string; if?: Cond }
   | {
       kind: 'notebook';
       /** The briefing (said once; replayable, counted). */
       call: readonly Said[];
-      /** Who says it: on the learner's phone (the default), on the car's radio, or somebody in the scene. */
-      via?: 'phone' | 'radio' | 'scene';
+      /** Who says it: the learner's phone (the default), the car's radio, somebody in the scene, a voice message, a tape. */
+      via?: 'phone' | 'radio' | 'scene' | 'voicemail' | 'tape';
       entries: readonly NoteEntry[];
       /** "Xin nhắc lại" one entry: these lines (default: the entry's own line, a little slower). */
       repeat?: Readonly<Record<string, readonly string[]>>;
@@ -139,9 +208,28 @@ export type Step =
       word?: string;
       /** Start from this line when the condition holds (the learner arrives late: they missed the start). */
       from?: { if: Cond; index: number };
+      park?: readonly Park[];
+      clue?: string;
       if?: Cond;
     }
   | ({ kind: 'intent' } & IntentStep)
+  | { kind: 'enter'; door?: 'front' | 'back' | 'water'; host?: string; visitor?: string; more?: readonly string[]; label?: string; if?: Cond }
+  | { kind: 'leave'; if?: Cond }
+  | { kind: 'boat'; from?: string; to?: string; aboard?: boolean; if?: Cond }
+  | {
+      kind: 'patrol';
+      street: string;
+      from?: string;
+      to?: string;
+      seconds: number;
+      lines?: readonly { line: string; at?: number }[];
+      seen?: { consequence?: string; flag?: string; lines?: readonly Said[] };
+      if?: Cond;
+    }
+  | { kind: 'scanner'; lines: readonly Said[]; if?: Cond }
+  | { kind: 'threads'; tracks: readonly Track[]; if?: Cond }
+  | { kind: 'pick'; ask?: readonly Said[]; clips: readonly string[]; right: number; consequence: string; fact: string; if?: Cond }
+  | { kind: 'spot'; lines: readonly Said[]; at: string; early: string; late: string; never: string; fact: string; via?: 'scene' | 'radio' | 'phone' | 'scanner'; if?: Cond }
   | { kind: 'password'; who: string; line: string; chunk: string; ask: string; right: string; close: string; wrong: string; consequence: string; if?: Cond };
 
 /** An answer by intent: somebody asks, the learner picks; `check`: the right option, and the consequence of another. */
@@ -193,10 +281,14 @@ export interface JobDoc {
   from: string;
   /** The job that must be done first (any grade): the story's chain. Without it the job opens with `opens`. */
   after?: string;
+  /** Every one of these must be done first (any grade), as well as `after`. */
+  afterAll?: readonly string[];
   /** A job outside the story's chain (offered beside it, never in its way). */
   side?: boolean;
   /** How the appointment is said (core/town/job.ts ClockStyle). Default 'quarter'. */
   clock?: 'quarter' | 'half' | 'ten';
+  /** Who may come along (picked before the job starts; going alone is always allowed). */
+  crew?: { roles: readonly CrewRole[] };
   lines: readonly JobLine[];
   facts: readonly JobFact[];
   consequences: Readonly<Record<string, JobConsequence>>;
@@ -218,6 +310,10 @@ export interface CondState {
   hits: ReadonlySet<string>;
   /** A flag an earlier job left (core/town/jobProgress pastFlag). */
   past?: (ref: string) => boolean;
+  /** Who came along (null: alone). */
+  crew?: string | null;
+  /** A clue the learner holds (core/town/jobProgress hasClue). */
+  clue?: (id: string) => boolean;
 }
 
 export function evalCond(c: Cond | undefined, s: CondState): boolean {
@@ -228,6 +324,12 @@ export function evalCond(c: Cond | undefined, s: CondState): boolean {
   if ('flag' in c) return s.flags.has(c.flag);
   if ('hit' in c) return s.hits.has(c.hit);
   if ('past' in c) return !!s.past?.(c.past);
+  if ('crew' in c) return (s.crew ?? null) === c.crew;
+  if ('clue' in c) return !!s.clue?.(c.clue);
+  if ('count' in c) {
+    const n = c.count.filter((x) => evalCond(x, s)).length;
+    return n >= (c.min ?? 0) && n <= (c.max ?? Infinity);
+  }
   const n = s.note(c.note);
   if ('value' in c) return n.value === c.value;
   if (c.is === 'right') return n.right;
@@ -256,17 +358,19 @@ export function gradeHits(hits: ReadonlySet<string>, doc: Pick<JobDoc, 'conseque
 // ───────────────────────── well formed ─────────────────────────
 
 /** Every line id a document refers to, and every condition in it. */
-export function docRefs(doc: JobDoc): { lines: string[]; conds: Cond[]; consequences: string[] } {
+export function docRefs(doc: JobDoc, keep: (c: Cond | undefined) => boolean = () => true): { lines: string[]; conds: Cond[]; consequences: string[] } {
   const lines: string[] = [];
   const conds: Cond[] = [];
   const consequences: string[] = [];
   const said = (list: readonly Said[] | undefined) => {
     for (const x of list ?? []) {
+      if (typeof x !== 'string' && !keep(x.if)) continue;
       lines.push(lineOf(x));
       conds.push(...condsOf(x));
     }
   };
   const intent = (i: IntentStep) => {
+    if (!keep(i.if)) return;
     said(i.ask);
     for (const o of i.options) {
       lines.push(o.say);
@@ -281,6 +385,7 @@ export function docRefs(doc: JobDoc): { lines: string[]; conds: Cond[]; conseque
     if (f.early) consequences.push(f.early);
   }
   for (const st of doc.steps) {
+    if ('if' in st && !keep(st.if)) continue;
     if ('if' in st && st.if) conds.push(st.if);
     switch (st.kind) {
       case 'goto':
@@ -347,6 +452,29 @@ export function docRefs(doc: JobDoc): { lines: string[]; conds: Cond[]; conseque
         lines.push(st.line, st.ask, st.right, st.close, st.wrong);
         consequences.push(st.consequence);
         break;
+      case 'patrol':
+        for (const l of st.lines ?? []) lines.push(l.line);
+        if (st.seen?.consequence) consequences.push(st.seen.consequence);
+        said(st.seen?.lines);
+        break;
+      case 'scanner':
+        said(st.lines);
+        break;
+      case 'threads':
+        for (const t of st.tracks) {
+          said(t.lines);
+          if (t.consequence) consequences.push(t.consequence);
+        }
+        break;
+      case 'pick':
+        said(st.ask);
+        lines.push(...st.clips);
+        consequences.push(st.consequence);
+        break;
+      case 'spot':
+        said(st.lines);
+        consequences.push(st.early, st.late, st.never);
+        break;
     }
   }
   for (const v of Object.values(doc.ending)) said(v);
@@ -360,6 +488,8 @@ export interface WorldCheck {
   speaker: (who: string) => boolean;
   place: (id: string) => boolean;
   road: (x: number, y: number) => boolean;
+  /** A street a patrol can drive (core/town/streets.ts); unchecked without it. */
+  street?: (name: string) => boolean;
 }
 
 /**
@@ -387,19 +517,7 @@ export function wellFormed(doc: JobDoc, w: WorldCheck): string[] {
   }
   const entries = doc.steps.flatMap((s) => (s.kind === 'notebook' ? s.entries : []));
   if (new Set(entries.map((e) => e.key)).size !== entries.length) out.push('notebook keys repeat across notebooks');
-  const readsNote = (key: string): boolean => {
-    const reads = (c: Cond): boolean => ('note' in c ? c.note === key : 'not' in c ? reads(c.not) : 'all' in c ? c.all.some(reads) : 'any' in c ? c.any.some(reads) : false);
-    // a pickup / ride led by the entry plays it out too
-    return refs.conds.some(reads) || doc.steps.some((s) => (s.kind === 'pickup' && s.entry === key) || (s.kind === 'ride' && s.entry === key));
-  };
-  // the consequences a step hits by itself (what the learner does), as opposed to a fact's own
-  const byStep = new Set(docRefs({ ...doc, facts: [] }).consequences);
-  for (const e of entries) {
-    const fact = doc.facts.find((f) => f.line === e.line);
-    if (!fact) out.push(`notebook entry without a fact: ${e.key}`);
-    else if (!readsNote(e.key) && !(fact.byAction && byStep.has(fact.consequence))) out.push(`a wrong ${e.key} never plays out`);
-  }
-  for (const f of doc.facts) if (f.byAction && !byStep.has(f.consequence)) out.push(`no step plays out ${f.id}`);
+  out.push(...playedOut(doc));
   for (const f of doc.facts) if (!Object.hasOwn(doc.consequences, f.consequence)) out.push(`fact without a consequence: ${f.id}`);
   for (const s of doc.steps) {
     const places = s.kind === 'goto' ? [s.place] : s.kind === 'scene' ? (s.at ? [s.at] : []) : s.kind === 'pickup' ? [s.place, ...Object.values(s.places)] : s.kind === 'ride' ? [s.place, ...Object.values(s.places ?? {})] : s.kind === 'overhear' ? [s.at] : [];
@@ -418,7 +536,121 @@ export function wellFormed(doc: JobDoc, w: WorldCheck): string[] {
       if (rights.length === 0 || rights.some((r) => r < 0 || r >= s.options.length)) out.push(`intent check out of range: ${s.who}`);
     }
     if (s.kind === 'overhear' && s.who.length === 0) out.push('overhear without anybody');
+    if (s.kind === 'boat') for (const p of [s.from, s.to]) if (p && !w.place(p)) out.push(`no place ${p}`);
+    if (s.kind === 'patrol') {
+      if (!(s.seconds > 0)) out.push(`patrol without a length: ${s.street}`);
+      if (w.street && !w.street(s.street)) out.push(`no street ${s.street}`);
+      for (const l of s.lines ?? []) if (!['scanner-desk', 'scanner-unit'].includes(doc.lines.find((x) => x.id === l.line)?.who ?? '')) out.push(`patrol line not on the scanner: ${l.line}`);
+    }
+    if (s.kind === 'threads') {
+      if (s.tracks.length < 2) out.push('threads with fewer than two tracks');
+      if (new Set(s.tracks.map((t) => t.id)).size !== s.tracks.length) out.push('threads with repeated ids');
+      for (const t of s.tracks) {
+        const said = t.lines.map(lineOf);
+        for (const k of t.key ?? []) if (!said.includes(k)) out.push(`thread ${t.id}: key line not on it: ${k}`);
+        if ((t.key ?? []).length > 0 && !t.consequence) out.push(`thread ${t.id}: key lines without a consequence`);
+      }
+    }
+    if (s.kind === 'pick' && (s.clips.length < 2 || s.right < 0 || s.right >= s.clips.length)) out.push(`pick out of range: ${s.fact}`);
+    if (s.kind === 'spot' && !s.lines.map(lineOf).includes(s.at)) out.push(`spot line not said in it: ${s.at}`);
   }
+  // into the warehouse and out again: every `enter` has its `leave` after it, never two in (for each crew choice: the
+  // enters of different crew members are different doors in, not two)
+  const views = (doc.crew?.roles.length ? [null, ...doc.crew.roles.map((r) => r.who)] : [null]) as (string | null)[];
+  const roomProblems = new Set<string>();
+  for (const who of views) {
+    let inside = false;
+    for (const s of doc.steps) {
+      if ('if' in s && crewTri(s.if, who) === 0) continue;
+      if (s.kind === 'enter') {
+        if (inside) roomProblems.add('enter while inside');
+        inside = true;
+      }
+      if (s.kind === 'leave') {
+        if (!inside) roomProblems.add('leave while outside');
+        inside = false;
+      }
+    }
+    if (inside) roomProblems.add('enter without a leave');
+  }
+  out.push(...roomProblems);
   if (!doc.steps.some((s) => s.kind === 'notebook')) out.push('no notebook');
+  for (const s of doc.steps) if ((s.kind === 'scene' || s.kind === 'overhear') && s.park) for (const p of s.park) if (!w.place(p.at)) out.push(`no place ${p.at}`);
+  // the crew: each choice (and going alone) on its own still plays every fact out and has its notebook
+  const roles = doc.crew?.roles ?? [];
+  const crewIds = new Set(roles.map((r) => r.who));
+  if (crewIds.size !== roles.length) out.push('crew repeats a person');
+  for (const r of roles) {
+    if (!w.speaker(r.who)) out.push(`crew not a person: ${r.who}`);
+    if (!r.role.trim() || !r.listen.trim()) out.push(`crew without words: ${r.who}`);
+    if (!(r.cut >= 0 && r.cut <= 0.5)) out.push(`crew cut out of range: ${r.who}`);
+    if (r.with && r.with !== 'ride' && !w.place(r.with.at)) out.push(`no place ${r.with.at}`);
+    if ('heard' in r.opens ? r.opens.heard.length === 0 : !(r.opens.hearts >= 0 && r.opens.hearts <= 10)) out.push(`crew opens nothing: ${r.who}`);
+  }
+  const crewsIn = (c: Cond): string[] => ('crew' in c ? [c.crew] : 'not' in c ? crewsIn(c.not) : 'all' in c ? c.all.flatMap(crewsIn) : 'any' in c ? c.any.flatMap(crewsIn) : 'count' in c ? c.count.flatMap(crewsIn) : []);
+  for (const id of new Set(refs.conds.flatMap(crewsIn))) if (!crewIds.has(id)) out.push(`crew condition without a role: ${id}`);
+  if (roles.length > 0)
+    for (const who of [null, ...crewIds]) {
+      const keep = (c: Cond | undefined) => crewTri(c, who) !== 0;
+      for (const p of playedOut(doc, keep)) out.push(`${who ? `with ${who}` : 'alone'}: ${p}`);
+      if (!doc.steps.some((s) => s.kind === 'notebook' && keep(s.if))) out.push(`${who ? `with ${who}` : 'alone'}: no notebook`);
+    }
+  return out;
+}
+
+/** A condition with the crew known and everything else not: 0 false for sure, 1 true for sure, 2 it depends. */
+export function crewTri(c: Cond | undefined, crew: string | null): 0 | 1 | 2 {
+  if (!c) return 1;
+  if ('crew' in c) return c.crew === crew ? 1 : 0;
+  if ('not' in c) {
+    const t = crewTri(c.not, crew);
+    return t === 2 ? 2 : t === 1 ? 0 : 1;
+  }
+  if ('all' in c) {
+    const ts = c.all.map((x) => crewTri(x, crew));
+    return ts.includes(0) ? 0 : ts.every((t) => t === 1) ? 1 : 2;
+  }
+  if ('any' in c) {
+    const ts = c.any.map((x) => crewTri(x, crew));
+    return ts.includes(1) ? 1 : ts.every((t) => t === 0) ? 0 : 2;
+  }
+  if ('count' in c) {
+    const ts = c.count.map((x) => crewTri(x, crew));
+    const sure = ts.filter((t) => t === 1).length;
+    const maybe = ts.filter((t) => t === 2).length;
+    const lo = c.min ?? 0;
+    const hi = c.max ?? Infinity;
+    if (sure >= lo && sure + maybe <= hi) return 1;
+    if (sure + maybe < lo || sure > hi) return 0;
+    return 2;
+  }
+  return 2;
+}
+
+/**
+ * Whether every notebook entry and every fact plays out among the steps and lines `keep` lets through (all by
+ * default): an entry read by some condition or leading a pickup / ride, or a fact acted on whose consequence a step hits.
+ */
+function playedOut(doc: JobDoc, keep: (c: Cond | undefined) => boolean = () => true): string[] {
+  const out: string[] = [];
+  const steps = doc.steps.filter((s) => !('if' in s) || keep(s.if));
+  const refs = docRefs(doc, keep);
+  const entries = steps.flatMap((s) => (s.kind === 'notebook' ? s.entries : []));
+  const readsNote = (key: string): boolean => {
+    const reads = (c: Cond): boolean => ('note' in c ? c.note === key : 'not' in c ? reads(c.not) : 'all' in c ? c.all.some(reads) : 'any' in c ? c.any.some(reads) : 'count' in c ? c.count.some(reads) : false);
+    // a pickup / ride led by the entry plays it out too
+    return refs.conds.some(reads) || steps.some((s) => (s.kind === 'pickup' && s.entry === key) || (s.kind === 'ride' && s.entry === key));
+  };
+  // the consequences a step hits by itself (what the learner does), as opposed to a fact's own
+  const stepRefs = docRefs({ ...doc, facts: [] }, keep);
+  const byStep = new Set(stepRefs.consequences);
+  // a fact acted on needs its consequence only where its line is said (a crew's own fact: only with them)
+  const saidHere = new Set(stepRefs.lines);
+  for (const e of entries) {
+    const fact = doc.facts.find((f) => f.line === e.line);
+    if (!fact) out.push(`notebook entry without a fact: ${e.key}`);
+    else if (!readsNote(e.key) && !(fact.byAction && byStep.has(fact.consequence))) out.push(`a wrong ${e.key} never plays out`);
+  }
+  for (const f of doc.facts) if (f.byAction && saidHere.has(f.line) && !byStep.has(f.consequence)) out.push(`no step plays out ${f.id}`);
   return out;
 }

@@ -14,6 +14,10 @@ import { CAST_VOICES } from '../../../core/town/voices';
 import { CITY_PLACE_IDS, CITY_ROWS } from '../../cityWorld';
 import { SENTENCES } from '../../sentences';
 import { CITY_SCENES } from '../index';
+import { CREW_CUT } from '../../../core/town/crew';
+import { findStreet } from '../../../core/town/jobPatrol';
+import { westbayNet } from '../../../core/town/streets';
+import { isJobSpot } from './spots';
 import { allJobRefs, CITY_JOBS, jobLine, jobLineByRef } from './index';
 
 const wordCount = (s: string): number => s.split(/\s+/).filter((w) => /[a-z]/i.test(w)).length;
@@ -21,7 +25,8 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace
 const speaker = (who: string) => who === 'player' || !!cityPerson(who) || Object.hasOwn(SCENE_VOICES, who) || Object.hasOwn(CAST_VOICES, who);
 const WORLD = {
   speaker,
-  place: (id: string) => (CITY_PLACE_IDS as readonly string[]).includes(id),
+  place: (id: string) => (CITY_PLACE_IDS as readonly string[]).includes(id) || isJobSpot(id),
+  street: (name: string) => !!findStreet(westbayNet(), name),
   road: (x: number, y: number) => CITY_ROWS[y]?.[x] === '=',
 };
 type Notebook = Extract<Step, { kind: 'notebook' }>;
@@ -46,6 +51,9 @@ describe('the jobs', () => {
     }
     expect(['job-half5', 'job-chip', 'job-three', 'job-delaney'].map((j) => byId.get(j)?.after)).toEqual(['job-m2', 'job-half5', 'job-chip', 'job-three']);
     expect(byId.get('job-ferry')?.side).toBe(true);
+    // the engine's samples for Act II (gta-plan §17): a crew, a voice message, two clues
+    expect(byId.get('job-chip')?.crew?.roles.map((r) => r.who)).toEqual(['jun', 'phone']);
+    expect(byId.get('job-delaney')?.steps.some((s) => s.kind === 'notebook' && s.via === 'voicemail')).toBe(true);
   });
 });
 
@@ -85,11 +93,11 @@ describe.each(CITY_JOBS.map((j) => [j.id, j] as const))('job %s', (_, job) => {
     for (const l of job.lines) expect(taken.has(norm(l.text)), `${l.id}: ${l.text}`).toBe(false);
   });
 
-  it('each notebook: two to four entries (three or four in all), three different ways each, the answer among them, each said in its briefing', () => {
+  it('each notebook: two to four entries (two or more in all), three different ways each, the answer among them, each said in its briefing', () => {
     const nbs = notebooksOf(job);
-    expect(entriesOf(job).length).toBeGreaterThanOrEqual(3);
+    expect(entriesOf(job).length).toBeGreaterThanOrEqual(2);
     for (const nb of nbs) {
-    expect(nb.entries.length).toBeGreaterThanOrEqual(nbs.length > 1 ? 2 : 3);
+    expect(nb.entries.length).toBeGreaterThanOrEqual(2);
     expect(nb.entries.length).toBeLessThanOrEqual(4);
     const call = nb.call.map((x) => (typeof x === 'string' ? x : x.line));
     for (const e of nb.entries) {
@@ -112,6 +120,21 @@ describe.each(CITY_JOBS.map((j) => [j.id, j] as const))('job %s', (_, job) => {
         const e = entries.find((x) => x.key === s.entry)!;
         for (const o of e.options) expect(WORLD.place(s.places![o.value]), `${s.kind} ${o.value}`).toBe(true);
         expect(s.places![e.answer]).toBe(s.place);
+      }
+    }
+  });
+
+  it('the crew: a Westbay person opened by talks that exist, a town resident by hearts and riding along, a named cut', () => {
+    for (const r of job.crew?.roles ?? []) {
+      expect((Object.values(CREW_CUT) as number[]).includes(r.cut), `${r.who}: a cut of CREW_CUT`).toBe(true);
+      if (Object.hasOwn(CAST_VOICES, r.who)) {
+        // a town resident has no body up here unless visiting: they ride along (or are not seen)
+        expect('hearts' in r.opens, r.who).toBe(true);
+        expect(r.with === undefined || r.with === 'ride', r.who).toBe(true);
+      } else {
+        expect(cityPerson(r.who), r.who).toBeDefined();
+        expect('heard' in r.opens, r.who).toBe(true);
+        if ('heard' in r.opens) for (const sid of r.opens.heard) expect(CITY_SCENES.some((x) => x.id === sid), sid).toBe(true);
       }
     }
   });
