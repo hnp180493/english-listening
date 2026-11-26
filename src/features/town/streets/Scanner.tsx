@@ -10,7 +10,7 @@ import { useShortcuts } from '../../../components/useShortcuts';
 import { tl } from '../../../i18n';
 import { OFFENCE_HEAT, type Offence } from '../../../core/town/police';
 import { hushScan, sayScan } from './scannerVoice';
-import { useStreets } from './streetsStore';
+import { streets, useStreets } from './streetsStore';
 import './streets.css';
 
 /** A bulletin stays on the pill this long after it was said (ms). */
@@ -18,8 +18,11 @@ const SHOW_FOR = 90_000;
 const OFFENCE_NAME: Readonly<Record<Offence, string>> = { red: 'Vượt đèn đỏ', car: 'Tông vào xe khác', thing: 'Tông đổ đồ trên phố' };
 
 export default function Scanner({ muted }: { /** A panel is over the stage: a bulletin waits to be heard. */ muted: boolean }) {
-  const { search, bulletin, offence } = useStreets();
-  const [open, setOpen] = useState(false);
+  const { search, bulletin, offence, jobPatrol } = useStreets();
+  const [openAsked, setOpen] = useState(false);
+  // a job's lines open the pill by themselves, until it is closed by hand
+  const [closedFor, setClosedFor] = useState(0);
+  const open = openAsked || (!!bulletin?.open && closedFor !== bulletin.id);
   const [words, setWords] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -30,11 +33,16 @@ export default function Scanner({ muted }: { /** A panel is over the stage: a bu
   const said = useRef(0);
   const [speaking, setSpeaking] = useState(false);
   useEffect(() => {
-    if (!bulletin || muted || said.current === bulletin.id) return;
+    // (a job's lines are said even with a panel over the stage: the job is waiting for them)
+    if (!bulletin || (muted && !bulletin.force) || said.current === bulletin.id) return;
     said.current = bulletin.id;
     setWords(false);
     setSpeaking(true);
-    void sayScan(bulletin.lines).then(() => setSpeaking(false));
+    const id = bulletin.id;
+    void sayScan(bulletin.lines).then(() => {
+      setSpeaking(false);
+      streets.spoken(id);
+    });
   }, [bulletin, muted]);
   useEffect(() => () => hushScan(), []);
   const again = (slow: boolean) => {
@@ -43,11 +51,11 @@ export default function Scanner({ muted }: { /** A panel is over the stage: a bu
     void sayScan(bulletin.lines, slow).then(() => setSpeaking(false));
     return true;
   };
-  useShortcuts({ replay: () => again(false), slow: () => again(true) }, { enabled: open && !!bulletin && !muted });
+  useShortcuts({ replay: () => again(false), slow: () => again(true) }, { enabled: open && !!bulletin && (!muted || !!bulletin.force) });
 
   const recent = !!bulletin && now - bulletin.at < SHOW_FOR;
   const fresh = offence && now - offence.at < 5000 ? offence : null;
-  if (!search && !recent && !fresh) return null;
+  if (!search && !recent && !fresh && !jobPatrol) return null;
   return (
     <div className="str-scanner">
       {fresh && (
@@ -55,16 +63,21 @@ export default function Scanner({ muted }: { /** A panel is over the stage: a bu
           {tl`${OFFENCE_NAME[fresh.kind]}: độ nóng +${OFFENCE_HEAT[fresh.kind]}`}
         </p>
       )}
-      {(search || recent) && (
-        <button type="button" className={'town-pill town-hud-btn str-pill' + (search ? ' is-on' : '')} onClick={() => setOpen((o) => !o)} aria-expanded={open} title="Bộ đàm cảnh sát">
+      {(search || recent || jobPatrol) && (
+        <button type="button" className={'town-pill town-hud-btn str-pill' + (search || jobPatrol ? ' is-on' : '')} onClick={() => {
+            if (open) {
+              setOpen(false);
+              setClosedFor(bulletin?.id ?? 0);
+            } else setOpen(true);
+          }} aria-expanded={open} title="Bộ đàm cảnh sát">
           <Icon icon={RadioTower} size={17} />
           <span>Bộ đàm</span>
           {speaking && <span className="str-live" aria-hidden="true" />}
         </button>
       )}
-      {open && (search || recent) && (
+      {open && (search || recent || jobPatrol) && (
         <div className="str-panel" role="group" aria-label="Bộ đàm cảnh sát">
-          <p className="str-status">{search ? 'Có xe tuần tra đang tìm bạn. Nghe họ tả bạn thế nào, đang tìm ở đâu.' : 'Không còn ai tìm bạn.'}</p>
+          <p className="str-status">{jobPatrol ? 'Một xe tuần tra đang chạy trên phố. Nghe bộ đàm nói gì.' : search ? 'Có xe tuần tra đang tìm bạn. Nghe họ tả bạn thế nào, đang tìm ở đâu.' : 'Không còn ai tìm bạn.'}</p>
           {bulletin && (
             <>
               <div className="str-btns">

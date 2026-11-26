@@ -25,6 +25,11 @@ export interface RoomCast {
   dress: (ch: Character3D) => void;
   /** The visitor is in the room from the start (false: not until their first line: setVisitorIn). Default true. */
   visitorIn?: boolean;
+  /**
+   * More people by id, at the room's `extras` anchors in place of passers-by (a job's room: warehouse fifteen, docs/town.md
+   * §32). Absent: the room's usual passers-by.
+   */
+  more?: readonly string[];
 }
 
 /** How long a way in is (tiles). */
@@ -141,8 +146,15 @@ export class RoomStage {
       this.visit = { state: out ? 'out' : 'in', k: out ? 0 : 1, way, len: wayLength(way) };
       if (out) v.ch.root.visible = false;
     }
+    // a job's own people at the extras' anchors (named, dressed, nobody else)
+    if (cast.more) {
+      cast.more.slice(0, room.extras.length).forEach((id, i) => {
+        const p = this.add(id, createCharacter(id) as Character3DPlus, room.extras[i]);
+        dressInVrm(p.ch);
+      });
+    }
     const child = room.id === 'school';
-    room.extras.slice(0, 3).forEach((a, i) => {
+    (cast.more ? [] : room.extras.slice(0, 3)).forEach((a, i) => {
       const look = passerLook(41 + i * 13 + room.id.charCodeAt(0) * 3 + room.id.length * 7, child);
       const p = this.add(`extra${i}`, createCharacter(`extra${i}`, look) as Character3DPlus, a);
       dressInVrm(p.ch);

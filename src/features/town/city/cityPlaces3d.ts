@@ -21,6 +21,8 @@ import { awning, chimney, door, flatRoof, flowerBox, gableRoof, hipRoof, onFace,
 import { shapes, type Merge, type Place } from '../three/scene/merge';
 import { C } from '../three/scene/palette3d';
 import { registerRecipes, type Recipe } from '../three/scene/places3d';
+// the harbour's warehouses (scenery of their own kind, registered on import: docs/town.md §32)
+import './warehouses3d';
 
 // ───────────────────────── shapes and helpers ─────────────────────────
 

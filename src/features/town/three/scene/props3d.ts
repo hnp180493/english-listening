@@ -5,7 +5,7 @@
 
 import { ConeGeometry, Matrix4, type BufferGeometry, type ColorRepresentation } from 'three';
 import type { CropStage } from '../../../../core/town/farm';
-import type { DecorationId, DecorSpot, Tile, TownWorld, WorldProp } from '../../../../data/townWorld';
+import type { DecorationId, DecorSpot, Tile, TownWorld, WorldProp, WorldScenery } from '../../../../data/townWorld';
 import { hash2, middleOf } from './coords';
 import { LAMP_ARM, LAMP_HEIGHT, lampArm } from './layout';
 import { Merge, shapes, type Place } from './merge';
@@ -923,8 +923,20 @@ function taxi(p: Parts, len: number, along: 'x' | 'y'): void {
  * stones and bushes, the ducks on the lake. The hill is the ground's (terrain). What stands up is as big as its
  * collider (core/town/colliders.ts SCENERY_SIZE, sceneryColliders).
  */
+/**
+ * Scenery kinds whose models are made outside the town's chunk (Westbay's warehouses: features/town/city/warehouses3d.ts):
+ * the maker gets every piece of scenery of its kind at once (one model for many, few draw calls).
+ */
+const MORE_SCENERY: Record<string, (items: { s: WorldScenery; index: number }[]) => Piece[]> = {};
+
+/** Add a scenery kind's model maker (none of the town's own kinds can be replaced). */
+export function registerScenery(kind: string, make: (items: { s: WorldScenery; index: number }[]) => Piece[]): void {
+  MORE_SCENERY[kind] = make;
+}
+
 export function buildScenery(world: TownWorld): Piece[] {
   const out: Piece[] = [];
+  const more = new Map<string, { s: WorldScenery; index: number }[]>();
   const blocks = new Map<string, { i: number; x0: number; y0: number; w: number; d: number; h: number; v: number }[]>();
   (world.scenery ?? []).forEach((s, i) => {
     const p = parts();
@@ -1056,6 +1068,12 @@ export function buildScenery(world: TownWorld): Piece[] {
         blocks.set(key, list);
         return;
       }
+      case 'warehouse': {
+        const list = more.get(s.kind) ?? [];
+        list.push({ s, index: i });
+        more.set(s.kind, list);
+        return;
+      }
       case 'taxi': {
         const along = s.dir === 'y' ? 'y' : 'x';
         const len = Math.max(1, s.tiles.length) - 0.24;
@@ -1094,6 +1112,11 @@ export function buildScenery(world: TownWorld): Piece[] {
     }
     p.body.base = p.glass.base = p.bulbs.base = null;
     out.push({ ...piece('', list[0].i, { x: cx, z: cz }, p, top), hx: (bx1 - bx0) / 2 - BLOCK_INSET, hz: (by1 - by0) / 2 - BLOCK_INSET });
+  }
+  // the kinds made elsewhere (when their maker is registered: nothing drawn, and nothing in the town, otherwise)
+  for (const [kind, list] of more) {
+    const make = Object.hasOwn(MORE_SCENERY, kind) ? MORE_SCENERY[kind] : null;
+    if (make) out.push(...make(list));
   }
   return out;
 }

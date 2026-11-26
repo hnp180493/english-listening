@@ -209,7 +209,7 @@ export interface DecorSpot extends Tile {
  * 'block' (a block of flats or offices on its tiles, `h` storeys, in look `v`), 'taxi' (a parked taxi on two tiles
  * along `dir`).
  */
-export type SceneryKind = 'hill' | 'barn' | 'well' | 'haybale' | 'fence' | 'hedge' | 'rock' | 'bush' | 'duck' | 'lighthouse' | 'hut' | 'umbrella' | 'boulder' | 'boat' | 'jetty' | 'block' | 'taxi';
+export type SceneryKind = 'hill' | 'barn' | 'well' | 'haybale' | 'fence' | 'hedge' | 'rock' | 'bush' | 'duck' | 'lighthouse' | 'hut' | 'umbrella' | 'boulder' | 'boat' | 'jetty' | 'block' | 'taxi' | 'warehouse';
 
 export interface WorldScenery {
   kind: SceneryKind;

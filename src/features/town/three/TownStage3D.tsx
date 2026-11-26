@@ -480,7 +480,7 @@ export default function TownStage3D({
         latest.current.talk = null;
         engineRef.current?.endTalk();
       },
-      enterOwnRoom: (room, door, out, ready) => (flatRef.current ? false : (engineRef.current?.enterOwnRoom(room, door, out, ready) ?? false)),
+      enterOwnRoom: (room, door, out, ready, cast) => (flatRef.current ? false : (engineRef.current?.enterOwnRoom(room, door, out, ready, cast) ?? false)),
       meet: (placeId, ready) => (flatRef.current ? false : (engineRef.current?.meet(placeId, ready) ?? false)),
       listenFrom: (spot, who) => (flatRef.current ? false : (engineRef.current?.listenFrom(spot, who) ?? false)),
       joinTalk: (host, who) => {

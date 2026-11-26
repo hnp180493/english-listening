@@ -153,6 +153,8 @@ interface Staged {
   setting: TalkSetting;
   /** A neighbour who is in the room too (an episode's visitor), by place id. */
   visitor: PlaceId | null;
+  /** More people in a room that is not a place's (enterOwnRoom: a job's warehouse), at its extras' anchors. */
+  more?: readonly string[];
   /**
    * 'go': both walk there; 'enter': the dip to dark before the room; 'room': talking in the room; 'outside': talking in
    * the town; 'cut': a dip to dark into another setting (a quick chat after an episode, a link); 'leave': the dip out.
@@ -997,11 +999,12 @@ export class TownEngine3D {
    * (`door`; `out` = the street side's heading) into `room`, alone with their pet; endTalk brings them out at the door.
    * False while a talk is staged, or for a room that does not exist.
    */
-  enterOwnRoom(room: InteriorId, door: Tile, out: number, ready: () => void): boolean {
+  enterOwnRoom(room: InteriorId, door: Tile, out: number, ready: () => void, cast: { host?: string; visitor?: string; more?: readonly string[] } = {}): boolean {
     if (!isInteriorId(room) || this.staged) return false;
     this.dismount();
     const beside = { x: door.x + 0.5 + Math.cos(out), y: door.y + 0.5 + Math.sin(out) };
-    this.cut({ placeId: '' as PlaceId, setting: { kind: 'inside', room }, visitor: null, phase: 'go', ready, doorway: { door: { ...door }, out, beside }, spots: null, arrivedAt: -1, retryAt: 0, hid: false, cancelled: false });
+    // (a job's room, warehouse fifteen: its people come in with the learner, docs/town.md §32)
+    this.cut({ placeId: (cast.host ?? '') as PlaceId, setting: { kind: 'inside', room }, visitor: (cast.visitor ?? null) as PlaceId | null, more: cast.more, phase: 'go', ready, doorway: { door: { ...door }, out, beside }, spots: null, arrivedAt: -1, retryAt: 0, hid: false, cancelled: false });
     return true;
   }
 
@@ -1293,7 +1296,7 @@ export class TownEngine3D {
   private makeRoom(s: Staged): RoomStage {
     const id = s.setting.kind === 'inside' ? s.setting.room : 'inn';
     const set = this.roomSet(isInteriorId(id) ? id : 'inn');
-    const room = new RoomStage(set, { host: s.placeId, visitor: s.visitor, pet: this.state.look?.pet ?? null, dress: (ch) => this.dressPlayer(ch), visitorIn: this.visitorIn }, this.frames);
+    const room = new RoomStage(set, { host: s.placeId, visitor: s.visitor, pet: this.state.look?.pet ?? null, dress: (ch) => this.dressPlayer(ch), visitorIn: this.visitorIn, ...(s.more ? { more: s.more } : {}) }, this.frames);
     room.setNight(this.night);
     return room;
   }

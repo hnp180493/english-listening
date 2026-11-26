@@ -8,6 +8,7 @@ import { clinic, office, phone, school } from './recipes/b';
 import { cinema, station } from './recipes/c';
 import { board, inn, park, square } from './recipes/d';
 import { hideout } from './recipes/hideout';
+import { warehouse } from './recipes/warehouse';
 
 export type { RoomSet } from './build';
 export type { InteriorId } from './contracts';
@@ -15,8 +16,11 @@ export type { InteriorId } from './contracts';
 /** Every room, in the order of the town (the 13 places, then the boarding house). */
 export const INTERIOR_IDS: readonly InteriorId[] = ['square', 'cafe', 'friend', 'home', 'shop', 'office', 'school', 'station', 'clinic', 'cinema', 'phone', 'park', 'board', 'inn'];
 
-/** Rooms of the learner's own, entered alone (no resident hosts them): the hideout in Westbay. */
-export const OWN_ROOMS: readonly InteriorId[] = ['hideout'];
+/**
+ * Rooms that are not a place of the town, entered through TownStageHandle.enterOwnRoom (no resident's house hosts
+ * them): the learner's hideout in Westbay, alone; warehouse fifteen, with whoever a job brings.
+ */
+export const OWN_ROOMS: readonly InteriorId[] = ['hideout', 'warehouse15'];
 
 /** The standard room: 5.4 × 4.2 tiles, walls 1.7 high (a grown-up is 0.79). */
 const STD = { W: 5.4, D: 4.2, H: 1.7 };
@@ -38,6 +42,8 @@ const RECIPES: Readonly<Record<InteriorId, { spec: Omit<RoomSpec, 'id'>; build: 
   inn: { spec: STD, build: inn },
   // a small lock-up: smaller and lower than a place's room
   hideout: { spec: { W: 4.4, D: 3.6, H: 1.6 }, build: hideout },
+  // a harbour warehouse: wider, deeper and taller than a place's room
+  warehouse15: { spec: { W: 6.0, D: 4.6, H: 2.3 }, build: warehouse },
 };
 
 export function isInteriorId(id: string): id is InteriorId {

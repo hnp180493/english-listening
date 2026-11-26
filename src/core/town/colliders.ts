@@ -409,6 +409,10 @@ export function sceneryColliders(world: Pick<TownWorld, 'scenery'>): Collider[] 
         // a block of the city: its walls (props3d.ts cityBlock: BLOCK_INSET in from its tiles, a plinth 0.04 out)
         out.push(box(b.x0 + BLOCK_INSET - 0.04, b.y0 + BLOCK_INSET - 0.04, b.x1 - BLOCK_INSET + 0.04, b.y1 - BLOCK_INSET + 0.04, what));
         break;
+      case 'warehouse':
+        // a warehouse of Westbay's harbour (data/city/warehouses.ts): its walls, WAREHOUSE_INSET in from its tiles
+        out.push(box(b.x0 + WAREHOUSE_INSET, b.y0 + WAREHOUSE_INSET, b.x1 - WAREHOUSE_INSET, b.y1 - WAREHOUSE_INSET, what));
+        break;
       case 'taxi':
         // a parked car, 0.8 wide, along its tiles (props3d.ts taxi)
         if (s.dir === 'y') out.push(box(cx - 0.4, b.y0 + 0.12, cx + 0.4, b.y1 - 0.12, what));
@@ -436,6 +440,9 @@ export function sceneryColliders(world: Pick<TownWorld, 'scenery'>): Collider[] 
 
 /** A city block's walls stand this far in from the edge of its tiles (three/scene/props3d.ts cityBlock). */
 export const BLOCK_INSET = 0.16;
+
+/** A harbour warehouse's walls stand this far in from the edge of its tiles (features/town/city/warehouses3d.ts). */
+export const WAREHOUSE_INSET = 0.1;
 
 /** Sizes of the scenery's models (radius, or half the thickness of a run), shared with three/scene/props3d.ts buildScenery. */
 export const SCENERY_SIZE = { well: 0.36, haybale: 0.34, rock: 0.3, bush: 0.34, fence: 0.06, hedge: 0.22, lighthouse: 0.85, umbrella: 0.3, boulder: 0.78 } as const;

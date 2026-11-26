@@ -21,6 +21,9 @@ import { TrafficLayer } from '../three/scene/traffic';
 import type { StageExtra, StageExtraCtx } from '../three/scene/stageExtra';
 import { getTownUi } from '../townUi';
 import { getHeat, setHeat } from '../jobs/heatStore';
+import { coolStep, jobPatrolStep, patrolPath, startJobPatrol, type JobPatrolRun } from '../../../core/town/jobPatrol';
+import type { Pt } from '../../../core/town/traffic';
+import { linesDue, settleJobPatrol, takeJobPatrol, type JobScanLine } from './jobPolice';
 import { streets } from './streetsStore';
 
 /** How many cars drive Westbay (a guess: enough to meet some, few enough for the frame). */
@@ -152,7 +155,39 @@ export class StreetsWorld implements StageExtra {
     return true;
   }
 
+  /** A job's patrol (./jobPolice.ts): it drives even while the learner is in a room, where it never sees them. */
+  private jobRun: { run: JobPatrolRun; lines: readonly JobScanLine[]; said: number } | null = null;
+
+  private stepJobPatrol(dt: number): Pt | null {
+    if (!this.jobRun) {
+      const take = takeJobPatrol();
+      if (!take) return null;
+      const path = patrolPath(this.net, take.spec);
+      if (!path) {
+        settleJobPatrol(false);
+        return null;
+      }
+      this.jobRun = { run: startJobPatrol(path, take.spec.seconds), lines: take.spec.lines ?? [], said: 0 };
+      streets.setJobPatrol(true);
+    }
+    const p = this.ctx.sim.player;
+    const step = jobPatrolStep(this.jobRun.run, dt, { x: p.x, y: p.y, indoors: this.ctx.inRoom() });
+    const due = linesDue(this.jobRun.lines, this.jobRun.said, step.run.t);
+    if (due.due.length > 0) void streets.say(due.due, { force: true, open: true });
+    this.jobRun = { ...this.jobRun, run: step.run, said: due.next };
+    if (step.done) {
+      const seen = step.run.seen;
+      this.jobRun = null;
+      streets.setJobPatrol(false);
+      settleJobPatrol(seen);
+      return null;
+    }
+    return step.at;
+  }
+
   update(dt: number): void {
+    const jobAt = this.stepJobPatrol(dt);
+    const jobHeading = this.jobRun ? this.jobRun.run.path.heading : 0;
     if (this.ctx.inRoom()) {
       this.layer.setVisible(false);
       return;
@@ -168,15 +203,18 @@ export class StreetsWorld implements StageExtra {
     }
     if (this.speed > HIT_SPEED) this.fastUntil = this.t + 0.4;
     const riding = !!this.ctx.rideLook();
-    const search = streets.search();
+    // while a job's patrol drives, the heat and the ordinary search wait (and its car is not drawn)
+    const paused = !!jobAt;
+    const search = paused ? null : streets.search();
     // the traffic: it stops for the player, the residents and the patrol
-    const bodies = [{ x: p.x, y: p.y }, ...[...this.ctx.sim.residents.values()].map((r) => ({ x: r.x, y: r.y })), ...(search ? [search.patrol] : [])];
+    const patrolNow = jobAt ?? (search ? search.patrol : null);
+    const bodies = [{ x: p.x, y: p.y }, ...[...this.ctx.sim.residents.values()].map((r) => ({ x: r.x, y: r.y })), ...(patrolNow ? [patrolNow] : [])];
     this.cars = stepTraffic(this.cars, dt, { net: this.net, nowMs: now, bodies, rnd: this.rnd });
     // what stands in the player's way: never anything they are already inside (a car turning across them, the patrol
     // pulling up), so nothing that moves can shut them in (core/town/traffic.ts blockersFor)
-    this.ctx.sim.extraBodies = blockersFor(p, this.cars, search ? search.patrol : null, this.posts);
+    this.ctx.sim.extraBodies = blockersFor(p, this.cars, patrolNow, this.posts);
     // offences, riding: a red light; a car or a thing of the street hit at speed
-    if (riding && this.prev) {
+    if (riding && this.prev && !paused) {
       const j = ranRed(this.net, this.prev, p, now);
       if (j && this.once(`red:${j.id}`)) this.offence('red');
       if (this.t < this.fastUntil) {
@@ -194,7 +232,7 @@ export class StreetsWorld implements StageExtra {
     }
     this.prev = { x: p.x, y: p.y };
     // the search
-    const s = streets.search();
+    const s = paused ? null : streets.search();
     if (s && !this.frozen) {
       const me = this.seen();
       const r = policeStep(s, dt, me, (a, b) => this.route(a, b));
@@ -211,18 +249,14 @@ export class StreetsWorld implements StageExtra {
       }
       streets.setSearch(r.search);
     }
-    // without a search the heat cools
-    if (!streets.search() && getHeat() > 0) {
-      this.cool += dt;
-      if (this.cool >= COOL_EVERY) {
-        this.cool = 0;
-        setHeat(getHeat() - 1);
-      }
-    } else this.cool = 0;
+    // without a search the heat cools (held still while a job's patrol drives)
+    const cooled = coolStep(getHeat(), this.cool, dt, !!streets.search(), paused, COOL_EVERY);
+    this.cool = cooled.cool;
+    if (cooled.heat !== getHeat()) setHeat(cooled.heat);
     // draw
     this.layer.setCars(this.cars);
     const sNow = streets.search();
-    this.layer.setPatrol(sNow ? sNow.patrol : null, dt);
+    this.layer.setPatrol(jobAt ? { ...jobAt, heading: jobHeading } : sNow ? sNow.patrol : null, dt);
     this.layer.setLights(now);
   }
 
@@ -239,6 +273,12 @@ export class StreetsWorld implements StageExtra {
   }
 
   dispose(): void {
+    // the page left during a job's patrol: it is over, and nobody was seen
+    if (this.jobRun) {
+      this.jobRun = null;
+      streets.setJobPatrol(false);
+      settleJobPatrol(false);
+    }
     this.ctx.sim.extraBodies = [];
     this.layer.dispose();
     streets.detach(this);

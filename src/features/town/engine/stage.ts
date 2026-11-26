@@ -98,9 +98,10 @@ export interface TownStageHandle {
   endTalk: () => void;
   /**
    * The learner's own room (the hideout in Westbay, docs/town.md §29): through the dark from in front of its door into
-   * `room`, alone with their pet; `ready` once inside; endTalk brings them out. False = no world (or busy).
+   * `room`, alone with their pet; `ready` once inside; endTalk brings them out. False = no world (or busy). `cast`: the
+   * people of a job's room (warehouse fifteen, docs/town.md §32): the host, a visitor, more at the room's extras.
    */
-  enterOwnRoom: (room: 'hideout', door: Tile, out: number, ready: () => void) => boolean;
+  enterOwnRoom: (room: 'hideout' | 'warehouse15', door: Tile, out: number, ready: () => void, cast?: { host?: string; visitor?: string; more?: readonly string[] }) => boolean;
   /** A courtship scene here (docs/town.md §15): the resident beside the player, the camera on the two. False = no world. */
   meet: (placeId: PlaceId, ready: () => void) => boolean;
   /** The town gathers round the player (a wedding), all but these. */

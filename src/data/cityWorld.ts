@@ -23,6 +23,7 @@
 
 import { axisMap, stretchWorld, type Cut } from './stretchWorld';
 import { CITY_FURNITURE } from './townFurniture';
+import { quayLane, warehouseScenery } from './city/warehouses';
 import type { ActivitySpot, DecorationId, DecorSpot, PlaceId, Seat, ThingId, Tile, TownWorld, WorldDistrict, WorldLife, WorldPlace, WorldProp, WorldScenery } from './townWorld';
 
 /** The map as first laid out (every coordinate below); RAW_WORLD is it stretched (CITY_CUTS_X / _Y). */
@@ -95,13 +96,14 @@ function buildRows(): string[] {
     [46, 15], [48, 17], [51, 15], [52, 18], [47, 19], [57, 15], [60, 16], [63, 15], [65, 17], [53, 8], [51, 4],
     // the campus
     [46, 27], [49, 29], [52, 27], [47, 30], [51, 31], [65, 28], [65, 33], [63, 33], [57, 33],
-    // along the promenade's east end and the peninsula
+    // along the promenade's east end and the peninsula (none on the bay's shore, where the warehouses stand:
+    // data/city/warehouses.ts)
     [46, 38], [50, 39], [58, 38], [62, 39], [65, 38], [40, 43], [47, 42], [52, 43], [59, 42], [64, 43],
-    [39, 46], [40, 50], [39, 58], [40, 62], [46, 46], [50, 47], [58, 46], [62, 46], [65, 47], [57, 58], [60, 60], [63, 57], [65, 62], [58, 62], [62, 63],
+    [46, 46], [50, 47], [58, 46], [62, 46], [65, 47], [57, 58], [60, 60], [63, 57], [65, 62], [58, 62], [62, 63],
   ] as [number, number][]) trees.push([x, y, 'T']);
   for (const [x, y] of [[20, 29], [26, 31], [36, 29], [5, 11], [10, 8], [64, 30], [50, 44], [61, 44]] as [number, number][]) trees.push([x, y, 't']);
   for (const [x, y, ch] of trees) if (g[y][x] === '.') g[y][x] = ch;
-  for (const [x, y] of [[6, 42], [13, 43], [19, 42], [26, 43], [33, 42], [36, 48], [37, 56], [36, 64], [44, 69], [56, 68], [69, 20], [68, 40], [69, 58]] as [number, number][]) if (g[y][x] === ':') g[y][x] = 'p';
+  for (const [x, y] of [[6, 42], [13, 43], [19, 42], [26, 43], [33, 42], [37, 56], [36, 64], [44, 69], [56, 68], [69, 20], [68, 40], [69, 58]] as [number, number][]) if (g[y][x] === ':') g[y][x] = 'p';
   return g.map((r) => r.join(''));
 }
 
@@ -267,11 +269,11 @@ const RAW_SCENERY: readonly WorldScenery[] = [
   // the taxi waits at the rank
   { kind: 'taxi', tiles: [T(20, 23), T(21, 23)], dir: 'x' },
   // the seafront: umbrellas on the sand, a jetty and boats on the bay
+  // (an umbrella and a palm stood where the harbour's warehouses now back onto the bay: data/city/warehouses.ts)
   { kind: 'umbrella', tiles: [T(10, 42)] },
   { kind: 'umbrella', tiles: [T(16, 43)] },
   { kind: 'umbrella', tiles: [T(23, 42)] },
   { kind: 'umbrella', tiles: [T(34, 43)] },
-  { kind: 'umbrella', tiles: [T(36, 52)] },
   { kind: 'jetty', tiles: [], at: T(30, 43), dir: 'y', len: 3 },
   { kind: 'boat', tiles: [], at: { x: 28.4, y: 45.6 }, dir: 'x' },
   { kind: 'boat', tiles: [], at: { x: 33.2, y: 46.2 }, dir: 'y' },
@@ -479,7 +481,7 @@ const STRETCHED = stretchWorld(RAW_WORLD, CITY_CUTS_X, CITY_CUTS_Y);
  * bare grass, one tile clear of every street, square, house, door, seat, prop and spot people use (a walk is never
  * shut off), two or three storeys (a tall one south of a street would hide it), one tile apart. Deterministic.
  */
-function fillers(w: TownWorld): WorldScenery[] {
+function fillers(w: TownWorld, reserved: readonly Tile[] = []): WorldScenery[] {
   const S = w.size;
   const used = new Set<number>();
   const key = (x: number, y: number) => y * S + x;
@@ -496,6 +498,7 @@ function fillers(w: TownWorld): WorldScenery[] {
     mark(mapX(v.door.x), mapY(v.door.y));
   }
   for (const p of w.props) for (const t of p.tiles) mark(t.x, t.y);
+  for (const t of reserved) mark(t.x, t.y);
   for (const s of w.scenery ?? []) {
     for (const t of s.tiles) mark(t.x, t.y);
     if (s.at) mark(Math.floor(s.at.x), Math.floor(s.at.y));
@@ -537,9 +540,13 @@ function fillers(w: TownWorld): WorldScenery[] {
   return out;
 }
 
+/** The harbour's warehouses on the bay (data/city/warehouses.ts, docs/town.md §32), in the stretched map's coordinates. */
+const WITH_WAREHOUSES: TownWorld = { ...STRETCHED, scenery: [...(STRETCHED.scenery ?? []), ...warehouseScenery()] };
+
 export const CITY_WORLD: TownWorld = {
-  ...STRETCHED,
-  scenery: [...(STRETCHED.scenery ?? []), ...fillers(STRETCHED)],
+  ...WITH_WAREHOUSES,
+  // (the quay lane in front of the warehouses stays open ground)
+  scenery: [...(WITH_WAREHOUSES.scenery ?? []), ...fillers(WITH_WAREHOUSES, quayLane())],
   // to ride (the stretched map's own coordinates): a car at the taxi rank and one on the harbour, scooters on Market
   // Street and Arts Street, a bike by the station (data/vehicles.test.ts: open ground, clear of what people use)
   vehicles: [

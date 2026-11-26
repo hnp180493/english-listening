@@ -12,6 +12,9 @@ export interface Bulletin {
   lines: readonly ScanLine[];
   /** When it came (ms). */
   at: number;
+  /** A job's lines: said even while a panel is over the stage, and the pill opens for them. */
+  force?: boolean;
+  open?: boolean;
 }
 
 export interface Stop {
@@ -31,9 +34,12 @@ interface State {
   stop: Stop | null;
   /** The last offence (for the page's toast). */
   offence: { kind: Offence; at: number } | null;
+  /** A job's patrol is driving (./jobPolice.ts). */
+  jobPatrol: boolean;
 }
 
-let state: State = { search: null, bulletin: null, stop: null, offence: null };
+let state: State = { search: null, bulletin: null, stop: null, offence: null, jobPatrol: false };
+const waiting = new Map<number, () => void>();
 let controller: Controller | null = null;
 let ids = 0;
 const listeners = new Set<() => void>();
@@ -48,6 +54,29 @@ export const streets = {
   },
   detach(c: Controller): void {
     if (controller === c) controller = null;
+  },
+  /** Westbay's streets layer is running (a job's patrol can drive). */
+  hasWorld: (): boolean => controller !== null,
+  setJobPatrol(on: boolean): void {
+    if (state.jobPatrol !== on) set({ jobPatrol: on });
+  },
+  /** A bulletin of a job: resolves once the pill has said it, or after a while when it cannot (no sound, no pill). */
+  say(lines: readonly ScanLine[], opts: { force?: boolean; open?: boolean } = {}): Promise<void> {
+    const id = ++ids;
+    set({ bulletin: { id, lines, at: Date.now(), ...opts } });
+    return new Promise((resolve) => {
+      const done = () => {
+        window.clearTimeout(timer);
+        waiting.delete(id);
+        resolve();
+      };
+      const timer = window.setTimeout(done, 3000 + lines.length * 6000);
+      waiting.set(id, done);
+    });
+  },
+  /** The pill has said a bulletin. */
+  spoken(id: number): void {
+    waiting.get(id)?.();
   },
   search: (): Search | null => state.search,
   lastBulletin: (): Bulletin | null => state.bulletin,
@@ -94,6 +123,6 @@ export function useStreets(): State {
 
 /** Tests and a page leaving: everything back to nothing. */
 export function resetStreets(): void {
-  state = { search: null, bulletin: null, stop: null, offence: null };
+  state = { search: null, bulletin: null, stop: null, offence: null, jobPatrol: false };
   listeners.forEach((fn) => fn());
 }
