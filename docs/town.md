@@ -481,6 +481,26 @@ avatars stand 1.85 × the code-built body the models were made for); the classic
 supercar and the motorbike, off and on, 1400 × 900 and 412 × 892); the speeds were not felt (the software renderer
 runs at 2 frames a second); the prices are guesses; nobody has bought or driven one by hand.
 
+**Chạy taxi cho Rico** (2026-11-26, the side job of a GTA-like city): in Westbay, once Rico's first episode is heard,
+the quests end with "Chạy taxi cho Rico" (`quests.ts taxiQuest`). Rico radios a passenger through wherever the player
+stands (`city/TaxiPanel.tsx`): they SAY where to go in the browser's voice (never a clip; `data/city/taxiFares.ts`,
+24 fares, levels 1–3: a plain name, a name of their own with words round it, a change of mind / "not the …, the …" / no
+name at all), the learner picks the place among three (the wrong two a careless ear would take: pharmacy / ferry,
+Lumen / Loom, station / stage, the place next door). Right: a clock of `rideSeconds` (15 s + 0.5 s a tile from where
+they stand, 20–70 s: a borrowed car or one's own vehicle makes it, a run only just) and the ride becomes THE quest
+(its card counts down, "Còn … giây" before the distance; the way on the minimap; the main button "Chở khách tới …").
+Within `TAXI_ARRIVE` 2.2 tiles of the place's door (polled 3 × a second, `CityPage`) the passenger gets out: 5 xu, +1
+heard once, 2 late, nothing for the wrong place (the line, its meaning and connected speech shown, then the next
+passenger). Eight fares pay a day (`TAXI_PAID_A_DAY`); what paid is the daily set `heard` of `town-progress` (ids
+`tx-…`), so no new stored key. The ride lives in the tab only (`core/town/taxiStore.ts`; leaving Westbay gives it
+up). The lines were written here and read by nobody else; checked in headless Edge only (a fare taken, the right
+place, the countdown, set down at the door, +6), not by hand; the pay and the clock are guesses.
+
+**Emma's orders against the clock** (2026-11-26): an order in hand starts a clock when Emma's panel closes
+(`deliverySeconds`: 20 s + 0.7 s a tile from there to the one it is for, 25–80 s, `startDeliveryClock`); while it runs
+"Giao đơn của Emma" is the quest followed and its card counts down (who it is for stays the puzzle: no way is drawn).
+Handed over in time: `DELIVERY_RUSH_XU` 2 more xu ("· giao kịp giờ" on the card). Late: nothing lost.
+
 **Moving about** (the player's control, `TownSim.steer / move` in `engine/sim.ts`, tested; rebuilt 2026-11-21 after the
 owner found the keys "delayed or not going where I want" and the character moving unnaturally). Direct control, like a
 cosy game:

@@ -81,6 +81,7 @@ export default function DeliveryChip({ onOpen }: { onOpen: (id: ActivityId) => v
                     <Coin size={14} /> +{c.result.xu} xu
                   </>
                 )}
+                {c.result?.rush ? ' · giao kịp giờ' : ''}
                 {c.result && c.result.bond > 0 ? tl` · thân thiết +${c.result.bond}` : ''}
               </>
             ) : (

@@ -143,3 +143,13 @@ export function cityQuests(o: CityQuestInput): Quest[] {
 export function followed(quests: readonly Quest[], picked: string | null): Quest | null {
   return (picked ? quests.find((q) => q.id === picked) : undefined) ?? quests[0] ?? null;
 }
+
+/**
+ * "Chạy taxi cho Rico" (core/town/taxi.ts) as quests: a passenger in the car (where to, once heard right: the card
+ * counts down to the ride's clock) first of all; else the job, last, for whoever has met Rico.
+ */
+export function taxiQuest(riding: { to: string; name: string } | null): Quest {
+  return riding
+    ? { id: 'taxi:ride', tag: tr('Taxi'), title: tl`Chở khách tới ${tr(riding.name)}`, step: 'Tới cửa là khách xuống', target: { kind: 'resident', id: riding.to as PlaceId } }
+    : { id: 'taxi:fare', tag: tr('Việc làm'), title: 'Chạy taxi cho Rico', step: 'Rico gọi khách qua bộ đàm, đứng đâu cũng nhận được', target: null };
+}

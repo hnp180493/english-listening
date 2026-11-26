@@ -27,13 +27,13 @@ import { CAST_VOICES } from '../../../core/town/voices';
 import { scenesHeard, townToday } from '../../../core/town/worldStore';
 import { CITY_EVENTS, CITY_OUTINGS, CITY_OVERHEARD, CITY_SCENES, CITY_SEASONS } from '../../../data/city';
 import { CITY_SHIFTS } from '../../../data/city/shifts';
-import { CITY_DECOR_ON, CITY_PLACE_IDS, cityWorldWith } from '../../../data/cityWorld';
+import { CITY_DECOR_ON, CITY_PLACE_IDS, CITY_PLACES, cityWorldWith } from '../../../data/cityWorld';
 import type { PlaceView } from '../../../core/town/overview';
 import type { MapSnapshot, TravelMode, TravelTarget } from '../engine/stage';
 import { prefersReducedMotion } from '../../../core/motion';
 import { TOWN_PLACES, townPlace } from '../../../data/town';
 import { thingKind, type ActivitySpotId, type PlaceId } from '../../../data/townWorld';
-import { getLang, tl } from '../../../i18n';
+import { getLang, tl, tr } from '../../../i18n';
 import { Coin } from '../art';
 import type { Marker, Near, StageState, TownStageHandle } from '../engine/stage';
 import { usePanelKeys } from '../panelKeys';
@@ -50,7 +50,10 @@ import SkyChip from '../SkyChip';
 import { eventToday } from './cityEvents';
 import QuestTracker from '../QuestTracker';
 import RideButton from '../RideButton';
-import { cityQuests, followed, type Quest } from '../quests';
+import { cityQuests, followed, taxiQuest, type Quest } from '../quests';
+import { arriveTaxi, dropTaxi, useTaxiRide } from '../../../core/town/taxiStore';
+import { TAXI_ARRIVE } from '../../../core/town/taxi';
+import { taxiPlaceName } from './taxiPlace';
 import './cityLooks';
 import './cityPlaces3d';
 import '../town.css';
@@ -61,6 +64,7 @@ const CityPeople = lazy(() => import('./CityPeople'));
 const CityToday = lazy(() => import('./CityToday'));
 const CityEventPanel = lazy(() => import('./CityEventPanel'));
 const ShiftPanel = lazy(() => import('./ShiftPanel'));
+const TaxiPanel = lazy(() => import('./TaxiPanel'));
 /** The full map (M, or the minimap): the town's, on Westbay's world. */
 const TownMap = lazy(() => import('../map/TownMap'));
 
@@ -76,6 +80,7 @@ type Sheet =
   | { kind: 'people'; key: number }
   | { kind: 'today'; key: number }
   | { kind: 'shift'; key: number; id: string }
+  | { kind: 'taxi'; key: number }
   | { kind: 'event'; key: number; event: CityEvent };
 
 /** What the one button offers beside somebody. */
@@ -361,7 +366,16 @@ export default function CityPage() {
       }),
     [suggested, chapters, guests, scenes, city, now, eventsToday, shiftAt],
   );
-  const quest = followed(quests, questPick);
+  // Rico's taxi (core/town/taxi.ts): a passenger in the car is THE quest until set down; the job is there for whoever met him
+  const taxiRide = useTaxiRide();
+  const ridingTo = taxiRide?.state === 'riding' ? taxiRide.fare.to : null;
+  const taxiOpen = !!shiftAt('rico');
+  const allQuests = useMemo(
+    () => (ridingTo ? [taxiQuest({ to: ridingTo, name: taxiPlaceName(ridingTo) }), ...quests] : taxiOpen ? [...quests, taxiQuest(null)] : quests),
+    [ridingTo, taxiOpen, quests],
+  );
+  const riding = !!ridingTo;
+  const quest = riding ? allQuests[0] : followed(allQuests, questPick);
   // a main story chapter to get to in time (data/city/seasonsMain.ts `rush`): the clock starts when it is taken on
   const [rush, setRush] = useState<{ id: string; until: number } | null>(null);
   const goQuest = (q: Quest) => {
@@ -391,6 +405,14 @@ export default function CityPage() {
       if (ev) openEvent(ev.event);
       return;
     }
+    if (q.id === 'taxi:fare') {
+      if (!sheet) setSheet({ kind: 'taxi', key: ++keys.current });
+      return;
+    }
+    if (q.id === 'taxi:ride' && q.target?.kind === 'resident') {
+      void stage.current?.walkTo(q.target.id);
+      return;
+    }
     if (kind === 'shift') {
       const sh = CITY_SHIFTS.find((x) => x.id === key);
       if (sh) void stage.current?.walkTo(sh.at as PlaceId, () => setSheet({ kind: 'shift', key: ++keys.current, id: sh.id }));
@@ -402,6 +424,24 @@ export default function CityPage() {
     }
   };
 
+  // the passenger is set down at the door of where they asked for (polled: the keys, a finger or a click may take
+  // the player there); the panel then shows what it paid. Leaving Westbay gives the ride up.
+  const doorDistance = useCallback((placeId: string): number => {
+    const me = stage.current?.mapSnapshot()?.player;
+    const door = CITY_PLACES.find((p) => p.id === placeId)?.door;
+    return me && door ? Math.hypot(door.x + 0.5 - me.x, door.y + 0.5 - me.y) : 30;
+  }, []);
+  useEffect(() => {
+    if (!ridingTo) return;
+    const id = window.setInterval(() => {
+      if (doorDistance(ridingTo) > TAXI_ARRIVE) return;
+      arriveTaxi();
+      setSheet((s) => s ?? { kind: 'taxi', key: ++keys.current });
+    }, 300);
+    return () => window.clearInterval(id);
+  }, [ridingTo, doorDistance]);
+  useEffect(() => () => dropTaxi(), []);
+
   // ── the one button ──
   const nearId = near?.kind === 'resident' ? near.placeId : null;
   const nearNow = nearId ? sceneNow(scenes, nearId, city, now) : null;
@@ -412,7 +452,9 @@ export default function CityPage() {
       ? chapterAt(nearId)
         ? { icon: BookOpen, text: tl`Chương hôm nay: ${chapterAt(nearId)!.season.title}`, run: () => startScene(nearId) }
         : { icon: MessageCircle, text: talkPrompt(nearId, nearNow), run: () => startScene(nearId) }
-      : quest?.target?.kind === 'resident'
+      : ridingTo && quest
+        ? { icon: Footprints, text: tl`Chở khách tới ${tr(taxiPlaceName(ridingTo))}`, run: () => goQuest(quest) }
+        : quest?.target?.kind === 'resident'
         ? { icon: Footprints, text: tl`Tới gặp ${nameOf(quest.target.id)}`, run: () => goQuest(quest) }
         : suggested
           ? { icon: Footprints, text: tl`Tới gặp ${nameOf(suggested.at)}`, run: () => void stage.current?.walkTo(suggested.at as PlaceId, () => startScene(suggested.at)) }
@@ -536,7 +578,7 @@ export default function CityPage() {
           </ul>
         )}
 
-        {!flat && ready && !sheet && !welcome && !map && <QuestTracker quests={quests} current={quest} stage={stage} onPick={goQuest} deadline={rush && rush.id === quest?.id ? rush.until : null} />}
+        {!flat && ready && !sheet && !welcome && !map && <QuestTracker quests={allQuests} current={quest} stage={stage} onPick={goQuest} deadline={riding ? (taxiRide?.until ?? null) : rush && rush.id === quest?.id ? rush.until : null} />}
         {!flat && ready && !sheet && !welcome && !map && <RideButton stage={stage} />}
         <div className="town-hud">
           <div className="town-level is-new" role="img" aria-label={tl`Westbay, ${weekday}`}>
@@ -665,6 +707,13 @@ export default function CityPage() {
           <CitySheet title={eventUp.event.name} onClose={closeSheet} talk>
             <Suspense fallback={<p className="town-build-hint">Đang mở…</p>}>
               <CityEventPanel key={eventUp.key} event={eventUp.event} sound={ui.sound} onReward={onReward} onSpeaking={setSpeaking} onClose={closeSheet} />
+            </Suspense>
+          </CitySheet>
+        )}
+        {shownSheet?.kind === 'taxi' && (
+          <CitySheet title="Chạy taxi cho Rico" onClose={closeSheet}>
+            <Suspense fallback={<p className="town-build-hint">Đang mở…</p>}>
+              <TaxiPanel key={shownSheet.key} sound={ui.sound} distanceTo={doorDistance} onReward={onReward} onClose={closeSheet} />
             </Suspense>
           </CitySheet>
         )}

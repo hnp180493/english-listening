@@ -301,8 +301,6 @@ const page: Record<string, string> = {
   'Trụ cứu hỏa': 'Fire hydrant',
   'Hộp báo': 'Newspaper box',
   'Truyện chính': 'Main story',
-  'còn {} giây': '{0} s left',
-  'hết giờ': 'time\'s up',
   'Giao hàng': 'Delivery',
   'Giao đơn của Emma': 'Emma\'s order',
   'Nghe lại lời Emma dặn để biết giao cho ai': 'Hear Emma\'s words again to know who it\'s for',
@@ -330,6 +328,13 @@ const page: Record<string, string> = {
   'Lên xe': 'Get on',
   'Giờ trong thị trấn {}, {}': 'Town time {0}, {1}',
   'Giờ trong thị trấn {}, {}. Một ngày ở đây dài 48 phút.': 'Town time {0}, {1}. A day here lasts 48 minutes.',
+  '· giao kịp giờ': '· delivered in time',
+  'Chở khách tới {}': 'Take the passenger to {0}',
+  'Tới cửa là khách xuống': 'Get to the door and they get out',
+  'Chạy taxi cho Rico': 'Drive Rico\'s taxi',
+  'Rico gọi khách qua bộ đàm, đứng đâu cũng nhận được': 'Rico radios a passenger through wherever you are',
+  'Còn {} giây': '{0} s left',
+  'Hết giờ': 'Time is up',
 };
 
 export default page;

@@ -918,6 +918,23 @@ const city: Record<string, string> = {
   'Đường tắt của Rico': 'Rico\'s shortcut',
   'Sân khấu chợ đêm ở bến cảng, Marcus đang lên sóng. Gus đặt chiếc radio lên bàn: trong đó vọng ra tiếng xe chạy.': 'The night market stage on the harbour, Marcus on air. Gus puts his radio on the desk: the sound of a car comes out of it.',
   '"{}" mở khi bạn nghe hết "{}".': '"{0}" opens once you have heard all of "{1}".',
+  'Tới nơi, hơi trễ': 'There, a little late',
+  'Tới nơi đúng giờ!': 'There on time!',
+  'Đang gọi khách…': 'Calling a passenger…',
+  'Một ông khách lên xe': 'A man gets in',
+  'Một cô khách lên xe': 'A woman gets in',
+  'Nghe lại: mất xu thưởng nghe một lần': 'Hear it again: loses the first-listen bonus',
+  'Khách muốn đi đâu?': 'Where do they want to go?',
+  'Hôm nay Rico còn trả tiền {} cuốc.': 'Rico still pays for {0|one fare|{0} fares} today.',
+  'Hôm nay Rico đã trả đủ tiền cuốc; chạy tiếp vẫn để luyện nghe.': 'Rico has paid for all of today\'s fares; driving on is still listening practice.',
+  'Chở khách tới {} trong {} giây. Đường đi hiện trên bản đồ nhỏ.': 'Take the passenger to {0} in {1} seconds. The way is on the minimap.',
+  'Đi bộ thì không kịp: mượn xe taxi ở bến của Rico, hoặc gọi xe của bạn.': 'On foot you won\'t make it: borrow a taxi at Rico\'s rank, or call your own ride.',
+  'Chạy thôi': 'Let\'s go',
+  'Khách muốn tới {} cơ': 'They wanted {0}',
+  'Hôm nay Rico đã trả đủ tiền cuốc.': 'Rico has paid for all of today\'s fares.',
+  'Bạn chọn {}. Nghe lại khách nói:': 'You picked {0}. Hear what they said again:',
+  'Nghỉ thôi': 'Take a break',
+  'Khách tiếp': 'Next passenger',
 };
 
 export default city;

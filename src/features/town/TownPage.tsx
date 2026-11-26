@@ -47,7 +47,8 @@ import { narrowStage, useFullStage, useStageInsets, useTownTheme } from './stage
 import MiniMap from './map/MiniMap';
 import { metInStreet, playerStand, type TalkSetting } from './engine/staging';
 import { homeSetting, streetTalkView } from './streetModel';
-import { deliveriesLeftNow, getCarrying, handDelivery, useCarrying } from '../../core/town/deliveryStore';
+import { deliveriesLeftNow, getCarrying, handDelivery, startDeliveryClock, useCarrying } from '../../core/town/deliveryStore';
+import { deliverySeconds } from '../../core/town/delivery';
 import { townRomanceSteps, useTownLife } from '../../core/town/lifeStore';
 import { castLook, playerLookKey, profileLook, setPlayerLook, subscribePlayerLook } from './three/chars/looks';
 import { kidAge, kidsOf, partnerOf } from '../../core/town/life';
@@ -404,7 +405,15 @@ export default function TownPage() {
     [cafeDay, carrying, deliveriesLeft, caseToday],
   );
   const quests = useMemo(() => townQuests(overview.places, suggested?.place.id ?? null, townStory, jobs), [overview.places, suggested, townStory, jobs]);
-  const quest = followed(quests, questPick);
+  // an order of Emma's in hand with its clock running is THE quest (its card counts down; who it is for stays the puzzle)
+  const quest = carried?.state === 'carrying' && carried.until !== null ? (quests.find((q) => q.id === 'job:carry') ?? followed(quests, questPick)) : followed(quests, questPick);
+  // the clock starts as the learner sets off: Emma's panel closed with the order in hand
+  useEffect(() => {
+    if (activity || carried?.state !== 'carrying' || carried.until !== null) return;
+    const me = stage.current?.mapSnapshot()?.player;
+    const door = TOWN_WORLD.places.find((p) => p.id === carried.order.to)?.door;
+    startDeliveryClock(deliverySeconds(me && door ? Math.hypot(door.x + 0.5 - me.x, door.y + 0.5 - me.y) : 30));
+  }, [activity, carried]);
   const questTarget = quest?.target ?? null;
   const lead = (questTarget?.kind === 'resident' ? overview.places.find((p) => p.place.id === questTarget.id) : undefined) ?? suggested;
 
@@ -1105,6 +1114,7 @@ export default function TownPage() {
             quests={quests}
             current={quest}
             stage={stage}
+            deadline={quest?.id === 'job:carry' && carried?.state === 'carrying' ? carried.until : null}
             onPick={(q) => {
               setQuestPick(q.id);
               // the day's games: to Emma's door first when it is somewhere to go, then the game's panel

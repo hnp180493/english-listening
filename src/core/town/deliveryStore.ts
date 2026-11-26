@@ -24,8 +24,11 @@ export interface Carrying {
   state: 'carrying' | 'done' | 'cold';
   /** The last wrong person tried (their place id), for the note. */
   wrong: string | null;
-  /** Set when done: what it paid and what they said. */
-  result: { xu: number; bond: number; thanks: StoryLine | null } | null;
+  /** When the clock runs out (epoch ms; null: not started, the learner is still with Emma), and how long it was (s). */
+  until: number | null;
+  seconds: number;
+  /** Set when done: what it paid (`rush`: in time, its bonus included) and what they said. */
+  result: { xu: number; bond: number; rush: boolean; thanks: StoryLine | null } | null;
 }
 
 let carrying: Carrying | null = null;
@@ -64,9 +67,16 @@ export function takeDelivery(now: number = Date.now()): DeliveryOrder | null {
   const p = loadTownProgress();
   const order = pickDelivery(DELIVERIES, (id) => sent.has(id), (id) => friendHearts(p, id), now);
   if (!order) return null;
-  carrying = { order, plays: 0, misses: 0, state: 'carrying', wrong: null, result: null };
+  carrying = { order, plays: 0, misses: 0, state: 'carrying', wrong: null, until: null, seconds: 0, result: null };
   notify();
   return order;
+}
+
+/** The learner sets off with the order (Emma's panel closed): the clock starts, once. */
+export function startDeliveryClock(seconds: number, now: number = Date.now()): void {
+  if (carrying?.state !== 'carrying' || carrying.until !== null) return;
+  carrying = { ...carrying, seconds, until: now + seconds * 1000 };
+  notify();
 }
 
 /** Emma's words were played once more. */
@@ -92,7 +102,8 @@ export function handDelivery(placeId: string, now: number = Date.now()): Carryin
   const device = townDevice();
   const day = townDay(now);
   const before = loadTownProgress();
-  const xu = deliveryXu(c.plays, c.misses);
+  const rush = c.until !== null && now <= c.until;
+  const xu = deliveryXu(c.plays, c.misses, rush);
   let next = addEarned(before, device, xu);
   let bond = 0;
   if (!dayHas(before, day, 'sent', placeId)) {
@@ -102,7 +113,7 @@ export function handDelivery(placeId: string, now: number = Date.now()): Carryin
   }
   commitTown(next, now);
   const thanks = residentArc(placeId)?.reactions.likes ?? null;
-  carrying = { ...c, state: 'done', wrong: null, result: { xu, bond, thanks: thanks && thanks.text.trim() ? thanks : null } };
+  carrying = { ...c, state: 'done', wrong: null, result: { xu, bond, rush, thanks: thanks && thanks.text.trim() ? thanks : null } };
   notify();
   return carrying;
 }

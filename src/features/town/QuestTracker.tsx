@@ -54,11 +54,18 @@ export default function QuestTracker({ quests, current, stage, onPick, deadline 
         </span>
         <span className="town-quest-text">
           <span className="town-quest-title">{current.title}</span>
-          <span className="town-quest-step">
-            {current.step}
-            {shownFar !== null && shownFar >= 1.6 && <span className="town-quest-far tabular"> · {metres(shownFar)}</span>}
-            {left !== null && <span className={'town-quest-clock tabular' + (left <= 15 ? ' is-low' : '')}> · {left > 0 ? tl`còn ${left} giây` : 'hết giờ'}</span>}
-          </span>
+          {left !== null ? (
+            // against the clock: the time first, then how far (the step is in the list; a long one cut the time off)
+            <span className="town-quest-step">
+              <span className={'town-quest-clock tabular' + (left <= 15 ? ' is-low' : '')}>{left > 0 ? tl`Còn ${left} giây` : 'Hết giờ'}</span>
+              {shownFar !== null && shownFar >= 1.6 && <span className="town-quest-far tabular"> · {metres(shownFar)}</span>}
+            </span>
+          ) : (
+            <span className="town-quest-step">
+              {current.step}
+              {shownFar !== null && shownFar >= 1.6 && <span className="town-quest-far tabular"> · {metres(shownFar)}</span>}
+            </span>
+          )}
         </span>
         {quests.length > 1 && (
           <span className="town-quest-more" aria-hidden="true">

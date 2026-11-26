@@ -3,7 +3,7 @@ import { RESIDENT_ARCS } from '../../data/stories';
 import { TOWN_PLACES } from '../../data/town';
 import { DELIVERIES } from '../../data/townDeliveries';
 import { CAFE_ITEMS } from './cafeTypes';
-import { deliveriesLeft, DELIVERY_DAY, DELIVERY_PER_SHIFT, deliveryLevel, deliveryXu, pickDelivery } from './delivery';
+import { deliveriesLeft, DELIVERY_DAY, DELIVERY_PER_SHIFT, DELIVERY_RUSH_XU, deliveryLevel, deliverySeconds, deliveryXu, pickDelivery } from './delivery';
 
 describe('the café makes the deliveries', () => {
   it('two a shift, four a day, less what was carried', () => {
@@ -36,6 +36,11 @@ describe('the café makes the deliveries', () => {
   it('pays more when Emma was heard once and nobody else was tried', () => {
     expect(deliveryXu(1, 0)).toBeGreaterThan(deliveryXu(2, 0));
     expect(deliveryXu(1, 1)).toBe(deliveryXu(3, 1));
+    // in time: its bonus on top of the rest
+    expect(deliveryXu(2, 1, true)).toBe(deliveryXu(2, 1) + DELIVERY_RUSH_XU);
+    expect(deliverySeconds(0)).toBe(25);
+    expect(deliverySeconds(30)).toBe(41);
+    expect(deliverySeconds(400)).toBe(80);
   });
 });
 

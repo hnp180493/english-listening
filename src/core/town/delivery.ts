@@ -12,6 +12,8 @@ export const DELIVERY_DAY = 4;
 /** Xu for a delivery handed to the right person; more when Emma was heard once and nobody else was tried. */
 export const DELIVERY_XU = 4;
 export const DELIVERY_CLEAN_XU = 2;
+/** Handed over before the clock ran out (owner, 2026-11-26: a rush like GTA's; startDeliveryClock). */
+export const DELIVERY_RUSH_XU = 2;
 /** Friendship with the one it was for (once a day each). */
 export const DELIVERY_BOND = 8;
 /** Wrong people tried before the order goes cold. */
@@ -46,6 +48,14 @@ export function pickDelivery(orders: readonly DeliveryOrder[], sent: (placeId: s
 }
 
 /** Xu of a delivery that reached the right person. */
-export function deliveryXu(plays: number, misses: number): number {
-  return DELIVERY_XU + (plays <= 1 && misses === 0 ? DELIVERY_CLEAN_XU : 0);
+export function deliveryXu(plays: number, misses: number, rush = false): number {
+  return DELIVERY_XU + (plays <= 1 && misses === 0 ? DELIVERY_CLEAN_XU : 0) + (rush ? DELIVERY_RUSH_XU : 0);
+}
+
+/**
+ * Seconds to take an order `tiles` away (straight line, from where the learner stands when Emma's panel closes): about
+ * 0.7 s a tile and a little to set off, which a run makes, a ride makes with ease, a stroll to the far side not.
+ */
+export function deliverySeconds(tiles: number): number {
+  return Math.max(25, Math.min(80, Math.round(20 + 0.7 * Math.max(0, tiles))));
 }

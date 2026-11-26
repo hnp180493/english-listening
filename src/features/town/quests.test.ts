@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CityScene, CitySeason } from '../../core/town/cityTypes';
 import type { PlaceView } from '../../core/town/overview';
 import type { ShiftDef } from '../../core/town/shiftTypes';
-import { cityQuests, followed, townQuests } from './quests';
+import { cityQuests, followed, taxiQuest, townQuests } from './quests';
 
 const view = (id: string, resident: string, episode: { order: number; title: string; mode?: string } | null, built = true): PlaceView =>
   ({ place: { id, resident, name: `nhà ${resident}` }, built, episode }) as unknown as PlaceView;
@@ -65,5 +65,12 @@ describe('the city as quests', () => {
   it('never names a city scene by its title (the answers)', () => {
     expect(q[2].title).toBe('Nghe chuyện của Rico · Tập 1');
     expect(q[4].title).toBe('Nói chuyện với Frank');
+  });
+});
+
+describe("Rico's taxi as a quest", () => {
+  it('a passenger in the car: where to, with the place to drive to; else the job, with nowhere to walk', () => {
+    expect(taxiQuest({ to: 'osei', name: 'Bệnh viện Westbay' })).toMatchObject({ id: 'taxi:ride', title: 'Chở khách tới Bệnh viện Westbay', target: { kind: 'resident', id: 'osei' } });
+    expect(taxiQuest(null)).toMatchObject({ id: 'taxi:fare', title: 'Chạy taxi cho Rico', target: null });
   });
 });
