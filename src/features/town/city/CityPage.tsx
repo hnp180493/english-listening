@@ -35,6 +35,7 @@ import { Coin } from '../art';
 import type { Marker, Near, StageState, TownStageHandle } from '../engine/stage';
 import { usePanelKeys } from '../panelKeys';
 import { usePlayerOnStage } from '../playerStage';
+import MiniMap from '../map/MiniMap';
 import ListenPanel from '../scenes/ListenPanel';
 import { listenTitle, thingPrompt } from '../scenes/things';
 import { playSfx } from '../sfx';
@@ -445,6 +446,8 @@ export default function CityPage() {
           </div>
         </div>
 
+        {/* the minimap, as in the town (a picture only: the city has no full map) */}
+        {!flat && ready && !sheet && !welcome && <MiniMap stage={stage} state={state} hint={suggested ? suggested.at : null} theme={theme} world={world} />}
         {welcome && ready && !sheet && (
           <div className="town-welcome" role="note">
             <span className="city-welcome-icon" aria-hidden="true">

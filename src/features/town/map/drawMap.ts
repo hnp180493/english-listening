@@ -12,7 +12,7 @@ import type { TownPalette } from '../engine/palette';
 import { C, mixHex } from '../three/scene/palette3d';
 import { footprint, PLACE_ART, type PlaceArt } from './mapGeo';
 import { pierCorners } from './mapHit';
-import { mountainHeight, RANGE_DEPTH } from '../three/scene/range';
+import { mountainHeight, RANGE_DEPTH, TOWN_RANGE, type RangeShape } from '../three/scene/range';
 import { liftPx, toBox, viewMatrix, type Box, type MapView, type Pt } from './mapView';
 
 /** What stands in town now (the stage's state). */
@@ -199,7 +199,7 @@ export function mapScene(state: MapState, world: TownWorld = TOWN_WORLD): MapSce
     }
   }
   if (state.decorations.has('fountain')) for (const s of world.decorations.fountain ?? []) dots.push({ x: s.x + 0.5, y: s.y + 0.5, r: 0.55, color: C.waterShallow, rim: C.stone });
-  return { world, water, waterDeep, sand, coast: world.coast ? rangeCells(world.size) : null, jetties, plaza, paths, fields, trees, blocks, dots, hills, pier };
+  return { world, water, waterDeep, sand, coast: world.coast ? rangeCells(world.size, world.range ?? TOWN_RANGE) : null, jetties, plaza, paths, fields, trees, blocks, dots, hills, pier };
 }
 
 /**
@@ -207,14 +207,14 @@ export function mapScene(state: MapState, world: TownWorld = TOWN_WORLD): MapSce
  * grey rock, the sea left out), and their peaks (the highest point of each patch), drawn standing as little snow-capped
  * mountains on the full map.
  */
-function rangeCells(size: number): NonNullable<MapScene['coast']> {
+function rangeCells(size: number, shape: RangeShape): NonNullable<MapScene['coast']> {
   const step = 1;
   const cells: { x: number; y: number; c: string }[] = [];
   const heights = new Map<string, number>();
   for (let y = -RANGE_DEPTH; y < size + 8; y += step) {
     for (let x = -RANGE_DEPTH; x < size + 8; x += step) {
       if (x >= 0 && y >= 0) continue;
-      const h = mountainHeight(x + step / 2, y + step / 2, size);
+      const h = mountainHeight(x + step / 2, y + step / 2, size, shape);
       heights.set(`${x},${y}`, h);
       if (h < 0) continue;
       const c = h < 0.3 ? C.sand : h < 3.5 ? mixHex(C.grassDeep, C.pine, h / 3.5) : h < 8 ? mixHex(C.pine, C.pineDeep, (h - 3.5) / 4.5) : mixHex(C.pineDeep, C.stoneDark, Math.min(1, (h - 8) / 3));

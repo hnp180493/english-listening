@@ -36,6 +36,12 @@ export const TOWN_RANGE: RangeShape = { north: [53.5], west: [32.5], falls: true
 
 /** A road through a pass climbs this much a tile, from the map's edge (a gentle hill road). */
 export const ROAD_CLIMB = 0.045;
+/**
+ * The range's ground never lies lower than this near the island (tile edges): at 0 it lay in the same plane as the
+ * island's grass and a hair over its rim, and the two flickered along the edge (owner, 2026-11-26: "sao rìa của map nó
+ * cứ giật giật miết vậy?"). A road through a pass starts at it.
+ */
+export const EDGE_LIFT = 0.04;
 /** Half the width of the level floor of a road's cutting, and where its banks have risen back to the mountain. */
 export const CUT_FLOOR = 1.5;
 export const CUT_BANK = 5;
@@ -76,7 +82,7 @@ export function mountainHeight(x: number, z: number, size: number, shape: RangeS
   const pass = (along: number, at: number) => Math.exp(-((along - at) ** 2) / 22) * (1 - smooth(10, 20, d));
   const cut = (along: number, at: number) => {
     const k = 1 - smooth(CUT_FLOOR, CUT_BANK, Math.abs(along - at));
-    if (k > 0) h = h * (1 - k) + Math.min(h, d * ROAD_CLIMB) * k;
+    if (k > 0) h = h * (1 - k) + Math.min(h, EDGE_LIFT + d * ROAD_CLIMB) * k;
   };
   const through = (along: number, at: number) => {
     if (shape.roads) cut(along, at);
@@ -93,6 +99,10 @@ export function mountainHeight(x: number, z: number, size: number, shape: RangeS
       else h = h * (1 - ravine) + Math.min(h, BASIN) * ravine;
     }
   }
+  // never in the island's plane near its edge (see EDGE_LIFT); further out the foothills, the sea, the ravine as they are
+  // (only beside the island itself: not out over the sea past its near ends, not in the falls' ravine and pool)
+  const ravine = shape.falls && x < 0 && z >= 0 && Math.abs(z - FALLS_Z) < 4.5;
+  if (d < 4 && u >= -1 && u <= size && !ravine) h = Math.max(h, EDGE_LIFT * (1 - smooth(2, 4, d)));
   return h;
 }
 

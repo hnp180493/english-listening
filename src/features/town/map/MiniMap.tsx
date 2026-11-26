@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, type RefObject } from 'react';
-import { TOWN_WORLD } from '../../../data/townWorld';
+import { TOWN_WORLD, type TownWorld } from '../../../data/townWorld';
 import { paletteFor, type TownTheme } from '../engine/palette';
 import type { MapSnapshot, StageState, TownStageHandle } from '../engine/stage';
 import { drawMap, mapScene } from './drawMap';
@@ -32,14 +32,15 @@ function same(a: MapSnapshot | null, b: MapSnapshot): boolean {
  * owner wanted it fixed; the full map does not turn either), the player's arrow the way they face, the residents as dots in their house's colour (a ring when something waits). A click opens the
  * full map. Shown on a wide stage only, and hidden during talks and panels (map.css).
  */
-export default function MiniMap({ stage, state, hint, theme, onOpen }: { stage: RefObject<TownStageHandle | null>; state: StageState; hint: string | null; theme: TownTheme; onOpen: () => void }) {
+/** `world`: the map the stage shows (the town by default; Westbay). Without `onOpen` it is a picture, not a button (the city has no full map). */
+export default function MiniMap({ stage, state, hint, theme, onOpen, world = TOWN_WORLD }: { stage: RefObject<TownStageHandle | null>; state: StageState; hint: string | null; theme: TownTheme; onOpen?: () => void; world?: TownWorld }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const built = state.built;
   const sites = state.sites;
   const decorations = state.decorations;
   const scene = useMemo(
-    () => mapScene({ built: new Set(built), sites: sites ? new Set(sites) : null, decorations: new Set(decorations) }, TOWN_WORLD),
-    [built, sites, decorations],
+    () => mapScene({ built: new Set(built), sites: sites ? new Set(sites) : null, decorations: new Set(decorations) }, world),
+    [built, sites, decorations, world],
   );
   const sceneRef = useRef(scene);
   const pal = paletteFor(theme);
@@ -123,8 +124,14 @@ export default function MiniMap({ stage, state, hint, theme, onOpen }: { stage: 
   }, [stage]);
 
   return (
-    <button type="button" className="town-map-mini" onClick={onOpen} aria-label="Mở bản đồ" title="Bản đồ (M)">
-      <canvas ref={canvasRef} className="town-map-mini-canvas" aria-hidden="true" />
-    </button>
+    onOpen ? (
+      <button type="button" className="town-map-mini" onClick={onOpen} aria-label="Mở bản đồ" title="Bản đồ (M)">
+        <canvas ref={canvasRef} className="town-map-mini-canvas" aria-hidden="true" />
+      </button>
+    ) : (
+      <div className="town-map-mini" role="img" aria-label="Bản đồ nhỏ">
+        <canvas ref={canvasRef} className="town-map-mini-canvas" aria-hidden="true" />
+      </div>
+    )
   );
 }

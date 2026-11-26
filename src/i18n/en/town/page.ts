@@ -275,6 +275,7 @@ const page: Record<string, string> = {
   'Rủ đi cùng': 'Bring a friend',
   'Tới nghe': 'Go listen',
   '{}: chương hôm nay ở chỗ {}.': '{0}: today\'s chapter is at {1}.',
+  'Bản đồ nhỏ': 'Minimap',
 };
 
 export default page;

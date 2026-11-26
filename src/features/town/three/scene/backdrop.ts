@@ -7,10 +7,10 @@
 // Cheap on purpose (a phone draws it too): the mountains are one height field of about 10,000 quads in the town's
 // own material, the sea a coarse grid of two planes (its floor and its surface), the falls a few dozen triangles.
 
-import { BufferGeometry, Color, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, type Material } from 'three';
+import { BufferGeometry, Color, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, type Material } from 'three';
 import type { TownWorld } from '../../../../data/townWorld';
 import { hash2, valueNoise } from './coords';
-import { CUT_BANK, FALLS_OUT, FALLS_TOP, FALLS_Z, mountainHeight, RANGE_DEPTH, ROAD_CLIMB, smooth, TOWN_RANGE } from './range';
+import { CUT_BANK, EDGE_LIFT, FALLS_OUT, FALLS_TOP, FALLS_Z, mountainHeight, RANGE_DEPTH, ROAD_CLIMB, smooth, TOWN_RANGE } from './range';
 import type { Materials } from './materials';
 import { C } from './palette3d';
 import { POND_BED, WATER_LEVEL } from './terrain';
@@ -234,8 +234,8 @@ export function buildBackdrop(world: TownWorld, mats: Materials): Backdrop {
     const STEP = 0.75;
     const strip = (at: number, west: boolean) => {
       for (let d = 0; d < R - 2; d += STEP) {
-        const y0 = Math.max(0, d * ROAD_CLIMB) + 0.03;
-        const y1 = Math.max(0, (d + STEP) * ROAD_CLIMB) + 0.03;
+        const y0 = EDGE_LIFT + d * ROAD_CLIMB + 0.02;
+        const y1 = EDGE_LIFT + (d + STEP) * ROAD_CLIMB + 0.02;
         // (x, z) of the four corners: out along −x (west) or −z (north)
         const q = west
           ? [
@@ -263,7 +263,10 @@ export function buildBackdrop(world: TownWorld, mats: Materials): Backdrop {
       g.setAttribute('position', new Float32BufferAttribute(pos, 3));
       g.setAttribute('color', new Float32BufferAttribute(cols, 3));
       g.computeVertexNormals();
-      const m = add(g, mats.std, 1);
+      // drawn over the ground it lies on, never fighting it (a road a hair over a slope flickered from afar)
+      const roadMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+      own.push(roadMat);
+      const m = add(g, roadMat, 1);
       if (m) m.receiveShadow = true;
     }
   }
