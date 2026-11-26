@@ -4,6 +4,7 @@
 
 import { lotNature, lotOf, treesOf } from '../../../../core/town/colliders';
 import type { DecorationId, PlaceId, Tile, TownWorld, WorldPlace } from '../../../../data/townWorld';
+import { lampLookAt, type LampLook } from '../../../../data/townFurniture';
 import type { StageState } from '../../engine/sim';
 import { hash2, middleOf } from './coords';
 
@@ -56,6 +57,7 @@ export function occupiedTiles(world: TownWorld): Set<string> {
   for (const prop of world.props) prop.tiles.forEach(add);
   for (const spots of Object.values(world.decorations)) for (const s of spots) if (s.solid) add(s);
   if (world.activities) for (const a of Object.values(world.activities)) add(a.stand);
+  for (const f of world.furniture ?? []) add(f);
   return out;
 }
 
@@ -121,16 +123,29 @@ export function lampArm(flip: boolean | undefined): { x: number; y: number } {
   return flip ? { x: -k, y: k } : { x: k, y: -k };
 }
 
+/** How much bigger than modelled the old-town lantern and the two-globe lamp stand (furniture.ts FURNITURE_SCALE). */
+export const LANTERN_SCALE = 1.15;
+export const GLOBES_SCALE = 1.1;
+
+/**
+ * Where the light of a street lamp standing on tile (x, y) comes from, by its look (data/townFurniture.ts): the classic
+ * lamp's head out over its arm, the lantern's glass box on top of its post, the middle between the two globes (as
+ * furniture.ts builds them, scaled).
+ */
+export function lampLight(look: LampLook, s: { x: number; y: number; flip?: boolean }): { x: number; y: number; z: number } {
+  if (look === 'lamp-lantern') return { x: s.x + 0.5, y: (LAMP_HEIGHT * 0.92 + 0.12) * LANTERN_SCALE, z: s.y + 0.5 };
+  if (look === 'lamp-globes') return { x: s.x + 0.5, y: (LAMP_HEIGHT + 0.09) * GLOBES_SCALE, z: s.y + 0.5 };
+  const a = lampArm(s.flip);
+  return { x: s.x + 0.5 + a.x * LAMP_ARM, y: LAMP_HEIGHT - 0.1, z: s.y + 0.5 + a.y * LAMP_ARM };
+}
+
 /** Where light comes from at night, for what is built and bought (the scene keeps a few real lights at the nearest). */
 export function lamps(world: TownWorld, state: Pick<StageState, 'built' | 'decorations'>): Lamp[] {
   const out: Lamp[] = [];
   const has = (id: DecorationId) => state.decorations.includes(id);
   for (const id of ['lamps1', 'lamps2'] as const) {
     if (!has(id)) continue;
-    for (const s of world.decorations[id] ?? []) {
-      const a = lampArm(s.flip);
-      out.push({ x: s.x + 0.5 + a.x * LAMP_ARM, y: LAMP_HEIGHT - 0.1, z: s.y + 0.5 + a.y * LAMP_ARM, k: 1 });
-    }
+    for (const s of world.decorations[id] ?? []) out.push({ ...lampLight(lampLookAt(world, s), s), k: 1 });
   }
   if (has('stall')) for (const s of world.decorations.stall ?? []) out.push({ x: s.x + 0.5, y: 1.1, z: s.y + 0.5, k: 0.6 });
   for (const p of world.props) {

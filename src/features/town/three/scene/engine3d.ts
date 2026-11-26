@@ -22,8 +22,10 @@ import { Particles } from '../../engine/particles';
 import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
 import { createCharacter, createPet, passerLook, type Character3DPlus } from '../characters';
 import { avatarsSettled, dressInVrm, dressWhenNear } from '../chars/vrmPeople';
-import { glowOf, lightningAt, nightOf, type Sky, type SkyNow } from '../../../../core/town/sky';
-import { skyNow } from '../../../../core/town/skyNow';
+import { gameHour, glowOf, lightningAt, nightOf, type Sky, type SkyNow } from '../../../../core/town/sky';
+import { skyNow, wetNow } from '../../../../core/town/skyNow';
+import { sunAt } from '../../../../core/town/sunPath';
+import { airNow } from './skyLook';
 import { Rain } from './rain';
 import { getTownUi } from '../../townUi';
 
@@ -315,6 +317,11 @@ export class TownEngine3D {
   private rain: Rain | null = null;
   private flash = 0;
   private baseExposure = 1;
+  /** How wet the ground is (sunPath.ts wetAt; debugSky holds one), the air due to be set, the sky canvas's palettes. */
+  private wet = 0;
+  private wetForce: number | null = null;
+  private airDue = true;
+  private skyPals = { day: DAY_PAL, night: NIGHT_PAL };
   /** When the first frame was drawn (ms; the town shows itself a little later, once its avatars are on). */
   private firstFrameAt = 0;
   // camera
@@ -489,7 +496,8 @@ export class TownEngine3D {
    * Dev only (window.__town3d.debugSky(18.5, 'storm') in a headless check): hold an hour of the game and a sky, or
    * give the clock back with no arguments.
    */
-  debugSky(hour?: number, sky?: Sky): void {
+  debugSky(hour?: number, sky?: Sky, wet?: number): void {
+    this.wetForce = hour === undefined ? null : (wet ?? (sky === 'rain' || sky === 'storm' ? 1 : 0));
     if (hour === undefined) this.skyForce = null;
     else {
       const mixes = { clear: [0, 0, 0, 0], cloudy: [0.7, 0, 0, 0.25], rain: [0.9, 0.75, 0, 0.5], storm: [1, 1, 1, 1] } as const;
@@ -2181,12 +2189,21 @@ export class TownEngine3D {
       const was = this.sky;
       this.sky = this.skyForce ?? skyNow();
       if (Math.abs(was.mix.cloud - this.sky.mix.cloud) + Math.abs(was.glow - this.sky.glow) > 0.004) this.skyDirty = true;
+      this.wet = this.wetForce ?? wetNow();
+      this.airDue = true;
     }
     const nightTo = this.sky.night;
     const nightWas = this.night;
     this.night = this.still || this.first ? nightTo : this.night + (nightTo - this.night) * (1 - Math.exp(-dt * NIGHT_RATE));
     if (Math.abs(this.night - nightTo) < 0.003) this.night = nightTo;
     if (this.night !== nightWas || this.first || this.skyDirty) this.applyNight();
+    // the air and the ground: mist, wet ground, cloud shadows, the sky's colours (skyLook.ts)
+    if (this.airDue || this.night !== nightWas) {
+      this.airDue = false;
+      const a = airNow(this.sky, this.night, this.wet, DAY_PAL, NIGHT_PAL);
+      this.skyPals = a.pals;
+      this.town.setAir(a.air);
+    }
     // lightning: the whole picture brighter for a moment (the thunder is the page's, from the same clock)
     const flash = this.still ? 0 : lightningAt(Date.now(), this.sky.mix.storm);
     if (flash !== this.flash) {
@@ -3165,6 +3182,9 @@ export class TownEngine3D {
     const e = groundHalfExtent(this.dist, this.pitch, this.camera.aspect);
     this.town.mats.shared.time.value = this.t;
     this.town.mats.shared.sway.value = this.still ? 0 : 1 + 0.9 * this.sky.mix.wind;
+    // the sun's (by night the moon's) arc over the game's day: shadows turn and lengthen (sunPath.ts)
+    const sun = sunAt(this.skyForce ? this.sky.hour : gameHour(Date.now()));
+    this.town.setSun(sun.dir, sun.strength);
     this.town.update(this.t, this.target, Math.max(e.across, e.deep) * 1.25, this.still);
     // how far from the camera's target somebody is still drawn and animated (next frame's place): what shows, a margin
     this.reach = Math.max(e.across, e.deep) * 1.4 + 3;
@@ -3265,7 +3285,7 @@ export class TownEngine3D {
       drawSky(g, this.viewW, this.viewH, pal, this.t, this.still);
       g.globalCompositeOperation = 'source-over';
     };
-    paint(x, n >= 1 ? NIGHT_PAL : DAY_PAL);
+    paint(x, n >= 1 ? this.skyPals.night : this.skyPals.day);
     if (n > 0 && n < 1) {
       let h = this.skyBlend;
       if (!h) h = this.skyBlend = document.createElement('canvas');
@@ -3275,7 +3295,7 @@ export class TownEngine3D {
       }
       const hx = h.getContext('2d');
       if (hx) {
-        paint(hx, NIGHT_PAL);
+        paint(hx, this.skyPals.night);
         x.setTransform(1, 0, 0, 1, 0, 0);
         x.globalAlpha = n;
         x.drawImage(h, 0, 0);

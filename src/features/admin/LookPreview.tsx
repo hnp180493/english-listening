@@ -88,7 +88,7 @@ export default function LookPreview() {
         ))}
       </ul>
       <h3 className="adm-sub">Đồ đạc mới trên phố</h3>
-      <p className="adm-scene">Hiện cả thị trấn chỉ có một kiểu ghế và một kiểu đèn. Đây là các kiểu đề xuất thêm.</p>
+      <p className="adm-scene">Đã đặt vào thị trấn và Westbay: mỗi khu một kiểu ghế, một kiểu đèn; đồ nhỏ đứng ở chỗ hợp lý. Mỗi món vẽ đúng cỡ như trong thế giới.</p>
       <ul className="adm-faces">
         {FURNITURE_IDS.map((id) => (
           <li key={id} className="adm-thing">

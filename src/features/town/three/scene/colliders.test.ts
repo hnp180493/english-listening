@@ -16,6 +16,7 @@ import { bodyFits, moveCircle, PLAYER_RADIUS, projectColliders, TownSim } from '
 import { lotState, mapTrees, natureOf } from './layout';
 import { buildInn, buildPlace, buildSite, type Thing } from './places3d';
 import { buildDecorations, buildProject, buildProps, buildScenery, type Piece } from './props3d';
+import { furniturePiece } from './streetFurniture';
 
 const W = TOWN_WORLD;
 /** People are about 0.8 tile tall (chars/person.ts): what is higher (eaves, awnings, a crown) is over their heads. */
@@ -107,6 +108,11 @@ function sceneSolids(world: TownWorld, state: WalkState): Solid[] {
     const kind = world.scenery![pc.index].kind;
     out.push({ what: `scenery:${pc.index}:${kind}`, group: 'scenery:' + kind, box: footprint(pc, geosOf(pc)) });
   }
+  // the street furniture is drawn merged by chunks: each thing measured on its own, where it stands
+  (world.furniture ?? []).forEach((f, i) => {
+    const pc = furniturePiece(f, i);
+    out.push({ what: `furniture:${i}:${f.kind}`, group: 'furniture:' + f.kind, box: footprint(pc, geosOf(pc)) });
+  });
   return out;
 }
 

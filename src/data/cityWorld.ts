@@ -22,6 +22,7 @@
 // with a building of their own and a story, the people known with a stall, a booth or just a pitch on the pavement.
 
 import { axisMap, stretchWorld, type Cut } from './stretchWorld';
+import { CITY_FURNITURE } from './townFurniture';
 import type { ActivitySpot, DecorationId, DecorSpot, PlaceId, Seat, ThingId, Tile, TownWorld, WorldDistrict, WorldLife, WorldPlace, WorldProp, WorldScenery } from './townWorld';
 
 /** The map as first laid out (every coordinate below); RAW_WORLD is it stretched (CITY_CUTS_X / _Y). */
@@ -545,6 +546,8 @@ export const CITY_WORLD: TownWorld = {
     { kind: 'scooter', at: T(34, 50), heading: 0 },
     { kind: 'bike', at: T(18, 32), heading: Math.PI / 2 },
   ],
+  // bins, post boxes, crates, hydrants… (data/townFurniture.ts, in the stretched map's coordinates)
+  furniture: CITY_FURNITURE,
 };
 export const CITY_SIZE = CITY_WORLD.size;
 export const CITY_ROWS: readonly string[] = CITY_WORLD.rows;

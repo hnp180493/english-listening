@@ -1,10 +1,12 @@
-// New street furniture, PROPOSED (owner, 2026-11-26: "đồ đạc cũng đa dạng khác biệt lên"): benches of four kinds, two
-// more lamps, bins, a bike rack, a post box, crates and barrels, flower pots, a hydrant, a newspaper box, a picnic
-// table. Built in code in the town's style (Merge + palette3d), shown only on the admin page's preview
-// (features/admin/LookPreview.tsx, via ../thumbs.ts renderFurniture) until the owner says which go into the town.
+// Street furniture (owner, 2026-11-26: "đồ đạc cũng đa dạng khác biệt lên"; docs/town.md §26): benches of four kinds,
+// two more lamps, bins, a bike rack, a post box, crates and barrels, flower pots, a hydrant, a newspaper box, a picnic
+// table. Built in code in the town's style (Merge + palette3d). In the world since 2026-11-26: the benches and lamps by
+// district, the small things where data/townFurniture.ts puts them (streetFurniture.ts). The admin page's preview
+// (features/admin/LookPreview.tsx, via ../thumbs.ts renderFurniture) shows each piece as it stands in the world, its
+// FURNITURE_SCALE included.
 
 import type { BufferGeometry } from 'three';
-import { LAMP_HEIGHT } from './layout';
+import { GLOBES_SCALE, LAMP_HEIGHT, LANTERN_SCALE } from './layout';
 import { Merge, shapes } from './merge';
 import { C } from './palette3d';
 import { SEAT_TOP } from './props3d';
@@ -49,10 +51,33 @@ export interface FurnitureModel {
   sway: BufferGeometry | null;
 }
 
+/**
+ * How much bigger than modelled each piece stands in the world: the residents are tall avatars now (about 1.44 tiles)
+ * and a post box at their knee read as a toy. Seats keep 1 (people sit at SEAT_TOP). The colliders follow it
+ * (core/town/colliders.ts FURNITURE_SIZE, checked against these models by colliders.test.ts).
+ */
+export const FURNITURE_SCALE: Readonly<Record<FurnitureId, number>> = {
+  'bench-park': 1,
+  'bench-stone': 1,
+  'bench-log': 1,
+  'bench-picnic': 1,
+  'lamp-lantern': LANTERN_SCALE,
+  'lamp-globes': GLOBES_SCALE,
+  bins: 1.4,
+  'bike-rack': 1.35,
+  postbox: 1.7,
+  crates: 1.35,
+  pots: 1.35,
+  hydrant: 1.45,
+  'news-box': 1.6,
+};
+
 const GREEN_IRON = '#3f6b55';
-const seat = SEAT_TOP - 0.025;
+/** Where a bench's seat boards sit; read while building (props3d.ts and this file import each other). */
+const seatY = (): number => SEAT_TOP - 0.025;
 
 function benchPark(m: Merge): void {
+  const seat = seatY();
   // three slats on the seat, two on the back, cast-iron sides with arms
   for (let i = 0; i < 3; i++) m.add(shapes.box(0.78, 0.035, 0.07, 0.012, 1), C.woodLight, { y: seat, z: -0.08 + i * 0.08 });
   for (let i = 0; i < 2; i++) m.add(shapes.box(0.78, 0.06, 0.03, 0.012, 1), C.woodLight, { y: seat + 0.11 + i * 0.09, z: -0.14 - i * 0.015, rx: -0.18 });
@@ -65,6 +90,7 @@ function benchPark(m: Merge): void {
 }
 
 function benchStone(m: Merge): void {
+  const seat = seatY();
   m.add(shapes.box(0.8, 0.07, 0.28, 0.025, 2), C.stone, { y: seat - 0.01 });
   for (const k of [-1, 1]) m.add(shapes.box(0.12, seat - 0.04, 0.22, 0.02, 1), C.stoneDark, { x: k * 0.27, y: (seat - 0.04) / 2 });
   // a little moss at one end
@@ -72,16 +98,19 @@ function benchStone(m: Merge): void {
 }
 
 function benchLog(m: Merge): void {
-  // a half log on two stumps
-  m.add(shapes.cyl(0.11, 0.11, 0.82, 12), C.trunk, { y: seat - 0.04, rz: Math.PI / 2, s: [1, 1, 0.75] });
-  m.add(shapes.box(0.8, 0.02, 0.17, 0.008, 1), C.woodLight, { y: seat + 0.035 });
+  const seat = seatY();
+  // a half log on two stumps, its flat top cut where a seat is (SEAT_TOP: people sit on it, not in it)
+  const ly = seat - 0.095;
+  m.add(shapes.cyl(0.11, 0.11, 0.82, 12), C.trunk, { y: ly, rz: Math.PI / 2, s: [1, 1, 0.75] });
+  m.add(shapes.box(0.8, 0.02, 0.17, 0.008, 1), C.woodLight, { y: seat + 0.015 });
   for (const k of [-1, 1]) {
-    m.add(shapes.cyl(0.075, 0.085, seat - 0.08, 10), C.woodDark, { x: k * 0.28, y: (seat - 0.08) / 2 });
-    m.add(shapes.cyl(0.11, 0.11, 0.012, 12), C.woodLight, { x: k * 0.41, y: seat - 0.04, rz: Math.PI / 2 });
+    m.add(shapes.cyl(0.075, 0.085, ly, 10), C.woodDark, { x: k * 0.28, y: ly / 2 });
+    m.add(shapes.cyl(0.11, 0.11, 0.012, 12), C.woodLight, { x: k * 0.41, y: ly, rz: Math.PI / 2, s: [1, 1, 0.75] });
   }
 }
 
 function benchPicnic(m: Merge): void {
+  const seat = seatY();
   const top = SEAT_TOP + 0.13;
   m.add(shapes.box(0.82, 0.04, 0.42, 0.012, 1), C.wood, { y: top });
   for (const z of [-0.33, 0.33]) m.add(shapes.box(0.82, 0.035, 0.14, 0.012, 1), C.wood, { y: seat, z });
@@ -266,5 +295,15 @@ export function buildFurniture(id: FurnitureId): FurnitureModel {
       newsBox(m);
       break;
   }
-  return { body: m.build(), bulbs: bulbs.build(), sway: sway.build() };
+  const out = { body: m.build(), bulbs: bulbs.build(), sway: sway.build() };
+  const k = FURNITURE_SCALE[id];
+  if (k !== 1) {
+    for (const g of [out.body, out.bulbs, out.sway]) {
+      if (!g) continue;
+      g.scale(k, k, k);
+      g.computeBoundingSphere();
+      g.computeBoundingBox();
+    }
+  }
+  return out;
 }

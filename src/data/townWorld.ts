@@ -26,6 +26,8 @@
 // end of the main road, the lighthouse on the cape in the near corner, the sea at the map's edge. The sea round the
 // island and the mountains behind its far sides are seen only (three/scene/backdrop.ts).
 
+import { TOWN_FURNITURE, type WorldFurniture } from './townFurniture';
+
 export type PlaceId =
   | 'square'
   | 'cafe'
@@ -286,6 +288,8 @@ export interface TownWorld {
   roads?: 'cobble' | 'asphalt';
   /** Bikes, scooters, cars and horses parked about, to ride (features/town/three/scene/vehicles3d.ts). Left out = none. */
   vehicles?: readonly WorldVehicle[];
+  /** Bins, bike racks, post boxes, crates, pots, hydrants, newspaper boxes, picnic tables (data/townFurniture.ts). Left out = none. */
+  furniture?: readonly WorldFurniture[];
   /** The centre of the round plaza, on the tile grid. */
   plaza: { x: number; y: number; r: number };
   start: Tile;
@@ -872,6 +876,7 @@ export const TOWN_WORLD: TownWorld = {
   ],
   plaza: { x: 37.5, y: 33.5, r: 4.6 },
   start: { x: 38, y: 35 },
+  furniture: TOWN_FURNITURE,
 };
 
 export const PLACE_IDS: readonly PlaceId[] = WORLD_PLACES.map((p) => p.id);

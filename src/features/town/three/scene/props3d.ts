@@ -14,6 +14,8 @@ import { flatRoof, gableRoof, onFace, pyramid, rel, walls, windowOn, type Kit } 
 import { BLOCK_INSET, SCENERY_SIZE } from '../../../../core/town/colliders';
 import { treeGeometry } from './nature';
 import { WATER_LEVEL } from './terrain';
+import { benchLookAt, lampLookAt } from '../../../../data/townFurniture';
+import { benchPiece, lampPiece } from './streetFurniture';
 
 /** One thing to put in the town: merged geometries at a spot, and how it is shown. */
 export interface Piece {
@@ -358,9 +360,13 @@ function propPiece(prop: WorldProp, i: number, world: TownWorld, stationBuilt: b
     case 'market':
       marketStall(p, prop.v ?? 0);
       return piece('', i, at, p, 1.15, 0.42);
-    case 'bench':
+    case 'bench': {
+      // each district its own bench (streetFurniture.ts), the classic one where it is the district's
+      const look = prop.tiles[0] ? benchLookAt(world, prop.tiles[0]) : 'classic';
+      if (look !== 'classic') return benchPiece(look, at, prop.dir, '', i);
       benchParts(m, prop.dir);
       return piece('', i, at, p, 0.55, 0.38);
+    }
     case 'lantern': {
       m.add(shapes.box(0.18, 0.1, 0.18, 0.03, 1), C.stoneDark, { y: 0.05 });
       m.add(shapes.cyl(0.035, 0.04, 0.6, 8), C.woodDark, { y: 0.4 });
@@ -415,6 +421,11 @@ export function buildDecorations(world: TownWorld, decorations: readonly string[
   for (const id of ['lamps1', 'lamps2'] as const) {
     if (!has(id)) continue;
     spots(id).forEach((s, i) => {
+      const look = lampLookAt(world, s);
+      if (look !== 'classic') {
+        out.push(lampPiece(look, centre(s), s.flip, id, i));
+        return;
+      }
       const p = parts();
       streetLamp(p, lampArm(s.flip));
       out.push(piece(id, i, centre(s), p, LAMP_HEIGHT + 0.15, 0.18));
@@ -428,6 +439,11 @@ export function buildDecorations(world: TownWorld, decorations: readonly string[
     });
   if (has('benches'))
     spots('benches').forEach((s, i) => {
+      const look = benchLookAt(world, s);
+      if (look !== 'classic') {
+        out.push(benchPiece(look, centre(s), s.dir, 'benches', i));
+        return;
+      }
       const p = parts();
       benchParts(p.body, s.dir);
       out.push(piece('benches', i, centre(s), p, 0.55, 0.38));

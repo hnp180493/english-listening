@@ -10,6 +10,7 @@
 // the other way round.
 
 import type { Collider, Tile, TownWorld, WorldPlace, WorldProp } from '../../data/townWorld';
+import { benchLookAt, type BenchLook, type FurnitureKind } from '../../data/townFurniture';
 
 /** What decides what stands in town (the stage state's part that matters for walking). */
 export interface WalkState {
@@ -253,16 +254,56 @@ function boundsOf(tiles: readonly Tile[]) {
   return { x0, y0, x1, y1 };
 }
 
-/** A bench (0.74 long, seat and back 0.26 deep) at (x, y), looking `dir` (props3d.ts benchParts). */
-function bench(x: number, y: number, dir: 'e' | 's' | 'w' | undefined, what: string): Collider {
-  // local: x ±0.37, z −0.13 (the back) .. +0.12 (the seat's front); 'e' turns local +Z to world +x, 'w' to −x
-  if (dir === 'e') return box(x - 0.13, y - 0.37, x + 0.12, y + 0.37, what);
-  if (dir === 'w') return box(x - 0.12, y - 0.37, x + 0.13, y + 0.37, what);
-  return box(x - 0.37, y - 0.13, x + 0.37, y + 0.12, what);
+/**
+ * A bench's size by its look (half its length, then its back and its front from its middle, local −z .. +z): the
+ * classic one 0.74 long with seat and back 0.26 deep (props3d.ts benchParts), the districts' own (three/scene/
+ * furniture.ts, data/townFurniture.ts DISTRICT_LOOKS).
+ */
+export const BENCH_SIZE: Readonly<Record<BenchLook, { hx: number; back: number; front: number }>> = {
+  classic: { hx: 0.37, back: 0.13, front: 0.12 },
+  'bench-park': { hx: 0.415, back: 0.17, front: 0.155 },
+  'bench-stone': { hx: 0.4, back: 0.14, front: 0.14 },
+  'bench-log': { hx: 0.415, back: 0.085, front: 0.085 },
+};
+
+/** A bench at (x, y), looking `dir`, of a look (props3d.ts benchParts, streetFurniture.ts benchPiece). */
+function bench(x: number, y: number, dir: 'e' | 's' | 'w' | undefined, what: string, look: BenchLook = 'classic'): Collider {
+  // local: x ±hx, z −back .. +front (the seat's front); 'e' turns local +Z to world +x, 'w' to −x
+  const { hx, back, front } = BENCH_SIZE[look];
+  if (dir === 'e') return box(x - back, y - hx, x + front, y + hx, what);
+  if (dir === 'w') return box(x - front, y - hx, x + back, y + hx, what);
+  return box(x - hx, y - back, x + hx, y + front, what);
+}
+
+/**
+ * The small things' sizes at body height, as three/scene/furniture.ts builds them (scaled): a circle, or a box in the
+ * thing's own frame (x along its long side, z out of its front). Measured from the models; colliders.test.ts checks.
+ */
+export const FURNITURE_SIZE: Readonly<Record<FurnitureKind, { r: number } | { x0: number; x1: number; z0: number; z1: number }>> = {
+  bins: { x0: -0.42, x1: 0.41, z0: -0.2, z1: 0.2 },
+  'bike-rack': { x0: -0.36, x1: 0.36, z0: -0.38, z1: 0.38 },
+  postbox: { r: 0.24 },
+  crates: { x0: -0.37, x1: 0.5, z0: -0.27, z1: 0.41 },
+  pots: { x0: -0.36, x1: 0.36, z0: -0.3, z1: 0.26 },
+  hydrant: { r: 0.16 },
+  'news-box': { x0: -0.26, x1: 0.26, z0: -0.23, z1: 0.23 },
+  'bench-picnic': { x0: -0.41, x1: 0.41, z0: -0.41, z1: 0.41 },
+};
+
+/** The small things of the streets (TownWorld.furniture): each as big as its model, turned as it stands. */
+export function furnitureColliders(world: Pick<TownWorld, 'furniture'>): Collider[] {
+  return (world.furniture ?? []).map((f, i) => {
+    const what = `furniture:${i}:${f.kind}`;
+    const s = FURNITURE_SIZE[f.kind];
+    if ('r' in s) return circle(f.x, f.y, s.r, what);
+    // facing +x (a quarter turn): local +z to world +x, local +x to world −y
+    if (f.face === 'x') return box(f.x + s.z0, f.y - s.x1, f.x + s.z1, f.y - s.x0, what);
+    return box(f.x + s.x0, f.y + s.z0, f.x + s.x1, f.y + s.z1, what);
+  });
 }
 
 /** A fixed thing of the world (props3d.ts propPiece); none for the pier (over the water) or the bus without its stop. */
-export function propColliders(prop: WorldProp, i: number, stationBuilt: boolean): Collider[] {
+export function propColliders(prop: WorldProp, i: number, stationBuilt: boolean, world: Pick<TownWorld, 'districts'> = {}): Collider[] {
   const what = `prop:${i}:${prop.kind}`;
   const at = prop.at ?? middle(prop.tiles);
   if (!at) return [];
@@ -298,7 +339,7 @@ export function propColliders(prop: WorldProp, i: number, stationBuilt: boolean)
     case 'market':
       return [box(x - 0.42, y - 0.2, x + 0.42, y + 0.3, what)];
     case 'bench':
-      return [bench(x, y, prop.dir, what)];
+      return [bench(x, y, prop.dir, what, prop.tiles[0] ? benchLookAt(world, prop.tiles[0]) : 'classic')];
     case 'lantern':
       return [circle(x, y, 0.12, what)];
     case 'planter':
@@ -311,7 +352,7 @@ export function propColliders(prop: WorldProp, i: number, stationBuilt: boolean)
 }
 
 /** The decorations bought (props3d.ts buildDecorations): each spot as big as its model. */
-export function decorationColliders(world: Pick<TownWorld, 'decorations'>, decorations: readonly string[]): Collider[] {
+export function decorationColliders(world: Pick<TownWorld, 'decorations' | 'districts'>, decorations: readonly string[]): Collider[] {
   const out: Collider[] = [];
   const has = (id: string) => decorations.includes(id);
   const each = (id: keyof TownWorld['decorations'], make: (x: number, y: number, i: number, what: string) => Collider | null) => {
@@ -324,7 +365,10 @@ export function decorationColliders(world: Pick<TownWorld, 'decorations'>, decor
   each('lamps1', (x, y, _i, w) => circle(x, y, 0.11, w));
   each('lamps2', (x, y, _i, w) => circle(x, y, 0.11, w));
   each('flowers', (x, y, _i, w) => circle(x, y, 0.42, w));
-  each('benches', (x, y, i, w) => bench(x, y, world.decorations.benches[i]?.dir, w));
+  each('benches', (x, y, i, w) => {
+    const s = world.decorations.benches[i];
+    return bench(x, y, s?.dir, w, s ? benchLookAt(world, s) : 'classic');
+  });
   each('blossom', (x, y, _i, w) => circle(x, y, TREE_R.blossom * 1.05, w));
   each('lights', (x, y, _i, w) => circle(x, y, 0.05, w));
   each('stall', (x, y, _i, w) => box(x - 0.35, y - 0.25, x + 0.35, y + 0.27, w));
@@ -405,9 +449,10 @@ export function collidersOf(world: TownWorld, state: WalkState = NO_STATE, extra
     out.push(...(s === 'built' ? placeColliders(p) : s === 'site' ? siteColliders(p) : natureColliders(p)));
   }
   const station = state.built.includes('station');
-  world.props.forEach((prop, i) => out.push(...propColliders(prop, i, station)));
+  world.props.forEach((prop, i) => out.push(...propColliders(prop, i, station, world)));
   out.push(...decorationColliders(world, state.decorations));
   out.push(...sceneryColliders(world));
+  out.push(...furnitureColliders(world));
   out.push(...extra);
   return out;
 }

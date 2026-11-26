@@ -4,6 +4,7 @@
 
 import { AdditiveBlending, Color, Vector4, DoubleSide, MeshBasicMaterial, MeshStandardMaterial, type IUniform, type Material, type WebGLProgramParametersWithUniforms } from 'three';
 import { C } from './palette3d';
+import { addWeather, makeWeatherUniforms, type WeatherUniforms } from './weather3d';
 
 export interface Shared {
   time: IUniform<number>;
@@ -23,6 +24,8 @@ export interface Shared {
    * đứng trên đồi mà?").
    */
   holeFloor: IUniform<number[]>;
+  /** Wet ground, cloud shadows and mist (weather3d.ts). */
+  weather: WeatherUniforms;
 }
 
 /** The water's colour at the shoreline and out in the middle (terrain.ts paints between them; the shader reads it back). */
@@ -167,12 +170,18 @@ function addWater(shader: WebGLProgramParametersWithUniforms, shared: Shared): v
 }
 
 export function makeMaterials(): Materials {
-  const shared: Shared = { time: { value: 0 }, sway: { value: 1 }, night: { value: 0 }, holes: { value: [new Vector4(), new Vector4()] }, holeFloor: { value: [0, 0] } };
+  const shared: Shared = { time: { value: 0 }, sway: { value: 1 }, night: { value: 0 }, holes: { value: [new Vector4(), new Vector4()] }, holeFloor: { value: [0, 0] }, weather: makeWeatherUniforms() };
   const std = new MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0 });
-  std.onBeforeCompile = (s) => addHoles(s, shared);
+  std.onBeforeCompile = (s) => {
+    addHoles(s, shared);
+    addWeather(s, shared.weather, { wet: true, shade: true, mist: true });
+  };
   std.customProgramCacheKey = () => 'town-std';
   const hot = new MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0, emissive: '#fff4dc', emissiveIntensity: 0.14 });
-  hot.onBeforeCompile = (s) => addHoles(s, shared);
+  hot.onBeforeCompile = (s) => {
+    addHoles(s, shared);
+    addWeather(s, shared.weather, { wet: true, shade: true, mist: true });
+  };
   hot.customProgramCacheKey = () => 'town-hot';
   const faded = new MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0, transparent: true, opacity: 0.32, depthWrite: false });
   const glassList: { mat: MeshStandardMaterial; glow: number }[] = [];
@@ -197,10 +206,14 @@ export function makeMaterials(): Materials {
   sway.onBeforeCompile = (s) => {
     addSway(s, shared);
     addHoles(s, shared);
+    addWeather(s, shared.weather, { shade: true, mist: true });
   };
   sway.customProgramCacheKey = () => 'town-sway';
   const water = new MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.0, transparent: true, opacity: 1, depthWrite: false });
-  water.onBeforeCompile = (s) => addWater(s, shared);
+  water.onBeforeCompile = (s) => {
+    addWater(s, shared);
+    addWeather(s, shared.weather, { mist: true });
+  };
   water.customProgramCacheKey = () => 'town-water';
   const fish = new MeshStandardMaterial({ color: '#ffffff', roughness: 0.6, metalness: 0 });
   fish.onBeforeCompile = (s) => {

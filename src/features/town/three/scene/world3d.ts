@@ -16,39 +16,53 @@ import { lightRig, windowGlow, C } from './palette3d';
 import type { Aabb } from './pick3d';
 import { buildInn, buildPlace, buildSite, type Thing } from './places3d';
 import { buildCrops, buildDecorations, buildProject, buildProps, buildScenery, type Piece } from './props3d';
+import { buildStreetFurniture } from './streetFurniture';
 import { buildTerrain, type Terrain } from './terrain';
 import { buildBackdrop, type Backdrop } from './backdrop';
+import { NOON_SUN, stepSun, type Vec3 } from '../../../../core/town/sunPath';
+import { srgb01 } from './skyLook';
 
 /** Real point lights kept at the lamps nearest the camera's target (a fixed number: no shader rebuilds). */
 export const LAMP_LIGHTS = 6;
-/** The sun comes from this way (towards the viewer's left and behind the town): faces with doors are lit. */
-const SUN_DIR = { x: -0.42, y: 0.78, z: 0.46 };
+/**
+ * The sun at noon (towards the viewer's left and behind the town: faces with doors are lit), the default direction
+ * of the offscreen studios too. In the town the light moves over the day (core/town/sunPath.ts sunAt, setSun).
+ */
+const SUN_DIR = NOON_SUN;
 /** The sun at dawn and dusk, and the light under cloud (setWeather). */
 const SKY_GOLD = new Color('#ffb070');
 const SKY_GREY = new Color('#aab4c4');
-/**
- * The sun's shadow camera's right and up axes (three's lookAt from the sun to its target, up = +y): the shadow box is
- * moved in whole shadow texels along these, so shadows stay put on the ground while the box follows the camera.
- */
-const LIGHT_RIGHT = (() => {
-  const l = Math.hypot(SUN_DIR.x, SUN_DIR.y, SUN_DIR.z);
-  const z = { x: SUN_DIR.x / l, y: SUN_DIR.y / l, z: SUN_DIR.z / l };
+
+/** A light's own right and up axes on the ground's plane (three's lookAt from the light to its target, up = +y). */
+export interface LightBasis {
+  dir: Vec3;
+  right: Vec3;
+  up: Vec3;
+}
+
+/** The basis of the sun's shadow camera for a direction towards the light (not straight up: MIN_ELEVATION < 90°). */
+export function lightBasis(towards: Vec3): LightBasis {
+  const l = Math.hypot(towards.x, towards.y, towards.z);
+  const z = { x: towards.x / l, y: towards.y / l, z: towards.z / l };
   const h = Math.hypot(z.z, z.x);
-  return { x: z.z / h, y: 0, z: -z.x / h };
-})();
-const LIGHT_UP = (() => {
-  const l = Math.hypot(SUN_DIR.x, SUN_DIR.y, SUN_DIR.z);
-  const z = { x: SUN_DIR.x / l, y: SUN_DIR.y / l, z: SUN_DIR.z / l };
-  const x = LIGHT_RIGHT;
-  return { x: z.y * x.z - z.z * x.y, y: z.z * x.x - z.x * x.z, z: z.x * x.y - z.y * x.x };
-})();
-/** Where the shadow box centres for a view centred on `at` (ground): moved in whole texels in the light's view. */
-export function shadowCenter(at: { x: number; z: number }, texel: number): { x: number; y: number; z: number } {
-  const a = at.x * LIGHT_RIGHT.x + at.z * LIGHT_RIGHT.z;
-  const b = at.x * LIGHT_UP.x + at.z * LIGHT_UP.z;
+  const x = { x: z.z / h, y: 0, z: -z.x / h };
+  return { dir: z, right: x, up: { x: z.y * x.z - z.z * x.y, y: z.z * x.x - z.x * x.z, z: z.x * x.y - z.y * x.x } };
+}
+const NOON_BASIS = lightBasis(SUN_DIR);
+
+/**
+ * Where the shadow box centres for a view centred on `at` (ground): moved in whole texels along the light's own right
+ * and up axes, so shadows stay put on the ground while the box follows the camera. `basis` is the light's as it is now
+ * (it moves only in small steps: stepSun); `texelUp` the texel along its up axis (the box is shorter that way).
+ */
+export function shadowCenter(at: { x: number; z: number }, texel: number, basis: LightBasis = NOON_BASIS, texelUp = texel): { x: number; y: number; z: number } {
+  const R = basis.right;
+  const U = basis.up;
+  const a = at.x * R.x + at.z * R.z;
+  const b = at.x * U.x + at.z * U.z;
   const da = Math.round(a / texel) * texel - a;
-  const db = Math.round(b / texel) * texel - b;
-  return { x: at.x + da * LIGHT_RIGHT.x + db * LIGHT_UP.x, y: da * LIGHT_RIGHT.y + db * LIGHT_UP.y, z: at.z + da * LIGHT_RIGHT.z + db * LIGHT_UP.z };
+  const db = Math.round(b / texelUp) * texelUp - b;
+  return { x: at.x + da * R.x + db * U.x, y: da * R.y + db * U.y, z: at.z + da * R.z + db * U.z };
 }
 export { SUN_DIR };
 
@@ -147,6 +161,14 @@ export class TownScene {
   private glowTex: CanvasTexture | null;
   private night = 0;
   private castShadows = true;
+  /** The light's direction as the shadows are drawn now (moved in small steps: setSun) and its strength (sunAt). */
+  private basis = NOON_BASIS;
+  private sunStrength = 1;
+  /** The sun's intensity from the night and the weather, before its strength over the day. */
+  private sunBase = 1;
+  /** The wind (cloud shadows drift with it) and the time they last drifted. */
+  private wind = 0;
+  private driftT = -1;
 
   /** How high the ground is at a point (the hill; 0 elsewhere): what stands on it stands that much higher. */
   readonly lift = (x: number, z: number): number => groundHeight(x, z, this.world);
@@ -358,6 +380,8 @@ export class TownScene {
     for (const pc of crops) add(pc, '', 0, false);
     // the scenery: the barn, the well, hay bales, fences, hedges, stones, bushes, ducks
     for (const pc of this.reuse('scenery', () => buildScenery(world)) as Piece[]) add(pc, '', 0);
+    // the street furniture: bins, bike racks, post boxes, crates… merged by chunks (streetFurniture.ts)
+    for (const pc of this.reuse('furniture', () => buildStreetFurniture(world)) as Piece[]) add(pc, '', 0);
     this.activities.clear();
     for (const [id, spot] of Object.entries(world.activities ?? {}) as [ActivitySpotId, NonNullable<TownWorld['activities']>[ActivitySpotId]][]) {
       // the bus is a thing only while it stands there (with the bus station)
@@ -475,7 +499,8 @@ export class TownScene {
     this.hemi.groundColor.set(rig.hemiGround);
     this.hemi.intensity = rig.hemi;
     this.sun.color.set(rig.sunColor);
-    this.sun.intensity = rig.sun;
+    this.sunBase = rig.sun;
+    this.sun.intensity = rig.sun * this.sunStrength;
     this.mats.setNight(k);
     // the lamps' lights, the halos and the fireflies stay in the scene day and night, only their strength changes:
     // switching a light or an object on or off would rebuild every shader (a freeze of a second or more)
@@ -499,9 +524,46 @@ export class TownScene {
     const rig = lightRig(this.night);
     const day = 1 - this.night;
     this.sun.color.set(rig.sunColor).lerp(SKY_GOLD, Math.min(1, glow) * 0.8).lerp(SKY_GREY, cloud * 0.6);
-    this.sun.intensity = rig.sun * (1 - 0.62 * cloud * (0.4 + 0.6 * day)) * (1 - 0.18 * glow);
+    this.sunBase = rig.sun * (1 - 0.62 * cloud * (0.4 + 0.6 * day)) * (1 - 0.18 * glow);
+    this.sun.intensity = this.sunBase * this.sunStrength;
+    // under a grey sky shadows go soft and faint
+    this.sun.shadow.intensity = 1 - 0.55 * cloud;
     this.hemi.color.set(rig.hemiSky).lerp(SKY_GOLD, glow * 0.25).lerp(SKY_GREY, cloud * 0.5);
     this.hemi.intensity = rig.hemi * (1 - 0.12 * cloud);
+  }
+
+  /**
+   * Where the light comes from (towards it, unit) and how strong it is (core/town/sunPath.ts sunAt): the sun's arc by
+   * day, the moon's at night. The shadows are re-aimed only once it has turned by a fraction of a degree (stepSun), and
+   * their snapping (shadowCenter) uses the basis of that held direction, so they never shimmer from frame to frame.
+   */
+  setSun(towards: Vec3, strength: number): void {
+    const next = stepSun(this.basis.dir, towards);
+    if (next !== this.basis.dir) this.basis = lightBasis(next);
+    if (strength !== this.sunStrength) {
+      this.sunStrength = strength;
+      this.sun.intensity = this.sunBase * strength;
+    }
+  }
+
+  /** The light's direction as the shadows are drawn now (unit, towards it). */
+  get sunDirection(): Vec3 {
+    return this.basis.dir;
+  }
+
+  /**
+   * The air and the ground (weather3d.ts): how wet (0 … 1), how misty (0 … 1), the mist's colour (the horizon's),
+   * the sky's colour that wet ground reflects, how dark cloud shadows are (0 = none) and the wind they drift with.
+   */
+  setAir(a: { wet: number; haze: number; mist: string; sky: string; shade: number; wind: number }): void {
+    const w = this.mats.shared.weather;
+    w.wet.value = a.wet;
+    w.haze.value = a.haze;
+    const [r, g, b] = srgb01(a.mist);
+    w.fogColour.value.set(r, g, b);
+    w.skyRefl.value.set(a.sky).multiplyScalar(0.55);
+    w.cloud.value.z = a.shade;
+    this.wind = a.wind;
   }
 
   /**
@@ -516,21 +578,38 @@ export class TownScene {
     // the camera followed a walker (2026-11-22, "nhân vật di chuyển cứ rung rung"). The size of the box is held in
     // steps too, so a zoom easing in does not resample every shadow each frame.
     const rq = Math.ceil(r / SHADOW_REACH_STEP) * SHADOW_REACH_STEP;
-    if (cam.right !== rq) {
+    const B = this.basis;
+    // along the light's up axis the box covers what is in view on the ground (its height there is the ground's depth
+    // times the sun's height) and a margin for walls and roofs: a low sun would otherwise stretch the box over the
+    // ground far beyond the view and draw every caster there (dawn cost a third more draw calls)
+    const rv = Math.min(rq, Math.ceil((rq * Math.max(0.2, B.dir.y) + 3) / SHADOW_REACH_STEP) * SHADOW_REACH_STEP);
+    if (cam.right !== rq || cam.top !== rv) {
       cam.left = -rq;
       cam.right = rq;
-      cam.top = rq;
-      cam.bottom = -rq;
+      cam.top = rv;
+      cam.bottom = -rv;
     }
     const texel = (2 * rq) / this.sun.shadow.mapSize.x;
-    const { x: sx, y: sy, z: sz } = shadowCenter(at, texel);
+    const texelUp = (2 * rv) / this.sun.shadow.mapSize.y;
+    const { x: sx, y: sy, z: sz } = shadowCenter(at, texel, B, texelUp);
     const d = Math.max(30, rq + 6);
     cam.far = d * 2 + 10;
     cam.updateProjectionMatrix();
-    this.sun.position.set(sx + SUN_DIR.x * d, sy + SUN_DIR.y * d, sz + SUN_DIR.z * d);
+    this.sun.position.set(sx + B.dir.x * d, sy + B.dir.y * d, sz + B.dir.z * d);
     this.sun.target.position.set(sx, sy, sz);
     this.sun.target.updateMatrixWorld();
     this.warm.position.set(at.x, 3.6, at.z);
+    // the mist is measured from what the camera looks at; cloud shadows drift with the wind (not with reduced motion)
+    const w = this.mats.shared.weather;
+    w.focus.value.set(at.x, this.lift(at.x, at.z), at.z);
+    w.fogRange.value.set(1.5 + r * 0.06, 3 + r * 0.8);
+    if (!still && this.driftT >= 0 && w.cloud.value.z > 0) {
+      const dt = Math.min(0.25, Math.max(0, t - this.driftT));
+      const speed = 0.5 + 1.6 * this.wind;
+      w.cloud.value.x -= dt * speed * 0.85;
+      w.cloud.value.y -= dt * speed * 0.35;
+    }
+    this.driftT = t;
     if (this.night > 0.05 && (this.lightsAt < 0 || t - this.lightsAt > 0.3)) {
       this.lightsAt = t;
       const near = nearestLamps(this.lampList, at.x, at.z, LAMP_LIGHTS);
