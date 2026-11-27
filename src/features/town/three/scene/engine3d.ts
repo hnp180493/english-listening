@@ -1894,6 +1894,13 @@ export class TownEngine3D {
     const p = this.people.get(id);
     if (p) {
       p.ch.headTop(this.v);
+      // (an umbrella up: what is over the head is its canopy, so the name and a bubble go above it, not across it)
+      const brolly = (p.ch as Partial<Character3DPlus>).umbrella?.();
+      if (brolly) {
+        brolly.updateWorldMatrix(true, false);
+        const tip = UMBRELLA_TIP.clone().applyMatrix4(brolly.matrixWorld);
+        if (tip.y > this.v.y) this.v.y = tip.y;
+      }
       return { x: this.v.x, y: this.v.y, z: this.v.z };
     }
     return { x: a.x, y: 0.95 + this.town.lift(a.x, a.y), z: a.y };
@@ -1910,13 +1917,6 @@ export class TownEngine3D {
     const rest = this.restDist();
     // a place: its whole lot and its roof; a decoration: every piece (they may be spread over the town) and a little
     // over each
-      // (an umbrella up: what is over the head is its canopy, so the name and a bubble go above it, not across it)
-      const brolly = (p.ch as Partial<Character3DPlus>).umbrella?.();
-      if (brolly) {
-        brolly.updateWorldMatrix(true, false);
-        const tip = UMBRELLA_TIP.clone().applyMatrix4(brolly.matrixWorld);
-        if (tip.y > this.v.y) this.v.y = tip.y;
-      }
     const shape = place
       ? [0, 1].flatMap((i) => [0, 1].flatMap((j) => [{ x: place.x + i * place.w, y: 0, z: place.y + j * place.d }, { x: place.x + i * place.w, y: 2.4, z: place.y + j * place.d }]))
       : spots.flatMap((s) => [{ ...s, y: 0 }, { ...s, y: s.y + 1.4 }]);
