@@ -16,6 +16,8 @@ import { CREW_CUT } from '../../../core/town/crew';
 const id = (key: string) => `job-splice-${key}`;
 const LINE = (v: string) => ({ note: 'line', value: v });
 const DAY = (v: string) => ({ note: 'day', value: v });
+/** Bay FM's advert for Twin Ovens heard (data/city/clues.ts 'ad-twin-ovens'): in by the back door, nearer the room. */
+const BACK_DOOR = { clue: 'ad-twin-ovens' };
 
 const LINES = [
   // ── beat 1: Jun's stall ──
@@ -24,6 +26,8 @@ const LINES = [
   { id: id('x01'), who: 'phone', text: "Recorder's under the sill, mate. Whatever she says, we keep.", vi: 'Máy ghi âm dưới bậu cửa sổ rồi. Cô ta nói gì, mình giữ hết.' },
   { id: id('p01'), who: 'poppy', text: 'The room upstairs? Let to a lady in a navy blazer. Paid in cash.', vi: 'Phòng trên lầu à? Cho một bà mặc áo vest xanh than thuê. Trả tiền mặt.' },
   { id: id('p02'), who: 'poppy', text: "Go round the back. The window's open, and the ovens are loud.", vi: 'Đi vòng ra sau. Cửa sổ mở, mà lò bánh ồn lắm.' },
+  // the learner who heard Bay FM's advert (clue 'ad-twin-ovens': "Night workers, knock at the back door from five")
+  { id: id('p03'), who: 'poppy', text: "The back door, like Marcus says? Come in. Stand by the flour, you'll hear it all.", vi: 'Cửa sau, như Marcus nói à? Vào đi. Đứng cạnh mấy bao bột, bạn sẽ nghe hết.' },
   // ── beat 2: under the window ──
   { id: id('o01'), who: 'shona', text: 'Again. You are Rico. Rico talks far too much, remember.', vi: 'Lại. Anh là Rico. Rico nói nhiều quá trời, nhớ chưa.' },
   { id: id('o02'), who: 'lyle', text: "Tess, it's me. Meet him by the ticket office.", vi: 'Tess, tôi đây. Gặp ông ấy cạnh quầy bán vé.' },
@@ -128,7 +132,17 @@ export const JOB_SPLICE: JobDoc = {
     { kind: 'goto', place: 'jun', label: 'Tới sạp của Jun' },
     { kind: 'scene', at: 'jun', who: ['jun'], lines: [id('a01'), id('a02')] },
     { kind: 'goto', place: 'poppy', label: 'Tới tiệm Twin Ovens' },
-    { kind: 'scene', at: 'poppy', lines: [id('p01'), id('p02'), { line: id('x01'), if: { crew: 'phone' } }] },
+    { kind: 'scene', at: 'poppy', lines: [id('p01'), { line: id('p02'), if: { not: BACK_DOOR } }, { line: id('p03'), if: BACK_DOOR }, { line: id('x01'), if: { crew: 'phone' } }] },
+    // in by the back door (the clue): the rehearsal is heard a third time
+    {
+      kind: 'overhear',
+      at: 'poppy',
+      who: ['shona', 'lyle'],
+      lines: ['o01', 'o02', 'o03', 'o04', 'o05', 'o06', 'o07', 'o08', 'o09'].map(id),
+      passes: 3,
+      word: id('o07'),
+      if: BACK_DOOR,
+    },
     {
       kind: 'overhear',
       at: 'poppy',
@@ -136,6 +150,7 @@ export const JOB_SPLICE: JobDoc = {
       lines: ['o01', 'o02', 'o03', 'o04', 'o05', 'o06', 'o07', 'o08', 'o09'].map(id),
       passes: 2,
       word: id('o07'),
+      if: { not: BACK_DOOR },
     },
     { kind: 'password', who: 'jun', line: id('o07'), chunk: 'lines are open', ask: id('q01'), right: id('q02'), close: id('q03'), wrong: id('q04'), consequence: 'cue' },
     { kind: 'scene', at: 'poppy', lines: [id('o10')] },

@@ -14,6 +14,8 @@ import { TOWN_EVENTS, weatherOf, weekdayOf } from './world';
 import { radioClueNews } from '../../data/city/clues';
 import { hasClue } from './jobProgress';
 import { grantClue, loadTownJobs } from './jobsStore';
+import { trafficSnapshot } from './radioTraffic';
+import { sponsorLine } from './assetsStore';
 
 let turns = 0;
 const built = new Map<string, Bulletin>();
@@ -29,6 +31,10 @@ export function liveBulletin(now: number = Date.now(), place: 'cafe' | 'car' = '
     // the player's news, then a clue Bay FM carries until the learner has heard it (data/city/clues.ts)
     news: [...pendingRadioNews(now), ...radioClueNews((id) => hasClue(loadTownJobs(), id))],
     place,
+    // Westbay's roads as they are (only while its page is open: ./radioTraffic)
+    traffic: trafficSnapshot(),
+    // the learner's sponsorship of an hour of Bay FM, once bought (./assetsStore.ts)
+    sponsor: sponsorLine(),
   });
   built.set(b.scene.id, b);
   if (built.size > 8) built.delete(built.keys().next().value as string);

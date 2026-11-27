@@ -243,6 +243,9 @@ Người đi cùng: **Mei** (`ct-mei-2`).
 
 Người đi cùng: **Max** (4 tim, đi xe): máy ghi âm dưới bậu cửa sổ [TT].
 
+Manh mối: ai đã nghe quảng cáo Twin Ovens trên Bay FM (`ad-twin-ovens`: "knock at the back door from five") thì vào
+bằng cửa sau, Poppy cho đứng cạnh bao bột, nghe buổi tập ba lượt thay vì hai.
+
 ### 4.5 Tom gọi lên đài (`job-tomcall`, sau `job-forged`, Marcus mời) — `act3TomCall.ts`, 45 câu, 12 câu [TT]
 
 1. Phòng thu. Kit: "He'll ring again at three." Nếu `past: 'job-farewell'`: "You heard the real Tom ring us once. Same ears

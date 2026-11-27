@@ -27,6 +27,7 @@ import { linesDue, settleJobPatrol, takeJobPatrol, type JobScanLine } from './jo
 import { streets } from './streetsStore';
 import { trafficPace } from '../../../core/town/skyRules';
 import { wetSoon } from '../../../core/town/skyNow';
+import { releaseTrafficSource, setTrafficSource, type TrafficSnapshot } from '../../../core/town/radioTraffic';
 
 /** How many cars drive Westbay (a guess: enough to meet some, few enough for the frame). */
 export const TRAFFIC_CARS = 10;
@@ -71,6 +72,9 @@ export class StreetsWorld implements StageExtra {
   private turn = 0;
   /** A panel is over the stage (a talk, the stop): the police wait, the traffic does not. */
   frozen = false;
+  /** The police car out at the last frame (a search's or a job's), for Bay FM's traffic. */
+  private patrolSeen: Pt | null = null;
+  private readonly source = (): TrafficSnapshot => this.trafficNow();
 
   private readonly ctx: StageExtraCtx;
 
@@ -81,6 +85,18 @@ export class StreetsWorld implements StageExtra {
     this.layer = new TrafficLayer(ctx, this.net, anime ? 1.2 : 1);
     this.posts = this.layer.postFeet().map((p) => ({ ...p, gap: POST_GAP }));
     streets.attach(this);
+    setTrafficSource(this.source);
+  }
+
+  /** Westbay's roads as Bay FM reads them now (core/town/radioTraffic.ts): the cars, the patrol's street, the wet. */
+  trafficNow(): TrafficSnapshot {
+    const p = this.patrolSeen;
+    return {
+      streets: this.net.streets.filter((s) => s.cars).map((s) => ({ id: s.id, name: s.name })),
+      cars: this.cars.map((c) => ({ street: c.street, dir: c.dir, speed: c.speed })),
+      ...(p ? { patrol: streetAt(this.net, p.x, p.y)?.name ?? null } : {}),
+      wet: wetSoon(Date.now()),
+    };
   }
 
   private rnd = (): number => (this.seed = (this.seed * 48271) % 2147483647) / 2147483647;
@@ -210,6 +226,7 @@ export class StreetsWorld implements StageExtra {
     const search = paused ? null : streets.search();
     // the traffic: it stops for the player, the residents and the patrol
     const patrolNow = jobAt ?? (search ? search.patrol : null);
+    this.patrolSeen = patrolNow ? { x: patrolNow.x, y: patrolNow.y } : null;
     const bodies = [{ x: p.x, y: p.y }, ...[...this.ctx.sim.residents.values()].map((r) => ({ x: r.x, y: r.y })), ...(patrolNow ? [patrolNow] : [])];
     // (slower on wet roads: core/town/skyRules.ts trafficPace)
     this.cars = stepTraffic(this.cars, dt, { net: this.net, nowMs: now, bodies, rnd: this.rnd, pace: trafficPace(wetSoon(now)) });
@@ -285,5 +302,6 @@ export class StreetsWorld implements StageExtra {
     this.ctx.sim.extraBodies = [];
     this.layer.dispose();
     streets.detach(this);
+    releaseTrafficSource(this.source);
   }
 }

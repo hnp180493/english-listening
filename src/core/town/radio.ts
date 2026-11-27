@@ -18,6 +18,7 @@ import { GAME_DAY_MS, gameMinutes, SKIES, skyAt, type Sky } from './sky';
 import { currentShift, offsetAt, type Shift } from './gameClock';
 import type { TownEvent } from './world';
 import { AD_LEADS, RADIO_ADS, type RadioAd, type RadioCall } from '../../data/scenes/radioCalls';
+import { trafficReport, type TrafficFacts, type TrafficSnapshot } from './radioTraffic';
 
 /** Real milliseconds in a minute of the game (two seconds). */
 export const GAME_MINUTE_MS = GAME_DAY_MS / (24 * 60);
@@ -203,6 +204,10 @@ export interface BulletinInput {
   news?: readonly RadioNewsItem[];
   /** Where it is heard: the café's radio (the default) or a vehicle's. */
   place?: 'cafe' | 'car';
+  /** Westbay's streets now (./radioTraffic: only while Westbay's page is open; the town has none). */
+  traffic?: TrafficSnapshot | null;
+  /** The sponsor's words, once the learner has bought the sponsorship (./assetsStore.ts sponsorLine), else null. */
+  sponsor?: { text: string; vi: string } | null;
 }
 
 export interface Bulletin {
@@ -210,10 +215,12 @@ export interface Bulletin {
   forecast: Forecast;
   /** The news items read in it (to be marked as aired once heard). */
   newsIds: string[];
-  /** The clues its items give once heard through. */
+  /** The clues it gives once heard through: its news items', and its advert's when that is a clue (data/city/clues.ts: same id). */
   clues: string[];
   /** The advert read in it (data/scenes/radioCalls.ts RADIO_ADS). */
   adId: string;
+  /** What it said about Westbay's roads (./radioTraffic), or null (no traffic segment). */
+  traffic: TrafficFacts | null;
 }
 
 /** Three answers in an order of the edition's own, the right one first in `options` before shuffling. */
@@ -301,6 +308,13 @@ export function bulletinAt(input: BulletinInput): Bulletin {
     say({ en: fill(s.en, { B: w.en }), vi: fill(s.vi, { B: w.vi }) });
   }
 
+  // Westbay's roads as they are now (./radioTraffic: only with a source, i.e. on Westbay's page)
+  const traffic = trafficReport(input.traffic ?? null, ed);
+  if (traffic) {
+    filler(traffic.lead);
+    for (const p of traffic.lines) say(p);
+  }
+
   // what is on today: the town's get-together, the city's day (or its festival when the town has nothing)
   const town = townEvents.find((e) => e.weekday === weekday) ?? null;
   const townLine = town ? TOWN_EVENT_LINES[town.id] : undefined;
@@ -317,6 +331,13 @@ export function bulletinAt(input: BulletinInput): Bulletin {
   const ad = pick(RADIO_ADS, ed, 21);
   const adLead = pick(AD_LEADS, ed, 22);
   filler({ en: adLead.text, vi: adLead.vi });
+  // the learner's own sponsorship first, when bought (one line a sentence, when the two languages split alike)
+  if (input.sponsor) {
+    const en = input.sponsor.text.split(/(?<=[.?!])\s+/);
+    const vi = input.sponsor.vi.split(/(?<=[.?!])\s+/);
+    if (en.length === vi.length) en.forEach((t, i) => say({ en: t, vi: vi[i] }));
+    else say({ en: input.sponsor.text, vi: input.sponsor.vi });
+  }
   for (const l of ad.lines) say({ en: l.text, vi: l.vi });
 
   filler(pick(SIGN_OFFS, ed, 8));
@@ -336,8 +357,11 @@ export function bulletinAt(input: BulletinInput): Bulletin {
 
   let detail: SceneQuestion | undefined;
   const change = fc.changes[0];
+  // the roads: always in a vehicle, half the editions on a radio that stands still
+  const askRoads = !!traffic && ((input.place ?? 'cafe') === 'car' || hash(ed * 19 + 23) < 0.5);
   const askWhen = change && (hash(ed * 13 + 12) < 0.6 || onToday.length === 0);
-  if (change && askWhen) {
+  if (askRoads && traffic) detail = traffic.question;
+  else if (change && askWhen) {
     const r = whenSaid(change.at, now).vi;
     const six = 6 * 60 * GAME_MINUTE_MS;
     const d1 = whenSaid(change.at + six, now).vi;
@@ -371,7 +395,7 @@ export function bulletinAt(input: BulletinInput): Bulletin {
     gist,
     ...(detail ? { detail } : {}),
   };
-  return { scene, forecast: fc, newsIds: news.map((n) => n.id), clues: news.flatMap((n) => (n.clue ? [n.clue] : [])), adId: ad.id };
+  return { scene, forecast: fc, newsIds: news.map((n) => n.id), clues: [...news.flatMap((n) => (n.clue ? [n.clue] : [])), ...(ad.clue ? [ad.id] : [])], adId: ad.id, traffic: traffic?.facts ?? null };
 }
 
 // ───────────────────────── the call-in show ─────────────────────────

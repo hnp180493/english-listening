@@ -7,7 +7,8 @@ import type { Cond } from '../../core/town/jobDoc';
 import { LISTEN_SCENES } from '../scenes';
 import { CITY_EVENT_SCENES, CITY_OVERHEARD, CITY_SCENES } from './index';
 import { CITY_JOBS } from './jobs';
-import { CLUES, cluesOfScene, radioClueNews } from './clues';
+import { CLUES, CLUES_NOT_USED_YET, cluesOfScene, radioClueNews } from './clues';
+import { RADIO_ADS, RADIO_CLUE_ADS } from '../scenes/radioCalls';
 import { PHONE_LINES } from './phoneLines';
 
 const scenes = [...LISTEN_SCENES, ...CITY_EVENT_SCENES, ...CITY_OVERHEARD, ...CITY_SCENES] as readonly { id: string; lines: readonly { who: string; text: string }[] }[];
@@ -64,7 +65,21 @@ describe('the clues', () => {
         }
       }
     for (const u of used) expect(ids.has(u), u).toBe(true);
-    for (const c of CLUES) expect(used.has(c.id), `${c.id} shortens no step`).toBe(true);
+    for (const c of CLUES) {
+      const waiting = CLUES_NOT_USED_YET.includes(c.id);
+      expect(used.has(c.id), waiting ? `${c.id} is used now: take it off CLUES_NOT_USED_YET` : `${c.id} shortens no step`).toBe(!waiting);
+    }
+  });
+
+  it("Bay FM's clue adverts: each is a clue of the same id, its line said in that advert by Marcus, and nothing else is", () => {
+    const fromAds = CLUES.filter((c) => 'ad' in c.from);
+    expect(fromAds.map((c) => c.id).sort()).toEqual([...RADIO_CLUE_ADS].sort());
+    for (const c of fromAds) {
+      const ad = RADIO_ADS.find((a) => a.id === (c.from as { ad: string }).ad);
+      expect(ad?.id, c.id).toBe(c.id);
+      expect(c.who).toBe('marcus');
+      expect(ad!.lines.some((l) => l.text === c.text && l.vi === c.vi), c.id).toBe(true);
+    }
   });
 
   it("the phone's lines are plain spoken English with the deadline said", () => {
