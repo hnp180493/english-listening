@@ -25,7 +25,11 @@ import { Portrait } from '../art';
 import { tl, tr } from '../../../i18n';
 import SceneFlow, { type FaceLook, type FlowEnd, type FlowResult } from './SceneFlow';
 import { speakerHasFace, speakerName } from './speakers';
-import { CAR_RADIO } from './things';
+import { CAR_RADIO, PIRATE_RADIO } from './things';
+import { ADMIN } from '../../../core/admin';
+import { loadTownJobs } from '../../../core/town/jobsStore';
+import { pirateEnding, pirateNow, pirateSegments, pirateState } from '../../../core/town/pirate';
+import { PIRATE_SEGMENTS, PIRATE_SILENT, type PirateSegment } from '../../../data/scenes/pirate';
 
 export interface ListenPanelProps extends ActivityPanelProps {
   /** Where the panel is open: the town (the default) or Westbay. The bus goes to the other one. */
@@ -46,9 +50,15 @@ function pickScene(at: string | null | undefined, now: number, where: 'town' | '
     return { scene: ev ? eventScene(EVENT_SCENES, ev.id, today.day) : null, host: ev?.host ?? null };
   }
   const kind = at ? thingKind(at) : null;
+  // the pirate station on 91.5 (Westbay, while Act III is on): a forged or a real old tape (core/town/pirate.ts)
+  if (at === PIRATE_RADIO) {
+    const jobs = loadTownJobs();
+    if (pirateState(jobs, ADMIN) !== 'on') return { scene: null, host: null };
+    return { scene: pirateNow(pirateSegments(PIRATE_SEGMENTS, jobs, ADMIN), recent, now), host: null };
+  }
   // the radio (the café's, or a vehicle's): Bay FM's bulletin of the moment, taking turns with the written segments
   if (kind === 'radio' || at === CAR_RADIO) {
-    const turn = scenesHeard(progress, today.day).filter((id) => id.startsWith('fm-') && !isLiveId(id) && !id.startsWith('fm-call-')).length;
+    const turn = scenesHeard(progress, today.day).filter((id) => id.startsWith('fm-') && !isLiveId(id) && !id.startsWith('fm-call-') && !id.startsWith('fm-pirate-')).length;
     return { scene: radioScene(now, at === CAR_RADIO ? 'car' : 'cafe', () => radioNow(RADIO_SCENES, today.day, today.weekday, today.weather, turn, recent), recent), host: null };
   }
   if (kind === 'bus') return { scene: rideNow(RIDE_SCENES, where === 'city' ? 'town' : 'city', today.day, recent), host: null };
@@ -131,7 +141,7 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
   }, []);
   // at a bench or the radio: the player sits down, and the people who are overheard come and talk nearby
   useEffect(() => {
-    if (!scene || host || ride || focus === CAR_RADIO) return;
+    if (!scene || host || ride || focus === CAR_RADIO || focus === PIRATE_RADIO) return;
     onListen?.([...new Set(scene.lines.map((l) => l.who))].filter(speakerHasFace));
     return () => onListen?.(null);
     // once, for the scene this panel opened with
@@ -152,16 +162,26 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
       // a bulletin's forecast is true of the world: say when to look (the clock in the corner)
       const next = radioHeard(scene.id);
       if (next) notes.push(tl`Bay FM báo cho ${clockLabel(next.at)}: ${tr(SKY_NAME[next.sky])}.`);
+      // the pirate's tape: why it was real, or what gave it away
+      if (focus === PIRATE_RADIO && 'why' in scene) notes.push(tr((scene as PirateSegment).why));
       return { xu: e.xu, notes };
     },
-    [scene, host, onReward],
+    [scene, host, onReward, focus],
   );
 
   const there = where === 'city' ? 'thị trấn' : 'Westbay';
   if (!scene) {
     return (
       <div className="town-ls">
-        <p className="town-build-hint">{focus && thingKind(focus) === 'bus' ? tl`Xe số 9 đang chờ ở bến. Lên xe là tới ${there}.` : 'Lúc này chưa có gì để nghe ở đây. Ghé lại sau nhé.'}</p>
+        <p className="town-build-hint">
+          {focus && thingKind(focus) === 'bus'
+            ? tl`Xe số 9 đang chờ ở bến. Lên xe là tới ${there}.`
+            : focus === PIRATE_RADIO
+              ? pirateState(loadTownJobs(), ADMIN) === 'ended'
+                ? PIRATE_SILENT[pirateEnding(loadTownJobs())]
+                : 'Chín mốt phẩy năm chỉ có tiếng rè.'
+              : 'Lúc này chưa có gì để nghe ở đây. Ghé lại sau nhé.'}
+        </p>
         <div className="town-talk-foot">
           {focus && thingKind(focus) === 'bus' && onTravel ? (
             <button type="button" className="btn btn-primary" onClick={travel} autoFocus>

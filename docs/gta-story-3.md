@@ -374,6 +374,7 @@ gì. Không mục nào bắt buộc trước khi chủ dự án chơi thử.
    (đặt cờ khi điều kiện đúng, không nói gì).
 6. **Tần số trên radio xe.** Đài lậu 91.5 hiện chỉ có trong phi vụ (bước `radio`). Nếu chủ dự án muốn: nút "Radio" trong xe
    (`scenes/CarRadio.tsx`) có thêm một kênh chỉ mở trong Hồi III, phát lại cuộn băng ghép, có câu hỏi như Bay FM.
+   *Đã xây 2026-11-27 (chủ dự án duyệt):* nút "91.5" trong xe ở Westbay, 15 đoạn (`data/scenes/pirate.ts`), docs/town.md §25.
 7. **Người chơi nói trên sóng.** Bước micro ở phi vụ 6 là một ý định; câu của người chơi được nói bằng giọng trình duyệt khi
    `PLAYER_VOICE` bật (chủ dự án đã duyệt 2026-11-27: giữ bật). Nếu tắt: câu hiện ra, không ai nói. Không cần gì mới, nhưng là chỗ quyết định đó
    nặng nhất.

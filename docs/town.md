@@ -3224,6 +3224,30 @@ Nobody has heard any of it; looked at in no picture (no interface changed: the l
 radio's panel as every bulletin's do). The traffic is true of the moment the bulletin is made; the cars move on while
 it is read (as the sky does).
 
+**The pirate station, 91.5** (2026-11-27; docs/gta-story-3.md §7 item 6, approved by the owner). In Westbay, while a
+vehicle is ridden, a second pill "91.5" stands left of "Radio" (`scenes/CarRadio.tsx` `onPirate`, passed only by
+`city/CityPage.tsx`; focus `PIRATE_RADIO` = `'radio:pirate'`, `scenes/things.ts`). It shows while Act III is on: from
+`job-forged` done to `job-live` done (`core/town/pirate.ts pirateState`, reading the synced `town-jobs`); after the live
+broadcast the channel is silent and its one line says why by the ending flag `job-live:end-best` / `end-middle` /
+`end-worst` (`PIRATE_SILENT`); the admin sandbox has it on. What it plays (`data/scenes/pirate.ts`, 15 segments,
+`fm-pirate-<n>`): Kemp's forged tapes of the two kinds the bible has, cut from old tapes (a fact gone old: the last no. 9
+"at ten", Bay FM "part of the Coastline Radio family", Rico's "Chip" once "Sam không gọi điện" changed the code: that one
+`needs: 'job-samcall'`) and imitated by Lyle Penn from Shona's scripts (one habit of the fingerprint table broken: Rico's
+"nine thirty", Marcus's "mate", Sam loving the phone, Tom happy to "talk on air all night", Tess's "darling", Gus's "ten to
+two", Mei's "It's urgent", Mrs Delaney's "no need to write anything down"), with four real old tapes in between (Rico,
+Marcus, Jun's radio that "went for a swim" word for word from his scene, Bayline's slogan in Kemp's voice). Every row of
+the table has a segment. Each is one listen: the sound, "real, cut or imitated?", then for a fake "which words give it
+away?" (three things it said) or for a real one something it said; after the answer a line says why (`why`, through
+`tr`). `pirateNow`: one not heard lately, the same for a game hour. Pay: a radio scene's (2 xu a question, inside the
+radio's three a day: `world.ts scenePay`), no new source or key. Voices: the browser's only (`sam-fake` / `tom-fake` for
+the two town residents' fakes, a forged line in the voice of whoever it pretends to be; no town resident speaks, nothing
+in the clip inventory). `core/town/pirate.ts FINGERPRINT` is the table §2 as checks over the words; `pirate.test.ts`
+proves every fake breaks exactly one rule, the tell its question asks about, the two wrong options break none, every real
+tape breaks none, no real line of the city's scenes breaks a habit, the gating and the pay. Looked at in pictures only
+(`scripts/town-shot.mjs`, admin, a car summoned): the two pills at 1600×900 and 375×812 (on a phone they sit over a
+call's notice while it shows, as the Radio pill did), the panel in English at 1600×900, its first question at 375×812.
+Nobody has heard a segment or read the lines but the model that wrote them.
+
 **News about the player** (`core/town/radioNews.ts`): `queueRadioNews({ id, lines: [{ text, vi, say? }] })` queues up
 to 4 of Marcus's lines for the next bulletin (at most 3 items, the same id replaces, forgotten after 6 real hours or a
 reload: in memory only); read after the time check, dropped once that bulletin is heard through. Not wired to M0.

@@ -1,18 +1,28 @@
-/* The vehicle's radio (CarRadio.tsx): right above the ride button (town.css .town-ride), shown only while riding.
-   (Two classes: town.css's .town-pill, loaded after this file, would put it back in the flow.) */
-.town-pill.town-carradio {
+/* The vehicle's radio (CarRadio.tsx): right above the ride button (town.css .town-ride), shown only while riding. In
+   Westbay during Act III a second channel, 91.5 (the pirate station), sits to its left. */
+.town-carradio {
   position: absolute;
   right: var(--space-3);
   bottom: calc(var(--space-3) + 48px);
   z-index: 2;
+  display: flex;
+  gap: var(--space-2);
+}
+/* (two classes: town.css's .town-pill, loaded after this file, would set its own width) */
+.town-pill.town-carradio-btn {
   width: auto;
   gap: var(--space-2);
   padding: 0 var(--space-3);
   font-weight: 600;
 }
+.town-pill.town-carradio-pirate {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
 /* a narrow stage: the ride button sits above the main button's row, this one above it */
 @media (max-width: 640px) {
-  .town-pill.town-carradio {
+  .town-carradio {
     bottom: calc(var(--space-3) + 58px + 48px);
   }
 }

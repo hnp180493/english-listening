@@ -748,6 +748,8 @@ const page: Record<string, string> = {
   'Đặt cọc {} xu': 'Pay deposit · {0} xu',
   'Tiếng tăm từ đâu ra?': 'Where does fame come from?',
   'Mỗi phi vụ đã xong cho 3 (Sạch), 2 (Lộn xộn) hoặc 1 (Hỏng), theo lần chơi tốt nhất. Cứ 8 cuộc gọi ở văn phòng điều xe thêm 1. Mỗi tài sản thêm 2, mỗi nâng cấp văn phòng thêm 1. Tiếng tăm không bao giờ giảm, nên phi vụ đã mở không khóa lại.': 'Every job done gives 3 (Clean), 2 (Messy) or 1 (Botched), by your best run. Every 8 calls at the dispatch office add 1. Each asset adds 2, each office upgrade 1. Fame never goes down, so a job once open never locks again.',
+  'Dò sang đài lậu 91.5': 'Tune to the pirate station, 91.5',
+  'Chín mốt phẩy năm chỉ có tiếng rè.': 'Ninety-one point five is only hiss.',
 };
 
 export default page;

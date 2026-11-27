@@ -2,9 +2,12 @@
 // over its head in the world, what the one button offers beside it, and what its panel is headed.
 import { thingKind } from '../../../data/townWorld';
 import { TOWN_EVENTS } from '../../../core/town/world';
+import { PIRATE_TITLE } from '../../../data/scenes/pirate';
 
 /** The radio of a vehicle being ridden (scenes/CarRadio): a "listen" panel's focus, like a thing's id. */
 export const CAR_RADIO = 'radio:car';
+/** The pirate station on a vehicle's radio in Westbay (core/town/pirate.ts, data/scenes/pirate.ts): a focus too. */
+export const PIRATE_RADIO = 'radio:pirate';
 
 /** Vietnamese; the callers put them through the interface language (tr). */
 const NAMES = { bench: 'Ghế: ngồi nghe', radio: 'Radio Bay FM', bus: 'Xe buýt số 9' } as const;
@@ -27,6 +30,7 @@ export function thingPrompt(id: string): string | null {
 export function listenTitle(at: string | null | undefined): string {
   if (!at) return 'Nghe';
   if (at === CAR_RADIO) return TITLES.radio;
+  if (at === PIRATE_RADIO) return PIRATE_TITLE;
   if (at.startsWith('event:')) return TOWN_EVENTS.find((e) => e.id === at.slice(6))?.name ?? 'Buổi gặp mặt';
   const k = thingKind(at);
   return k ? TITLES[k] : 'Nghe';

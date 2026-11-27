@@ -40,7 +40,7 @@ import { usePanelKeys } from '../panelKeys';
 import { usePlayerOnStage } from '../playerStage';
 import MiniMap from '../map/MiniMap';
 import ListenPanel from '../scenes/ListenPanel';
-import { CAR_RADIO, listenTitle, thingPrompt } from '../scenes/things';
+import { CAR_RADIO, listenTitle, PIRATE_RADIO, thingPrompt } from '../scenes/things';
 import CarRadio from '../scenes/CarRadio';
 import { playSfx } from '../sfx';
 import { narrowStage, useFullStage, useStageInsets, useTownTheme } from '../stageShell';
@@ -304,12 +304,14 @@ export default function CityPage() {
         setSheet({ kind: 'hideout', key: ++keys.current });
         return;
       }
-      if (!thingKind(id) && (id as string) !== CAR_RADIO) return;
+      if (!thingKind(id) && (id as string) !== CAR_RADIO && (id as string) !== PIRATE_RADIO) return;
       setWelcome(false);
       setSheet({ kind: 'thing', key: ++keys.current, id });
     },
     [sheet],
   );
+  // the pirate station on the vehicle's radio (Act III: scenes/CarRadio, core/town/pirate.ts)
+  const openPirate = useCallback(() => openThing(PIRATE_RADIO as ActivitySpotId), [openThing]);
   const toTown = useCallback(() => navigate('town', { from: 'city' }), []);
 
   // what is on today (docs/town.md §21): the weekday's get-together, a festival of the month
@@ -717,7 +719,7 @@ export default function CityPage() {
 
         {!flat && ready && !sheet && !welcome && !map && <QuestTracker quests={questList} current={quest} stage={stage} onPick={goQuest} deadline={job.active ? job.deadline : riding ? (taxiRide?.until ?? null) : rush && rush.id === quest?.id ? rush.until : null} />}
         {!flat && ready && !sheet && !welcome && !map && <RideButton stage={stage} />}
-        {!flat && ready && !sheet && !welcome && !map && <CarRadio stage={stage} onOpen={() => openThing(CAR_RADIO as ActivitySpotId)} />}
+        {!flat && ready && !sheet && !welcome && !map && <CarRadio stage={stage} onOpen={() => openThing(CAR_RADIO as ActivitySpotId)} onPirate={openPirate} />}
         <div className="town-hud">
           <div className="town-level is-new" role="img" aria-label={tl`Westbay, ${weekday}`}>
             <span className="town-level-title">
