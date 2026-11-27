@@ -847,3 +847,56 @@ tạo để ai chọn Max cũng có.
 2. **Cái giá cuối hồi:** bà Delaney bị đình chỉ, và Kemp vẫn giữ hai mươi năm băng ("I have the rest"). Có nặng quá không?
 3. **Nghe lén điện thoại của Kemp** (đường Jun): được phép trong truyện, hay băng chỉ nghe những gì hắn để hở như hắn từng làm?
 4. **Chọn người đi cùng có tốn tiền** (phần chia) hay chỉ đổi kiểu nghe?
+
+---
+
+## 11. As written (2026-11-27): năm phi vụ đầu tiên thành dữ liệu chơi được
+
+Phiên này viết phi vụ 1, 3a, 3b, 5a, 5b; phiên kia viết phần còn lại (2a, 2b, 4a, 4b, Kho 15). Mỗi file có danh sách thay
+đổi ngay đầu file.
+
+| Phi vụ | File | Câu (kể cả nhánh) | Người thị trấn (clip) | Mở sau | Thứ tự |
+|---|---|---|---|---|---|
+| 1 Bán đài | `src/data/city/jobs/act2Sale.ts` | 50 | 0 | `job-hearing` | 10 |
+| 3a Câu hỏi thứ hai | `act2Second.ts` | 37 | 0 | `job-sale` | 13 |
+| 3b Hộp há cảo | `act2Dumplings.ts` | 84 | Max 8 (chỉ đường Max) | `job-second` | 14 |
+| 5a Gọi vào đài | `act2Callin.ts` | 49 | 0 | `job-sale` | 17 |
+| 5b Tuần cuối | `act2Farewell.ts` | 43 | Tom 3 | `job-callin` | 18 |
+
+**Đổi so với kinh truyện:**
+
+1. **Phi vụ 1:** hạn gọi lại là của chính chiếc điện thoại (cuộc gọi nhỡ có hạn của engine). Sổ tay là tin nhắn thoại của
+   Marcus (`via: 'voicemail'`), giờ hẹn là buổi họp ở sạp bà Mei, đi tới đó có hạn theo giờ hẹn. "Ai mua" có lựa chọn nhầm là
+   Coastline (bên bán), không phải "người của đài": hai hãng cùng đuôi "-line". Buổi họp kết bằng câu Rico hỏi ai lo đường
+   talkback (đáp theo ý). Lời mời của Kemp đổi theo cờ của phi vụ 1 Hồi I.
+2. **3a:** người đi cùng là Sol (sạp bên cạnh) hoặc bà Okafor (giờ tàu). Nhờ bà Okafor để mắt tới ông Ashby thì đặt cờ
+   `okafor-watch`, đọc ở 5b. Câu dối của Shona được bắt bằng nút "Đó!" (bước `spot`). "Every word" có lựa chọn nhầm thứ ba
+   là "every record".
+3. **3b:** viết đúng như mục 6, trừ mấy chỗ sau. Cửa kho mười lăm là chỗ `w15-front`. Băng của Max là sổ tay
+   `via: 'tape'` (tự đưa tới chỗ ẩn, hoặc sạp Jun nếu chưa có chỗ ẩn), nên câu m03b bỏ. Hai câu có "..." của đường Jun là
+   `broken`. Đường Gus dùng bước `patrol` trên Quay Street. Đi một mình thì chỉ nghe được ở cửa. Cuối phi vụ, người chơi
+   nói lại điều mình đã ghi (theo sổ), không chọn.
+4. **5a:** bốn người góp tiền trong hai sổ tay: Frank 30 (13, 3), Gianna 180 (118, 108), Hal "twelve, no, twenty", Nora 60
+   (16, 6). Không có "bữa tối" của Gianna. "Ông Pryce" và chị của người gác dùng giọng người gọi vào đài đã có. Ca của người
+   gác thành cờ `watchman` cho 4a (`past: 'job-callin:watchman'`). Đi với Kit thì Kit đọc tên từng người trước; đi với Claire
+   thì Claire bắt lỗi ghi sổ ở cuối, còn không thì Marcus.
+5. **5b:** ông Ashby chưa có hình trong thế giới, nên ông được tả, được Shona đón và được nhắc tới. Hai người bị nghe lén ở
+   quán Gianna là Kemp và Shona, lúc Ashby đi rửa tay. Chỗ ngồi là "bàn số chín" (năm, mười chín), không phải "cạnh cửa sổ".
+   Ghi áo màu xám thì hỏi nhầm ông Whitlock.
+6. **Người nói mới** (`core/town/sceneTypes.ts`): `ashby` (ông Ashby · Coastline), `scanner-desk`, `scanner-unit` (bộ đàm
+   cảnh sát).
+7. **Không còn chỗ `// ENGINE` nào.** Lúc tao bắt đầu viết, engine đã có đủ các món trong danh sách NEEDS ENGINE mà năm
+   phi vụ này cần (spots của kho mười lăm, `broken`, `via: 'tape'`, `patrol`, `spot`), nên tao dùng thẳng.
+
+**Clip cho chủ dự án:** 11 câu (Max 8 ở 3b đường Max, Tom 3 ở 5b), chỉ bản nối âm, `npm run audio:generate`.
+
+**Đã chạy bằng script** (Edge headless trên dev server riêng, chế độ admin, tiếng tắt):
+- Phi vụ 1: tới màn xem lại. Script chọn bừa giờ đầu tiên nên ra Lộn xộn (ghi sai giờ → tới muộn, đúng như thiết kế).
+- 3b đi với Jun: Sạch.
+- 3b đi với Max: Sạch. Không có chỗ ẩn nên engine dẫn tới sạp Jun nghe băng.
+- 3b đi với Gus: Lộn xộn. Script đứng yên ở cửa kho lúc xe tuần tra chạy qua Quay Street nên bị thấy: bước `patrol`
+  hoạt động.
+
+**Chưa chạy:** 3a (nút "Đó!"), 5a, 5b, và 3b đi một mình.
+
+**Chưa ai kiểm:** chưa ai đọc hay nghe lời thoại (model viết); chưa chơi bằng tay hay trên điện thoại.

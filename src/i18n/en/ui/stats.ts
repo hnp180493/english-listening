@@ -153,6 +153,8 @@ const stats: Record<string, string> = {
   'Nhiều': 'More',
   '{}: {}/{} điều, còn ít, chưa nói được gì': '{0}: {1}/{2} items, too few to tell anything yet',
   '{}: {}% ({}/{} điều)': '{0}: {1}% ({2}/{3} items)',
+  // no diacritics, so the scan does not see it as Vietnamese: the card's heading (features/stats/GameEarCard.tsx)
+  'Nghe trong game': 'Listening in the game',
   'Người Westbay, giọng trình duyệt': 'Westbay\'s people, browser voice',
   'Người thị trấn, clip Gemini': 'Town residents, Gemini clips',
   'Điều nghe ra lần đầu trong phi vụ và văn phòng điều xe mà bạn làm đúng sau đúng 1 lần nghe (không nhắc lại, không nghe chậm).': 'Things heard for the first time in jobs and the dispatch office that you got right after exactly one listen (no repeat, no slower play).',

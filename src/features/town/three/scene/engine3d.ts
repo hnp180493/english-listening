@@ -1146,13 +1146,14 @@ export class TownEngine3D {
   /**
    * People of a Westbay job (features/town/jobs) stand in a loose group in front of a place's door (on its street),
    * wherever they were, until endListen: the crowd at a pickup, two people talking where they can be overheard.
-   * They walk in from a few steps off where there is room. Whoever is not in the world is left out.
+   * They walk in from a few steps off where there is room. Whoever is not in the world is left out. `at` may be a
+   * tile instead of a place (a job's own spot, data/city/jobs/spots.ts: warehouse fifteen's door): they stand round it.
    */
-  gather(at: PlaceId, who: readonly PlaceId[]): void {
-    const place = this.world.places.find((q) => q.id === at) ?? this.world.guests?.find((q) => q.id === at);
+  gather(at: PlaceId | { x: number; y: number }, who: readonly PlaceId[]): void {
+    const place = typeof at === 'string' ? (this.world.places.find((q) => q.id === at) ?? this.world.guests?.find((q) => q.id === at)) : null;
     const here = who.filter((id) => this.sim.residents.has(id));
-    if (!place || here.length === 0) return;
-    const c = { x: place.door.x + 0.5, y: place.door.y + 1.6 };
+    if ((typeof at === 'string' && !place) || here.length === 0) return;
+    const c = place ? { x: place.door.x + 0.5, y: place.door.y + 1.6 } : typeof at === 'string' ? { x: 0, y: 0 } : { x: at.x + 0.5, y: at.y + 0.5 };
     const fits = (q: { x: number; y: number }) => walkable({ x: Math.floor(q.x), y: Math.floor(q.y) }, this.sim.world) && bodyFits(q.x, q.y, PLAYER_RADIUS, this.sim.world);
     const spots: { x: number; y: number }[] = [];
     for (const r of [here.length > 2 ? 1.3 : 0.55, 2.1, 2.9]) {

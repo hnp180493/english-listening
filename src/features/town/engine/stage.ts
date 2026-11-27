@@ -121,7 +121,7 @@ export interface TownStageHandle {
    */
   addExtra: (make: (ctx: StageExtraCtx) => StageExtra) => (() => void) | null;
   /** People of a Westbay job (features/town/jobs) stand in a loose group in front of a place's door until endListen. */
-  gather: (at: PlaceId, who: readonly PlaceId[]) => void;
+  gather: (at: PlaceId | { x: number; y: number }, who: readonly PlaceId[]) => void;
   /** A passenger of a Westbay job (features/town/jobs): out of sight in the vehicle while `on`, then set down beside the player. */
   passenger: (id: PlaceId, on: boolean) => void;
   /** A little picture popping up over somebody's head. */

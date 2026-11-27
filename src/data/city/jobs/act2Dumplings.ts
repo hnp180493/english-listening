@@ -11,12 +11,11 @@
 // Going alone: the door only.
 //
 // As written, against the bible (docs/gta-story-2.md §11 "As written"):
-//   - warehouse fifteen is not on the map: its door is staged at Sol's lantern stall at the end of the row on Pier
-//     Road ('sol')                                                              // ENGINE: 5 (warehouse fifteen)
-//   - Max's tape is a notebook heard at Gus's hut, beside the hideout; "your place" means the hideout, and the
-//     line for a learner without one (m03b) is dropped (no condition tells whether they own it)  // ENGINE: 3 (tape)
-//   - Jun's hiss is written as "..." in the line and played whole                  // ENGINE: 2 (broken-up line)
-//   - the patrol is a deadline to get into Gus's hut and two scanner lines, not a car  // ENGINE: 4 (a job's patrol)
+//   - warehouse fifteen's front door is the job spot 'w15-front' (data/city/jobs/spots.ts);
+//   - Max's tape is a notebook `via: 'tape'` (the hideout if owned, else Jun's stall); the bible's line for a learner
+//     without a hideout (m03b) is dropped: the engine picks the place;
+//   - Jun's hiss: the two lines with "..." are `broken` (said in pieces, a silence at each "...");
+//   - the patrol is a `patrol` step on Quay Street while the learner gets from the warehouse door to Gus's hut;
 //   - the end's "what did my dumplings buy us" is said by the learner as written (by the notes), not picked.
 // Max is of the town ('phone'): his lines are clips (connected only), the browser voice until the owner makes them.
 
@@ -73,10 +72,10 @@ const LINES = [
   { id: id('m04'), who: 'phone', text: "Same twelve seconds, mate. I'll put the kettle on.", vi: 'Vẫn mười hai giây đó thôi bạn. Để tôi đun ấm nước.' },
   // ── beat 3b, with Jun: through the hiss, that night ──
   { id: id('j01'), who: 'jun', text: "Got him. It's crackly. Headphones on, and please don't touch the dial.", vi: 'Bắt được rồi. Rè lắm. Đeo tai nghe vào, và làm ơn đừng chạm vào núm.' },
-  { id: id('j02'), who: 'kemp', text: "Mr Ashby. Yes, I know the time. Your floor's still... forty thousand?", vi: 'Ông Ashby. Vâng, tôi biết mấy giờ rồi. Giá sàn của ông vẫn là... bốn mươi nghìn chứ?' },
+  { id: id('j02'), who: 'kemp', text: "Mr Ashby. Yes, I know the time. Your floor's still... forty thousand?", broken: true, vi: 'Ông Ashby. Vâng, tôi biết mấy giờ rồi. Giá sàn của ông vẫn là... bốn mươi nghìn chứ?' },
   { id: id('j03'), who: 'ashby', text: "Forty, Duncan. And you didn't hear that from me.", vi: 'Bốn mươi, Duncan. Và anh không nghe điều đó từ tôi.' },
   { id: id('j04'), who: 'kemp', text: 'I never hear anything from anyone. Ask the Harbour Trust.', vi: 'Tôi có bao giờ nghe gì từ ai đâu. Cứ hỏi Ban quản lý cảng.' },
-  { id: id('j05'), who: 'ashby', text: 'Very funny. The board meets on the... thirteenth. Bring a pen.', vi: 'Buồn cười lắm. Hội đồng họp vào ngày... mười ba. Mang theo bút.' },
+  { id: id('j05'), who: 'ashby', text: 'Very funny. The board meets on the... thirteenth. Bring a pen.', broken: true, vi: 'Buồn cười lắm. Hội đồng họp vào ngày... mười ba. Mang theo bút.' },
   { id: id('j06'), who: 'kemp', text: "I'll bring two. Goodnight, Mr Ashby.", vi: 'Tôi mang hai cây. Chào ông Ashby.' },
   { id: id('j07'), who: 'jun', text: 'Did you get the date? I lost half of it in the hiss.', vi: 'Bạn bắt được ngày không? Tôi mất nửa câu trong tiếng rè.' },
   { id: id('j08'), who: 'jun', text: "It's a recording now. Play it again, but we're leaving soon.", vi: 'Giờ nó là bản ghi rồi. Mở lại đi, nhưng mình sắp phải đi.' },
@@ -237,7 +236,7 @@ export const JOB_DUMPLINGS: JobDoc = {
   from: 'mei',
   crew: {
     roles: [
-      { who: 'phone', role: 'Máy ghi âm', listen: 'Max gài máy ghi âm dưới nắp hộp. Tối hôm sau bạn nghe lại cuộn băng ở chỗ ẩn, tua bao nhiêu lần cũng được.', opens: { hearts: 4 }, cut: CREW_CUT.friend, with: 'ride' },
+      { who: 'phone', role: 'Máy ghi âm', listen: 'Max gài máy ghi âm dưới nắp hộp. Tối hôm sau bạn nghe lại cuộn băng ở chỗ ẩn (chưa có thì ở sạp Jun), tua bao nhiêu lần cũng được.', opens: { hearts: 4 }, cut: CREW_CUT.friend, with: 'ride' },
       { who: 'jun', role: 'Thợ bộ đàm', listen: 'Jun bắt điện thoại không dây của Kemp trong xe trên Quay Street: nghe qua tiếng rè, có chữ bị mất.', opens: { heard: ['ct-jun-3'] }, cut: CREW_CUT.share, with: { at: 'jun' } },
       { who: 'gus', role: 'Người gác cảng', listen: 'Gus mở kênh đêm của Bayline trong chòi: nghe tay gác kho nói chuyện, và tự né xe tuần tra.', opens: { heard: ['ct-gus-2'] }, cut: CREW_CUT.share, with: { at: 'gus' } },
     ],
@@ -255,7 +254,7 @@ export const JOB_DUMPLINGS: JobDoc = {
   ],
   consequences: {
     van: { name: 'Ghi sai giờ xe dọn kho', rejoin: 'Bà Mei sửa lại; giờ đúng nằm trong xem lại.' },
-    door: { name: 'Ghi sai cửa: tưởng là cửa đen phía trước', rejoin: 'Bà Mei sửa: cửa sau.' },
+    door: { name: 'Ghi sai cửa xe chuyển đồ vào', rejoin: 'Bà Mei sửa: cửa sau.' },
     floor: { name: 'Ghi sai giá sàn', rejoin: 'Người đi cùng nói lại đúng bốn mươi nghìn.' },
     box: { name: 'Ghi sai thùng băng', rejoin: 'Max nói lại: thùng M, dưới cầu thang.' },
     date: { name: 'Ghi sai ngày họp hội đồng', rejoin: 'Jun nói lại: ngày mười ba.' },
@@ -271,11 +270,11 @@ export const JOB_DUMPLINGS: JobDoc = {
     { kind: 'scene', at: 'mei', who: ['mei', 'jun'], lines: ['06j', '07j', '08j', '09j'].map(id), if: { crew: 'jun' } },
     { kind: 'scene', at: 'mei', who: ['mei', 'gus'], lines: [id('06g'), id('07g')], if: { crew: 'gus' } },
     { kind: 'scene', at: 'mei', who: ['mei'], lines: [id('06a')], if: { all: [{ not: { crew: 'phone' } }, { not: { crew: 'jun' } }, { not: { crew: 'gus' } }] } },
-    // beat 2: to the warehouse door (staged at Sol's stall)  // ENGINE: 5 (warehouse fifteen)
-    { kind: 'goto', place: 'sol', label: 'Đi sau bà Mei tới cửa kho mười lăm' },
-    { kind: 'scene', at: 'sol', who: ['mei'], lines: [id('10')] },
+    // beat 2: to the warehouse door
+    { kind: 'goto', place: 'w15-front', label: 'Đi sau bà Mei tới cửa kho mười lăm' },
+    { kind: 'scene', at: 'w15-front', who: ['mei'], lines: [id('10')] },
     // beat 3a: the door, said once
-    { kind: 'scene', at: 'sol', who: ['mei', 'kemp', 'shona'], lines: [] },
+    { kind: 'scene', at: 'w15-front', who: ['mei', 'kemp', 'shona'], lines: [] },
     {
       kind: 'notebook',
       via: 'scene',
@@ -284,20 +283,21 @@ export const JOB_DUMPLINGS: JobDoc = {
       repeat: { van: [id('15r')], door: [id('19r')] },
       patience: { after: 2, line: id('22') },
     },
-    // beat 3b with Max: the tape, the next evening, by the hideout  // ENGINE: 3 (tape step)
+    // beat 3b with Max: the tape, the next evening (the engine walks to the hideout, or Jun's stall)
     { kind: 'scene', at: 'mei', who: ['mei'], lines: [id('m01'), id('m02')], if: { crew: 'phone' } },
-    { kind: 'goto', place: 'gus', label: 'Về chỗ ẩn sau chòi Gus nghe lại băng', if: { crew: 'phone' } },
-    { kind: 'notebook', via: 'radio', call: ['m03', 't01', 't02', 't03', 't04', 't05', 't06', 't07'].map(id), entries: TAPE, patience: { after: 3, line: id('m04') }, if: { crew: 'phone' } },
+    { kind: 'notebook', via: 'tape', call: ['m03', 't01', 't02', 't03', 't04', 't05', 't06', 't07'].map(id), entries: TAPE, patience: { after: 3, line: id('m04') }, if: { crew: 'phone' } },
     { kind: 'scene', lines: [{ line: id('x01'), if: { note: 'floor', is: 'wrong' } }, { line: id('x02'), if: { note: 'box', is: 'wrong' } }], if: { crew: 'phone' } },
-    // beat 3b with Jun: the van on Quay Street, through the hiss  // ENGINE: 2 (broken-up line)
+    // beat 3b with Jun: the van on Quay Street, through the hiss (two lines broken up)
     { kind: 'goto', place: 'jun', label: 'Tới xe của Jun đậu trên Quay Street', if: { crew: 'jun' } },
     { kind: 'scene', at: 'jun', who: ['jun'], lines: [id('j01')], park: [{ at: 'jun', look: 1 }], if: { crew: 'jun' } },
     { kind: 'notebook', via: 'radio', call: ['j02', 'j03', 'j04', 'j05', 'j06', 'j07'].map(id), entries: HISS, patience: { after: 2, line: id('j08') }, if: { crew: 'jun' } },
     { kind: 'scene', at: 'jun', who: ['jun'], lines: [{ line: id('x03'), if: { note: 'floorJ', is: 'wrong' } }, { line: id('x04'), if: { note: 'date', is: 'wrong' } }], if: { crew: 'jun' } },
-    // beat 3b with Gus: into his hut before the patrol passes, then the night channel  // ENGINE: 4 (a job's patrol)
-    { kind: 'radio', lines: [id('g06')], if: { crew: 'gus' } },
-    { kind: 'goto', place: 'gus', label: 'Vào chòi Gus trước khi xe tuần tra tới', deadline: { seconds: 40, consequence: 'seen', lines: [id('g08')] }, if: { crew: 'gus' } },
-    { kind: 'scene', at: 'gus', who: ['gus'], lines: [id('g07')], if: { crew: 'gus' } },
+    // beat 3b with Gus: the scanner says the patrol (g06), Gus answers it (g07, "That's them"), then the patrol drives
+    // Quay Street while the learner gets to his hut, then the night channel
+    { kind: 'scanner', lines: [id('g06')], if: { crew: 'gus' } },
+    { kind: 'radio', lines: [id('g07')], if: { crew: 'gus' } },
+    { kind: 'patrol', street: 'Quay Street', seconds: 15, seen: { consequence: 'seen', lines: [id('g08')] }, if: { crew: 'gus' } },
+    { kind: 'goto', place: 'gus', label: 'Vào chòi gác của Gus', if: { crew: 'gus' } },
     { kind: 'notebook', via: 'radio', call: ['g01', 'g02', 'g03', 'g04', 'g05'].map(id), entries: NIGHT, patience: { after: 2, line: id('g09') }, if: { crew: 'gus' } },
     { kind: 'scene', at: 'gus', who: ['gus'], lines: [{ line: id('x05'), if: { note: 'shift', is: 'wrong' } }, { line: id('x06'), if: { note: 'guard', is: 'wrong' } }], if: { crew: 'gus' } },
     // beat 4: back at Mei's; the learner says what they wrote

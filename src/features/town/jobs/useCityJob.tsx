@@ -160,6 +160,8 @@ const doorOf = (id: string): { x: number; y: number } | null => {
 };
 /** Where the quest card and the car take the learner: a place, or a job spot's tile (data/city/jobs/spots.ts). */
 const targetOf = (id: string) => (JOB_SPOTS[id] ? ({ kind: 'tile', x: JOB_SPOTS[id].x, y: JOB_SPOTS[id].y } as const) : ({ kind: 'place', id: id as PlaceId } as const));
+/** Where a job's people gather: a place's door, or a job spot's tile (warehouse fifteen's door has no place). */
+const gatherAt = (id: string): PlaceId | { x: number; y: number } => JOB_SPOTS[id] ?? (id as PlaceId);
 /** A pause in a broken-up line (the hiss), ms. */
 const HISS_MS = 700;
 /** After the line to spot ends, a press still counts this long (ms). */
@@ -384,6 +386,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       past: (ref) => pastFlag(loadTownJobs(), ref),
       crew: r.crew,
       clue: (id) => hasClue(loadTownJobs(), id),
+      heat: getHeat(),
+      grade: (id) => loadTownJobs().done[id]?.best ?? null,
     };
   }, []);
   const now = useCallback((list: readonly Said[] | undefined) => saidNow(list ?? [], condState()), [condState]);
@@ -484,6 +488,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
         }
       }
       due.sort((a, b) => a.at - b.at);
+      // a thread somebody else keeps (jobDoc `cover`): its key lines are no consequence
+      const kept = new Set(tracks.filter((t) => t.cover && evalCond(t.cover, condState())).map((t) => t.id));
       trackRef.current = tracks[0].id;
       show({ kind: 'threads', tracks, track: tracks[0].id });
       // a moment to see the threads and pick one before anything is said
@@ -512,13 +518,13 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
             patch((x) => (x.log.some((y) => y.ref === said.ref) ? x : { ...x, log: [...x.log, said] }));
             setSpeaking(said.line.who === 'player' ? 'player' : said.line.who);
             void sayJobLine(said.line, runRef.current?.doc.level ?? 2, { rateFactor: rules.rate });
-          } else if (d.track.consequence && (d.track.key ?? []).includes(d.id)) hit(d.track.consequence);
+          } else if (d.track.consequence && !kept.has(d.track.id) && (d.track.key ?? []).includes(d.id)) hit(d.track.consequence);
         }
         await new Promise((r) => window.setTimeout(r, 120));
       }
       setSpeaking(null);
     },
-    [hit, lineOf, now, patch, say, show],
+    [condState, hit, lineOf, now, patch, say, show],
   );
   const switchTrack = useCallback(
     (id: string) => {
@@ -566,7 +572,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           return;
         }
         case 'scene': {
-          if (st.at && st.who?.length) stage.current?.gather(st.at as PlaceId, st.who as PlaceId[]);
+          if (st.at && st.who?.length) stage.current?.gather(gatherAt(st.at), st.who as PlaceId[]);
           show({ kind: 'scene' });
           await say(now(st.lines));
           return;
@@ -651,7 +657,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           show({ kind: 'phone' });
           await say(now(st.arrive), 'player');
           const crowd = [...new Set([...st.crowd, st.passenger])];
-          stage.current?.gather(st.place as PlaceId, crowd as PlaceId[]);
+          stage.current?.gather(gatherAt(st.place), crowd as PlaceId[]);
           let wrong = 0;
           const asked = new Set<string>();
           for (;;) {
@@ -727,7 +733,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           return;
         }
         case 'overhear': {
-          stage.current?.gather(st.at as PlaceId, st.who as PlaceId[]);
+          stage.current?.gather(gatherAt(st.at), st.who as PlaceId[]);
           /** How far the learner is from the nearest of those standing there. */
           const nearest = (s: NonNullable<ReturnType<typeof snapshot>>): number => {
             const ds = st.who.map((w) => s.residents.find((x) => x.id === w)).filter((x): x is NonNullable<typeof x> => !!x).map((x) => dist(s.player, x));
@@ -872,6 +878,17 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           const right = choice === st.right;
           patch((x) => ({ ...x, checks: { ...x.checks, [st.fact]: right } }));
           if (!right) hit(st.consequence);
+          // why that clip was wrong (a tape cut together is not an imitation)
+          const why = right ? undefined : st.why?.[st.clips[choice]];
+          if (why) {
+            show({ kind: 'scene' });
+            await say([why]);
+          }
+          return;
+        }
+        case 'flag': {
+          // its condition held (runStep checked it): the run keeps the flag, nothing is said
+          flag(st.set);
           return;
         }
         case 'spot': {
@@ -1037,7 +1054,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       if (!r) return;
       patch((x) => ({ ...x, crew: role?.who ?? null, flags: role ? [...x.flags, `crew:${role.who}`] : x.flags }));
       if (role?.with === 'ride') stage.current?.passenger(role.who as PlaceId, true);
-      else if (role?.with) stage.current?.gather(role.with.at as PlaceId, [role.who as PlaceId]);
+      else if (role?.with) stage.current?.gather(gatherAt(role.with.at), [role.who as PlaceId]);
       show({ kind: 'call' });
       void direct(r.doc);
     },
@@ -1510,7 +1527,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
 
   // dev only: headless replays of a job read where the run stands and press what the panels press (gta-plan §16)
   useEffect(() => {
-    if (import.meta.env.DEV) (window as unknown as { __job?: unknown }).__job = { ui, run, ask, choose, askAgain, quests, phone, pickCrew, returnCall, playVoicemail, openPhone: setPhoneOpen, missCall: missJob, switchTrack, pressSpot, pick: (i: number) => resolve('pick', i) };
+    if (import.meta.env.DEV) (window as unknown as { __job?: unknown }).__job = { ui, run, ask, choose, askAgain, quests, phone, pickCrew, returnCall, playVoicemail, openPhone: setPhoneOpen, missCall: missJob, switchTrack, pressSpot, pick: (i: number) => resolve('pick', i), lineTimes: lineTimes.current };
   }, [ui, run, ask, choose, askAgain, quests, phone, pickCrew, returnCall, playVoicemail, missJob, switchTrack, pressSpot, resolve]);
 
   return {

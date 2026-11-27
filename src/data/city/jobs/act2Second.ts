@@ -8,7 +8,8 @@
 //   - the crew: Sol (the stall next door: Shona tried him first) or Mrs Okafor (she rings: Shona came in on the
 //     eight forty with a man in a Coastline jacket; asked to keep an eye out, she does: flag `okafor-watch`, read by
 //     job 5b "Tuần cuối");
-//   - the lie is caught by an answer by intent after the talk (there is no "Đó!" button yet);  // ENGINE: 8 ("Đó!")
+//   - the lie is caught with "Đó!" while Shona says it (a `spot` step on the line about prawn): too early, too late
+//     or never is the same consequence;
 //   - "every word": the third look-alike is "every record" (Mei's records? no: a careless ear's guess at a thing kept).
 // Nobody of the town speaks: no clips.
 
@@ -53,12 +54,8 @@ const LINES = [
   { id: id('c02'), who: 'mei', text: 'Every word, she said. Words. He keeps what people say. Somewhere.', vi: 'Cô ta nói từng lời. Lời nói. Hắn giữ lại những gì người ta nói. Ở đâu đó.' },
   { id: id('c03'), who: 'mei', text: "Half eight, dear. Half past eight. You'd have missed her by an hour.", vi: 'Tám rưỡi, cháu. Tám giờ rưỡi. Cháu sẽ lỡ cô ta cả tiếng đồng hồ.' },
   // the lie
-  { id: id('q01'), who: 'mei', text: 'Well, dear? Which of those was the lie?', vi: 'Sao, cháu? Trong mấy câu đó câu nào là dối?' },
-  { id: id('q02a'), who: 'player', text: 'Eight years with Kemp. That was the lie.', vi: 'Tám năm làm cho Kemp. Câu đó dối.' },
-  { id: id('q02b'), who: 'player', text: 'That he keeps every word. That was the lie.', vi: 'Rằng hắn giữ từng lời. Câu đó dối.' },
-  { id: id('q02c'), who: 'player', text: 'Prawn. He always has pork from you.', vi: 'Nhân tôm. Hắn toàn mua nhân thịt của bà.' },
-  { id: id('q03a'), who: 'mei', text: 'That was true, dear. Pork. Six pork, every night, from me.', vi: 'Câu đó thật đấy cháu. Thịt. Sáu cái nhân thịt, tối nào cũng mua của bà.' },
-  { id: id('q03c'), who: 'mei', text: "Prawn. She's never even seen him eat. She'll say anything to sell.", vi: 'Tôm. Cô ta còn chưa thấy hắn ăn bao giờ. Nói gì cũng được miễn bán được.' },
+  { id: id('q03a'), who: 'mei', text: 'Prawn, dear. That was the lie. Six pork, every night, from me.', vi: 'Nhân tôm, cháu ạ. Đó mới là câu dối. Sáu cái nhân thịt, tối nào cũng mua của bà.' },
+  { id: id('q03c'), who: 'mei', text: "You caught it. She's never even seen him eat. She'll say anything to sell.", vi: 'Cháu bắt được rồi. Cô ta còn chưa thấy hắn ăn bao giờ. Nói gì cũng được miễn bán được.' },
   // ── beat 4 ──
   { id: id('z01'), who: 'mei', text: "And he keeps every word. Then there's a room full of them somewhere.", vi: 'Mà hắn giữ từng lời. Vậy thì ở đâu đó có cả một phòng đầy lời nói.' },
   { id: id('z02'), who: 'mei', text: 'Tell Jun. And tomorrow, Mr Kemp gets his six pork from me in person.', vi: 'Kể với Jun. Và mai, ông Kemp sẽ nhận sáu cái nhân thịt tận tay bà.' },
@@ -133,7 +130,7 @@ export const JOB_SECOND: JobDoc = {
     years: { name: 'Ghi sai Shona làm cho Kemp bao lâu', rejoin: 'Bà Mei sửa lại.' },
     keeps: { name: 'Ghi sai Kemp giữ cái gì: không biết có một kho lời nói', rejoin: 'Bà Mei nói thẳng ra.' },
     back: { name: 'Ghi sai giờ Shona quay lại', rejoin: 'Bà Mei sửa lại giờ.' },
-    lie: { name: 'Chọn sai câu dối', rejoin: 'Bà Mei chỉ ra câu dối thật: nhân tôm.' },
+    lie: { name: 'Không bắt được câu dối đúng lúc', rejoin: 'Bà Mei chỉ ra câu dối thật: nhân tôm.' },
   },
   steps: [
     { kind: 'goto', place: 'mei', label: 'Tới sạp há cảo của bà Mei' },
@@ -157,7 +154,7 @@ export const JOB_SECOND: JobDoc = {
     {
       kind: 'notebook',
       via: 'scene',
-      call: ['n01', 'n02', 'n03', 'n04', 'n05', 'n06', 'n07', 'n08', 'n09'].map(id),
+      call: ['n01', 'n02', 'n03', 'n04', 'n05', 'n06'].map(id),
       entries: NOTEBOOK,
       repeat: { years: [id('n02r')], keeps: [id('n04r')], back: [id('n06r')] },
       patience: { after: 2, line: id('n10') },
@@ -172,18 +169,9 @@ export const JOB_SECOND: JobDoc = {
         { line: id('c03'), if: { note: 'back', is: 'wrong' } },
       ],
     },
-    // the lie: by intent for now  // ENGINE: 8 ("Đó!" while Shona says it)
-    {
-      kind: 'intent',
-      who: 'mei',
-      ask: [id('q01')],
-      options: [
-        { label: 'Tám năm làm cho Kemp', say: id('q02a'), reply: [id('q03a')] },
-        { label: 'Kemp giữ từng lời', say: id('q02b'), reply: [id('q03a')] },
-        { label: 'Kemp chỉ ăn nhân tôm', say: id('q02c'), reply: [id('q03c')] },
-      ],
-      check: { right: 2, consequence: 'lie', fact: 'lie' },
-    },
+    // the second question: "Đó!" when Shona lies
+    { kind: 'spot', via: 'scene', lines: ['n07', 'n08', 'n09'].map(id), at: id('n08'), early: 'lie', late: 'lie', never: 'lie', fact: 'lie' },
+    { kind: 'scene', at: 'mei', who: ['mei'], lines: [{ line: id('q03c'), if: { not: { hit: 'lie' } } }, { line: id('q03a'), if: { hit: 'lie' } }] },
     // beat 4
     { kind: 'scene', at: 'mei', who: ['mei'], lines: [id('z01'), id('z02')] },
   ],
