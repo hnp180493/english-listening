@@ -181,7 +181,8 @@ export const STAYS: readonly Piece[] = [
 
 /** The question about the sky, and its answers' parts: the sky now, and what it does later. */
 export const SKY_GIST = { q: 'Marcus nói gì về thời tiết?' } as const;
-export const SKY_SHORT: Readonly<Record<Sky, { vi: string }>> = { clear: { vi: 'quang' }, cloudy: { vi: 'nhiều mây' }, rain: { vi: 'mưa' }, storm: { vi: 'có giông' } };
+/** The sky now in a word, as the answers put it ("Trời {A}, …"); `en` for the English interface's answers. */
+export const SKY_SHORT: Readonly<Record<Sky, Piece>> = { clear: { en: 'clear', vi: 'quang' }, cloudy: { en: 'cloudy', vi: 'nhiều mây' }, rain: { en: 'raining', vi: 'mưa' }, storm: { en: 'stormy', vi: 'có giông' } };
 const LATER = {
   clear: { vi: 'trời quang' },
   clearAfterRain: { vi: 'tạnh, trời quang' },

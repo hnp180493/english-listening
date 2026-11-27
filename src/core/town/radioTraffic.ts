@@ -15,6 +15,12 @@ import { BUSY, CLEAR, COMPASS_WORDS, PATROL, QUIET, TRAFFIC_A, TRAFFIC_LEADS, TR
 import type { Piece } from '../../data/scenes/radioLive';
 import type { SceneQuestion } from './sceneTypes';
 import { trafficPace } from './skyRules';
+import { getLang, tr } from '../../i18n';
+
+// The meanings are put together here, so each piece goes through the interface language BEFORE it is filled in
+// (docs/i18n.md §4; in Vietnamese tr returns its text as is). What is said never changes.
+const V = (vi: string): string => tr(vi);
+const W = (p: Piece): string => (getLang() === 'en' ? p.en : p.vi);
 import type { Compass } from './streets';
 
 /** Westbay's streets at a moment, as the radio reads them. */
@@ -133,34 +139,35 @@ export function trafficReport(snap: TrafficSnapshot | null, seed: number): Traff
   if (!snap || snap.streets.length === 0) return null;
   const f = trafficFacts(snap, seed);
   const lines: Piece[] = [];
-  const S = (p: Piece, v: Record<string, string>): Piece => ({ en: cap(put(p.en, v)), vi: cap(put(p.vi, v)) });
+  const S = (p: Piece, v: Record<string, string>): Piece => ({ en: cap(put(p.en, v)), vi: cap(put(V(p.vi), v)) });
+  const M = (p: Piece): Piece => ({ en: p.en, vi: V(p.vi) });
 
   if (f.busy) {
     const b = f.busy;
     if (b.standing) lines.push(S(BUSY.standing, { S: b.name }));
     else if (b.heading === 'both') lines.push(S(BUSY.bothWays, { S: b.name }));
-    else if (b.heading) lines.push({ en: cap(put(BUSY.heading.en, { S: b.name, C: COMPASS_WORDS[b.heading].en })), vi: cap(put(BUSY.heading.vi, { S: b.name, C: COMPASS_WORDS[b.heading].vi })) });
+    else if (b.heading) lines.push({ en: cap(put(BUSY.heading.en, { S: b.name, C: COMPASS_WORDS[b.heading].en })), vi: cap(put(V(BUSY.heading.vi), { S: b.name, C: W(COMPASS_WORDS[b.heading]) })) });
     if (f.clear) lines.push(S(pickOf(CLEAR, seed, 4), { S: f.clear }));
-  } else lines.push(pickOf(QUIET, seed, 5));
-  if (f.wet) lines.push(WET);
-  if (f.patrol !== undefined) lines.push(f.patrol ? S(PATROL.on, { S: f.patrol }) : PATROL.out);
+  } else lines.push(M(pickOf(QUIET, seed, 5)));
+  if (f.wet) lines.push(M(WET));
+  if (f.patrol !== undefined) lines.push(f.patrol ? S(PATROL.on, { S: f.patrol }) : M(PATROL.out));
 
   // one question, of what was said: the patrol's street, why it is slow, the busy street or its heading, or that it
   // is quiet (by the edition, among those that were said)
   const qs: SceneQuestion[] = [];
   if (f.patrol) {
     const o = twoOther(snap, (n) => n === f.patrol, seed);
-    if (o) qs.push(ask(TRAFFIC_Q.patrol.q, f.patrol, o, seed * 5 + 1));
+    if (o) qs.push(ask(V(TRAFFIC_Q.patrol.q), f.patrol, o, seed * 5 + 1));
   }
-  if (f.wet) qs.push(ask(TRAFFIC_Q.slow.q, TRAFFIC_A.slow.options[0], [TRAFFIC_A.slow.options[1], TRAFFIC_A.slow.options[2]], seed * 5 + 2));
+  if (f.wet) qs.push(ask(V(TRAFFIC_Q.slow.q), V(TRAFFIC_A.slow.options[0]), [V(TRAFFIC_A.slow.options[1]), V(TRAFFIC_A.slow.options[2])], seed * 5 + 2));
   if (f.busy) {
     const b = f.busy;
     // the wrong streets are less busy than the one said
     const count = (name: string) => snap.cars.filter((c) => snap.streets.find((s) => s.name === name)?.id === c.street).length;
     const o = twoOther(snap, (n) => n === b.name || count(n) >= b.count, seed);
-    if (o) qs.push(ask(TRAFFIC_Q.busy.q, b.name, o, seed * 5 + 3));
+    if (o) qs.push(ask(V(TRAFFIC_Q.busy.q), b.name, o, seed * 5 + 3));
     if (b.heading && b.heading !== 'both' && !b.standing) {
-      const word = (c: Compass) => put(TRAFFIC_A.heading.vi, { C: COMPASS_WORDS[c].vi });
+      const word = (c: Compass) => put(V(TRAFFIC_A.heading.vi), { C: W(COMPASS_WORDS[c]) });
       const others = (['north', 'south', 'east', 'west'] as const).filter((c) => c !== b.heading);
       const w1 = pickOf(others, seed, 13);
       const w2 = pickOf(
@@ -168,9 +175,9 @@ export function trafficReport(snap: TrafficSnapshot | null, seed: number): Traff
         seed,
         14,
       );
-      qs.push(ask(put(TRAFFIC_Q.heading.q, { S: b.name }), word(b.heading), [word(w1), word(w2)], seed * 5 + 4));
+      qs.push(ask(put(V(TRAFFIC_Q.heading.q), { S: b.name }), word(b.heading), [word(w1), word(w2)], seed * 5 + 4));
     }
-  } else qs.push(ask(TRAFFIC_Q.quiet.q, TRAFFIC_A.quiet.options[0], [TRAFFIC_A.quiet.options[1], TRAFFIC_A.quiet.options[2]], seed * 5 + 5));
+  } else qs.push(ask(V(TRAFFIC_Q.quiet.q), V(TRAFFIC_A.quiet.options[0]), [V(TRAFFIC_A.quiet.options[1]), V(TRAFFIC_A.quiet.options[2])], seed * 5 + 5));
   const question = pickOf(qs, seed, 6);
-  return { lead: pickOf(TRAFFIC_LEADS, seed, 7), lines, facts: f, question };
+  return { lead: M(pickOf(TRAFFIC_LEADS, seed, 7)), lines, facts: f, question };
 }

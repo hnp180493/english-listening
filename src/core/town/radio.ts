@@ -19,6 +19,17 @@ import { currentShift, offsetAt, type Shift } from './gameClock';
 import type { TownEvent } from './world';
 import { AD_LEADS, RADIO_ADS, type RadioAd, type RadioCall } from '../../data/scenes/radioCalls';
 import { trafficReport, type TrafficFacts, type TrafficSnapshot } from './radioTraffic';
+import { getLang, tr } from '../../i18n';
+
+// The meanings of a bulletin are put together as it is made, so they are no dictionary keys as a whole: each piece goes
+// through the interface language BEFORE it is joined or filled in (docs/i18n.md §4, as core/town/job.ts and scanner.ts
+// do). In Vietnamese tr returns its text as is: not a byte changes. What is SAID never changes.
+/** A meaning, or a meaning's template, as it is shown. */
+const V = (vi: string): string => tr(vi);
+/** A value filled into a meaning (a time, a weekday): in English its own English words. */
+const W = (p: Piece): string => (getLang() === 'en' ? p.en : p.vi);
+/** A whole piece with its meaning as shown. */
+const M = (p: Piece): Piece => ({ en: p.en, vi: V(p.vi) });
 
 /** Real milliseconds in a minute of the game (two seconds). */
 export const GAME_MINUTE_MS = GAME_DAY_MS / (24 * 60);
@@ -233,8 +244,8 @@ function question(q: string, right: string, wrong: readonly [string, string], se
 
 /** The Vietnamese gist of the sky: now, and what it does next (or that it stays). */
 function skySummary(now: Sky, next: Sky | null): string {
-  const a = SKY_SHORT[now].vi;
-  return next ? fill(SUMMARY.change.vi, { A: a, L: laterVi(now, next) }) : fill(SUMMARY.stays.vi, { A: a });
+  const a = W(SKY_SHORT[now]);
+  return next ? fill(V(SUMMARY.change.vi), { A: a, L: V(laterVi(now, next)) }) : fill(V(SUMMARY.stays.vi), { A: a });
 }
 
 /** Today's events in the city (CITY_EVENT_LINES): the weekday's, and a festival of the month. */
@@ -269,7 +280,7 @@ export function bulletinAt(input: BulletinInput): Bulletin {
   // who is on air
   const g = greeting(hour);
   const id = pick(IDENTS, ed, 1);
-  filler({ en: `${g.en}, ${id.en}`, vi: `${g.vi}, ${id.vi}` });
+  filler({ en: `${g.en}, ${id.en}`, vi: `${V(g.vi)}, ${V(id.vi)}` });
 
   // the time by the game's clock, as near as five minutes: before, on or just after the mark
   const nowMin = gameMinutes(now);
@@ -278,34 +289,34 @@ export function bulletinAt(input: BulletinInput): Bulletin {
   const t = spokenTime(mark);
   const day = WEEKDAYS[((weekday % 7) + 7) % 7];
   const form = pick(lead, ed, 2);
-  say({ en: fill(form.en, { T: t.en, D: day.en }), vi: cap(fill(form.vi, { T: t.vi, D: day.vi })) });
+  say({ en: fill(form.en, { T: t.en, D: day.en }), vi: cap(fill(V(form.vi), { T: W(t), D: W(day) })) });
 
   // the player's news
   const news = (input.news ?? []).filter((n) => n.lines.length > 0);
   if (news.length > 0) {
-    filler(pick(NEWS_LEADS, ed, 3));
-    for (const n of news) for (const l of n.lines) lines.push({ who: 'marcus', text: l.text, vi: l.vi, ...(l.say ? { say: l.say } : {}) });
+    filler(M(pick(NEWS_LEADS, ed, 3)));
+    for (const n of news) for (const l of n.lines) lines.push({ who: 'marcus', text: l.text, vi: V(l.vi), ...(l.say ? { say: l.say } : {}) });
   }
 
   // the sky now and later
   const fc = forecastAt(now, input.weatherAt);
   const night = hour < 6 || hour >= 19;
   const nowLines = SKY_NOW[fc.now][night ? 'night' : 'day'];
-  say(pick(nowLines, ed, 4));
+  say(M(pick(nowLines, ed, 4)));
   fc.changes.forEach((c, i) => {
     const when = whenSaid(c.at, now);
     const ch = skyChange(c.was, c.sky);
     const en = fill(ch.en, { B: when.en });
-    const vi = fill(ch.vi, { B: when.vi });
+    const vi = fill(V(ch.vi), { B: W(when) });
     if (i === 0) {
       const l = pick(CHANGE_LEADS, ed, 5);
-      say({ en: `${l.en} ${en}.`, vi: cap(`${l.vi} ${vi}.`) });
-    } else say({ en: `${THEN_LEAD.en} ${en}.`, vi: `${THEN_LEAD.vi}, ${vi}.` });
+      say({ en: `${l.en} ${en}.`, vi: cap(`${V(l.vi)} ${vi}.`) });
+    } else say({ en: `${THEN_LEAD.en} ${en}.`, vi: `${V(THEN_LEAD.vi).replace(/,$/, '')}, ${vi}.` });
   });
   if (fc.stays !== null) {
     const s = pick(STAYS, ed, 6);
     const w = whenSaid(fc.stays, now);
-    say({ en: fill(s.en, { B: w.en }), vi: fill(s.vi, { B: w.vi }) });
+    say({ en: fill(s.en, { B: w.en }), vi: fill(V(s.vi), { B: W(w) }) });
   }
 
   // Westbay's roads as they are now (./radioTraffic: only with a source, i.e. on Westbay's page)
@@ -323,37 +334,37 @@ export function bulletinAt(input: BulletinInput): Bulletin {
   const extra = !townLine && city.day && city.festival ? city.festival : null;
   const onToday = [townLine, cityEvent, extra].filter((p): p is Piece => !!p);
   if (onToday.length > 0) {
-    filler(pick(EVENTS_LEAD, ed, 7));
-    for (const p of onToday) say({ en: p.en, vi: p.vi });
+    filler(M(pick(EVENTS_LEAD, ed, 7)));
+    for (const p of onToday) say(M(p));
   }
 
   // an advert of a real place (data/scenes/radioCalls.ts: true of it; some are clues a job may use)
   const ad = pick(RADIO_ADS, ed, 21);
   const adLead = pick(AD_LEADS, ed, 22);
-  filler({ en: adLead.text, vi: adLead.vi });
+  filler({ en: adLead.text, vi: V(adLead.vi) });
   // the learner's own sponsorship first, when bought (one line a sentence, when the two languages split alike)
   if (input.sponsor) {
     const en = input.sponsor.text.split(/(?<=[.?!])\s+/);
-    const vi = input.sponsor.vi.split(/(?<=[.?!])\s+/);
+    const vi = V(input.sponsor.vi).split(/(?<=[.?!])\s+/);
     if (en.length === vi.length) en.forEach((t, i) => say({ en: t, vi: vi[i] }));
-    else say({ en: input.sponsor.text, vi: input.sponsor.vi });
+    else say({ en: input.sponsor.text, vi: V(input.sponsor.vi) });
   }
-  for (const l of ad.lines) say({ en: l.text, vi: l.vi });
+  for (const l of ad.lines) say({ en: l.text, vi: V(l.vi) });
 
-  filler(pick(SIGN_OFFS, ed, 8));
+  filler(M(pick(SIGN_OFFS, ed, 8)));
 
   // the questions: the sky (what was said about it), then when it changes or what is on
   const next = fc.changes[0]?.sky ?? null;
   const right = skySummary(fc.now, next);
-  const candidates: string[] = [];
-  for (const a of SKIES) for (const b of [null, ...SKIES.filter((s) => s !== a)]) candidates.push(skySummary(a, b));
-  const others = candidates.filter((c) => c !== right);
+  const candidates: { now: Sky; text: string }[] = [];
+  for (const a of SKIES) for (const b of [null, ...SKIES.filter((s) => s !== a)]) candidates.push({ now: a, text: skySummary(a, b) });
+  const others = candidates.filter((c) => c.text !== right);
   // two wrong answers: one with the sky now right and the rest wrong, one with the sky now wrong (both by the edition)
-  const sameNow = others.filter((c) => c.startsWith(skySummary(fc.now, null).split(',')[0] + ','));
-  const otherNow = others.filter((c) => !sameNow.includes(c));
+  const sameNow = others.filter((c) => c.now === fc.now).map((c) => c.text);
+  const otherNow = others.filter((c) => c.now !== fc.now).map((c) => c.text);
   const w1 = pick(sameNow.length > 0 ? sameNow : otherNow, ed, 9);
   const w2 = pick(otherNow.filter((c) => c !== w1), ed, 10);
-  const gist = question(SKY_GIST.q, right, [w1, w2], ed * 7 + 11);
+  const gist = question(V(SKY_GIST.q), right, [w1, w2], ed * 7 + 11);
 
   let detail: SceneQuestion | undefined;
   const change = fc.changes[0];
@@ -362,12 +373,12 @@ export function bulletinAt(input: BulletinInput): Bulletin {
   const askWhen = change && (hash(ed * 13 + 12) < 0.6 || onToday.length === 0);
   if (askRoads && traffic) detail = traffic.question;
   else if (change && askWhen) {
-    const r = whenSaid(change.at, now).vi;
+    const r = W(whenSaid(change.at, now));
     const six = 6 * 60 * GAME_MINUTE_MS;
-    const d1 = whenSaid(change.at + six, now).vi;
+    const d1 = W(whenSaid(change.at + six, now));
     const back = change.at - six;
-    const d2 = (back > now ? whenSaid(back, now) : whenSaid(change.at + 2 * six, now)).vi;
-    detail = question(fill(WHEN_Q.q, { L: whenWhatVi(change.was, change.sky) }), r, [d1, d2], ed * 7 + 13);
+    const d2 = W(back > now ? whenSaid(back, now) : whenSaid(change.at + 2 * six, now));
+    detail = question(fill(V(WHEN_Q.q), { L: V(whenWhatVi(change.was, change.sky)) }), r, [d1, d2], ed * 7 + 13);
   } else if (onToday.length > 0) {
     // ask about the town's get-together or the city's day, whichever was said (both: by the edition)
     const askTown = !!town && !!townLine && (!cityEvent || hash(ed * 17 + 14) < 0.5);
@@ -375,13 +386,13 @@ export function bulletinAt(input: BulletinInput): Bulletin {
       const wrong = townEvents.filter((e) => e.id !== town.id);
       const a = pick(wrong, ed, 15);
       const b = pick(wrong.filter((e) => e !== a), ed, 16);
-      detail = question(EVENT_Q.town.q, town.name, [a.name, b.name], ed * 7 + 17);
+      detail = question(V(EVENT_Q.town.q), V(town.name), [V(a.name), V(b.name)], ed * 7 + 17);
     } else {
       const said = cityEvent!;
       const wrong = CITY_EVENT_LINES.filter((e) => e.id !== said.id && e.id !== extra?.id && e.id !== city.festival?.id && e.id !== city.day?.id && !e.months === !said.months);
       const a = pick(wrong, ed, 18);
       const b = pick(wrong.filter((e) => e !== a), ed, 19);
-      detail = question(EVENT_Q.city.q, said.name, [a.name, b.name], ed * 7 + 19);
+      detail = question(V(EVENT_Q.city.q), V(said.name), [V(a.name), V(b.name)], ed * 7 + 19);
     }
   }
 
