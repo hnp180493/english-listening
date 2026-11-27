@@ -79,7 +79,7 @@ export default function StopPanel({ stop }: { stop: Stop }) {
     <li key={key} className="str-stop-line">
       <span className="str-who">{l.who === 'you' ? 'Bạn' : 'Cảnh sát'}</span>
       <span lang="en">{l.text}</span>
-      <span className="str-vi" data-vi>
+      <span className="str-vi">
         {l.vi}
       </span>
     </li>

@@ -138,7 +138,7 @@ function SaidLine({ line, name, say }: { line: SceneLine; name: string; say: (li
           {line.text}
         </p>
       )}
-      <p className="town-ls-vi" data-vi>
+      <p className="town-ls-vi">
         {line.vi}
       </p>
       <div className="town-ls-line-btns">
@@ -337,7 +337,7 @@ export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onS
       <div className="town-ls">
         {faces}
         <div className="town-ls-ask" role="group" aria-label={q.q}>
-          <p className="town-ls-q" data-vi>
+          <p className="town-ls-q">
             {questions.length > 1 && <span className="town-ls-count">{tl`Câu ${asking + 1}/${questions.length}`}</span>}
             {q.q}
           </p>
@@ -353,7 +353,7 @@ export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onS
                 <span className="town-reply-key" aria-hidden="true">
                   {i + 1}
                 </span>
-                <span className="town-reply-text" data-vi>
+                <span className="town-reply-text">
                   {o}
                 </span>
               </button>
@@ -387,7 +387,7 @@ export default function SceneFlow({ scene, intro, nameOf, face, say, onDone, onS
           <p className="town-ls-you-en" lang="en">
             {scene.lines[yourTurn].text}
           </p>
-          <p className="town-ls-vi" data-vi>
+          <p className="town-ls-vi">
             {scene.lines[yourTurn].vi}
           </p>
         </div>

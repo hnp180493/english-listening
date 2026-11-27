@@ -44,7 +44,7 @@ function Words({ line, call, missed }: { line: LoggedLine; call: DispatchCall | 
           {line.text}
         </p>
       )}
-      <p className="town-ls-vi" data-vi>
+      <p className="town-ls-vi">
         {line.vi}
       </p>
       <div className="town-ls-line-btns">

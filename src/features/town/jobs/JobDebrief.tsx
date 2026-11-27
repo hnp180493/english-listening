@@ -61,7 +61,7 @@ function SaidLine({ said, missed, say }: { said: SaidJobLine; missed: boolean; s
           {said.line.text}
         </p>
       )}
-      <p className="town-ls-vi" data-vi>
+      <p className="town-ls-vi">
         {said.line.vi}
       </p>
       <div className="town-ls-line-btns">
