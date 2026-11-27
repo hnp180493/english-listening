@@ -266,6 +266,10 @@ const settings: Record<string, string> = {
   'Kiểu cũ': 'Classic',
   'Nhân vật trong thị trấn': 'People in the town',
   'Anime 3D nặng hơn; máy yếu thì chọn kiểu cũ. Chỉ lưu trên máy này, mở lại Thị trấn là thấy.': 'Anime 3D is heavier; pick classic on a weak device. Kept on this device only; open the Town again to see it.',
+  'Hoạt hình dựng sẵn': 'Ready-made clips',
+  'Tự tính': 'Computed',
+  'Dáng đi của nhân vật anime': 'How the anime characters move',
+  'Hoạt hình dựng sẵn cho đi, chạy, đứng, ngồi; tự tính là chuyển động cũ. Chỉ lưu trên máy này, mở lại Thị trấn là thấy.': 'Ready-made animation for walking, running, standing and sitting; computed is the old motion. Saved on this device only; reopen the Town to see it.',
 };
 
 export default settings;

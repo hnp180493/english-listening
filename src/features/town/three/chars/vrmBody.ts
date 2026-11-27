@@ -17,9 +17,9 @@
 //    sitting is posed for the VRM's own legs (hips on the seat, shins down to the ground) instead of copied;
 //  - VRM 0.x looks down −z in its own space (three-vrm turns the scene half round): a rotation's x and z flip.
 
-import { Box3, BoxGeometry, Color, CylinderGeometry, Euler, Group, MathUtils, Mesh, MeshStandardMaterial, Quaternion, SkinnedMesh, SphereGeometry, TorusGeometry, Vector3, type BufferGeometry, type Material, type Object3D } from 'three';
+import { AnimationMixer, Box3, BoxGeometry, Color, CylinderGeometry, Euler, Group, MathUtils, Mesh, MeshStandardMaterial, Quaternion, SkinnedMesh, SphereGeometry, TorusGeometry, Vector3, type AnimationAction, type AnimationClip, type BufferGeometry, type Material, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, type VRM, type VRMHumanBoneName } from '@pixiv/three-vrm';
 import { BODY, C, J, LEG_REACH, type EyeState, type MouthState } from './anim';
 import { HEAD } from './body';
@@ -34,6 +34,49 @@ import type { VrmExtra } from '../../../../data/townVrm';
 import { ageFace, beardMesh, scalpMesh } from './vrmAge';
 import { avatarCadence, avatarRunShare, avatarWalkReach } from './vrmGait';
 import { dressGarments } from './vrmGarments';
+import { loadClips, retarget, type ClipName, type ClipRig } from './vrmClips';
+import { getTownUi } from '../../townUi';
+
+/**
+ * Ready-made motion (owner, 2026-11-28, on the code's walk beside his own game's: "rồi tao bảo mày tham khảo game kia
+ * mày không làm được gì hết à"): the clips of public/anim/people.glb (Quaternius' Universal Animation Library, CC0,
+ * carried over by ./vrmClips.ts) move the legs, the hips and the back of every avatar standing, walking, jogging,
+ * running and seated, picked by the ground speed as in his game: a stroll walks, the everyday pace jogs, the run
+ * sprints. The code's pose keeps what the clips have not: an arm that holds, waves or talks (Animator.armsBusy), the
+ * head that turns to whoever speaks, an old body's stoop on top, the legs on a seat and the whole body on a vehicle.
+ * `townUi.motion` 'code' (per browser, Cài đặt → Hiển thị) keeps the code's motion; a file that does not load too.
+ */
+const LOCO: readonly ClipName[] = ['idle', 'walk', 'jog', 'sprint', 'sit'];
+/** Tiles a second (a grown-up's) from which the clip is a jog, and a sprint. */
+const JOG_FROM = 1.1;
+const SPRINT_FROM = 2.2;
+/** An old body walks even in a hurry, up to the player's everyday pace. */
+const JOG_FROM_OLD = 1.7;
+/** How far a clip is sped up or slowed to the ground speed (past it, the feet slide rather than a clip racing). */
+const CLIP_RATE: readonly [number, number] = [0.8, 1.5];
+/** Seconds a change of clip, or between the clips and the code's motion, takes. */
+const CLIP_FADE = 0.2;
+/** Clips carried over once per avatar file: an avatar of the same file gets a mixer of its own over the same clips. */
+const clipCache = new Map<string, { clips: AnimationClip[]; native: Record<ClipName, number>; perUnit: number }>();
+
+function clipRigFor(src: GLTF, key: string, scene: Object3D, perUnit: number): ClipRig | null {
+  try {
+    const cached = clipCache.get(key);
+    if (!cached) {
+      const rig = retarget(src, scene, perUnit);
+      clipCache.set(key, { clips: Object.values(rig.actions).map((a) => a.getClip()), native: rig.native, perUnit });
+      return rig;
+    }
+    const mixer = new AnimationMixer(scene);
+    const actions = {} as Record<ClipName, AnimationAction>;
+    for (const c of cached.clips) actions[c.name as ClipName] = mixer.clipAction(c);
+    const native = {} as Record<ClipName, number>;
+    for (const n of Object.keys(cached.native) as ClipName[]) native[n] = (cached.native[n] * perUnit) / cached.perUnit;
+    return { mixer, actions, native };
+  } catch {
+    return null;
+  }
+}
 
 /** The share of the code body's leg swing a VRM takes (its legs are about three times as long for the same pace). */
 const STRIDE = 0.62;
@@ -198,7 +241,10 @@ export interface Worn {
 export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<VrmWear> = {}, gone: () => boolean = () => false): Promise<Worn | null> {
   const loader = new GLTFLoader();
   loader.register((parser) => new VRMLoaderPlugin(parser));
+  // (the clips come with the first avatar, beside it; a file that does not load leaves the code's motion)
+  const clipsAt = getTownUi().motion === 'code' ? null : loadClips(import.meta.env.BASE_URL + 'anim/people.glb').catch(() => null);
   const gltf = await loader.loadAsync(url);
+  const clipSrc = clipsAt ? await clipsAt : null;
   const vrm = gltf.userData.vrm as VRM | undefined;
   if (!vrm) throw new Error('not a VRM: ' + url);
   // (the person left the stage while the file was coming)
@@ -290,6 +336,46 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   // (the hair's springs at the size the avatar is drawn: springScaler)
   const springs = springScaler(vrm);
   springs(s);
+  // the ready-made clips on this avatar's own bones, and which of its bones they move (see LOCO)
+  const rig = clipSrc ? clipRigFor(clipSrc, url.split('?')[0], vrm.scene, s) : null;
+  const clipW: Record<string, number> = { idle: 1, walk: 0, jog: 0, sprint: 0, sit: 0 };
+  if (rig) for (const n of LOCO) rig.actions[n]?.play().setEffectiveWeight(clipW[n]);
+  let clipOn = rig ? 1 : 0;
+  type Part = 'legs' | 'back' | 'armL' | 'armR';
+  const PARTS: readonly [VRMHumanBoneName, Part][] = [
+    ['hips', 'legs'],
+    ['leftUpperLeg', 'legs'],
+    ['leftLowerLeg', 'legs'],
+    ['leftFoot', 'legs'],
+    ['leftToes', 'legs'],
+    ['rightUpperLeg', 'legs'],
+    ['rightLowerLeg', 'legs'],
+    ['rightFoot', 'legs'],
+    ['rightToes', 'legs'],
+    ['spine', 'back'],
+    ['chest', 'back'],
+    ['upperChest', 'back'],
+    ['neck', 'back'],
+    ['leftShoulder', 'armL'],
+    ['leftUpperArm', 'armL'],
+    ['leftLowerArm', 'armL'],
+    ['leftHand', 'armL'],
+    ['rightShoulder', 'armR'],
+    ['rightUpperArm', 'armR'],
+    ['rightLowerArm', 'armR'],
+    ['rightHand', 'armR'],
+  ];
+  const posed = new Set(JOINTS.map(([, name]) => bone(name)));
+  const clipBones = rig
+    ? PARTS.flatMap(([name, part]) => {
+        const norm = bone(name);
+        const raw = vrm.humanoid.getRawBoneNode(name);
+        return norm && raw ? [{ norm, raw, part, code: posed.has(norm) }] : [];
+      })
+    : [];
+  const rawHips = vrm.humanoid.getRawBoneNode('hips');
+  const rawHipsRest = rawHips ? rawHips.position.clone() : new Vector3();
+  const spineNode = bone('spine');
   const pivot = ch.root.getObjectByName('pivot');
   if (pivot) pivot.visible = false;
   ch.root.add(holder);
@@ -586,6 +672,42 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       hips.position.set(hipsRest.x + (old ? -dx : dx), y, hipsRest.z + (old ? -dz : dz));
     }
 
+    // The ready-made clips (LOCO), over the code's pose: the clip of the pace, faded in CLIP_FADE; on the avatar's raw
+    // bones, which rest unturned as its normalized ones do, so a clip's turn is taken over as it is.
+    if (rig) {
+      const fade = dt > 0 ? 1 - Math.exp(-dt / (CLIP_FADE / 3)) : 1;
+      clipOn += ((ride ? 0 : 1) - clipOn) * fade;
+      const sitting = seat > 0.5;
+      const want: ClipName = sitting ? 'sit' : walk < 0.5 ? 'idle' : speed < (elder ? JOG_FROM_OLD : JOG_FROM) ? 'walk' : speed < SPRINT_FROM ? 'jog' : 'sprint';
+      let sum = 0;
+      for (const n of LOCO) {
+        clipW[n] += ((n === want ? 1 : 0) - clipW[n]) * fade;
+        sum += clipW[n];
+      }
+      for (const n of LOCO) {
+        const a = rig.actions[n];
+        if (!a) continue;
+        a.setEffectiveWeight(clipW[n] / Math.max(1e-6, sum));
+        const native = rig.native[n];
+        a.timeScale = native > 0 ? MathUtils.clamp(Math.abs(speed) / native, CLIP_RATE[0], CLIP_RATE[1]) : 1;
+      }
+      rig.mixer.update(dt);
+      if (clipOn > 0.001) {
+        const busyL = anim.armsBusy[0];
+        const busyR = anim.armsBusy[1];
+        for (const b of clipBones) {
+          // (a bone the code does not pose is at rest under the clip, not left where the last frame had it)
+          if (!b.code) b.norm.quaternion.identity();
+          const w = clipOn * (b.part === 'armL' ? 1 - busyL : b.part === 'armR' ? 1 - busyR : b.part === 'legs' && sitting ? 0 : 1);
+          if (w > 0.001) b.norm.quaternion.slerp(b.raw.quaternion, w);
+        }
+        // an old body's stoop on the clip's back (the code's own went with its pose)
+        if (stoop > 0 && spineNode) spineNode.quaternion.multiply(_gq.setFromEuler(_euler.set((old ? -1 : 1) * stoop * (1 - seat) * clipOn, 0, 0, 'XYZ')));
+        // the clip's hips rise and fall walking; seated they stay on the seat as the code puts them
+        if (hips && rawHips) hips.position.addScaledVector(_v.copy(rawHips.position).sub(rawHipsRest), clipOn * (1 - seat));
+      }
+    }
+
     // the face
     const ex = vrm.expressionManager;
     if (ex) {
@@ -719,6 +841,8 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     for (const r of held.values()) r.root.removeFromParent();
     umbrellaAt.removeFromParent();
     umbrellaOn = false;
+    rig?.mixer.stopAllAction();
+    rig?.mixer.uncacheRoot(vrm.scene);
     for (const m of worn) {
       m.geometry.dispose();
       (m.material as Material).dispose();

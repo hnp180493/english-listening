@@ -2601,6 +2601,12 @@ closes, then back to their day); both are named, and whoever speaks has the talk
 animation (`ActivityPanelProps.onListen` / `onSpeaking` → `TownStageHandle.listenFrom` / `endListen`, the stage's
 `speaking`). A key or a click walk gets the player up. Looked at in pictures (the bench on the plaza, with one of
 the two speaking; the stool by the radio); the walk in, the sitting down and the getting up were not watched moving.
+The seat and the speakers' spots are `engine/listenSpots.ts` (`thingSeat`, `asideSpots`, tested over every bench of
+the town and Westbay: the seat within half a tile of its bench, the two in front of it on open ground, or at its sides
+where it faces the water). 2026-11-28 (owner: "ngồi ở ghế này bị teleport tới ghế khác?"): the town page read the
+bench from a ref an effect of its own filled, but ListenPanel calls `onListen` from its first effect, which runs
+before the page's: the bench of the scene BEFORE was passed and the player was sat down on that one; `onListen` now
+reads the bench from the render that opened the panel (Westbay's page set its ref while rendering: not affected).
 **Get-togethers staged** (2026-11-27, `features/town/scenes/eventStaging.ts`): everybody who speaks in a get-together
 is there. Grace's Sunday lunch, Daniel's Thursday club and Emma's Friday dinner are inside the host's room (through the
 dark, the host at their place, the others at the room's extras: `enterOwnRoom` with `more`; the room's shot now frames
@@ -3227,6 +3233,43 @@ in code again.
   0.46 tiles/s for the walk and 1.2 for the jog, while the game walks at 1.6 and runs at 2.8: with the playback rate
   held to 0.6–1.6 × the feet slide at the game's paces; an old body loses the code's stoop (the clip's spine wins);
   the hair's springs and the code-built clothes (`vrmGarments.ts`) follow the code's pose a frame behind or not at all.
+- **The clips in the game (2026-11-28)** (owner: "rồi tao bảo mày tham khảo game kia mày không làm được gì hết à"). Every
+  worn avatar now stands, walks, jogs, sprints and sits by the clips (`vrmBody.ts`, the head of the file: `LOCO`), picked
+  by the ground speed as in Giang Hồ: still → idle, below 1.1 tiles/s → walk (residents at 0.7, a hurry at 1.25 for an
+  old body: `JOG_FROM_OLD` 1.7), the player's everyday 1.6 → jog, from 2.2 → sprint (the run, 2.8); seated → sit. Each
+  clip sped to the ground speed over its own (`ClipRig.native`) within 0.8–1.5 ×, the feet sliding past that; 0.2 s
+  fades between clips and between the clips and the code's motion (on a vehicle). The sim's speeds are unchanged. Per
+  frame, after the code's pose: the mixer turns the RAW bones, and their turns are blended onto the NORMALIZED ones
+  (VRoid's raw and normalized bones both rest unturned), part by part: legs and hips, back and neck from the clip
+  (seated, the legs stay the code's, fitted to the seat, and the hips on the seat), an arm from the code while it
+  holds, waves, cheers, talks, reads or fishes (`Animator.armsBusy`, new in `anim.ts`) or holds the umbrella, the head
+  always the code's (turning to a speaker, an old body's bow); an old body's stoop is put back on the clip's spine; the
+  clip's rise and fall of the hips while standing or walking. Then the props, the umbrella's grip (in the real palm),
+  the clothes built in code (the thighs are the clip's) and `vrm.update` with the hair's springs, so nothing is a frame
+  behind. The clips are carried over once per avatar file and shared by everybody wearing it (`clipCache`), each with a
+  mixer of its own; `people.glb` comes with the first avatar (`loadClips`, beside the VRM's own fetch), in the lazy
+  `vrm` chunk, not the town's; a file that does not load leaves the code's motion. `townUi.motion` 'clips' | 'code'
+  (device-local, default 'clips'), Cài đặt → Hiển thị "Dáng đi của nhân vật anime" beside the avatar switch, when
+  the town is opened. Classic people unchanged; reduced motion: each clip's first frame. Cost (the software renderer,
+  `ch.update` of every worn avatar, 120 frames timed): with clips 7 avatars 5.6 ms a frame walking, 3.1 jogging; with
+  the code's motion 8 avatars 4.2 and 3.9; about 0.45–0.8 ms an avatar either way on this machine, noisy. Pictures
+  `clipgame-stride.png` / `-2.png` (`?stride`: stroll, everyday pace, run, Grace, Hal, a child), `clipgame-states.png` /
+  `-states-zoom.png` (standing, a cup, drinking, the umbrella standing and jogging, waving), `clipgame-garments.png`
+  (Kim's coat and Emma's apron on the jog's thighs: the coat's halves lift high with the knees), `clipgame-bench.png` /
+  `-bench-zoom.png` (seated on a log bench), `clipgame-umbrella.png` (standing and walking with umbrellas in the rain).
+  Seen only as pictures with motion reduced or posed phases: nobody has watched a clip play, a fade, or the feet slide.
+
+- **The horse, jointed (2026-11-28)** (owner: "con ngựa gì gớm vầy, thậm chí nó còn ko có animation chạy", of a stiff
+  block on four posts that slid along). `three/scene/horse3d.ts`: a body with a chest and a rump, a neck reaching up and
+  forward with a mane, a long head with a muzzle, ears, eyes and reins, four legs of two parts with hooves, a tail, a
+  blanket and a saddle; four coats by `v`; 12 draw calls a horse, the geometry made once a coat. `poseHorse` by the
+  ground speed: standing (breathing, the tail swishing, a front hoof stamped every 7 s), a walk (four beats, from 0.15
+  tiles/s), a trot (diagonals, from 1.4), a canter (three beats, the back rocking, from 3.2; the ridden pace is 4.4);
+  the body rises and falls, the head nods, the tail lifts; reduced motion stands square and still. The engine makes
+  every vehicle through `vehicles3d.ts vehicleMesh` and poses it each frame (`poseRide`); the rider's seat rises with the
+  back (`rideLift`). An avatar sits on the saddle (`RIDES.horse.seatSlim` 0.72; the round code body keeps 0.62).
+  Seen: `?horse` on the admin page (`horse-sheet.png`, `horse-gaits.png`: eight frames a cycle of each gait, with and
+  without a rider) and in the town (`horse-world.png`, `horse-world-close.png`). Nobody has watched it move.
 
 **Not done, not known.** Age is drawn ON a young face: the eyes stay big and round, the face round and smooth in
 shape, so an old person reads as a young face with lines and a beard, not an old face (Grace is still no old lady);

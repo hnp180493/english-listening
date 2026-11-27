@@ -354,6 +354,11 @@ export class Animator {
    */
   umbrellaWant = false;
   umbrellaBlend = 0;
+  /**
+   * How much each arm (left, right) is doing something of its own this frame, 0…1: a thing held, the umbrella, a wave,
+   * a cheer, talking, reading. A body moved by ready-made clips (chars/vrmBody.ts) lets this pose have those arms.
+   */
+  readonly armsBusy = new Float32Array(2);
   /** Locomotion weight 0…1 and the run share 0…1 (read by tests and the harness). */
   move = 0;
   runShare = 0;
@@ -861,6 +866,24 @@ export class Animator {
         p[e + 1] = lerp(p[e + 1], 0, u);
         p[e + 2] = lerp(p[e + 2], 0, u);
       }
+    }
+
+    // which arms are doing something of their own (for a body moved by clips: chars/vrmBody.ts)
+    {
+      const w = this.weights;
+      let waveR = 0;
+      let waveL = 0;
+      let both = 0;
+      for (const s of this.shots) {
+        const k = this.shotWeight(s);
+        if (s.action === 'wave') {
+          if (this.umbrellaBlend > 0.5) waveL = Math.max(waveL, k);
+          else waveR = Math.max(waveR, k);
+        } else if (s.action === 'cheer') both = Math.max(both, k);
+      }
+      const talk = smoothstep(0, 1, w.talk);
+      this.armsBusy[0] = clamp(Math.max(waveL, both, talk, smoothstep(0, 1, w.read), smoothstep(0, 1, w.fish)), 0, 1);
+      this.armsBusy[1] = clamp(Math.max(waveR, both, talk, smoothstep(0, 1, Math.max(w.read, w.fish, w.drink, w.water)), p[C.umbrella]), 0, 1);
     }
 
     // head: look-at / look-around on top (less while nodding or shaking)
