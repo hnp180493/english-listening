@@ -683,3 +683,35 @@ From the assets after the dispatch office (`core/town/assets.ts`, `data/city/ass
 - **Kit** says which Bay FM programme carries the firm's name tonight and when; **Marcus** reads it himself: "This hour of
   Bay FM comes to you with the help of Rico's cars, at the old gatehouse on Pier Road. Ring phone two, day or night."
 - **Captain Odile** lends the ferry's launch for the water door only against a deposit (job "Cửa nước").
+
+## 23. What the six "strangers" side chains added (now canon, if the owner keeps them)
+
+From `data/city/jobs/sideKit.ts`, `sideFay.ts`, `sideOdile.ts`, `sideNell.ts`, `sideJonah.ts`, `sideHana.ts`
+(docs/gta-story.md §9).
+
+- **Kit** minds Bay FM's overnight music. An old man rings the request line at midnight for a song about the harbour
+  lights, for **Rosie**, who lived at number twelve, East Road, sixty years ago. He is on **ward eight** of Westbay
+  Hospital (a bicycle sticker on his radio, which was left on the bus and kept by Pete). Rosie is seventy-nine, still
+  at number twelve, kept his bicycle bell, and visits him on Sunday afternoons.
+- **Westbay Hospital's wards**: six is mothers and new babies, seven the children's ward, eight the old man's, eleven
+  offices.
+- **The harbour fair's duck race**: two hundred rubber ducks for the hospital, from the seafront jetty to the ferry steps,
+  Marcus calling it; the final's money went to ward seven; seventeen, in a green hat, won. Prizes: dinner for two at
+  Gianna's (Amira won it), Sol's lantern (Poppy, for Dot), a turn on the big wheel (Jonah). Hal gave a fish and sold it at
+  lunch. **Fay** reads fast when nervous, which is always.
+- **Captain Odile** spells on the radio in the phonetic alphabet, digits one at a time, "fife" and "niner"; ferry channel
+  twelve. Pete keeps lost bags from the ferry in lettered lockers (P five). Theo takes the ferry's launch out to boats in
+  trouble (the sailing boat **Petrel**, sail one nine five, towed home). On a foggy night the crossing was one one zero
+  one three, starboard side to; Gus logs crossings in ink. Odile lets the learner call her Odile after it.
+- **Nell and Bridget** talk at the same time; Bridget has never waited for anyone to finish and counts beds then people
+  (Grace taught her). The fridge key lives in the green tin on her desk (the blue tin has her biscuits). Dr Osei does his
+  round at ten past nine. **Bridget turned fifty** on a Friday: lemon cake from Poppy (she can't stand chocolate), fifty
+  candles.
+- **Jonah** busks at the market and plays the night market late. Amira's mum's ring (small, gold, a green stone) fell
+  into his hat in his rain song. He wrote the second verse of **Paper Boats**, a song of his and Mia's old band, and sang it
+  with Mia at Bo's on a Thursday; Bo's is the door with the purple light on Arts Street. His birthday is on a Friday; Bo,
+  Dana and Mia threw him a party (in by the back door at eight, a guitar-shaped cake).
+- **Hana** lost her voice to a cold for two days and whispered advice down the phone. **Colin** calls everybody "mate";
+  **Mr Finch** says sorry twice before anything; **Mr Whitlock** thanks answering machines and still names Sarah's town
+  after a bus stop. Priya kept a library book eleven weeks. The Monday meeting starts at half nine, on the pavement; room
+  fourteen at Meridian is a cupboard.

@@ -34,9 +34,9 @@ export function JobThreads({ tracks, current, speaking, onSwitch }: { tracks: re
 
 export function JobPick({ count, onPlay, onPick }: { count: number; onPlay: (i: number) => void; onPick: (i: number) => void }) {
   return (
-    <div className="town-welcome job-strip job-junction" role="group" aria-label="Chọn đúng cuộn băng">
+    <div className="town-welcome job-strip job-junction" role="group" aria-label="Chọn đúng đoạn">
       <p className="town-welcome-text">
-        <span className="town-welcome-name">Cuộn nào đúng?</span>
+        <span className="town-welcome-name">Đoạn nào đúng?</span>
         Không có nhãn, không có chữ: nghe từng đoạn bao nhiêu lần cũng được, rồi chọn.
       </p>
       <ul className="job-pick-list">

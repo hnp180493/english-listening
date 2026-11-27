@@ -28,12 +28,18 @@ import { JOB_FERRY } from './ferry';
 import { JOB_HALF5 } from './half5';
 import { JOB_HEARING } from './hearing';
 import { JOB_MACHINE2 } from './machine2';
+import { SIDE_KIT } from './sideKit';
+import { SIDE_FAY } from './sideFay';
+import { SIDE_ODILE } from './sideOdile';
+import { SIDE_NELL } from './sideNell';
+import { SIDE_JONAH } from './sideJonah';
+import { SIDE_HANA } from './sideHana';
 import { SIDE_OKAFOR } from './sideOkafor';
 import { SIDE_PROFESSOR } from './sideProfessor';
 import { JOB_TESS } from './tess';
 import { JOB_THREE } from './three';
 
-export const CITY_JOBS: readonly JobDoc[] = [JOB_MACHINE2, JOB_FERRY, JOB_HALF5, JOB_CHIP, JOB_THREE, JOB_DELANEY, JOB_CHANNELS, JOB_TESS, JOB_HEARING, ...SIDE_OKAFOR, ...SIDE_PROFESSOR, JOB_SALE, JOB_SECOND, JOB_DUMPLINGS, JOB_CALLIN, JOB_FAREWELL, JOB_LINK, JOB_CROSSED, JOB_NIGHT, JOB_WATER, JOB_WAREHOUSE, JOB_FORGED, JOB_TWOMARCUS, JOB_SAMCALL, JOB_SPLICE, JOB_TOMCALL, JOB_LIVE].sort((a, b) => a.order - b.order);
+export const CITY_JOBS: readonly JobDoc[] = [JOB_MACHINE2, JOB_FERRY, JOB_HALF5, JOB_CHIP, JOB_THREE, JOB_DELANEY, JOB_CHANNELS, JOB_TESS, JOB_HEARING, ...SIDE_OKAFOR, ...SIDE_KIT, ...SIDE_FAY, ...SIDE_ODILE, ...SIDE_NELL, ...SIDE_JONAH, ...SIDE_HANA, ...SIDE_PROFESSOR, JOB_SALE, JOB_SECOND, JOB_DUMPLINGS, JOB_CALLIN, JOB_FAREWELL, JOB_LINK, JOB_CROSSED, JOB_NIGHT, JOB_WATER, JOB_WAREHOUSE, JOB_FORGED, JOB_TWOMARCUS, JOB_SAMCALL, JOB_SPLICE, JOB_TOMCALL, JOB_LIVE].sort((a, b) => a.order - b.order);
 
 let byId: Map<string, { line: JobLine; job: JobDoc }> | null = null;
 

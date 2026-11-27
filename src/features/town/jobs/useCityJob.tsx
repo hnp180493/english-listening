@@ -1229,9 +1229,9 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
         case 'patrol':
           return tr('Nghe bộ đàm cảnh sát');
         case 'threads':
-          return tr('Ba chuyện cùng lúc: chọn nghe chuyện nào');
+          return tr('Mấy chuyện cùng lúc: chọn nghe chuyện nào');
         case 'pick':
-          return tr('Nghe từng đoạn, chọn đúng cuộn');
+          return tr('Nghe từng đoạn, chọn đúng đoạn');
         case 'spot':
           return tr('Bấm "Đó!" đúng lúc câu đó được nói');
         case 'voicemail':

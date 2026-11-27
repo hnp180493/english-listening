@@ -1105,3 +1105,48 @@ việc nhớ, chưa kiểm được việc nghe ra câu đó (chỗ này cần n
 
 **Chưa ai kiểm:** chưa ai đọc lại lời thoại (do model viết), chưa ai nghe; chưa chạy thử bằng tay hay trên điện thoại.
 Tiền, mức kết, độ dài là đoán.
+
+## 9. As written (2026-11-27): sáu chuỗi "người lạ" còn lại
+
+Kế hoạch (`docs/gta-plan.md` §5) hẹn tám chuỗi "người lạ", mỗi chuỗi ba việc nhỏ; mục 5 ở trên mới có hai (Okafor,
+giáo sư). Sáu chuỗi sau viết thẳng thành dữ liệu, mỗi chuỗi một KIỂU nghe, không lặp lại hai chuỗi cũ (Okafor: giờ tàu xe,
+số bến; giáo sư: cùng một câu nói ba cách) hay lặp lại nhau. Chỉ dùng loại bước đã có ở đầu `src/core/town/jobDoc.ts`;
+không cần thêm gì cho engine. Tất cả là người Westbay (giọng trình duyệt): **không clip mới nào**.
+
+| Chuỗi | File | Việc (thứ tự, câu) | Kiểu nghe | Bước chính |
+|---|---|---|---|---|
+| C. Người gọi lúc nửa đêm (Kit) | `sideKit.ts` | Bài cho Rosie (41, 24), Đường dây rè (42, 21), Rosie gọi lại (43, 25) | người gọi nói lầm bầm, đường dây rè | notebook qua điện thoại, giọng người gọi của đài |
+| D. Cuộc đua vịt (Fay) | `sideFay.ts` | Vịt số mấy (51, 21), Giải thưởng (52, 21), Chung kết (53, 20) | bình luận nhanh: số nối số, tự sửa giữa câu, đùa chen vào | notebook qua loa (Marcus), qua lời đọc vội (Fay) |
+| E. Bộ đàm của bến phà (Odile) | `sideOdile.ts` | Thẻ hành lý (61, 20), Thuyền Petrel (62, 20), Sương mù (63, 20) | thủ tục bộ đàm: đánh vần Kilo / Echo, đọc từng chữ số, "fife", "niner", port / starboard | notebook qua bộ đàm |
+| F. Hai người một lúc (Nell) | `sideNell.ts` | Hai quầy một lúc (71, 24), Giao ca (72, 24), Bánh sinh nhật (73, 25) | hai người nói cùng lúc | notebook rồi `threads` (hai luồng, câu chốt cách nhau ≥ 3 s) |
+| G. Bài hát ngoài chợ (Jonah) | `sideJonah.ts` | Cái nhẫn trong mũ (81, 26), Tối thứ Năm (82, 26), Cửa sau lúc tám giờ (83, 26) | nghe lỏm một cuộc nói chuyện giữa chợ rồi làm theo | notebook, `overhear` có `noticed`, `intent` (cờ theo lựa chọn) |
+| H. Ai đang gọi (Hana) | `sideHana.ts` | Giọng không tên (91, 21), Xin lỗi, xin lỗi (92, 20), Sarah ở Cầu Cũ (93, 20) | nhận ra ai đang nói qua cách nói (cùng một giọng trình duyệt) | notebook, `pick` ba tin nhắn không chữ, có `why` |
+
+Mỗi việc 2–3 dữ kiện phải nghe ra, mỗi dữ kiện một hệ quả rồi nhập lại (`wellFormed`); việc đầu mỗi chuỗi mở sau job 2
+(`after: 'job-half5'`, như chuỗi A, B) và cần đã gặp người đó (`opens: ['ct-<người>-1']`), việc sau mở sau việc trước. Không
+chặn mạch chính.
+
+**Chọn lựa, và vì sao:**
+
+1. **Không ngựa, không cá cược.** Kế hoạch nói "trường đua ngựa với lời bình luận"; Westbay không có trường đua và dự án
+   không làm cờ bạc. Thay bằng cuộc đua vịt cao su gây quỹ cho bệnh viện ở hội chợ cảng (lễ hội mùa thu của Fay, Marcus
+   bình luận: docs/city.md §9), vé là vé từ thiện. Kiểu nghe giữ nguyên: số nối số, nhanh, có tự sửa.
+2. **Khoa sáu là khoa sản** (bà đỡ tóc đỏ của bác sĩ Osei, docs/city.md §10), nên ông cụ của chuỗi Kit nằm khoa tám, khoa
+   bảy là khoa nhi, khoa mười một là văn phòng.
+3. **Hana phân biệt bằng CHỮ**, như băng giả của Hồi III: cả Westbay một giọng trình duyệt. Colin nói "mate" (mới), ông
+   Finch xin lỗi hai lần (mới; canon chỉ nói ông thì thầm cả ngoài trời, mà giọng trình duyệt không thì thầm được), ông
+   Whitlock gọi thị trấn của Sarah bằng tên một trạm xe số 9 (Old Bridge, Hill Farm: `ct-whitlock-1`, đã có).
+4. **Chuỗi Nell chỉ "cùng lúc" từ mức lời nói 3**: ở mức 1–2 (`core/town/difficulty.ts` `together: false`) engine phát
+   từng luồng một, nghe trọn cả hai, nên hai hệ quả của bước `threads` không xảy ra được. Đúng ý thiết kế độ khó, nhưng
+   người mới chơi sẽ không thấy kiểu nghe riêng của chuỗi này.
+5. **Chuỗi Jonah**: Mia được nhắc tới, không nói (người thị trấn trong phi vụ cần clip). Câu trả lời cho Jonah là một
+   `intent`; lựa chọn sai đặt cờ (`flag`) để cảnh kết kể đúng chuyện xảy ra (tới lúc mười một giờ, gõ cửa trước...).
+
+**Đã chạy bằng script** (Edge headless, phần mềm vẽ, dev server, chế độ admin, tiếng tắt; script ngoài repo): **cả 18 việc,
+mỗi việc hai lượt tới bảng tổng kết**, một lượt ghi / chọn đúng hết (18 lượt Sạch) và một lượt sai mọi chỗ (17 Hỏng; "Thẻ
+hành lý" chỉ có hai dữ kiện nên Lộn xộn, đúng luật). Ba việc của Nell chạy ở mức lời nói 3 (ghim), lượt sạch chuyển luồng
+đúng lúc câu chốt, lượt sai nghe nhầm luồng ở cả hai câu chốt. Lượt sai của Jonah đứng sát người nói nên bị phát hiện
+(hệ quả "Đứng gần quá" có trong bảng tổng kết). Không lỗi console. Chưa chạy ở mức 1–2 hay 4–5.
+
+**Chưa ai kiểm:** chưa ai đọc lại 404 câu (do model viết), chưa ai nghe, chưa ai chơi bằng tay hay trên điện thoại. Tiền,
+mức kết, độ kiên nhẫn là đoán.
