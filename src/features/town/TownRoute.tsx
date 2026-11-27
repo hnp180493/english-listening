@@ -6,12 +6,14 @@ import { lazy, Suspense } from 'react';
 import { useRoute } from '../../core/nav';
 import TownPage from './TownPage';
 import { withDictionary } from '../../i18n/load';
+import { opensCity } from './townSpot';
 
 const CityPage = lazy(withDictionary('city', () => import('./city/CityPage')));
 
 export default function TownRoute() {
   const route = useRoute();
-  if (route.params.at !== 'city') return <TownPage />;
+  // a bare #/town whose last street spot was in Westbay opens Westbay again (townSpot.ts): no bus ride after a reload
+  if (route.params.at !== 'city' && !opensCity(route.params)) return <TownPage />;
   return (
     <Suspense fallback={<p className="muted">Đang lên xe số 9…</p>}>
       <CityPage />

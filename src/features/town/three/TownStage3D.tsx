@@ -82,6 +82,7 @@ export default function TownStage3D({
   overview = false,
   lotLabels,
   startAt,
+  startSpot,
   label,
   loading,
   className,
@@ -120,6 +121,7 @@ export default function TownStage3D({
     /** The talk staged now (made again with the engine: there at once), and its ready not yet run. */
     talk: null as { placeId: PlaceId; setting: TalkSetting; visitor: PlaceId | null; ready: (() => void) | null } | null,
     startAt,
+    startSpot,
   });
 
   useEffect(() => {
@@ -170,6 +172,10 @@ export default function TownStage3D({
         engineRef.current = e;
         const l = latest.current;
         e.setState(l.state);
+        // a street spot remembered on this browser (features/town/townSpot.ts), once the town is laid out; a staged talk
+        // wins, and a remade engine (a lost context) starts where it was this session instead
+        if (l.startSpot && !l.talk) e.restoreSpot(l.startSpot);
+        l.startSpot = null;
         e.setPaused(l.paused);
         e.setOverview(l.overview);
         e.setLotLabels(l.lotLabels ?? {});
@@ -469,6 +475,7 @@ export default function TownStage3D({
   useImperativeHandle(
     ref,
     (): TownStageHandle => ({
+      streetSpot: () => (flatRef.current ? null : (engineRef.current?.streetSpot() ?? null)),
       talkAt: (placeId, setting, opts, ready) => {
         if (flatRef.current) return false;
         const e = engineRef.current;

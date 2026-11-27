@@ -111,6 +111,7 @@ export const KEYS = {
   townUi: 'town-ui', // "Thị trấn" on this browser: sound effects on/off (default on), welcome bubble seen (features/town/townUi.ts)
   shortcuts: 'shortcuts', // the shared practice keys of this browser's keyboard (core/shortcuts.ts)
   gameClock: 'game-clock', // "Thị trấn": this browser's game clock moved on by a sleep in the hideout (core/town/gameClock.ts)
+  townSpot: 'town-spot', // "Thị trấn": where the player last stood in the street (town or Westbay) and the camera's turn and zoom (features/town/townSpot.ts)
 } as const;
 
 /**
@@ -128,6 +129,7 @@ export const DEVICE_LOCAL_KEYS: ReadonlySet<string> = new Set<string>([
   KEYS.townUi,
   KEYS.shortcuts,
   KEYS.gameClock,
+  KEYS.townSpot,
 ]);
 
 /** True for a device-local key, given as a short key ('listening-timer') or a full storage key (with prefix). */

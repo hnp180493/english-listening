@@ -21,7 +21,7 @@ import { Birds } from './birds';
 import { Umbrellas } from './umbrellas';
 import { paletteFor, type TownPalette } from '../../engine/palette';
 import { Particles } from '../../engine/particles';
-import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
+import { bodyFits, gridDistance, PLAYER_RADIUS, spotFits, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
 import { createCharacter, createPet, passerLook, type Character3DPlus } from '../characters';
 import { avatarsSettled, dressInVrm, dressWhenNear } from '../chars/vrmPeople';
 import { gameHour, glowOf, lightningAt, nightOf, type Sky, type SkyNow } from '../../../../core/town/sky';
@@ -2071,6 +2071,31 @@ export class TownEngine3D {
   /** The wheel or a pinch: the learner's own zoom (clamped). */
   zoomBy(change: { wheel?: number; pinch?: number }): void {
     this.zoomUser = zoomAfter(this.zoomUser, change);
+  }
+
+  /**
+   * Where the player stands in the street now, with the camera's turn and zoom, for the page to remember on this browser
+   * (features/town/townSpot.ts). Null when that is not a street spot to come back to: in a room (the hideout and
+   * warehouse fifteen too), in a staged talk or a scene's seat, in a dip to dark, on the water. Riding counts: the spot is
+   * where the vehicle is, and the player comes back on foot.
+   */
+  streetSpot(): { x: number; y: number; heading: number; yaw: number; zoom: number } | null {
+    const p = this.sim.player;
+    if (this.room || this.sim.playerSeat || this.camMode !== 'follow' || this.fade.k > 0 || this.fade.to > 0) return null;
+    if (!spotFits(this.sim.world, p.x, p.y)) return null;
+    return { x: p.x, y: p.y, heading: p.yaw ?? 0, yaw: this.yawGoal, zoom: this.zoomUser };
+  }
+
+  /**
+   * A spot remembered from an earlier visit (streetSpot): the player stands there and the camera turns and zooms as it
+   * was, at once. False (nothing changes: the usual start) when the spot is no good in the world as it is now.
+   */
+  restoreSpot(s: { x: number; y: number; heading: number; yaw: number; zoom: number }): boolean {
+    if (this.room || !this.sim.restorePlayer({ x: s.x, y: s.y }, s.heading)) return false;
+    if (Number.isFinite(s.yaw)) this.yaw = this.yawGoal = s.yaw;
+    if (Number.isFinite(s.zoom)) this.zoomUser = zoomAfter(s.zoom, {});
+    this.snapToPlayer();
+    return true;
   }
 
   /** A drag with the right button (or two fingers): turn the camera a little round the town. */

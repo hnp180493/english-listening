@@ -89,6 +89,11 @@ export interface SafeInsets {
 
 export interface TownStageHandle {
   /**
+   * Where the player stands in the street now and the camera's turn and zoom, to remember on this browser
+   * (features/town/townSpot.ts); null with no world, or in a room, a staged talk, a seat, a dip to dark, on the water.
+   */
+  streetSpot?(): { x: number; y: number; heading: number; yaw: number; zoom: number } | null;
+  /**
    * Stage a talk with a place's resident where it happens (docs/town.md §7 "Staging"): both walk there (to the room's
    * door, then a dip to dark into the room; or to the place's front), and `ready` runs once they are in place (the panel
    * opens then); 'here': where the resident stands, met in the street. `visitor`: a neighbour in the room too; `instant`: there at once (a link). False = no world (open the
@@ -235,6 +240,12 @@ export interface TownStageProps {
   overview?: boolean;
   /** Where the player stands when the stage opens (default: where they were this session, else the plaza). */
   startAt?: Tile;
+  /**
+   * A street spot remembered from an earlier visit on this browser (features/town/townSpot.ts): put back once the town
+   * is laid out, with the camera's turn and zoom, when it is still good there (else startAt's start). Read when the stage
+   * opens; a staged talk wins.
+   */
+  startSpot?: { x: number; y: number; heading: number; yaw: number; zoom: number } | null;
   /** For screen readers: what this picture is. */
   label?: string;
   /** What the loading card says while the world is made (default: the town's). */

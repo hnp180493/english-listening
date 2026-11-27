@@ -1282,6 +1282,22 @@ export function nearestFit(x: number, y: number, r: number, world: TownWorld = T
 }
 
 /**
+ * Where a spot remembered from an earlier visit (features/town/townSpot.ts) puts the player in the world as it is NOW
+ * (docs/town.md §7 "Moving about"), or null when it is no good any more: off the map, in the drawn water, inside
+ * something solid (a house or a construction site put there since: never pushed out of a whole building), or with no
+ * room for a body within a tile (a decoration bought beside it is stepped round, as when something is built: nearestFit).
+ * Checked against the world given, never trusted from what was stored.
+ */
+export function spotFits(world: TownWorld, x: number, y: number): Pt2 | null {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const rows = world.rows;
+  if (y < 0.5 || y > rows.length - 0.5 || x < 0.5 || x > (rows[0]?.length ?? 0) - 0.5) return null;
+  if (!onLand(world, x, y) || insideAt(x, y, world)) return null;
+  const fit = nearestFit(x, y, PLAYER_RADIUS, world);
+  return fit && Math.hypot(fit.x - x, fit.y - y) <= 1 ? fit : null;
+}
+
+/**
  * Move a circle of radius `r` by (dx, dy): it slides along walls and round corners and round people (never nearer to
  * anybody than their `gap`, or than it already was), and never into a wall. Pure: the same on the screen and in tests.
  */
@@ -2274,6 +2290,17 @@ export class TownSim {
     r.moving = false;
     r.stepping = false;
     r.land = null;
+  }
+
+  /**
+   * A spot remembered from an earlier visit: the player stands there, facing `heading`, when it is still good in the town
+   * as it is now (spotFits, against the world with what is built); false (and nothing moves) when not.
+   */
+  restorePlayer(at: Pt2, heading: number): boolean {
+    const fit = spotFits(this.world, at.x, at.y);
+    if (!fit) return false;
+    this.placePlayer(fit, Number.isFinite(heading) ? heading : 0);
+    return true;
   }
 
   /** The player is put at a point at once (out of a room's door), facing `heading` (radians on the grid). */

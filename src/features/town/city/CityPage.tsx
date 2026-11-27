@@ -67,6 +67,7 @@ import { useStreets } from '../streets/streetsStore';
 import Scanner from '../streets/Scanner';
 import StopPanel from '../streets/StopPanel';
 import { withJobCast } from '../jobs/jobCast';
+import { spotToRestore, useSpotSaver } from '../townSpot';
 import type { JobDoc } from '../../../core/town/jobDoc';
 import { CITY_JOBS } from '../../../data/city/jobs';
 import './cityLooks';
@@ -144,6 +145,10 @@ export default function CityPage() {
   const stage = useRef<TownStageHandle>(null);
   const [flat, setFlat] = useState(() => wantsFlat() || !webglAvailable());
   const [ready, setReady] = useState(false);
+  // the street spot remembered on this browser (townSpot.ts): a reload in Westbay comes back to it; ?with= (a friend on
+  // the bus) arrives at the terminal
+  const [startSpot, setStartSpot] = useState(() => spotToRestore(parseHash(window.location.hash).params, 'city'));
+  useSpotSaver(stage, 'city', !flat);
   const [near, setNear] = useState<Near>(null);
   const [sheet, setSheet] = useState<Sheet | null>(null);
   /** The scene whose people are in place (its key): the panel opens then. */
@@ -638,7 +643,11 @@ export default function CityPage() {
         onNear={setNear}
         onIdleAct={onIdleAct}
         onActivity={openThing}
-        onReady={() => setReady(true)}
+        onReady={() => {
+          setReady(true);
+          setStartSpot(null);
+        }}
+        startSpot={startSpot}
         onFail={() => setFlat(true)}
         speaking={job.speaking ?? speaking}
         inset={insets.panel}

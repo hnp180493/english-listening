@@ -72,6 +72,7 @@ import { lockText, pointsText, type GiftReactionView } from './friends/friendMod
 import { useCanGift } from './friends/useCanGift';
 import { useGreeting } from './friends/useGreeting';
 import { getTownUi, setTownUi, useTownUi } from './townUi';
+import { spotToRestore, useSpotSaver } from './townSpot';
 import QuestTracker from './QuestTracker';
 import RideButton from './RideButton';
 import CarRadio from './scenes/CarRadio';
@@ -250,7 +251,13 @@ export default function TownPage() {
       releaseTownGraphics();
     };
   }, []);
-  const onStageReady = useCallback(() => setDrawn(true), []);
+  // the street spot remembered on this browser (townSpot.ts), put back once when the town is first drawn; the address wins
+  const [startSpot, setStartSpot] = useState(() => spotToRestore(parseHash(window.location.hash).params, 'town'));
+  const onStageReady = useCallback(() => {
+    setDrawn(true);
+    setStartSpot(null);
+  }, []);
+  useSpotSaver(stage, 'town', !flat);
   const onStageFail = useCallback(() => setFlat(true), []);
 
   // #/town?talk=<placeId> opens straight into a conversation; #/town?build=<placeId | 1> opens the build panel
@@ -1101,6 +1108,7 @@ export default function TownPage() {
         paused={(!!talk && arrived === talk.key) || !townReady || !!shownActivity || !!map}
         lotLabels={lotLabels}
         startAt={startAt}
+        startSpot={startSpot}
         className={[shownTalk ? 'is-talking' : shownBuild || shownActivity ? 'is-building' : '', fullStage.full ? 'is-full' : ''].filter(Boolean).join(' ') || undefined}
         label={flat ? 'Thị trấn' : 'Thị trấn nhìn từ trên cao. Dùng danh sách nút ngay sau đây để tới gặp từng người hoặc xây từng nơi.'}
       >
