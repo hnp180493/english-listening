@@ -72,6 +72,10 @@ const admin: Record<string, string> = {
   'Xe máy': 'Scooter',
   'Ngựa': 'Horse',
   'Ô tô': 'Car',
+  'Dạo 0,7': 'Stroll 0.7',
+  'Thường 1,6': 'Usual 1.6',
+  'Chạy 2,8': 'Run 2.8',
+  'Trẻ con 1,6': 'Child 1.6',
 };
 
 export default admin;

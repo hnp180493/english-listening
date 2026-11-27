@@ -25,13 +25,15 @@ import { BODY, C, J, LEG_REACH, type EyeState, type MouthState } from './anim';
 import { HEAD } from './body';
 import { hatGeometry } from './hats';
 import { materials, nightTint } from './materials';
-import { PROP_PLACES } from './person';
+import { PROP_PLACES, TILE_SCALE } from './person';
 import { makeProp, type PropId, type PropRig } from './props';
 import { RIDES } from '../scene/vehicles3d';
 import type { Character3DPlus } from './person';
 import { BASE_SKIN, type VrmWear } from '../../../../data/townVrm';
 import type { VrmExtra } from '../../../../data/townVrm';
 import { ageFace, beardMesh, scalpMesh } from './vrmAge';
+import { avatarCadence, avatarRunShare } from './vrmGait';
+import { dressGarments } from './vrmGarments';
 
 /** The share of the code body's leg swing a VRM takes (its legs are about three times as long for the same pace). */
 const STRIDE = 0.62;
@@ -44,6 +46,9 @@ const STRIDE = 0.62;
  * furniture has its own factor (scene/roomStage.ts ROOM_GROW).
  */
 const TALLER = 0.8;
+
+/** A child's head against its body, larger than a grown-up's (a child's build, not a grown-up made small). */
+const KID_HEAD = 1.15;
 
 /**
  * An avatar on any vehicle, against one on foot: every vehicle is built for the code body (1.25 × an avatar's height).
@@ -104,12 +109,66 @@ const _sit = new Quaternion();
 const _gq = new Quaternion();
 const PROPS: readonly PropId[] = ['cup', 'can', 'rod', 'book'];
 const _v = new Vector3();
+const _v2 = new Vector3();
 
 interface Tinted {
   m: Material & { color?: Color; shadeColorFactor?: Color };
   color: Color | null;
   shade: Color | null;
 }
+
+/**
+ * three-vrm keeps a spring bone's hit radius, its colliders' radii, its stiffness and its gravity in the model's own
+ * metres, whatever the model is scaled to in the world; only the positions follow the scale. An avatar here is drawn
+ * at about 0.4 of its file's size, so the sphere round its head that the hair keeps out of was 2.5 × the head it can
+ * see, and the hair stood out from it in tufts (owner, 2026-11-27: "tóc nhìn không tự nhiên … cứ chỉa chỉa", Sarah's
+ * bob as two horns). Brought to the scale it is drawn at (`k`: the model's world scale), from the file's own values.
+ */
+function springScaler(vrm: VRM): (k: number) => void {
+  const sb = vrm.springBoneManager;
+  if (!sb) return () => {};
+  // (each at its own bone's scale within the model: a child's head is drawn larger, its hair's colliders with it)
+  vrm.scene.updateMatrixWorld(true);
+  const own = (o: Object3D): number => o.getWorldScale(_v).x / Math.max(1e-6, vrm.scene.getWorldScale(_v2).x);
+  const joints = [...sb.joints].map((j) => { const r = own(j.bone); return { j, hit: j.settings.hitRadius * r, stiff: j.settings.stiffness * r, grav: j.settings.gravityPower * r }; });
+  const shapes = [...new Set([...sb.colliders].map((c) => ({ c, sh: c.shape as { radius?: number } })))].filter((x) => typeof x.sh.radius === 'number').map((x) => ({ sh: x.sh, r: (x.sh.radius as number) * own(x.c) }));
+  let at = 0;
+  return (k: number) => {
+    if (!(k > 0) || Math.abs(k - at) <= at * 0.02) return;
+    at = k;
+    for (const x of joints) {
+      x.j.settings.hitRadius = x.hit * k;
+      x.j.settings.stiffness = x.stiff * k;
+      x.j.settings.gravityPower = x.grav * k;
+    }
+    for (const x of shapes) x.sh.radius = x.r * k;
+    restOutsideColliders(vrm);
+  };
+}
+
+/**
+ * The hair as drawn is where its springs come to rest: a joint's hit radius is never more than the room between its
+ * resting tip and the nearest collider it keeps out of, and a joint whose resting tip is inside one keeps out of none.
+ * Hair grafted from one VRoid sample onto another's body (data/townVrm.ts, scripts/vrm-bake.py) brings large hit
+ * radii and rests against the new body's colliders: at the first step the springs pushed it out, Kim's and Emma's
+ * ponytails stood out sideways, Zoe's buns spread (2026-11-27: tips moved up to 0.07 of a tile, a tenth of the body,
+ * against 0.01–0.03 without collisions, which is the hair settling under gravity).
+ */
+function restOutsideColliders(vrm: VRM): void {
+  const sb = vrm.springBoneManager;
+  if (!sb) return;
+  vrm.scene.updateWorldMatrix(true, true);
+  for (const j of sb.joints) {
+    if (j.colliderGroups.length === 0) continue;
+    const rest = (j as unknown as { _initialLocalChildPosition?: Vector3 })._initialLocalChildPosition;
+    const tip = rest ? j.bone.localToWorld(_v.copy(rest)) : j.child ? j.child.getWorldPosition(_v) : j.bone.getWorldPosition(_v);
+    let room = Infinity;
+    for (const g of j.colliderGroups) for (const c of g.colliders) room = Math.min(room, c.shape.calculateCollision(c.colliderMatrix, tip, 0, _v2));
+    if (room <= 0) j.colliderGroups = [];
+    else if (j.settings.hitRadius > room * 0.85) j.settings.hitRadius = room * 0.85;
+  }
+}
+
 
 /** What `wearVrm` hands back: take the avatar off again (the code-built body shows as before). */
 export interface Worn {
@@ -185,6 +244,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   // (to the wrist: the hand then lies over the grip)
   const foreArm = Math.max(0.01, elbowAt.distanceTo(wristAt));
   const spineY = yOf('spine');
+  const neckY = yOf('neck');
   const ground = box.min.y;
   // where the eyes and the head are, for what is worn on the head (read now: the holder below scales the world)
   const eyeL = bone('leftEye')?.getWorldPosition(new Vector3());
@@ -197,12 +257,23 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   // as tall as the body it replaces, and a bit more (a holder takes the size and the turn: rotateVRM0 turned the
   // scene itself)
   const anim = ch.animator;
-  const world = BODY.headTop * anim.tiles * TALLER * (opts.tall ?? 1);
+  // A child: its avatar's height relative to a grown-up's comes whole in `opts.tall` (data/townVrm.ts vrmFor: its
+  // look's scale × 0.84), so not × its look's scale again through `anim.tiles` too: that drew a schoolchild at 0.47 of
+  // a grown-up and a toddler at a third, little dolls with grown-up bodies (owner, 2026-11-27: "thằng tí hon nào đây?").
+  // Now a schoolchild 0.63, a toddler about 0.49, and the head drawn larger (KID_HEAD) for a child's build.
+  const kid = (ch.look.scale ?? 1) < 0.9;
+  const world = BODY.headTop * (kid ? TILE_SCALE : anim.tiles) * TALLER * (opts.tall ?? 1);
   const s = world / tall;
   const holder = new Group();
   holder.name = 'vrm';
   holder.scale.setScalar(s);
   holder.add(vrm.scene);
+  // a child's head a little larger than a grown-up's for its body (the raw bone: the humanoid copies only turns)
+  const rawHead = kid ? vrm.humanoid.getRawBoneNode('head') : null;
+  if (rawHead) rawHead.scale.setScalar(KID_HEAD);
+  // (the hair's springs at the size the avatar is drawn: springScaler)
+  const springs = springScaler(vrm);
+  springs(s);
   const pivot = ch.root.getObjectByName('pivot');
   if (pivot) pivot.visible = false;
   ch.root.add(holder);
@@ -210,12 +281,21 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   // The head's own frame (+z the way the face looks: a VRM 0.x looks down -z in its own space), for what is worn on
   // it: glasses, a cap built in code (the samples have none), and a hat from the wardrobe.
   const worn: Mesh[] = [];
+  // clothes the sample has not and the drawn portrait has: Kim's coat and stethoscope, the aprons (./vrmGarments.ts)
+  const garments = (() => {
+    const g = dressGarments(ch.id, vrm, holder, { tall, hipsY, legTop, kneeY, shoulderY: shoulderAt.y, shoulderHalf: Math.abs(shoulderAt.x), neckY });
+    worn.push(...g.meshes);
+    for (const m of g.materials) tinted.push({ m, color: m.color.clone(), shade: m.shadeColorFactor.clone() });
+    return g;
+  })();
   const headFrame = head && headAt ? new Group() : null;
   // between the eyes, and eye to eye (a sample without eye bones: where the samples have them)
   const mid = eyeL && eyeR && headAt ? eyeL.clone().add(eyeR).multiplyScalar(0.5).sub(headAt) : new Vector3(0, 0.063, 0.03);
   const gap = eyeL && eyeR ? Math.max(0.02, Math.abs(eyeL.x - eyeR.x)) : 0.041;
   if (head && headFrame && headAt) {
     headFrame.rotation.y = old ? Math.PI : 0;
+    // (what is worn on a child's larger head is as large as it)
+    if (rawHead) headFrame.scale.setScalar(KID_HEAD);
     head.add(headFrame);
     for (const e of opts.extras ?? []) worn.push(...wear(headFrame, e, mid, gap, box.max.y - headAt.y, faceFront(vrm.scene, headAt)));
     // a bald head: the crown closed in skin (the face mesh is open where the hair was)
@@ -229,9 +309,15 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       if (b) worn.push(b);
     }
   }
-  /** An old body: a little stoop (the head held up against it) and a shorter step. */
-  const stoop = elder ? 0.17 : 0;
-  const stride = elder ? 0.78 : 1;
+  /**
+   * An old body (the bake gives it the shorter legs, the sloping shoulders and the wider hips): a stoop with the head a
+   * little down with it, the upper arms carried a little forward, a shorter step with the feet lifted low, smaller
+   * swings of the arms, and at a stroll a slower rhythm (the ground speed is the sim's, unchanged).
+   */
+  const stoop = elder ? 0.28 : 0;
+  const stride = elder ? 0.7 : 1;
+  const lift = elder ? 0.6 : 1;
+  const ELDER_ARMS = 0.12;
 
   // A hat of the wardrobe (chars/hats.ts: modelled round the code body's big head, so brought down to this one's).
   let hat: Mesh | null = null;
@@ -287,8 +373,10 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     else node.quaternion.copy(q);
   };
 
-  /** The avatar's own step (radians: a step every pi), run on by the ground it covers. */
+  /** The avatar's own step (radians: a step every pi), at a person's own rhythm (./vrmGait.ts). */
   let gait = 0;
+  /** How much of a run the gait is, eased (the pace's own share, or the animator's when somebody is set running). */
+  let runNow = 0;
   /** The bike's cranks (radians). */
   let pedal = 0;
   const before = { update: ch.update, headTop: ch.headTop, setNight: ch.setNight, setOutfit: ch.setOutfit, dispose: ch.dispose, setHat: ch.setHat, castLine: ch.castLine, umbrella: ch.umbrella };
@@ -306,6 +394,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     // down)
     const sg = s * (ride ? 1 + (RIDE_GROW - 1) * seat : 1);
     holder.scale.setScalar(sg);
+    springs(sg);
     const seatY = (anim.seat * anim.tiles) / sg + ground;
     const sitHips = seatY + tall * 0.055;
     const sitLegTop = sitHips - (hipsY - legTop);
@@ -316,17 +405,24 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     // like a pair of compasses: "chạy bộ nhìn vẫn gớm vậy"). `legCycle` is a leg through one stride: it folds at the
     // knee from toe-off through the swing, straightens to land and gives a little under the weight; running, the
     // body is in the air when the legs are furthest apart, not at its lowest.
+    // The legs keep a person's rhythm whatever the ground speed (owner, 2026-11-27: "chân nó chuyển động nhiều quá",
+    // on legs turned as fast as the ground went by: six steps a second walking, seven running); the pace changes the
+    // gait instead: a stroll is a walk, the player's everyday pace an easy jog, the run a run (./vrmGait.ts).
     const walk = anim.move * (1 - seat);
-    const run = anim.runShare;
-    const swing = MathUtils.lerp(0.46, 0.74, run) * stride;
-    const stepLen = Math.max(0.08, 2 * (thigh + shin) * s * Math.sin(swing));
-    gait += (Math.abs(speed) / stepLen) * Math.PI * dt;
+    const runWant = Math.max(anim.runShare, avatarRunShare(speed, world));
+    runNow += (runWant - runNow) * (dt > 0 ? 1 - Math.exp(-6 * dt) : 1);
+    const run = runNow;
+    const swing = MathUtils.lerp(0.36, 0.56, run) * stride;
+    // (an old body at a stroll: a slower rhythm, back to the usual one at the everyday pace)
+    const slow = elder ? MathUtils.lerp(0.88, 1, MathUtils.clamp((speed - 0.7) / 0.9, 0, 1)) : 1;
+    gait += avatarCadence(speed, world) * slow * Math.PI * dt;
     const sn = Math.sin(gait);
-    const legL = legCycle(gait, run, stride);
-    const legR = legCycle(gait + Math.PI, run, stride);
-    const armSwing = MathUtils.lerp(0.36, 0.72, run) * (elder ? 0.7 : 1);
-    const elbow = MathUtils.lerp(0.22, 1.45, run);
-    const lean = MathUtils.lerp(0.04, 0.2, run);
+    const legL = legCycle(gait, run, stride, lift);
+    const legR = legCycle(gait + Math.PI, run, stride, lift);
+    // (the arms answer the legs, not more: owner, 2026-11-26, "mày đánh tay để làm gì vậy?")
+    const armSwing = MathUtils.lerp(0.22, 0.42, run) * (elder ? 0.55 : 1);
+    const elbow = MathUtils.lerp(0.25, 1.3, run);
+    const lean = MathUtils.lerp(0.03, 0.14, run);
     const twist = MathUtils.lerp(0.07, 0.14, run);
 
     // On a vehicle (engine3d tells which through `ride`): a bike is pedalled, the feet going round with the ground
@@ -432,8 +528,13 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
         const pose = ridePose(ride, j, side, left ? pedalL : pedalR, a, reach, reachOut);
         if (pose) _q.slerp(_sit.setFromEuler(_euler.set(pose[0], pose[1], pose[2], 'XYZ')), seat);
       }
-      // an old body's stoop, standing and walking (seated and riding: the seat's pose as it is)
-      if (stoop > 0 && (b.j === J.spine || b.j === J.head)) _q.multiply(_gq.setFromEuler(_euler.set((b.j === J.spine ? stoop : -0.6 * stoop) * (1 - seat), 0, 0, 'XYZ')));
+      // an old body's stoop, standing and walking, the head held up a quarter against it (so it reads a little bowed)
+      // and the upper arms a little forward
+      // (seated and riding: the seat's pose as it is)
+      if (stoop > 0) {
+        const bend = b.j === J.spine ? stoop : b.j === J.head ? -0.25 * stoop : b.j === J.shL || b.j === J.shR ? -ELDER_ARMS : 0;
+        if (bend !== 0) _q.multiply(_gq.setFromEuler(_euler.set(bend * (1 - seat), 0, 0, 'XYZ')));
+      }
       if (b.how === 'armL') _q.multiply(REST_L);
       else if (b.how === 'armR') _q.multiply(REST_R);
       else if (b.how === 'foreL') _q.premultiply(REST_L_INV).multiply(REST_L);
@@ -509,6 +610,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       const k = MathUtils.clamp(uw, 0, 1);
       umbrellaAt.scale.setScalar(tall * Math.max(0.001, 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2)));
     }
+    garments.update();
     vrm.update(dt);
   };
   ch.umbrella = () => (umbrellaOn ? umbrellaAt : null);
@@ -517,7 +619,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   ch.headTop = (target: Vector3) => {
     if (!head) return headTop(target);
     head.getWorldPosition(target);
-    target.y += tall * 0.14 * s * (opts.head ?? 1);
+    target.y += tall * 0.14 * s * (opts.head ?? 1) * (rawHead ? KID_HEAD : 1);
     return target;
   };
 
@@ -805,19 +907,22 @@ interface Leg {
  * running (run 1). From -pi/2 to pi/2 the leg swings forward: it leaves the ground bent, folds further as it comes
  * through and opens out to land; from pi/2 to 3pi/2 it is on the ground going back, giving a little under the weight.
  */
-function legCycle(phi: number, run: number, stride = 1): Leg {
+function legCycle(phi: number, run: number, stride = 1, lift = 1): Leg {
   const TWO = Math.PI * 2;
   const u = ((((phi + Math.PI / 2) % TWO) + TWO) % TWO) / Math.PI;
   const mix = (a: number, b: number): number => a + (b - a) * run;
-  const amp = mix(0.46, 0.74) * stride;
+  // (a person's thigh swings about ±0.35 rad walking, ±0.55 running: wider and every step read as a lunge; the
+  // ground speed is the rhythm's and the flight's job, not the legs' span: ./vrmGait.ts)
+  const amp = mix(0.36, 0.56) * stride;
   // (the knee is lifted further forward than the leg is left behind)
-  const thigh = -amp * Math.sin(phi) - mix(0.04, 0.16);
-  const off = mix(0.42, 0.95);
-  const land = mix(0.04, 0.26);
+  const thigh = -amp * Math.sin(phi) - mix(0.03, 0.12);
+  const off = mix(0.3, 0.75);
+  const land = mix(0.04, 0.2);
   let knee: number;
   let ankle: number;
   if (u < 1) {
-    knee = off + (land - off) * u + mix(0.7, 1.05) * Math.pow(Math.sin(Math.PI * u), 1.2);
+    // (`lift` < 1: the foot carried low through, an old person's step)
+    knee = off + (land - off) * u + mix(0.5, 0.85) * lift * Math.pow(Math.sin(Math.PI * u), 1.2);
     // the toes point down as the foot leaves, the foot comes level (walking: heel first) to land
     ankle = (0.45 + (-0.16 - 0.45) * Math.min(1, u * 1.5)) * mix(0.7, 1);
   } else {

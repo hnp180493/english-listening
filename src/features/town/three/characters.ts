@@ -13,6 +13,7 @@ import { castLook as castLookImpl, passerLook as passerLookImpl } from './chars/
 import { createPerson } from './chars/person';
 import { createPet as createPetImpl } from './chars/pets';
 import { renderPortrait as renderPortraitImpl } from './chars/portrait';
+import { getTownUi } from '../townUi';
 
 export { SEAT_HEIGHT, TILE_SCALE, type Character3DPlus } from './chars/person';
 export { setNightTint, disposeSharedMaterials } from './chars/materials';
@@ -31,8 +32,26 @@ export function createCharacter(id: CharacterId, look: CharacterLook = castLook(
   return createPerson(id, look);
 }
 
+/**
+ * How big a pet is drawn beside the VRoid avatars (`townUi.people` 'anime'), against the round code body it was built
+ * for: every pet stands about 0.36 of a tile, 58 % of an avatar (0.62), a dog up to its chest and a head as big as
+ * its upper body (owner, 2026-11-27: "con pet nó bự quá vậy"). A dog, a fox, a panda to just over the knee (about
+ * 0.21), a cat and the small ones lower (about 0.18). The classic people keep them as built.
+ */
+export function petScale(petId: string): number {
+  return SMALL_PETS.has(petId) ? 0.5 : 0.58;
+}
+const SMALL_PETS: ReadonlySet<string> = new Set(['cat', 'meo-muop', 'vit', 'ga-con', 'tho', 'rua']);
+
 export function createPet(petId: string): Pet3D {
-  return createPetImpl(petId);
+  const pet = createPetImpl(petId);
+  if (getTownUi().people !== 'anime') return pet;
+  const k = petScale(petId);
+  pet.root.scale.setScalar(k);
+  // (its legs keep their step on the ground: the gait goes by the distance in its own, unscaled units)
+  const update = pet.update.bind(pet);
+  pet.update = (dt: number, speed: number) => update(dt, speed / k);
+  return pet;
 }
 
 export function renderPortrait(

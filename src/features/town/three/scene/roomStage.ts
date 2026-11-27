@@ -172,6 +172,8 @@ export class RoomStage {
     });
     if (cast.pet) {
       const pet = createPet(cast.pet);
+      // (the room's people are ROOM_GROW for its furniture: the pet with them, when it was brought down to an avatar's size)
+      if (pet.root.scale.x !== 1) pet.root.scale.multiplyScalar(ROOM_GROW);
       shade(pet.root);
       // by the player's side, a little towards the open side of the room (in front of them as seen)
       const g = room.guest;

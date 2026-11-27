@@ -3010,6 +3010,28 @@ in code again.
     it too), and `springScaler` now takes each hair collider and joint at its own bone's scale, so the larger head does
     not throw the hair out. The legs are not shortened (the gait reads the legs' lengths). Pictures
     `kids-after-family.png`, `kids-after-passer.png` against `sweep2-iso-3-kids.png`. The classic people are as before.
+  - The grafted hair of `VRM_VERSION` 5 spread out again: its strands rest INSIDE the head's colliders of the body it
+    was baked onto, so the springs pushed them out at once. `vrmBody.ts restOutsideColliders` (after `springScaler`):
+    a joint whose rest tip is inside a collider loses its colliders, one close to one gets a smaller hit radius; the
+    tips now move 0.01–0.026 from rest, as without collisions (pictures `hair-v5-cast.png` / `-after.png`,
+    `hair-v5-{sarah,kim,emma,player}.png`).
+  - **Clothes built in code** (`chars/vrmGarments.ts`, called from `vrmBody.ts`; for the portraits the samples could not
+    match): Kim's doctor's coat down to just above the knee (tails from the hips, open at the front) and a stethoscope
+    draped round her neck (one tube over the collarbones and round the back of the neck, the chest piece on the right);
+    Emma's mint apron and Ben's green one (a bib from under the collarbones with a strap round the neck, a skirt to
+    above the knee, ties round the waist). Each is measured on the avatar's own body at rest (the torso's front, back and
+    width at each height, hair and face left out), hangs from a bone (bib and stethoscope the upper chest, the rest the
+    hips) and is shaded MToon like the avatar's clothes (tinted at night with them). What hangs from the hips swings
+    with the thighs each frame (`update`, after the pose): the apron's skirt by just enough for its hem to stay in front
+    of the thigh furthest forward, the coat in two halves, each with its own thigh, parted at the back like a vent; a
+    thigh raised to a seat lays them on the lap. Without the swing the front thigh went through the apron and the back
+    leg through the coat (picture `garments-stride-zoom.png` before the last fix). Admin sheet `?garments`: the portrait,
+    a close look at the chest, without the clothes, then with them from the front, half turned, the side and the back;
+    `?stride` has rows for Kim, Emma and Ben. Pictures `garments-sheet.png`, `garments-kim-zoom.png`,
+    `garments-stride.png` / `-zoom.png`, and in their rooms at the usual camera `garments-{kim,emma,ben}.png` (Emma's
+    apron shows only as a mint strip there, side on behind the counter). Seen only in pictures on the software
+    renderer, with motion reduced or a stride posed: nobody has watched the swing move, seen it sitting, or judged it at
+    night.
 - **Cost**: `slim()` drops the outline pass and merges skinned meshes that share a material (a sample's 90–130
   draw calls become about 23). On the software renderer: the plaza with 10 avatars worn of 21 people, 249 draw calls
   and 0.77 M triangles; Westbay's terminal with 7 worn of 50, 254 and 1.31 M (the town alone: about 100 and 0.5 M).
@@ -3043,8 +3065,13 @@ in code again.
   - `beardMesh`: ONE mesh grown from the face itself: the face's own triangles under the nose, picked by their place
     on the texture (`beardAt`, the lips always left open), pushed out along their normals, thin at the edge, a full
     beard hanging below the chin; on the head bone (it does not follow the mouth's morph targets).
-  - 'old' bodies stoop a little (spine forward, head held up, not when seated or riding) and take shorter steps
-    with less arm swing (`legCycle` stride). Old brows are as pale as the hair (tintable bases only).
+  - 'old' bodies stoop (spine forward 0.28, the head held up only a quarter against it so it reads a little bowed,
+    the upper arms 0.12 forward; not when seated or riding) and take shorter steps (`legCycle` stride 0.7) with the
+    foot carried low (`lift` 0.6), less arm swing (0.55) and, at a stroll, a slower rhythm (0.88 × at 0.7 tiles/s, back
+    to the usual one at 1.6; the sim's ground speed unchanged). Numbers from the bake's session, applied as proposed
+    after `?stride` (rows Grace 0,7 / 1,6, Hal 0,7) and the usual camera: `elder-gait.png` (Grace and Hal at a stroll,
+    eight phases side on), `elder-gait-sheet.png`, `elder-grace-player.png`. 'older' bodies (FACES age 'older') do not
+    stoop. Seen only in pictures with a stride posed: nobody has watched it move. Old brows are as pale as the hair (tintable bases only).
   - A bald avatar's crown is closed by a dome of its skin colour (`scalpMesh`; the face mesh is open where the hair
     was, and the inside of the head showed as a dark skullcap): one more mesh for a bald person.
   - Seen on the admin sheet `?elders` (each person: portrait, the avatar without age, with it, with it face on, the
@@ -3082,9 +3109,9 @@ in code again.
     usual camera and close (`elder-grace-street.png`, `elder-grace-close.png`). Not seen: Hal, Mr Finch, Mr Whitlock,
     Mrs Delaney and Kemp in the world (Hal and Mrs Delaney were called to the group and did not show; not looked
     into), anybody at night, walking.
-  - **Not done here:** the posture (in `vrmBody.ts`, another session's file): proposed a stronger stoop (`stoop` 0.17 →
-    0.28), the head lowered rather than held up against it (−0.6 × stoop → −0.25 ×), shoulders forward (upper arms
-    0.12 forward), a shorter step (`stride` 0.78 → 0.7) and less swing (0.7 → 0.55). Shorter legs and a heavier body
+  - The posture proposed here (a stronger stoop 0.17 → 0.28, the head −0.6 × stoop → −0.25 ×, upper arms 0.12
+    forward, `stride` 0.78 → 0.7, swing 0.7 → 0.55) is in `vrmBody.ts` since, with a low foot and a slower stroll
+    (above, "'old' bodies stoop"). Shorter legs and a heavier body
     cannot be baked safely (scaling the leg bones in the file moves the feet off the ground the engine measures):
     only the height is lower. Faces are still young anime faces with lines (the eyes lidded now). The hair standing
     out in tufts on every avatar is the spring bones' collision sphere kept at the file's size (another session's fix in
@@ -3127,12 +3154,33 @@ in code again.
     `-2.png`), one picture a resident with the portrait, before, after and the usual camera (`match-<name>.png`, 13),
     the residents in groups of four at the usual camera (`match-town-1|2|3.png`), Westbay's women in four groups
     (`match-westbay-1..4.png`).
-  - **Not done, and why:** a long lab coat past the hip and a stethoscope (a mesh to build in code: `vrmBody.ts`, another
-    session's file; Kim's coat is the hip-length cardigan in white); aprons (Emma's is her skirt, Ben's his vest);
-    Leo's curls, Zoe's single top bun, Emma's bow and Kim's ponytail at the BACK (Victoria's is at the side): no
+  - **Not done, and why:** a long lab coat past the hip, a stethoscope and the aprons (built in code since, below:
+    `chars/vrmGarments.ts`); Leo's curls, Zoe's single top bun, Emma's bow and Kim's ponytail at the BACK (Victoria's is at the side): no
     sample has them; Mia's cat ears; every woman is one body shape (A); Wren's shorts and every look's skirt are
     trousers. More free samples would fix most: VRoid Hub's own sample models allowing redistribution, to be picked
     and read by the owner (not fetched).
+
+- **A second pass the same day** (the main session after looking at `match-*.png`):
+  - Wrinkles redrawn (`vrmAge.ts drawAge`): fine creases that taper at both ends, a pale warm tone multiplied (only a
+    little darker than the skin), the fold from the nose round the cheek to the mouth's corner, crow's feet, a soft line
+    under each eye, faint forehead lines; the first ones, thick dark diagonals, read as a cat's whiskers of face paint.
+    Seen on `?elders` (`elder-sheet-4.png`): Grace, Dr Osei, Mei, Mrs Okafor, Mr Finch.
+  - An older body baked into the rest pose (`vrm-bake.py edit_rest`, recipe `"rest": "elder-f" | "elder-m"`): the hips
+    8 cm lower with the thigh and shin each 4 cm shorter (the feet stay on the ground), shoulders a little narrower and
+    lower, hips wider, a flatter bust (the bust bones back); every skinned vertex follows by its weights and the inverse
+    bind matrices are made again. Grace and the three elder bases. Grace's eyes a little more lidded (0.28 / 0.3),
+    her clothes a muted rose and plum.
+  - Kim: her own fringe kept (A's parted one, `keep_fringe`) with Victoria's tail, the tail's root moved up and to the
+    back of the head and its bones 1.35 × apart (`move_tail`, recipe `"tail"`).
+  - Westbay: the canon's sex picks the body (`cityPerson().gender`, the jobs' people listed): Sol, a man with long hair
+    under a headband, wore a woman's body; a logo hoodie (Kit, Dev), a jacket for a scarf, a stocky build or an apron
+    (Marcus, Gus, Rico); a woman's curls or bun take the fluffy hair (Nora, Nell, Gianna), short spiky hair the bob
+    (Wren). Seen at the usual camera: `match-westbay-men-1|2.png`, `match-westbay-5.png`.
+  - `VRM_VERSION` 6; `public/vrm` 51.3 MB.
+  - Not done: a longer cardigan over the hips (the cloth is the sample's), smaller eyes (no such morph), Gus not seen (he did not show in the group). Free models that
+    would fill the gaps could not be verified: VRoid Hub and the VRoid guidelines refused automated reading; the one
+    lead, "Helen (Older, Lab Coat)" by Megabite on VRoid Hub (an older woman in a lab coat, its conditions said by a
+    search summary to allow redistribution and alterations), needs a person to read its page.
 
 **Not done, not known.** Age is drawn ON a young face: the eyes stay big and round, the face round and smooth in
 shape, so an old person reads as a young face with lines and a beard, not an old face (Grace is still no old lady);

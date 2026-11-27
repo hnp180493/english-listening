@@ -14,11 +14,24 @@ import { seaShore, ShoreField, smoothShore } from './shore';
 /** Paving slabs per tile side on the plaza, pebbles per tile side on a path. */
 const PLAZA_N = 2;
 const COBBLE_N = 2;
+/** A path stone's height (a low pebble of eight sides) and how much of it each stands up: tops at most PAVING_TOP. */
+const COBBLE_H = 0.055;
+export const cobbleRise = (i: number): number => (PAVING_TOP * 2 * (0.75 + (i % 3) * 0.125)) / COBBLE_H;
+/** The plaza's curb stones (centred on the ground, a little sunk). */
+export const CURB_H = 0.02;
 /** Cells per tile side along the rounded shore. */
 const SHORE_N = 4;
 /** Tiles per side of a ground chunk (frustum culling works per chunk). */
 const CHUNK = 11;
 /** The pond: its bed this deep, its surface this low. */
+/**
+ * How high the top of anything laid on the ground stands (tiles): the plaza's slabs, the paths' stones, the plaza's
+ * curb. People, pets and vehicles stand at the ground (0, or the hill's lift), and an avatar's shoe is about 0.025
+ * high: stones 0.04 up covered the feet (owner, 2026-11-27: "cái nền gạch nó ăn mất chân rồi kìa nhìn bị chìm").
+ * Laid flatter instead of lifting everybody: a body on the grass beside them stands at 0 all the same.
+ */
+export const PAVING_TOP = 0.012;
+
 export const POND_BED = -0.34;
 export const WATER_LEVEL = -0.1;
 
@@ -213,7 +226,7 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
                 const k = 0.022;
                 const tile = c.clone();
                 shadeColor(tile, (hash2(x * PLAZA_N + sx, y * PLAZA_N + sy, 9) - 0.5) * 0.08);
-                m.add(slab(), tile, { x: x + (sx + 0.5) / PLAZA_N, y: 0.012, z: y + (sy + 0.5) / PLAZA_N, s: [1 / PLAZA_N - k, 0.026, 1 / PLAZA_N - k] }, { ao: false });
+                m.add(slab(), tile, { x: x + (sx + 0.5) / PLAZA_N, y: PAVING_TOP / 2, z: y + (sy + 0.5) / PLAZA_N, s: [1 / PLAZA_N - k, PAVING_TOP, 1 / PLAZA_N - k] }, { ao: false });
               }
             }
             m.quadUp(x, y, x + 1, y + 1, 0.002, col(C.plazaRim));
@@ -247,7 +260,7 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
   }
   if (cobbleSpots.length > 0) {
     // a low pebble of seven sides: cheap (28 triangles) and irregular enough
-    const geo = new Merge().add(shapes.cyl(0.2, 0.225, 0.055, 8), '#ffffff', {}, { ao: false }).build()!;
+    const geo = new Merge().add(shapes.cyl(0.2, 0.225, COBBLE_H, 8), '#ffffff', {}, { ao: false }).build()!;
     geos.push(geo);
     const inst = new InstancedMesh(geo, mats.std, cobbleSpots.length);
     const m4 = new Matrix4();
@@ -257,9 +270,9 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
       const e = 0.05;
       const hx = (lift(s.x + e, s.z) - lift(s.x - e, s.z)) / (2 * e);
       const hz = (lift(s.x, s.z + e) - lift(s.x, s.z - e)) / (2 * e);
-      o.position.set(s.x, 0.012 + lift(s.x, s.z), s.z);
+      o.position.set(s.x, lift(s.x, s.z), s.z);
       o.rotation.set(-Math.atan(hz), s.r, Math.atan(hx), 'ZXY');
-      o.scale.set(s.s, 0.8 + (i % 3) * 0.15, s.s * (0.92 + (i % 4) * 0.04));
+      o.scale.set(s.s, cobbleRise(i), s.s * (0.92 + (i % 4) * 0.04));
       o.updateMatrix();
       m4.copy(o.matrix);
       inst.setMatrixAt(i, m4);
@@ -311,7 +324,7 @@ export function buildTerrain(world: TownWorld, mats: Materials): Terrain {
     const z = P.y + Math.sin(a) * (P.r + 0.18);
     const g = ground(Math.floor(x), Math.floor(z));
     if (g !== 'grass') continue;
-    curb.add(shapes.box(0.32, 0.09, 0.16, 0.04, 1), C.stone, { x, y: 0.03, z, ry: -a + Math.PI / 2 }, { ao: false, shade: (hash2(i, 1, 44) - 0.5) * 0.12 });
+    curb.add(shapes.box(0.32, CURB_H, 0.16, 0.01, 1), C.stone, { x, y: CURB_H / 2 - 0.004, z, ry: -a + Math.PI / 2 }, { ao: false, shade: (hash2(i, 1, 44) - 0.5) * 0.12 });
   }
   mesh(curb.build(), { cast: false, receive: true });
 

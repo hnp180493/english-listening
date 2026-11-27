@@ -15,6 +15,7 @@ import { renderLook } from '../town/three/chars/lookPreview';
 import { canvasOf, charStudio, paint } from '../town/three/offscreen';
 import { createPerson } from '../town/three/chars/person';
 import { wearVrm } from '../town/three/chars/vrmBody';
+import { avatarCadence } from '../town/three/chars/vrmGait';
 import type { CharAction } from '../town/three/contracts';
 import { FACES, VRM_IDS, vrmFor } from '../../data/townVrm';
 // (Westbay's people, for the sheet of older faces: their looks register with the cast)
@@ -139,6 +140,10 @@ interface Act {
   seat?: number;
   /** A hat of the wardrobe (chars/hats.ts). */
   hat?: string;
+  /** Who (a resident's or a sheet's id; default Daniel). */
+  who?: string;
+  /** Where in a cycle of two steps (0…1): the time is worked out from the avatar's own cadence (`?stride`). */
+  phase?: number;
 }
 
 /** `…?gait` in the address: a stride and a turn of the pedals frame by frame, and each vehicle's seat. */
@@ -149,7 +154,31 @@ const strip = (name: string, action: CharAction, speed: number, from: number, st
 /** `…?worn` in the address: things held and hats of the wardrobe on an avatar. */
 const WORN = typeof window !== 'undefined' && window.location.hash.includes('worn');
 
-const ACTIONS: readonly Act[] = WORN
+/**
+ * `…?stride` in the address: one cycle of the legs (two steps) in eight phases, seen side on, at the town's three
+ * paces: a stroll (0.7 tiles/s), the player's everyday pace (1.6), the run (2.8), then an old body (Grace) and a child
+ * at the everyday pace. Each phase is the time at which the avatar's own step (chars/vrmGait.ts avatarCadence) has
+ * gone that far round, after the gait has settled (and Kim, Emma and Ben for the clothes of chars/vrmGarments.ts): the legs as they are at that point, not a frame of an animation.
+ */
+const STRIDE_SHEET = typeof window !== 'undefined' && window.location.hash.includes('stride');
+const STRIDE_ROWS: readonly { name: string; who: string; action: CharAction; speed: number }[] = [
+  { name: 'Dạo 0,7', who: 'school', action: 'walk', speed: 0.7 },
+  { name: 'Thường 1,6', who: 'school', action: 'walk', speed: 1.6 },
+  { name: 'Chạy 2,8', who: 'school', action: 'run', speed: 2.8 },
+  { name: 'Grace 0,7', who: 'home', action: 'walk', speed: 0.7 },
+  { name: 'Grace 1,6', who: 'home', action: 'walk', speed: 1.6 },
+  { name: 'Hal 0,7', who: 'hal', action: 'walk', speed: 0.7 },
+  { name: 'Trẻ con 1,6', who: 'kid1', action: 'walk', speed: 1.6 },
+  // the clothes built in code over the sample (chars/vrmGarments.ts): do the legs show through them in a stride?
+  { name: 'Kim 1,6', who: 'clinic', action: 'walk', speed: 1.6 },
+  { name: 'Emma 1,6', who: 'cafe', action: 'walk', speed: 1.6 },
+  { name: 'Ben 1,6', who: 'shop', action: 'walk', speed: 1.6 },
+];
+const STRIDE_PHASES = 8;
+
+const ACTIONS: readonly Act[] = STRIDE_SHEET
+  ? STRIDE_ROWS.flatMap((r) => Array.from({ length: STRIDE_PHASES }, (_, k): Act => ({ name: `${r.name} · ${k + 1}/8`, action: r.action, speed: r.speed, seconds: 0, who: r.who, phase: k / STRIDE_PHASES })))
+  : WORN
   ? [
       { name: 'cup', action: 'drink', speed: 0, seconds: 2.2 },
       { name: 'can', action: 'water', speed: 0, seconds: 2.2 },
@@ -177,8 +206,15 @@ const ACTIONS: readonly Act[] = WORN
     ];
 
 async function drawAction(c: HTMLCanvasElement, a: Act, w: number, h: number, side: boolean): Promise<void> {
-  const ch = createPerson('cafe');
-  await wearVrm(ch, import.meta.env.BASE_URL + 'vrm/school.vrm?acts');
+  let ch;
+  if (a.who) {
+    ch = OTHERS[a.who] ? createPerson(a.who, OTHERS[a.who]) : createPerson(a.who);
+    const who = vrmFor(a.who, ch.look, import.meta.env.BASE_URL);
+    await wearVrm(ch, who.url, who);
+  } else {
+    ch = createPerson('cafe');
+    await wearVrm(ch, import.meta.env.BASE_URL + 'vrm/school.vrm?acts');
+  }
   ch.setHeading(Math.PI / 2, true);
   if (a.hat) ch.setHat(a.hat);
   if (a.ride) {
@@ -186,10 +222,19 @@ async function drawAction(c: HTMLCanvasElement, a: Act, w: number, h: number, si
     ch.setSeatHeight(a.seat ?? 0.18);
   }
   ch.setAction(a.action);
+  // a phase of the cycle: settle the gait for 1.6 s, then on to that phase (a cycle is two steps, 2 / cadence s)
+  let seconds = a.seconds;
+  if (a.phase !== undefined) {
+    const top = ch.headTop(at.set(0, 0, 0)).y - ch.root.position.y;
+    const cadence = avatarCadence(a.speed, top);
+    const cycle = cadence > 0 ? 2 / cadence : 1;
+    seconds = Math.ceil(1.6 / cycle) * cycle + a.phase * cycle;
+  }
   // (the Animator plants the feet in the world: a walk shows only when the body really moves)
-  for (let t = 0; t < a.seconds; t += 1 / 60) {
-    if (!a.ride) ch.root.position.z += a.speed / 60;
-    ch.update(1 / 60, a.speed);
+  const dt = a.phase !== undefined ? 1 / 240 : 1 / 60;
+  for (let t = 0; t < seconds - 1e-9; t += dt) {
+    if (!a.ride) ch.root.position.z += a.speed * dt;
+    ch.update(dt, a.speed);
   }
   ch.root.position.set(0, 0, 0);
   const st = charStudio();
@@ -198,13 +243,15 @@ async function drawAction(c: HTMLCanvasElement, a: Act, w: number, h: number, si
   const cam = st.camera;
   cam.aspect = w / h;
   cam.fov = 24;
-  const tall = 1.7;
+  // (framed on the avatar's own height: a sheet of phases has to show the legs; the older sheets keep their frame)
+  const tall = a.phase !== undefined ? Math.max(0.2, ch.headTop(at.set(0, 0, 0)).y) * 1.12 : 1.7;
   const dist = (tall * 0.5) / Math.tan((cam.fov * Math.PI) / 360) / 0.86;
   const yaw = side ? 0.12 : Math.PI / 2 - 0.5;
-  cam.position.set(Math.cos(yaw) * dist, 0.8 + dist * 0.12, Math.sin(yaw) * dist);
-  cam.near = 0.05;
+  const mid = a.phase !== undefined ? tall * 0.46 : 0.72;
+  cam.position.set(Math.cos(yaw) * dist, mid + 0.08 * tall + dist * 0.06, Math.sin(yaw) * dist);
+  cam.near = 0.02;
   cam.far = 30;
-  cam.lookAt(0, 0.72, 0);
+  cam.lookAt(0, mid, 0);
   cam.updateProjectionMatrix();
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const out = canvasOf(w * dpr, h * dpr);
@@ -240,10 +287,12 @@ const CAST_IDS: readonly string[] = [...VRM_IDS, ...Object.keys(OTHERS)];
 /** `…?cast` in the address: every resident in the avatar baked for them (public/vrm), body and face. */
 const SHOW_CAST = typeof window !== 'undefined' && window.location.hash.includes('cast');
 
-async function drawResident(id: string, c: HTMLCanvasElement, w: number, h: number, face: boolean, aged = true, straight = false): Promise<void> {
+async function drawResident(id: string, c: HTMLCanvasElement, w: number, h: number, face: boolean | 'chest', aged = true, straight = false, turn?: number, bare = false): Promise<void> {
   const ch = OTHERS[id] ? createPerson(id, OTHERS[id]) : createPerson(id);
   const who = vrmFor(id, ch.look, import.meta.env.BASE_URL);
   await wearVrm(ch, who.url, aged ? who : { ...who, face: undefined });
+  // (the sheet of clothes shows each one without what chars/vrmGarments.ts hangs on it, to compare)
+  if (bare) ch.root.traverse((o) => void (o.userData.garment && (o.visible = false)));
   ch.setHeading(Math.PI / 2, true);
   for (let t = 0; t < 0.6; t += 1 / 60) ch.update(1 / 60, 0);
   const st = charStudio();
@@ -253,10 +302,10 @@ async function drawResident(id: string, c: HTMLCanvasElement, w: number, h: numb
   const cam = st.camera;
   cam.aspect = w / h;
   cam.fov = 24;
-  const span = face ? top * 0.26 : top * 1.06;
-  const mid = face ? top * 0.9 : top * 0.5;
+  const span = face === 'chest' ? top * 0.4 : face ? top * 0.26 : top * 1.06;
+  const mid = face === 'chest' ? top * 0.74 : face ? top * 0.9 : top * 0.5;
   const dist = (span * 0.5) / Math.tan((cam.fov * Math.PI) / 360) / 0.9;
-  const yaw = Math.PI / 2 - (straight ? 0 : face ? 0.3 : 0.4);
+  const yaw = turn ?? Math.PI / 2 - (straight ? 0 : face ? 0.3 : 0.4);
   cam.position.set(Math.cos(yaw) * dist, mid + dist * (face ? 0.04 : 0.1), Math.sin(yaw) * dist);
   cam.near = 0.02;
   cam.far = 30;
@@ -281,8 +330,24 @@ async function drawResident(id: string, c: HTMLCanvasElement, w: number, h: numb
 const SHOW_ELDERS = typeof window !== 'undefined' && window.location.hash.includes('elders');
 const ELDERS: readonly string[] = ['home', 'shop', ...Object.keys(FACES).filter((id) => FACES[id].age || FACES[id].beard)];
 
+/**
+ * `…?garments` in the address: the clothes built in code (chars/vrmGarments.ts: Kim's coat and stethoscope, Emma's and
+ * Ben's aprons), each person beside their drawn portrait: without them, then with them from the front, half turned,
+ * the side and the back.
+ */
+const SHOW_GARMENTS = typeof window !== 'undefined' && window.location.hash.includes('garments');
+const GARMENT_IDS: readonly string[] = ['clinic', 'cafe', 'shop'];
+const GARMENT_VIEWS: readonly { turn: number; bare: boolean; near?: boolean }[] = [
+  { turn: Math.PI / 2 - 0.3, bare: false, near: true },
+  { turn: Math.PI / 2, bare: true },
+  { turn: Math.PI / 2, bare: false },
+  { turn: Math.PI / 2 - 0.6, bare: false },
+  { turn: 0, bare: false },
+  { turn: -Math.PI / 2, bare: false },
+];
+
 /** `…?acts` in the address: only the action sheet (quicker to look at). */
-const SKIP_ROWS = typeof window !== 'undefined' && /acts|bases|cast|gait|worn|elders/.test(window.location.hash);
+const SKIP_ROWS = typeof window !== 'undefined' && /acts|bases|cast|gait|worn|elders|stride|garments/.test(window.location.hash);
 
 const W = 190;
 const H = 300;
@@ -297,6 +362,7 @@ export default function ModelPreview() {
   const bases = useRef<Cell[]>([]);
   const cast = useRef<Cell[]>([]);
   const elders = useRef<Cell[]>([]);
+  const garments = useRef<Cell[]>([]);
   const [note, setNote] = useState('');
 
   useEffect(() => {
@@ -335,13 +401,19 @@ export default function ModelPreview() {
           if (front) await drawResident(ELDERS[i], front, 170, 170, true, true, true);
           if (body) await drawResident(ELDERS[i], body, 120, 200, false);
         }
+        for (let i = 0; SHOW_GARMENTS && i < GARMENT_IDS.length && !live.gone; i++) {
+          for (let k = 0; k < GARMENT_VIEWS.length && !live.gone; k++) {
+            const c = garments.current[i * GARMENT_VIEWS.length + k];
+            if (c) await drawResident(GARMENT_IDS[i], c, 160, GARMENT_VIEWS[k].near ? 160 : 280, GARMENT_VIEWS[k].near ? 'chest' : false, true, false, GARMENT_VIEWS[k].turn, GARMENT_VIEWS[k].bare);
+          }
+        }
         for (let i = 0; SHOW_BASES && i < BASES.length && !live.gone; i++) {
           const body = bases.current[i * 2];
           const face = bases.current[i * 2 + 1];
           if (body) await draw(`vroid/${BASES[i]}.vrm`, body, 150, 230, false);
           if (face) await draw(`vroid/${BASES[i]}.vrm`, face, 150, 150, true);
         }
-        for (let i = 0; i < (SHOW_BASES || SHOW_CAST || SHOW_ELDERS ? 0 : ACTIONS.length) && !live.gone; i++) {
+        for (let i = 0; i < (SHOW_BASES || SHOW_CAST || SHOW_ELDERS || SHOW_GARMENTS ? 0 : ACTIONS.length) && !live.gone; i++) {
           const front = acts.current[i * 2];
           const side = acts.current[i * 2 + 1];
           if (front) await drawAction(front, ACTIONS[i], 150, 230, false);
@@ -390,6 +462,26 @@ export default function ModelPreview() {
                   <canvas key={k} ref={(el) => void (elders.current[i * 4 + k] = el)} className="adm-pic" style={{ width: 170, height: 170 }} />
                 ))}
                 <canvas ref={(el) => void (elders.current[i * 4 + 3] = el)} className="adm-pic" style={{ width: 120, height: 200 }} />
+              </div>
+              <span className="adm-scene">{townPlace(id)?.resident ?? id}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {SHOW_GARMENTS && (
+        <ul className="adm-faces">
+          {GARMENT_IDS.map((id, i) => (
+            <li key={id} className="adm-model">
+              <div className="adm-look-pair">
+                <div
+                  className="adm-pic"
+                  role="img"
+                  aria-label={id}
+                  style={{ width: 160, height: 160, backgroundImage: `url(${import.meta.env.BASE_URL}portraits/${id}.webp)`, backgroundSize: '300% 300%', backgroundPosition: '0 0' }}
+                />
+                {GARMENT_VIEWS.map((v, k) => (
+                  <canvas key={k} ref={(el) => void (garments.current[i * GARMENT_VIEWS.length + k] = el)} className="adm-pic" style={{ width: 160, height: v.near ? 160 : 280 }} />
+                ))}
               </div>
               <span className="adm-scene">{townPlace(id)?.resident ?? id}</span>
             </li>

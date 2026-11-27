@@ -539,8 +539,11 @@ export class Animator {
     if (!this.feetReady || dist > TELEPORT) {
       this.plantHome();
       dx = dz = dist = 0;
-    } else if (dist > 0 && (this.loop === 'sit' || this.weights.sit > 0.02)) {
-      // hopping onto a seat or off it: the feet go with the body (no steps, and the sit is not taken for a walk)
+    } else if (dist > 0 && (this.loop === 'sit' || this.weights.sit > 0.02 || dt <= 0)) {
+      // hopping onto a seat or off it: the feet go with the body (no steps, and the sit is not taken for a walk); so
+      // with no time passing (motion reduced: the engine moves people but advances nobody's legs): feet left where
+      // they stood while the body slid on stretched the legs out along the ground, a body sat down in the street
+      // (2026-11-27, .assets-try/previews/gait-jog-1400.png)
       for (let i = 0; i < 2; i++) {
         this.fx[i] += dx;
         this.fz[i] += dz;
