@@ -32,7 +32,7 @@ const PAGES = {
   listening: lazyPage(() => import('./features/listening/ListeningPage')),
   checkup: lazyPage(() => import('./features/checkup/CheckupPage')),
   settings: lazyPage(() => import('./features/settings/SettingsPage')),
-  'duyet-k7q2m9x4': lazyPage(withDictionary('town', () => import('./features/admin/AdminPage'))),
+  'duyet-k7q2m9x4': lazyPage(withDictionary('town', withDictionary('city', () => import('./features/admin/AdminPage')))),
 } satisfies Record<Exclude<RouteId, 'home'>, unknown>;
 
 /**

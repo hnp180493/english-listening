@@ -5,8 +5,9 @@
 import { lazy, Suspense } from 'react';
 import { useRoute } from '../../core/nav';
 import TownPage from './TownPage';
+import { withDictionary } from '../../i18n/load';
 
-const CityPage = lazy(() => import('./city/CityPage'));
+const CityPage = lazy(withDictionary('city', () => import('./city/CityPage')));
 
 export default function TownRoute() {
   const route = useRoute();

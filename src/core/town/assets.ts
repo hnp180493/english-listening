@@ -175,7 +175,7 @@ function workshopReport(gameDay: number): AssetReport {
     gameDay,
     who: 'theo',
     text: `It's Theo. One car today. ${car.en[0].toUpperCase() + car.en.slice(1)}, plate ${spoken}. ${job.en} ${numberWords(bill.said)} pounds.`,
-    vi: fill(ASSET_REPORT_VI.workshop.vi, { car: car.vi, plate: right, repair: job.vi, bill: String(bill.said) }),
+    vi: fill(tr(ASSET_REPORT_VI.workshop.vi), { car: tr(car.vi), plate: right, repair: tr(job.vi), bill: String(bill.said) }),
     questions: [
       { key: 'a', q: tr('Biển số xe nào?'), options: order(r, [right, alike, other].map((p) => ({ value: p, label: p }))), answer: right },
       { key: 'b', q: tr('Khách trả bao nhiêu?'), options: order(r, [bill.said, bill.alike, bill.other].map((n) => ({ value: String(n), label: tl`${n} bảng` }))), answer: String(bill.said) },
@@ -212,7 +212,7 @@ function stallReport(gameDay: number): AssetReport {
     gameDay,
     who: 'amira',
     text: `Amira here, love. Good day at your stall! We sold ${numberWords(qty)} jars of ${goods.en}, at ${numberWords(pounds)} pounds ${numberWords(pence)} a jar.`,
-    vi: fill(ASSET_REPORT_VI.stall.vi, { qty: String(qty), goods: goods.vi, price: money(pounds, pence) }),
+    vi: fill(tr(ASSET_REPORT_VI.stall.vi), { qty: String(qty), goods: tr(goods.vi), price: money(pounds, pence) }),
     questions: [
       { key: 'a', q: tr('Bán được bao nhiêu hũ?'), options: order(r, [qty, qtyAlike, qtyOther].map((n) => ({ value: String(n), label: tl`${n} hũ` }))), answer: String(qty) },
       {
@@ -245,7 +245,7 @@ function sponsorReport(gameDay: number): AssetReport {
     gameDay,
     who: 'kit',
     text: `Kit at the studio. Your name goes out tonight on ${show[0]}, at ${when}. Marcus reads it himself.`,
-    vi: fill(ASSET_REPORT_VI.sponsor.vi, { show: show[0], time: said }),
+    vi: fill(tr(ASSET_REPORT_VI.sponsor.vi), { show: show[0], time: said }),
     questions: [
       { key: 'a', q: tr('Chương trình nào?'), options: order(r, show.map((s) => ({ value: s, label: s }))), answer: show[0] },
       { key: 'b', q: tr('Mấy giờ phát?'), options: order(r, [said, alike, other].map((t) => ({ value: t, label: t }))), answer: said },

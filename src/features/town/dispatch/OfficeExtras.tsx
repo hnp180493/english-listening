@@ -11,7 +11,7 @@ import { numberWords, OFFICE_UPGRADES, WORD_LOSS, type OfficeUpgradeId } from '.
 import { buyOfficeUpgrade, officeNow, payWord } from '../../../core/town/officeStore';
 import { loadTownProgress } from '../../../core/town/store';
 import { MANAGER_WORDS } from '../../../data/city/dispatch/managerWords';
-import { tl } from '../../../i18n';
+import { tl, tr } from '../../../i18n';
 import { playSfx } from '../sfx';
 import { sayDriver } from './dispatchVoice';
 
@@ -110,7 +110,7 @@ export default function OfficeExtras({ sound, onReward }: OfficeExtrasProps) {
                 {line.text.replace('{n}', numberWords(word.said))}
               </p>
               <p className="town-build-hint" data-vi>
-                {line.vi.replace('{n}', String(word.said))}
+                {tr(line.vi).replace('{n}', String(word.said))}
               </p>
               <button type="button" className="btn btn-ghost btn-sm" onClick={listen}>
                 <Icon icon={Volume2} size={16} />

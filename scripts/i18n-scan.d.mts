@@ -21,5 +21,7 @@ export function allTranslatable(): FoundString[];
 export function readAllDictionaries(): Map<string, Map<string, string>>;
 export function missingByArea(all?: FoundString[], dicts?: Map<string, Map<string, string>>): Map<string, FoundString[]>;
 export function visibleBundles(bundle: string): string[];
+export function visibleEntries(dicts: Map<string, Map<string, string>>, bundle: string): Map<string, string>;
+export function answerGroups(): { at: string; group: string[] }[];
 export function slotsUsed(english: string): number[];
 export const UNACCENTED: Set<string>;

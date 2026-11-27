@@ -4,13 +4,6 @@ import { allTranslatable, isVietnamese, jsxText, missingByArea, readAllDictionar
 // Scans every source file for Vietnamese strings and checks them against the English dictionaries (docs/i18n.md).
 // A new Vietnamese string in the code needs an entry (node scripts/i18n-scan.mjs --todo <area> …).
 
-/**
- * What has no English yet and is shown in Vietnamese in English mode (docs/i18n.md §4, AGENTS.md §9): the *meanings*
- * of the English lines and the answers of the listening checks (class 'meaning': the `vi`, `options`, `intent`, `q`,
- * `question` fields of the content, the phrase meanings), waiting for the owner's go-ahead on how to word them.
- * Everything else (interface, explanations, narration, names) must have an entry.
- */
-const isPending = (s: FoundString) => s.class === 'meaning';
 
 const all = allTranslatable();
 const dicts = readAllDictionaries();
@@ -43,8 +36,8 @@ describe('the scanner', () => {
 });
 
 describe('English coverage', () => {
-  it('every Vietnamese string of the interface and of the explanations has an English entry', () => {
-    const gaps = [...missing].flatMap(([, list]) => list.filter((s) => s.kind !== 'untagged' && !isPending(s)));
+  it('every Vietnamese string has an English entry: the interface, the explanations and the meanings of the English lines (docs/i18n.md §4)', () => {
+    const gaps = [...missing].flatMap(([, list]) => list.filter((s) => s.kind !== 'untagged'));
     expect(`${gaps.length} missing\n${show(gaps)}`).toBe('0 missing\n');
   });
 
@@ -63,7 +56,7 @@ describe('the dictionaries', () => {
 
   it('give one English text per Vietnamese string among the bundles loaded together', () => {
     const clashes: string[] = [];
-    for (const bundle of ['ui', 'town']) {
+    for (const bundle of ['ui', 'town', 'city']) {
       const seen = new Map<string, { area: string; en: string }>();
       for (const e of entries) {
         if (!visibleBundles(bundle).includes(e.area.split('/')[0])) continue;

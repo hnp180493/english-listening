@@ -15,6 +15,7 @@
 
 import { GAME_DAY_MS, gameMinutes } from './sky';
 import { muffle } from './skyRules';
+import { tr } from '../../i18n';
 
 // ───────────────────────── the script's shape ─────────────────────────
 
@@ -189,7 +190,8 @@ export function arrivedLate(minute: number, nowMs: number): boolean {
 /** A line with the appointment filled in: `{time}` in words in the English, in digits in the Vietnamese. */
 export function fillLine<L extends Pick<JobLine, 'text' | 'vi'>>(line: L, minute: number | null, style: ClockStyle = 'quarter'): L {
   if (minute === null || !line.text.includes('{time}')) return line;
-  return { ...line, text: line.text.replaceAll('{time}', timeWords(minute, style)), vi: line.vi.replaceAll('{time}', clockOf(minute)) };
+  // the meaning is looked up before the time goes in (English interface: its entry keeps {time}, docs/i18n.md §4)
+  return { ...line, text: line.text.replaceAll('{time}', timeWords(minute, style)), vi: tr(line.vi).replaceAll('{time}', clockOf(minute)) };
 }
 
 /** The options of an entry as offered, in an order fixed by `seed` (the right one not always first). */

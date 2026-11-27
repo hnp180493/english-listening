@@ -266,6 +266,37 @@ export function classOf(relPath, area, prop) {
 
 // ───────────────────────── dictionaries ─────────────────────────
 
+/**
+ * Every group of answers written in the content (docs/i18n.md §4): an `options` array of Vietnamese strings, or the
+ * `intent` labels of one choice's options; for the test that they stay different in English.
+ */
+export function answerGroups() {
+  const out = []
+  for (const file of sourceFiles().filter((f) => rel(f).startsWith('src/data/'))) {
+    const code = readFileSync(file, 'utf8')
+    const { program } = parseSync(file, code, {})
+    const str = (n) => (n?.type === 'Literal' && typeof n.value === 'string' ? n.value : n?.type === 'TemplateLiteral' && n.expressions.length === 0 ? n.quasis[0].value.cooked : null)
+    const keyOf = (p) => p?.key?.name ?? p?.key?.value
+    const at = (node) => `${rel(file)}:${code.slice(0, node.start).split('\n').length}`
+    const walk = (node) => {
+      if (!node || typeof node !== 'object') return
+      if (Array.isArray(node)) return node.forEach(walk)
+      if (node.type === 'Property' && keyOf(node) === 'options' && node.value?.type === 'ArrayExpression') {
+        const g = node.value.elements.map(str).filter((s) => !!s && isVietnamese(s))
+        if (g.length > 1) out.push({ at: at(node), group: g })
+        const intents = node.value.elements
+          .filter((e) => e?.type === 'ObjectExpression')
+          .map((e) => str(e.properties.find((p) => keyOf(p) === 'intent')?.value))
+          .filter((s) => !!s && isVietnamese(s))
+        if (intents.length > 1) out.push({ at: at(node), group: intents })
+      }
+      for (const k in node) if (k !== 'type' && node[k] && typeof node[k] === 'object') walk(node[k])
+    }
+    walk(program)
+  }
+  return out
+}
+
 /** Reads one dictionary file (an object literal of 'source': 'English'). */
 export function readDictionary(file) {
   const out = new Map()
@@ -305,9 +336,17 @@ export function readAllDictionaries() {
   return out
 }
 
-/** The bundles a string of this bundle can count on at run time: 'ui' and 'content' load together, 'town' on top. */
+/**
+ * The bundles a string of this bundle can count on at run time: 'ui' and 'content' load together, 'town' on top
+ * (the town page), 'city' on top of that (Westbay: the meanings of its lines, docs/i18n.md §4).
+ */
 export function visibleBundles(bundle) {
-  return bundle === 'town' ? ['ui', 'content', 'town'] : ['ui', 'content']
+  return bundle === 'city' ? ['ui', 'content', 'town', 'city'] : bundle === 'town' ? ['ui', 'content', 'town'] : ['ui', 'content']
+}
+
+/** The bundle an area's strings are shown with: Westbay's (town/city) with the city's dictionary loaded too. */
+export function bundleOfArea(area) {
+  return area === 'town/city' ? 'city' : area.split('/')[0]
 }
 
 /** source → English over the bundles visible from `bundle`. */
@@ -323,7 +362,7 @@ export function missingByArea(all = allTranslatable(), dicts = readAllDictionari
   const out = new Map()
   const visible = new Map()
   for (const s of all) {
-    const bundle = s.area.split('/')[0]
+    const bundle = bundleOfArea(s.area)
     if (!visible.has(bundle)) visible.set(bundle, visibleEntries(dicts, bundle))
     if (s.kind !== 'untagged' && visible.get(bundle).has(s.key)) continue
     const list = out.get(s.area) ?? []
@@ -357,6 +396,7 @@ export function writeBundles() {
     ui: 'the shell, every page but the town, and the texts core logic writes',
     content: 'lessons, courses, sentences, chunks, pairs, checkup forms',
     town: 'the town page, its rules (core/town) and its content',
+    city: "the meanings of Westbay's lines (loaded with the city)",
   }
   for (const bundle of Object.keys(about)) {
     const dir = join(EN_DIR, bundle)
@@ -373,7 +413,8 @@ export function writeBundles() {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const [cmd, ...args] = process.argv.slice(2)
-  const all = allTranslatable()
+  // --apply and --bundles need no scan of the sources
+  const all = cmd === '--apply' || cmd === '--bundles' ? [] : allTranslatable()
   const dicts = readAllDictionaries()
   if (cmd === '--todo') {
     const [area, outFile, only] = args
@@ -392,7 +433,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     const todo = JSON.parse(readFileSync(todoFile, 'utf8'))
     const answers = JSON.parse(readFileSync(answersFile, 'utf8'))
     const entries = dicts.get(area) ?? new Map()
-    const visible = visibleEntries(dicts, area.split('/')[0])
+    const visible = visibleEntries(dicts, bundleOfArea(area))
     let added = 0
     const problems = []
     for (const item of todo) {

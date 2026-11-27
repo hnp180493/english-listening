@@ -7,12 +7,13 @@ type Dictionary = Readonly<Record<string, string>>;
 /**
  * The dictionary bundles. 'ui' (shell, pages, core texts) and 'content' (lessons, courses, sentences) load with
  * English mode itself; 'town' loads with the town page (withDictionary in App.tsx), and with a switch to English
- * once that page has been opened.
+ * once that page has been opened; 'city' (the meanings of Westbay's lines) with Westbay (features/town/TownRoute.tsx).
  */
 const LOADERS = {
   ui: () => import('./en/ui'),
   content: () => import('./en/content'),
   town: () => import('./en/town'),
+  city: () => import('./en/city'),
 } satisfies Record<string, () => Promise<{ default: Dictionary }>>;
 
 export type DictionaryName = keyof typeof LOADERS;

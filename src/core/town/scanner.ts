@@ -34,6 +34,7 @@ import {
   type ScanTemplate,
 } from '../../data/city/streets/scannerLines';
 import type { Look, Offence } from './police';
+import { getLang, tr } from '../../i18n';
 import type { Compass } from './streets';
 
 /** The colour of each vehicle model (vehicles3d.ts BODY, by its index) in a plain English word. */
@@ -103,7 +104,9 @@ function fill(t: ScanTemplate, f: ScanFacts, who: ScanLine['who']): ScanLine {
   const whoWord = person.en;
   const whoVi = person.vi;
   const en: Record<string, string> = { unit, look: look.en, who: whoWord, top: f.look.outfit ?? '', road: f.road ?? '', heading: f.heading ?? '', near: f.near ?? '', thing: thing?.en ?? SOMETHING.en };
-  const vi: Record<string, string> = {
+  // English interface (docs/i18n.md §4): the meaning is the template's English with the English pieces put in
+  const enMode = getLang() === 'en';
+  const vi: Record<string, string> = enMode ? { ...en, unit: String(f.unit) } : {
     unit: String(f.unit),
     look: look.vi,
     who: whoVi,
@@ -115,7 +118,7 @@ function fill(t: ScanTemplate, f: ScanFacts, who: ScanLine['who']): ScanLine {
   };
   const put = (s: string, w: Record<string, string>) => s.replace(/\{(\w+)\}/g, (_, k: string) => w[k] ?? '');
   const text = put(t.text, en);
-  return { who, text: text[0].toUpperCase() + text.slice(1), vi: put(t.vi, vi) };
+  return { who, text: text[0].toUpperCase() + text.slice(1), vi: put(enMode ? tr(t.vi) : t.vi, vi) };
 }
 
 const pickOf = <T,>(list: readonly T[], n: number): T => list[((Math.floor(n) % list.length) + list.length) % list.length];
