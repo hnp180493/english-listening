@@ -206,9 +206,9 @@ describe('Westbay: shape', () => {
         expect(ch.needs ?? [], ch.id).toEqual([]);
         if (ch.where === 'town') expect(TOWN_IDS.has(ch.at), `${ch.id}: in the town at ${ch.at}`).toBe(true);
         else expect(!!cityPerson(ch.at), `${ch.id}: in the city at ${ch.at}`).toBe(true);
-        expect(ch.lines.length, ch.id).toBeGreaterThanOrEqual(12);
-        expect(ch.lines.length, ch.id).toBeLessThanOrEqual(18);
-        const who = new Set(ch.lines.map((l) => l.who));
+        expect(cast(ch).length, ch.id).toBeGreaterThanOrEqual(12);
+        expect(cast(ch).length, ch.id).toBeLessThanOrEqual(18);
+        const who = new Set(cast(ch).map((l) => l.who));
         expect(who.size, ch.id).toBeGreaterThanOrEqual(2);
         expect(who.size, ch.id).toBeLessThanOrEqual(4);
         expect(who.has(ch.at), `${ch.id}: ${ch.at} speaks`).toBe(true);
@@ -241,16 +241,26 @@ describe('Westbay: shape', () => {
   });
 
   it('everybody who speaks is known; the learner speaks only in a talk they began, short lines, never the last word', () => {
-    const talks = new Set(CITY_SCENES.map((s) => s.id));
+    // a talk the learner began: an episode, a short talk, a visit, a chapter of a long story (never overheard, an
+    // outing, a get-together or the bus)
+    const talks = new Set([...CITY_SCENES, ...CITY_CHAPTERS].map((s) => s.id));
     for (const { id, line } of lines) {
       if (line.who === YOU) {
-        expect(talks.has(id.split('#')[0]), `${id}: the learner speaks only in an episode, a talk or a visit`).toBe(true);
+        expect(talks.has(id.split('#')[0]), `${id}: the learner speaks only in an episode, a talk, a visit or a chapter`).toBe(true);
         const n = line.text.split(/\s+/).length;
         expect(n, `${id}: ${line.text}`).toBeGreaterThanOrEqual(2);
         expect(n, `${id}: ${line.text}`).toBeLessThanOrEqual(12);
       } else expect(knownSpeaker(line.who), `${id}: ${line.who}`).toBe(true);
     }
-    for (const s of CITY_SCENES) if (s.lines.length > 0) expect(s.lines[s.lines.length - 1].who, `${s.id}: somebody answers the learner`).not.toBe(YOU);
+    for (const s of [...CITY_SCENES, ...CITY_CHAPTERS]) {
+      if (s.lines.length > 0) expect(s.lines[s.lines.length - 1].who, `${s.id}: somebody answers the learner`).not.toBe(YOU);
+      // a talk the learner began is a talk WITH them (owner, 2026-11-27: "tao chủ động nói chuyện, sao thành ra lại là
+      // nghe lén rồi?"): two lines of theirs at least, three in an episode or a chapter
+      const mine = s.lines.filter((l) => l.who === YOU).length;
+      expect(mine, `${s.id}: the learner takes part`).toBeGreaterThanOrEqual(s.kind === 'episode' || s.kind === 'chapter' ? 3 : 2);
+      // never two of the learner's lines in a row: the other answers each
+      s.lines.forEach((l, i) => i > 0 && l.who === YOU && expect(s.lines[i - 1].who, `${s.id}#${i + 1}: two lines of the learner in a row`).not.toBe(YOU));
+    }
   });
 
   it('what a scene needs exists, is heard before it, and the first one is open: Rico, off the bus', () => {
