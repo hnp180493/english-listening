@@ -36,8 +36,14 @@ import { ageFace, beardMesh, scalpMesh } from './vrmAge';
 /** The share of the code body's leg swing a VRM takes (its legs are about three times as long for the same pace). */
 const STRIDE = 0.62;
 
-/** How much taller than the code-built body a VRM stands (its head is small: at the same height it looks tiny). */
-const TALLER = 1.45;
+/**
+ * A VRM's height against the code-built body. The world (doors 0.64 of a tile, the bus 0.84, the cars) is built for
+ * that round, big-headed body, 0.78 of a tile tall; a figure of real proportions that tall, or taller, is a giant
+ * beside it (owner, 2026-11-27, at 1.45: "to hơn cả cái nhà cái xe bus"; 1.85 and 1.4 before that). At 0.8 it stands
+ * just under a door. That it is not tiny on the screen is the camera's job (scene/engine3d.ts zoomUser), and a room's
+ * furniture has its own factor (scene/roomStage.ts ROOM_GROW).
+ */
+const TALLER = 0.8;
 
 const Z = new Vector3(0, 0, 1);
 /** T pose → arms down (a little out from the body, so the hands clear the hips). */

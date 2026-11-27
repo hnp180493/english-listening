@@ -245,7 +245,7 @@ const RIDE_REACH = 2;
 /** Those talking aside nearer than this (tiles) to the player are framed with them (goal). */
 const ASIDE_FRAME = 4.5;
 /** The vehicles' size with the VRoid avatars on (rideScale). */
-const RIDE_SCALE_AVATAR = 1.2;
+const RIDE_SCALE_AVATAR = 1;
 
 /** Stats for checking the town in a dev build (headless runs read window.__town3d). */
 export interface Stats3D {
@@ -340,9 +340,9 @@ export class TownEngine3D {
   /** How far down the camera looks: lower in a conversation, so faces show under a hat brim. */
   private pitch = PITCH;
   private pitchV = 0;
-  // (with avatars on the view starts a little closer: a slim figure sized to the houses is small on the screen at the
+  // (with avatars on the view starts closer: a slim figure sized to the doors and the bus is small on the screen at the
   // code body's distance: chars/vrmBody.ts TALLER)
-  private zoomUser = getTownUi().people === 'anime' ? 0.78 : 1;
+  private zoomUser = getTownUi().people === 'anime' ? 0.55 : 1;
   private shift = { x: 0, y: 0 };
   private shiftGoal = { x: 0, y: 0 };
   /** What the camera shows ('follow', 'talk', 'show', 'overview') and the spring it moves with now. */
@@ -1612,8 +1612,8 @@ export class TownEngine3D {
   }
 
   /**
-   * How much bigger the vehicles are drawn than their models (vehicles3d.ts, made for the code-built body): the VRoid
-   * avatars stand 1.85 × that body (chars/vrmBody.ts), so with them on a bike would be a toy under its rider.
+   * How much bigger the vehicles are drawn than their models (vehicles3d.ts, made for the code-built body). 1 since the
+   * VRoid avatars stand just under that body's height (chars/vrmBody.ts TALLER); it was 1.55 and 1.2 for taller ones.
    */
   private rideScale(): number {
     return getTownUi().people === 'anime' ? RIDE_SCALE_AVATAR : 1;

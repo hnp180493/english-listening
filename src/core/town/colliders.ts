@@ -280,13 +280,13 @@ function bench(x: number, y: number, dir: 'e' | 's' | 'w' | undefined, what: str
  * thing's own frame (x along its long side, z out of its front). Measured from the models; colliders.test.ts checks.
  */
 export const FURNITURE_SIZE: Readonly<Record<FurnitureKind, { r: number } | { x0: number; x1: number; z0: number; z1: number }>> = {
-  bins: { x0: -0.42, x1: 0.41, z0: -0.2, z1: 0.2 },
-  'bike-rack': { x0: -0.36, x1: 0.36, z0: -0.38, z1: 0.38 },
-  postbox: { r: 0.24 },
-  crates: { x0: -0.37, x1: 0.5, z0: -0.27, z1: 0.41 },
-  pots: { x0: -0.36, x1: 0.36, z0: -0.3, z1: 0.26 },
-  hydrant: { r: 0.16 },
-  'news-box': { x0: -0.26, x1: 0.26, z0: -0.23, z1: 0.23 },
+  bins: { x0: -0.3, x1: 0.293, z0: -0.143, z1: 0.143 },
+  'bike-rack': { x0: -0.267, x1: 0.267, z0: -0.281, z1: 0.281 },
+  postbox: { r: 0.141 },
+  crates: { x0: -0.274, x1: 0.37, z0: -0.2, z1: 0.304 },
+  pots: { x0: -0.267, x1: 0.267, z0: -0.222, z1: 0.193 },
+  hydrant: { r: 0.11 },
+  'news-box': { x0: -0.163, x1: 0.163, z0: -0.144, z1: 0.144 },
   'bench-picnic': { x0: -0.41, x1: 0.41, z0: -0.41, z1: 0.41 },
 };
 

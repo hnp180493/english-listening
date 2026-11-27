@@ -63,13 +63,13 @@ export const FURNITURE_SCALE: Readonly<Record<FurnitureId, number>> = {
   'bench-picnic': 1,
   'lamp-lantern': LANTERN_SCALE,
   'lamp-globes': GLOBES_SCALE,
-  bins: 1.4,
-  'bike-rack': 1.35,
-  postbox: 1.7,
-  crates: 1.35,
-  pots: 1.35,
-  hydrant: 1.45,
-  'news-box': 1.6,
+  bins: 1,
+  'bike-rack': 1,
+  postbox: 1,
+  crates: 1,
+  pots: 1,
+  hydrant: 1,
+  'news-box': 1,
 };
 
 const GREEN_IRON = '#3f6b55';

@@ -49,7 +49,7 @@ function pump(): void {
 
 const bodyOf = (ch: Character3D) => ch.root.getObjectByName('pivot');
 
-function start(ch: Character3D, d2: number, keep: boolean): void {
+function start(ch: Character3D, d2: number, keep: boolean, grow = 1): void {
   const plus = ch as Partial<Character3DPlus>;
   if (!plus.animator || !plus.look) return;
   const who = vrmFor(ch.id, plus.look, import.meta.env.BASE_URL);
@@ -68,7 +68,7 @@ function start(ch: Character3D, d2: number, keep: boolean): void {
     if (e.gone) return;
     try {
       const { wearVrm } = await import('./vrmBody');
-      e.worn = await wearVrm(ch as Character3DPlus, who.url, who, () => e.gone);
+      e.worn = await wearVrm(ch as Character3DPlus, who.url, grow === 1 ? who : { ...who, tall: (who.tall ?? 1) * grow }, () => e.gone);
       // (taken off again while its file was coming)
       if (e.gone) e.worn?.undress();
     } catch (err) {
@@ -84,10 +84,13 @@ function start(ch: Character3D, d2: number, keep: boolean): void {
   pump();
 }
 
-/** Dress `ch` in its avatar now and keep it on (the learner, the people of a room). Never throws; never blocks. */
-export function dressInVrm(ch: Character3D): void {
+/**
+ * Dress `ch` in its avatar now and keep it on (the learner, the people of a room). Never throws; never blocks. `grow`:
+ * that much taller than out in the world (a room's furniture is built for the code body: scene/roomStage.ts).
+ */
+export function dressInVrm(ch: Character3D, grow = 1): void {
   if (people.has(ch) || failed.has(ch) || getTownUi().people !== 'anime') return;
-  start(ch, 0, true);
+  start(ch, 0, true, grow);
 }
 
 /**

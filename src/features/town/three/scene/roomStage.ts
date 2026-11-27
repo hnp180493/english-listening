@@ -15,6 +15,12 @@ import { basisOf, fitDistance, insetShift } from './cameraRig';
 import type { SafeInsets } from '../../engine/stage';
 import { angleDiff } from './coords';
 
+/**
+ * An avatar in a room, against one out in the world (chars/vrmBody.ts TALLER, sized to the houses' doors and the
+ * vehicles): a room's counters and chairs are built for the code body, so in here an avatar is as tall as that body.
+ */
+const ROOM_GROW = 1.25;
+
 /** Who is in the room as the town knows them: the resident by place id, 'player', a visitor by place id. */
 export interface RoomCast {
   host: string;
@@ -130,14 +136,14 @@ export class RoomStage {
     if (cast.host) {
       const host = this.add(cast.host, createCharacter(cast.host) as Character3DPlus, room.host);
       // (who has a VRoid avatar wears it indoors too: chars/vrmPeople.ts)
-      dressInVrm(host.ch);
+      dressInVrm(host.ch, ROOM_GROW);
     }
     const guest = this.add('player', createCharacter('player') as Character3DPlus, room.guest);
-    dressInVrm(guest.ch);
+    dressInVrm(guest.ch, ROOM_GROW);
     cast.dress(guest.ch);
     if (cast.visitor) {
       const v = this.add(cast.visitor, createCharacter(cast.visitor) as Character3DPlus, room.visitor);
-      dressInVrm(v.ch);
+      dressInVrm(v.ch, ROOM_GROW);
       // in from the right of the picture, along the back of the room (from the left would be across the front, under
       // the lens); no way in round the furniture: they appear at their spot (a step from it)
       const er = { size: room.size, blocks: room.blocks, host: room.host, guest: room.guest, extras: room.extras, outdoor: room.id === 'park' };
@@ -150,14 +156,14 @@ export class RoomStage {
     if (cast.more) {
       cast.more.slice(0, room.extras.length).forEach((id, i) => {
         const p = this.add(id, createCharacter(id) as Character3DPlus, room.extras[i]);
-        dressInVrm(p.ch);
+        dressInVrm(p.ch, ROOM_GROW);
       });
     }
     const child = room.id === 'school';
     (cast.more ? [] : room.extras.slice(0, 3)).forEach((a, i) => {
       const look = passerLook(41 + i * 13 + room.id.charCodeAt(0) * 3 + room.id.length * 7, child);
       const p = this.add(`extra${i}`, createCharacter(`extra${i}`, look) as Character3DPlus, a);
-      dressInVrm(p.ch);
+      dressInVrm(p.ch, ROOM_GROW);
       p.nextAt = 0.4 + this.rng() * 2;
       this.extras.push(p);
     });

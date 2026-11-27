@@ -475,8 +475,9 @@ of its kind (`data/townGarage.test.ts`). A purchase goes into `town-progress` `b
 xe" ("Gọi ngựa") and `engine3d.summonRide` puts that vehicle under the player where they stand (one of your own at a
 time: calling another puts the first away), in the town and in Westbay; got off, it stays parked there ("Lên xe").
 Two new models (`vehicles3d.ts`: a motorbike, a low open supercar) and a fourth finish per kind for the garage's
-own. With the VRoid avatars on, every vehicle is drawn 1.55 × its model and the seat with it (`rideScale`: the
-avatars stand 1.85 × the code-built body the models were made for); the classic people keep 1 ×. On a stage under
+own. With the VRoid avatars on, every vehicle was drawn 1.55 × its model and the seat with it (`rideScale`: the
+avatars stood 1.85 × the code-built body the models were made for); since 2026-11-27 the avatars stand 0.8 × that
+body and every vehicle is drawn as modelled, as for the classic people. On a stage under
 640 px the button sits above the main button's row. Checked in headless Edge only (buying, calling, riding the
 supercar and the motorbike, off and on, 1400 × 900 and 412 × 892); the speeds were not felt (the software renderer
 runs at 2 frames a second); the prices are guesses; nobody has bought or driven one by hand.
@@ -2895,8 +2896,16 @@ in code again.
   avatar's right hand, kept upright in the body's frame, the book in front of the chest; the fishing line runs to
   its float (`castLine`). Seen on the admin sheet (`?worn`): the cup at the mouth, the can, the rod, six hats; the
   book was edge-on to that camera and not made out.
-- **Size**: an avatar stands `TALLER` 1.85 × the code body (1.4 at first: "người quái có chút xíu vầy"; a slim
-  figure at the code body's height reads tiny beside the houses). Benches come to its knees.
+- **Size**: an avatar stands `TALLER` 0.8 × the code body since 2026-11-27: 0.62 of a tile, just under a door (0.64),
+  well under the bus (0.84). History: 1.4, then 1.85 ("người quái có chút xíu vầy": a slim figure reads small on the
+  screen), then 1.45 ("bự gần bằng ngôi nhà"), and at 1.45 still "to hơn cả cái nhà cái xe bus". The mistake was
+  answering "small on the screen" by growing the body in a world built for the round code body; the answer is the
+  camera: with avatars on the view starts at 0.55 of the classic distance (`engine3d.ts zoomUser`; `ZOOM_MIN` 0.3 so
+  the learner can still go closer), so a figure is about a sixth of the stage high. Vehicles are drawn as modelled
+  (`RIDE_SCALE_AVATAR` 1), the small street things too (§26). In a room an avatar is 1.25 × that (`roomStage.ts
+  ROOM_GROW`: the counters and chairs are built for the code body). Seen in pictures on the software renderer (beside
+  the bus and the bins, at the café's door, on a scooter and a bike, driving a car and beside traffic in Westbay, in
+  the café's room, a talk on the plaza); a driver sits low in the open car; nobody watched it move.
 - **Cost**: `slim()` drops the outline pass and merges skinned meshes that share a material (a sample's 90–130
   draw calls become about 23). On the software renderer: the plaza with 10 avatars worn of 21 people, 249 draw calls
   and 0.77 M triangles; Westbay's terminal with 7 worn of 50, 254 and 1.31 M (the town alone: about 100 and 0.5 M).
@@ -3151,9 +3160,11 @@ narrowed way: taking out almost any one of several unrelated pieces (a beach bin
 because any change moves the seeded residents differently. The pots beside the café's terrace were taken out, which
 passes it; the stand-off itself is a weakness of the sim (engine/sim.ts) that another seed may still find.
 
-**Size.** The residents are tall avatars (§23; 1.85 × the code body when these were chosen, 1.45 × since cbaa653, not revisited), so the small things stand bigger than modelled
-(`furniture.ts FURNITURE_SCALE`: post box 1.7, newspaper box 1.6, hydrant 1.45, bins 1.4, crates, pots and bike rack
-1.35, lantern 1.15, globes 1.1); seats stay at 1. The admin page's preview draws each piece at that size.
+**Size.** While the residents were tall avatars (§23; 1.85 × the code body, then 1.45 ×) the small things stood bigger
+than modelled (post box 1.7, newspaper box 1.6, hydrant 1.45, bins 1.4, crates, pots and bike rack 1.35). Since
+2026-11-27 an avatar is 0.8 × the code body and they are back at 1 (`furniture.ts FURNITURE_SCALE`; their solid
+shapes in `core/town/colliders.ts FURNITURE_SIZE` shrank with them); the lantern stays 1.15 and the globes 1.1;
+seats stay at 1. The admin page's preview draws each piece at that size.
 
 **Cost.** The small things are merged by chunks of 12 × 12 tiles (`streetFurniture.ts buildStreetFurniture`, as the
 city's blocks): a body, and the pots' leaves in the sway material, per chunk; the camera culls far chunks. A bench or a

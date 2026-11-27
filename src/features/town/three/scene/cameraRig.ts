@@ -15,7 +15,7 @@ export const PITCH = (33 * Math.PI) / 180;
 /** A grown-up is this tall (scene units: chars/person.ts TILE_SCALE), for the zoom that keeps people a readable size. */
 export const PERSON_HEIGHT = 0.75;
 /** The learner's own zoom (wheel / pinch) stays within these factors of the resting distance. */
-export const ZOOM_MIN = 0.55;
+export const ZOOM_MIN = 0.3;
 export const ZOOM_MAX = 1.9;
 /** Radians the camera turns for a drag of one CSS px (the right or middle button, or two fingers): about 1,050 px all the way round. */
 export const YAW_PER_PX = 0.006;
