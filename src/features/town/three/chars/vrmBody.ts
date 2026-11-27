@@ -59,15 +59,23 @@ const CLIP_FADE = 0.2;
 /** Clips carried over once per avatar file: an avatar of the same file gets a mixer of its own over the same clips. */
 const clipCache = new Map<string, { clips: AnimationClip[]; native: Record<ClipName, number>; perUnit: number }>();
 
-function clipRigFor(src: GLTF, key: string, scene: Object3D, perUnit: number): ClipRig | null {
+/**
+ * The clips on an avatar, played onto `proxy` (stand-ins named as its raw bones, never drawn): three's mixer writes a
+ * value only when it changed since it last wrote it, and the avatar's raw bones are rewritten every frame by
+ * `vrm.update`, so a clip read back from them held still (reduced motion, a still stretch of a clip) gave last frame's
+ * pose, and the hips sank a little more every frame into the ground (2026-11-28, a picture taken with motion reduced).
+ */
+function clipRigFor(src: GLTF, key: string, scene: Object3D, proxy: Object3D, perUnit: number): ClipRig | null {
   try {
-    const cached = clipCache.get(key);
+    let cached = clipCache.get(key);
     if (!cached) {
       const rig = retarget(src, scene, perUnit);
-      clipCache.set(key, { clips: Object.values(rig.actions).map((a) => a.getClip()), native: rig.native, perUnit });
-      return rig;
+      rig.mixer.stopAllAction();
+      rig.mixer.uncacheRoot(scene);
+      cached = { clips: Object.values(rig.actions).map((a) => a.getClip()), native: rig.native, perUnit };
+      clipCache.set(key, cached);
     }
-    const mixer = new AnimationMixer(scene);
+    const mixer = new AnimationMixer(proxy);
     const actions = {} as Record<ClipName, AnimationAction>;
     for (const c of cached.clips) actions[c.name as ClipName] = mixer.clipAction(c);
     const native = {} as Record<ClipName, number>;
@@ -337,7 +345,17 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   const springs = springScaler(vrm);
   springs(s);
   // the ready-made clips on this avatar's own bones, and which of its bones they move (see LOCO)
-  const rig = clipSrc ? clipRigFor(clipSrc, url.split('?')[0], vrm.scene, s) : null;
+  // (the clips play onto stand-ins of the raw bones, at their rest, and are read from there: clipRigFor)
+  const proxy = new Group();
+  if (clipSrc) vrm.scene.traverse((o) => {
+    if (!/^J_Bip_/.test(o.name)) return;
+    const n = new Group();
+    n.name = o.name;
+    n.position.copy(o.position);
+    n.quaternion.copy(o.quaternion);
+    proxy.add(n);
+  });
+  const rig = clipSrc ? clipRigFor(clipSrc, url.split('?')[0], vrm.scene, proxy, s) : null;
   const clipW: Record<string, number> = { idle: 1, walk: 0, jog: 0, sprint: 0, sit: 0 };
   if (rig) for (const n of LOCO) rig.actions[n]?.play().setEffectiveWeight(clipW[n]);
   let clipOn = rig ? 1 : 0;
@@ -369,11 +387,13 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   const clipBones = rig
     ? PARTS.flatMap(([name, part]) => {
         const norm = bone(name);
-        const raw = vrm.humanoid.getRawBoneNode(name);
+        const rawName = vrm.humanoid.getRawBoneNode(name)?.name;
+        const raw = rawName ? proxy.getObjectByName(rawName) : undefined;
         return norm && raw ? [{ norm, raw, part, code: posed.has(norm) }] : [];
       })
     : [];
-  const rawHips = vrm.humanoid.getRawBoneNode('hips');
+  const rawHipsName = vrm.humanoid.getRawBoneNode('hips')?.name;
+  const rawHips = rawHipsName ? proxy.getObjectByName(rawHipsName) : undefined;
   const rawHipsRest = rawHips ? rawHips.position.clone() : new Vector3();
   const spineNode = bone('spine');
   const pivot = ch.root.getObjectByName('pivot');
@@ -678,7 +698,8 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       const fade = dt > 0 ? 1 - Math.exp(-dt / (CLIP_FADE / 3)) : 1;
       clipOn += ((ride ? 0 : 1) - clipOn) * fade;
       const sitting = seat > 0.5;
-      const want: ClipName = sitting ? 'sit' : walk < 0.5 ? 'idle' : speed < (elder ? JOG_FROM_OLD : JOG_FROM) ? 'walk' : speed < SPRINT_FROM ? 'jog' : 'sprint';
+      // (with motion reduced no time passes: whoever moves glides, standing up straight, on the idle's first frame)
+      const want: ClipName = sitting ? 'sit' : walk < 0.5 || dt <= 0 ? 'idle' : speed < (elder ? JOG_FROM_OLD : JOG_FROM) ? 'walk' : speed < SPRINT_FROM ? 'jog' : 'sprint';
       let sum = 0;
       for (const n of LOCO) {
         clipW[n] += ((n === want ? 1 : 0) - clipW[n]) * fade;
@@ -842,7 +863,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     umbrellaAt.removeFromParent();
     umbrellaOn = false;
     rig?.mixer.stopAllAction();
-    rig?.mixer.uncacheRoot(vrm.scene);
+    rig?.mixer.uncacheRoot(proxy);
     for (const m of worn) {
       m.geometry.dispose();
       (m.material as Material).dispose();
