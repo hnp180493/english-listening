@@ -190,6 +190,10 @@ export interface Doing {
   /** Sim time it ends (set when they get there; a jog: when it began). */
   until: number;
   arrived: boolean;
+  /** Where they stood when they got there (an activity with something in the hands is done only right there: doingHere). */
+  spot?: Pt2;
+  /** Fishing: the point at the water's edge they walk on to (`at` is null then); arrive checks they got there. */
+  edge?: Pt2;
   seat?: Seat;
   /** What it holds (a seat, a chat spot, a place to stand): nobody else takes it meanwhile. */
   claim?: string;
@@ -1281,6 +1285,17 @@ export function nearestFit(x: number, y: number, r: number, world: TownWorld = T
   return null;
 }
 
+/** The activities done with something in the hands (a rod, a watering can, a book): only right on their spot. */
+export const HELD_ACTIVITIES: ReadonlySet<Activity> = new Set<Activity>(['fish', 'tend', 'read']);
+/** How far off its spot (tiles) a held activity is still done there (a nudge by a passer-by is not a move). */
+export const SPOT_SLACK = 0.3;
+
+/** A resident with something in the hands who is no longer where they got to (moved off it since). */
+function heldOffSpot(r: Resident): boolean {
+  const d = r.doing;
+  return !!d && d.arrived && HELD_ACTIVITIES.has(d.kind) && !!d.spot && Math.hypot(r.x - d.spot.x, r.y - d.spot.y) > SPOT_SLACK;
+}
+
 /**
  * Where a spot remembered from an earlier visit (features/town/townSpot.ts) puts the player in the world as it is NOW
  * (docs/town.md §7 "Moving about"), or null when it is no good any more: off the map, in the drawn water, inside
@@ -2272,6 +2287,12 @@ export class TownSim {
     return this.residents.get(id)?.path ?? [];
   }
 
+  /** How long (seconds, at their pace now) a resident's walk under way still takes; 0 with none. */
+  walkSecondsLeft(id: PlaceId): number {
+    const r = this.residents.get(id);
+    return r && r.path.length > 0 ? pathLeft(r) / Math.max(0.1, r.speed) : 0;
+  }
+
   /**
    * The resident goes into a room with the player (`door`: the tile in front of it): hidden in there for `seconds`,
    * then everyday life brings them out of that door again.
@@ -2301,6 +2322,17 @@ export class TownSim {
     if (!fit) return false;
     this.placePlayer(fit, Number.isFinite(heading) ? heading : 0);
     return true;
+  }
+
+  /**
+   * The activity a resident is doing right where it is done, for the engine to pose (fishing, watering, reading, a
+   * chat's lines): arrived, standing still with no walk ahead, on the spot they got to, not held for a talk with the
+   * player and not hurried to one. Null otherwise: then nothing is held and the pose is the usual one.
+   */
+  doingHere(r: Resident): Activity | null {
+    const d = r.doing;
+    if (!d || !d.arrived || r.moving || r.path.length > 0 || r.engaged || this.talking === r.place.id || this.hurried.has(r.place.id)) return null;
+    return heldOffSpot(r) ? null : d.kind;
   }
 
   /** The player is put at a point at once (out of a room's door), facing `heading` (radians on the grid). */
@@ -3309,8 +3341,11 @@ export class TownSim {
         r.x = e.x;
         r.y = e.y;
         r.tile = tileUnder(r, e.x, e.y, this.world);
+        d.edge = { x: e.x, y: e.y };
       } else if (e) {
         d.at = null;
+        // (kept: a walk given up on the way, somebody in it, is not "there": arrive checks this point)
+        d.edge = { x: e.x, y: e.y };
         r.path.push({ x: e.x - 0.5, y: e.y - 0.5 });
       }
     }
@@ -3332,7 +3367,11 @@ export class TownSim {
   private arrive(r: Resident): void {
     const d = r.doing;
     if (!d) return;
-    if (d.at && Math.hypot(r.x - d.at.x - 0.5, r.y - d.at.y - 0.5) > 0.45) {
+    // not where it is done (a walk given up on the way: somebody in it, often the player): no activity here. A fishing
+    // walk's `at` is null on its way to the water's edge, so its edge is checked (until 2026-11-28 it was not, and a
+    // resident whose walk to the water was given up fished on the paving: "con emma này cầm cần câu đi linh tinh")
+    const goal = d.edge ?? (d.at ? { x: d.at.x + 0.5, y: d.at.y + 0.5 } : null);
+    if (goal && Math.hypot(r.x - goal.x, r.y - goal.y) > 0.45) {
       this.endDoing(r);
       r.wanderIn = 1 + this.rng() * 2;
       return;
@@ -3382,6 +3421,7 @@ export class TownSim {
       if (this.time < d.sitAt) return;
     }
     d.arrived = true;
+    d.spot = { x: r.x, y: r.y };
     d.until = this.time + activitySeconds(d.kind, this.rng);
     r.autoSettle = false;
     if (d.kind === 'sit' && d.seat) {
@@ -3564,6 +3604,13 @@ export class TownSim {
         r.lookIn = 0.35;
       }
       if (d) d.until += dt;
+      return;
+    }
+    // something in the hands (a rod, a can, a book) only right where it is done: moved off it for any reason (a step
+    // aside, a push, a walk), it is put away and the activity ends (owner, 2026-11-28: Emma "cầm cần câu đi linh tinh")
+    if (d && heldOffSpot(r)) {
+      this.endDoing(r);
+      r.wanderIn = 1 + this.rng() * 2;
       return;
     }
     if (!d) {

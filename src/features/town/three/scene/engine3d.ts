@@ -5,7 +5,8 @@
 
 import { ACESFilmicToneMapping, BufferGeometry, Color, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, PCFShadowMap, PerspectiveCamera, Raycaster, RingGeometry, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer, type Object3D } from 'three';
 import { prefersReducedMotion } from '../../../../core/motion';
-import { collidersIn, findPath, nearestWalkable, walkable } from '../../../../core/town/map';
+import { collidersIn, findPath, nearestWalkable, onLand, walkable } from '../../../../core/town/map';
+import { WATER_LEVEL } from './terrain';
 import { lootItem } from '../../../../data/townGame';
 import { TOWN_WORLD, type ActivitySpotId, type PlaceId, type Tile, type TownWorld } from '../../../../data/townWorld';
 import { ACTIVITIES } from '../../activities/types';
@@ -43,7 +44,7 @@ import { pick3, stickyTile, type Hit3, type PickBox, type PickPerson, type Ray }
 import { lightRig } from './palette3d';
 import { SEAT_TOP } from './props3d';
 import { TownScene, type Built } from './world3d';
-import { doorwayOf, outsideSpots, sameSetting, type Doorway, type OutsideSpots, type TalkSetting } from '../../engine/staging';
+import { doorwayOf, outsideSpots, outsideTalkStep, sameSetting, type Doorway, type OutsideSpots, type TalkSetting } from '../../engine/staging';
 import { buildInterior, isInteriorId, type InteriorId, type RoomSet } from '../interiors/rooms';
 import { RoomStage } from './roomStage';
 import { FishShow, pierWalk, type FishPhase } from './fishShow';
@@ -122,10 +123,6 @@ const FADE_IN = 0.35;
 const FADE_HOLD = 0.14;
 /** The colour of the dip (deep blue, darker than any night of the town). */
 const FADE_RGB = '13,15,32';
-/** The player waits at a talk's spot outside at most this long (s) for the resident to walk up before they are put there out of sight. */
-const WAIT_UNSEEN = 2.5;
-/** …and this long whether seen or not (the last resort: somebody stuck behind a crowd). */
-const WAIT_MOST = 9;
 /** A resident walking to a talk who stood still this long (s) without getting there sets off again. */
 const RETRY_SECONDS = 1.2;
 /** After a talk in a room the resident stays in there this long (s) before everyday life brings them out. */
@@ -438,6 +435,8 @@ export class TownEngine3D {
   /** The fishing panel is open: the player out on the pier with the rod (fishShow.ts). */
   private fish: FishShow | null = null;
   private readonly fishLine = new Vector3();
+  /** A resident's float (castOver). */
+  private readonly castAt = new Vector3();
   /** The dip to dark: how dark now (0…1), where it is going, held dark for a moment, what runs at the dark. */
   private fade = { k: 0, to: 0, hold: 0, dark: null as (() => void) | null };
   /** The follow's spring now (stiffer on a narrow stage: cameraRig followStiffness). */
@@ -1492,10 +1491,19 @@ export class TownEngine3D {
       this.talkOutside(s);
       return;
     }
-    const waited = this.t - s.arrivedAt;
-    if ((waited > WAIT_UNSEEN && !this.seen(r.x, r.y, 0.4)) || waited > WAIT_MOST) {
-      this.sim.jumpResident(s.placeId, sp.resident);
-      this.talkOutside(s);
+    // the player never stands watching the resident walk up (engine/staging.ts outsideTalkStep): more than a short
+    // walk left (or waited that long): a short dip and they are there
+    if (outsideTalkStep(r.hidden ? Infinity : this.sim.walkSecondsLeft(s.placeId), this.t - s.arrivedAt) === 'dip') {
+      s.phase = 'cut';
+      this.dip(() => {
+        if (this.staged !== s) return;
+        if (s.cancelled) {
+          this.dropStaging();
+          this.snapToPlayer();
+          return;
+        }
+        this.placeNow(s);
+      });
       return;
     }
     // stopped short (a way given up behind somebody): on again
@@ -2848,14 +2856,24 @@ export class TownEngine3D {
     if (r?.seat || (a.kind === 'player' && this.sim.playerSeat)) return 'sit';
     if (walking) return r?.doing?.kind === 'jog' ? 'run' : 'walk';
     if (this.speaking && (this.speaking === a.id || (a.kind === 'player' && this.speaking === 'player'))) return 'talk';
-    const d = r?.doing;
-    if (r && d?.arrived && !a.moving) {
-      if (d.kind === 'fish') return 'fish';
-      if (d.kind === 'tend') return 'water';
-      if (d.kind === 'read') return 'read';
-      if (d.kind === 'chat' && (this.says.get(r.id) ?? 0) > this.t) return 'talk';
-    }
+    // only right where it is done, standing still, not held for a talk (sim doingHere): nothing in the hands elsewhere
+    const here = r ? this.sim.doingHere(r) : null;
+    if (here === 'fish') return 'fish';
+    if (here === 'tend') return 'water';
+    if (here === 'read') return 'read';
+    if (here === 'chat' && (this.says.get(r!.id) ?? 0) > this.t) return 'talk';
     return 'idle';
+  }
+
+  /** Where a fishing resident's float sits: on the water a little out in front of them, or null (no water there). */
+  private castOver(a: Actor): Vector3 | null {
+    const h = a.yaw ?? octantHeading(a.oct);
+    for (const k of [1.6, 1.2, 2.1]) {
+      const x = a.x + Math.cos(h) * k;
+      const y = a.y + Math.sin(h) * k;
+      if (!onLand(this.world, x, y)) return this.castAt.set(x, WATER_LEVEL + 0.06, y);
+    }
+    return null;
   }
 
   /** The way somebody faces this frame (radians on the ground). */
@@ -3023,6 +3041,8 @@ export class TownEngine3D {
       p.action = want;
       p.ch.setAction(want);
     }
+    // a resident fishing: the line runs out to the float on the water in front (never hanging onto the ground)
+    if (a.kind === 'resident') (p.ch as Character3DPlus).castLine?.(want === 'fish' ? this.castOver(a) : null);
     p.ch.update(this.still ? 0 : dt, this.still ? 0 : pace);
     this.footPuff(p);
     void id;

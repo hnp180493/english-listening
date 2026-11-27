@@ -142,3 +142,18 @@ export function metInStreet(world: TownWorld, setting: StorySetting, residentId:
   const stand = playerStand(world, setting, residentId);
   return !!stand && Math.hypot(at.x - stand.x, at.y - stand.y) > STREET_FAR;
 }
+
+/**
+ * The most of a resident's walk (seconds) the player stands watching at a talk's spot outside before it begins (owner,
+ * 2026-11-28: "tao bấm vào nhà rồi phải đợi một đống thời gian cho bà già đi về nhà?"). The resident sets off when the
+ * talk is asked for; at the player's arrival, a walk shorter than this is waited for (it looks natural), a longer one
+ * (or a wait gone past TALK_WAIT_MOST) ends in a short dip with the resident there.
+ */
+export const TALK_WALK_WATCH = 2;
+/** The longest the player stands at the spot in any case (seconds; somebody stopped short behind a crowd). */
+export const TALK_WAIT_MOST = 2.5;
+
+/** At a talk's spot outside, the player there: wait for the resident a moment more, or bring them in through a dip. Pure. */
+export function outsideTalkStep(walkSecondsLeft: number, waited: number): 'wait' | 'dip' {
+  return walkSecondsLeft > TALK_WALK_WATCH || waited > TALK_WAIT_MOST ? 'dip' : 'wait';
+}
