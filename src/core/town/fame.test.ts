@@ -37,7 +37,7 @@ describe('deposits and needs', () => {
   });
 
   it('what is missing: fame short, deposit unpaid; nothing once done before, nothing in the sandbox', () => {
-    const needs = { fame: 24, deposit: 300 };
+    const needs = { fame: 24, deposit: 300 }; // any numbers: the real ones are JOB_FAME / JOB_DEPOSITS
     expect(needsMissing('job-warehouse', needs, { fame: 10, bought: [], done: false })).toEqual({ fame: 14, deposit: 300 });
     expect(needsMissing('job-warehouse', needs, { fame: 30, bought: [], done: false })).toEqual({ fame: 0, deposit: 300 });
     expect(needsMissing('job-warehouse', needs, { fame: 30, bought: [depositId('job-warehouse')], done: false })).toBeNull();

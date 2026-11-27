@@ -15,6 +15,7 @@ import { CITY_PLACE_IDS, CITY_ROWS } from '../../cityWorld';
 import { SENTENCES } from '../../sentences';
 import { CITY_SCENES } from '../index';
 import { CREW_CUT } from '../../../core/town/crew';
+import { FAME_ASK_MAX, FAME_GRADE, JOB_FAME } from '../../../core/town/fame';
 import { findStreet } from '../../../core/town/jobPatrol';
 import { westbayNet } from '../../../core/town/streets';
 import { isJobSpot } from './spots';
@@ -34,6 +35,34 @@ const notebooksOf = (doc: JobDoc) => doc.steps.filter((s): s is Notebook => s.ki
 const entriesOf = (doc: JobDoc) => notebooksOf(doc).flatMap((n) => n.entries);
 
 describe('the jobs', () => {
+  it('a fame gate never shuts out a weak listener: the story played "messy" passes, all broken is asked for a little', () => {
+    const by = new Map(CITY_JOBS.map((j) => [j.id, j]));
+    const before = (id: string, seen = new Set<string>()): Set<string> => {
+      const j = by.get(id)!;
+      for (const p of [j.after, ...(j.afterAll ?? [])]) {
+        if (!p || seen.has(p)) continue;
+        seen.add(p);
+        before(p, seen);
+      }
+      return seen;
+    };
+    const gated = CITY_JOBS.filter((j) => j.needs?.fame);
+    expect(gated.map((j) => j.id).sort()).toEqual(Object.keys(JOB_FAME).sort());
+    for (const j of gated) {
+      const fame = j.needs!.fame!;
+      expect(fame, j.id).toBe(JOB_FAME[j.id]);
+      const story = before(j.id);
+      // the story alone, every job "messy": enough
+      expect(story.size * FAME_GRADE.messy, j.id).toBeGreaterThanOrEqual(fame);
+      // every job broken: a small ask, never the whole city
+      const ask = fame - story.size * FAME_GRADE.broken;
+      expect(ask, j.id).toBeGreaterThan(0);
+      expect(ask, j.id).toBeLessThanOrEqual(FAME_ASK_MAX);
+      // and the jobs beside the story that are open by then cover it even when they end broken too
+      const beside = CITY_JOBS.filter((o) => o.id !== j.id && !story.has(o.id) && !o.needs?.fame && [...before(o.id)].every((p) => story.has(p)));
+      expect(beside.length * FAME_GRADE.broken, j.id).toBeGreaterThanOrEqual(ask);
+    }
+  });
   it('Act I in its order, with unique orders; the chain points at jobs that exist, never in a loop', () => {
     const ids = CITY_JOBS.map((j) => j.id);
     const act = ['job-m2', 'job-half5', 'job-chip', 'job-three', 'job-delaney'];

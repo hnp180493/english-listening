@@ -12,8 +12,8 @@ import { townPlace } from '../../data/town';
 import { tl } from '../../i18n';
 
 /**
- * The learner's own lines in a job (an answer by intent; docs/gta-story.md §1 "Giọng của người chơi"). `docs/city.md`
- * §5 says the learner never speaks in the city, and the owner has not decided yet (the story bible asks him): with
+ * The learner's own lines in a job (an answer by intent; docs/gta-story.md §1 "Giọng của người chơi"). Approved by the
+ * owner on 2026-11-27 (docs/city.md §5: the learner speaks, in jobs and in every talk they begin): with
  * PLAYER_VOICE on, the learner's line is shown and said in a browser voice of their character's sex; off, it is shown
  * as text only. One switch for every job.
  */

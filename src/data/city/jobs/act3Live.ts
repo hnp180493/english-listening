@@ -17,6 +17,7 @@
 import type { NoteEntry } from '../../../core/town/job';
 import type { Cond, JobDoc } from '../../../core/town/jobDoc';
 import { CREW_CUT } from '../../../core/town/crew';
+import { JOB_FAME } from '../../../core/town/fame';
 
 const id = (key: string) => `job-live-${key}`;
 
@@ -139,8 +140,8 @@ export const JOB_LIVE: JobDoc = {
   opens: ['ct-rico-1'],
   after: 'job-forged',
   afterAll: ['job-twomarcus', 'job-samcall', 'job-splice', 'job-tomcall'],
-  // the finale asks for a name in the city first (core/town/fame.ts, gta-plan §5 "Mở khóa"): a guess
-  needs: { fame: 40 },
+  // the finale asks for a name in the city first (core/town/fame.ts JOB_FAME, gta-plan §5 "Mở khóa"): a guess
+  needs: { fame: JOB_FAME['job-live'] },
   from: 'marcus',
   lines: LINES,
   facts: [

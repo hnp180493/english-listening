@@ -351,7 +351,8 @@ chữ P", Rico nói đúng tên ở cuối), chờ nhầm cửa (Kemp gọi đi�
 hoặc tới muộn (Kemp chờ nửa tiếng), tới quá 30 phút (Kemp lên xe Bayline: Hỏng, bỏ đoạn trong xe, vẫn ra sạp bà Mei),
 hỏi nhầm người, chở nhầm chỗ (Kemp đi bộ trước, người chơi lỡ ba câu đầu ở sạp), trả lời sai bà Mei.
 
-**Giọng của người chơi** (đang chờ chủ dự án quyết): `PLAYER_VOICE` trong `src/core/town/jobVoice.ts`, mặc định BẬT:
+**Giọng của người chơi** (chủ dự án đã duyệt 2026-11-27, cùng lúc với việc người chơi nói trong mọi cuộc trò chuyện ở
+Westbay; `docs/city.md` §5 đã sửa theo): `PLAYER_VOICE` trong `src/core/town/jobVoice.ts`, mặc định BẬT:
 câu của người chơi hiện thành chữ và đọc bằng giọng trình duyệt đúng giới tính nhân vật; TẮT thì chỉ hiện chữ.
 
 **Chọn phi vụ**: thẻ nhiệm vụ liệt kê các phi vụ đang mở (cả hai mở khi đã gặp Rico, `ct-rico-1`; mở ngay trong chế
@@ -716,7 +717,8 @@ theo tai. Câu chưa ai đọc, chưa ai nghe, chưa ai chơi bằng tay hay tr�
 - **Tiếng tăm** (`core/town/fame.ts`): tính thuần từ town-jobs (hạng tốt nhất: 3/2/1), town-ear (8 cuộc gọi điều xe = 1),
   tài sản (2) và nâng cấp văn phòng (1). Không lưu, không giảm. Hiện ở panel điện thoại Westbay, ghi rõ là điểm trò chơi.
 - **Đặt cọc / điều kiện**: `JobDoc.needs` (`wellFormed` kiểm). Cửa nước cọc 150 (mượn xuồng của phà), Kho 15 tiếng tăm
-  24 + cọc 300, Phát sóng trực tiếp tiếng tăm 40. Phi vụ còn thiếu không đổ chuông; thẻ nhiệm vụ ghi thiếu gì và mở điện
+  20 + cọc 300, Phát sóng trực tiếp tiếng tăm 30 (`JOB_FAME`; 24 và 40 tới 2026-11-27: người chơi chỉ theo mạch chính mà
+  phi vụ nào cũng Hỏng có 17 rồi 23 điểm, nên phi vụ cuối đòi thêm 17; nay đòi thêm 3 rồi 7, có test giữ). Phi vụ còn thiếu không đổ chuông; thẻ nhiệm vụ ghi thiếu gì và mở điện
   thoại để đặt cọc. Cọc trả lại lần đầu xong phi vụ (Hỏng: hai phần ba). Đã chơi rồi không bị khóa lại; admin bỏ qua.
 - Mọi con số là đoán. `economyModel.ts` có tài sản là nguồn và chỗ tiêu; các tính chất cũ vẫn xanh, thêm ba tính chất.
   Chưa ai nghe một bản báo cáo hay chơi bằng tay; câu thoại do model viết, chưa ai đọc.

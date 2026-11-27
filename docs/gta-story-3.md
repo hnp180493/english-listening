@@ -375,7 +375,7 @@ gì. Không mục nào bắt buộc trước khi chủ dự án chơi thử.
 6. **Tần số trên radio xe.** Đài lậu 91.5 hiện chỉ có trong phi vụ (bước `radio`). Nếu chủ dự án muốn: nút "Radio" trong xe
    (`scenes/CarRadio.tsx`) có thêm một kênh chỉ mở trong Hồi III, phát lại cuộn băng ghép, có câu hỏi như Bay FM.
 7. **Người chơi nói trên sóng.** Bước micro ở phi vụ 6 là một ý định; câu của người chơi được nói bằng giọng trình duyệt khi
-   `PLAYER_VOICE` bật (đang chờ chủ dự án). Nếu tắt: câu hiện ra, không ai nói. Không cần gì mới, nhưng là chỗ quyết định đó
+   `PLAYER_VOICE` bật (chủ dự án đã duyệt 2026-11-27: giữ bật). Nếu tắt: câu hiện ra, không ai nói. Không cần gì mới, nhưng là chỗ quyết định đó
    nặng nhất.
 8. **Đoạn chọn có hai loại sai.** Ở bước `pick` của phi vụ 2 và 6, một đoạn sai là băng ghép, một là bản nhại. Phần tổng kết
    hiện chỉ nói "chọn nhầm". Nếu `pick` nhận `why?: Record<clipId, lineId>` (một câu giải thích cho từng đoạn sai), người chơi
@@ -411,7 +411,7 @@ thì chưa.
 
 1. **Kemp đánh trả bằng băng giả** có hợp không, hay quá "thám tử"? *Nháp đã chọn:* giữ. Nó biến đúng kỹ năng của app (nghe
    ra một chữ) thành cốt truyện, và cấm hẳn đường thắng bằng bạo lực.
-2. **Người chơi nói một câu trên sóng** ở phi vụ 6: giữ dù `PLAYER_VOICE` chưa quyết? *Nháp:* giữ; khi tắt giọng, câu chỉ hiện
+2. **Người chơi nói một câu trên sóng** ở phi vụ 6: giữ dù `PLAYER_VOICE` chưa quyết? **Đã duyệt 2026-11-27: giữ, giọng bật.** *Nháp:* giữ; khi tắt giọng, câu chỉ hiện
    ra (như mọi ý định khác).
 3. **Bà Delaney được mời lại** trong kết cục tốt nhất? *Nháp:* có. Hồi II để bà bị đình chỉ vì người chơi; trả lại cho bà là
    phần thưởng đúng của việc nghe kỹ.

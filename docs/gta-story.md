@@ -58,7 +58,8 @@ Quy ước trong file:
   (cách các cuộc đi chơi ở Westbay đã làm, `docs/town.md` §21). Người chơi chưa cưới thì bỏ qua cảnh đó.
 - **Giọng của người chơi:** khi người chơi nói (đáp theo ý), câu tiếng Anh do game ghép từ ý họ chọn, đọc bằng giọng
   trình duyệt đúng giới tính, hiện cả chữ. Điều này PHÁ một luật của canon: `docs/city.md` §5 "The learner is there
-  and is talked to, but never speaks". Cần chủ dự án đồng ý (câu hỏi ở mục 7).
+  and is talked to, but never speaks". Cần chủ dự án đồng ý (câu hỏi ở mục 7). **Đã duyệt 2026-11-27**: luật đó
+  của `docs/city.md` §5 đã đổi thành "người chơi có nói".
 
 ---
 

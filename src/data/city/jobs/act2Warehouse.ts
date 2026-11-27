@@ -29,7 +29,7 @@
 import { CREW_CUT } from '../../../core/town/crew';
 import type { NoteEntry } from '../../../core/town/job';
 import type { JobDoc } from '../../../core/town/jobDoc';
-import { JOB_DEPOSITS } from '../../../core/town/fame';
+import { JOB_DEPOSITS, JOB_FAME } from '../../../core/town/fame';
 
 const id = (key: string) => `job-warehouse-${key}`;
 const NUMBER = (v: string) => ({ note: 'number', value: v });
@@ -161,7 +161,7 @@ export const JOB_WAREHOUSE: JobDoc = {
   after: 'job-sale',
   afterAll: ['job-crossed', 'job-dumplings', 'job-water', 'job-farewell'],
   // fame and a deposit before the big job (core/town/fame.ts, gta-plan §5 "Mở khóa"): numbers are guesses
-  needs: { fame: 24, deposit: JOB_DEPOSITS['job-warehouse'] },
+  needs: { fame: JOB_FAME['job-warehouse'], deposit: JOB_DEPOSITS['job-warehouse'] },
   from: 'delaney',
   clock: 'quarter',
   lines: LINES,

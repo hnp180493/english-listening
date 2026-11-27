@@ -32,6 +32,20 @@ export const JOB_DEPOSITS: Readonly<Record<string, number>> = {
   'job-water': 150,
   'job-warehouse': 300,
 };
+/**
+ * The fame the big jobs ask: the one source of the numbers (the job documents read them from here). The rule, checked
+ * against the real chain by data/city/jobs/jobs.test.ts: a weak listener is never shut out. A learner who played only
+ * the story and whose every job ended broken (1 each) has 17 at Kho 15 and 23 at the finale, so they are asked for a
+ * little more (3, then 7 in all: at most FAME_ASK_MAX), which a few jobs played again for a better grade, a side
+ * chain, the dispatch office or an asset give; whoever ends "messy" on average passes on the story alone. (They were
+ * 24 and 40 until 2026-11-27: the finale then asked that learner for 17 more.)
+ */
+export const JOB_FAME: Readonly<Record<string, number>> = {
+  'job-warehouse': 20,
+  'job-live': 30,
+};
+/** The most a fame gate may ask beyond the story's own jobs all ended broken. */
+export const FAME_ASK_MAX = 8;
 /** The share of a deposit that comes back when the job ended broken (the rest is lost). */
 export const DEPOSIT_KEPT_BROKEN = 2 / 3;
 

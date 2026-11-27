@@ -3746,8 +3746,15 @@ whole number above 0, a deposit is `JOB_DEPOSITS[id]`, and a job in `JOB_DEPOSIT
 | Job | Fame | Deposit | Why |
 |---|---|---|---|
 | "Cửa nước" (`job-water`) | | 150 | Captain Odile lends the ferry's launch against a deposit |
-| "Kho 15" (`job-warehouse`) | 24 | 300 | the plan's own example |
-| "Phát sóng trực tiếp" (`job-live`) | 40 | | the finale asks for a name in the city first |
+| "Kho 15" (`job-warehouse`) | 20 | 300 | the plan's own example |
+| "Phát sóng trực tiếp" (`job-live`) | 30 | | the finale asks for a name in the city first |
+
+The fame numbers live in `fame.ts JOB_FAME` and follow one rule (2026-11-27; they were 24 and 40): **a weak listener is
+never shut out.** A learner who played only the story and whose every job ended broken has 17 at Kho 15 and 23 at the
+finale, so the gates ask them for 3, then 7 in all (never more than `FAME_ASK_MAX` 8): a few jobs played again for a
+better grade, a side chain, the dispatch office or an asset. A learner who ends "messy" on average passes on the story
+alone. `data/city/jobs/jobs.test.ts` checks both against the real chain, and that the jobs beside the story open by then
+cover the ask even when they end broken too.
 
 A job of the chain that is next but still needs something does not ring; its quest card says what is missing ("Cần tiếng
 tăm 24 · Cần đặt cọc 300 xu") and opens the phone, where the deposit is paid ("Đặt cọc 300 xu", a ghost button: the call
@@ -3764,7 +3771,7 @@ itself back in no less than 60 real days of two reports heard right, a misheard 
 40-minute learner buys an asset in 60 days and the 10-minute learner none, a deposit comes back (part of it when broken)
 and is smaller than the hideout. Deposits are not in the simulation (they come back).
 
-**Every number is a guess** (costs, takings, the loss, the fame values, 24 / 40, the deposits). Seen in pictures only
+**Every number is a guess** (costs, takings, the loss, the fame values, 20 / 30, the deposits). Seen in pictures only
 (`.assets-try/previews/assets-*`: the panel at 375 px Vietnamese and English and at 1400 px, the phone panel with fame and
 a deposit at 375 and 1400 px, the button beside Amira); the deposit paid and given back checked in the page by calling the
 store. Nobody has heard a report (the headless browser is mute) or played it by hand or over days; the managers' lines were

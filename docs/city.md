@@ -172,7 +172,10 @@ The learner meets the city one person at a time (`needs` of a scene: the scenes 
 
 - Natural spoken English as these people would really say it, 3–16 words a line, contractions and everyday reductions
   welcome (the decoder shows them: gonna, wanna, kind of, a lot of, what did you…). No slang a learner will never meet.
-- The learner is there and is talked to, but never speaks.
+- The learner is there and is talked to, and speaks too (owner, 2026-11-27): in a talk they begin, their own lines
+  (`who: 'you'`); in a job, their answers by intent, shown and said in a browser voice of their character's sex
+  (`PLAYER_VOICE`, `src/core/town/jobVoice.ts`). Nothing the learner says is ever a fact a question asks about. In
+  overheard scenes, the radio, rides, get-togethers and outings they only listen.
 - Vietnamese meanings: natural, concise, how a Vietnamese person would say it, no English words except names.
 - A question must be answerable only by having understood the English; wrong options are plausible and are what a
   half-listening ear would guess. Never ask what a title or the scene line gave away.
