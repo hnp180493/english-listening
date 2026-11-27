@@ -625,6 +625,29 @@ cosy game:
   30 s walk had none), which delay a stop by that frame. Not watched by a person; the body leans briefly up to 55° off
   its way when it sidesteps a corner or squeezes past somebody.
 
+**Where the player stood, after a reload** (2026-11-27; owner: "không lưu lại trạng thái nhân vật hả? sao cứ refresh
+trang nó lại về trung tâm"). `features/town/townSpot.ts` keeps, per browser (`KEYS.townSpot`, device-local: never synced,
+never in a backup; "Xóa dữ liệu" clears it; the admin sandbox has its own under its prefix), the map (town or Westbay),
+the point, the way the player faced, and the camera's turn and zoom. It is written when the player has moved half a tile
+or the camera turned or zoomed, at most every 2 s (a check every 0.5 s, no write a frame), at once on a new map and on
+`pagehide` / a hidden page. Only a street spot is written: the stage's `streetSpot` (`engine3d.ts`) is null in a room
+(the hideout and warehouse fifteen too), a staged talk, a scene's seat, a dip to dark or on the water, so the last spot
+before it stays (a room's door, the pier before the boat); riding counts and the player comes back on foot (a firm's car
+goes back to its place, one's own is called again with its button). A bare `#/town` (the menu, a reload) puts it back;
+`?at=city` only says which map, so a reload in Westbay comes back to its spot there, and a bare `#/town` whose last spot
+was in Westbay opens Westbay again (`TownRoute.tsx opensCity`, no bus ride; a bus ride up still arrives at the terminal,
+since the town wrote its spot last); any other parameter (`?talk`, `?build`, `?activity`, `?listen`, `?from`, `?with`)
+wins as before. Put back once the town is laid out (`TownStage3D`, after `setState`, before a staged talk, never again
+for a remade engine), only when it is still good in the world as it is then: `engine/sim.ts spotFits` (on the map, on
+the drawn land, the middle not inside anything solid, so never inside a house or a construction site put there since,
+and room for a body within a tile, by the same `nearestFit` that steps people off something just built); else the usual
+start. The suggested resident is still put by their door when the page opens. The flat list keeps nothing. Tests:
+`townSpot.test.ts` (parse, the address, when to write), `engine/spot.test.ts` (in and off the map, the water, a house
+and a site built since, the other map, `TownSim.restorePlayer` then walking on); `noStuck` green. Seen in pictures on the
+software renderer (`.assets-try/previews/spot-*.png`): the town after a reload at a far spot, Westbay opened by a bare
+`#/town` at its spot, a spot in the water back at the start. Not tried by hand: a reload inside a room, during a talk,
+riding, or on the boat (only the rules above say what happens), a phone.
+
 **No wedges in the woods** (2026-11-21, after a playtest got the player stuck for ten seconds between the trunks by the
 hill and at the island's south edge). `engine/noWedge.test.ts` walks a body to every point of a quarter-tile lattice it
 can reach from the start and holds the keys each way from every point near a tree: none may leave it stuck in four
@@ -2947,6 +2970,46 @@ in code again.
   indoors at the hours tried), anybody standing IN the boat (in the headless browser the ride goes straight to its
   landing). Noted, not a bug: a setState in a dev check that changes `look` or `kids` rebuilds the player, and for a few
   seconds the residents are hidden while their avatars come back.
+- **Legs, paving and hair, after the owner played** (2026-11-27). Three things he found:
+  - "chân nó chuyển động nhiều quá" (the speed to stay): the legs turned as fast as the ground went by under a
+    walking stride, about six steps a second at the everyday pace and seven running. Now a person's rhythm
+    (`chars/vrmGait.ts` `avatarCadence`: about 2 strolling, 2.7 at the everyday pace, at most 3.3; `avatarRunShare`:
+    the everyday pace is an easy jog, a jog has a moment in the air), the thigh's swing ±0.36 rad walking to ±0.56
+    running (was 0.46–0.74), the back foot kicked up less, the arms' swing about two thirds of what it was
+    (`vrmBody.ts legCycle`, `armSwing`). Tested: nobody over 3.3 steps a second at any speed and height
+    (`vrmGait.test.ts`). A sheet on the admin page shows a cycle in eight phases side on at the three paces, Grace and
+    a child (`ModelPreview ?stride`, pictures `.assets-try/previews/stride-before.png` / `stride-after.png`). A body
+    "sat on the ground" in pictures while walking: with motion reduced (the headless browser, and anybody with
+    animation effects off) the engine moves people but passes no time to their legs, and the feet stayed planted while
+    the body slid on, the legs dragged out along the ground; now the feet go with the body when no time passes
+    (`anim.ts`, for the code body too; `gait-world-check.png`).
+  - "cái nền gạch nó ăn mất chân": the path stones stood 0.04 of a tile up, the plaza's slabs 0.025, its curb 0.075,
+    and an avatar's shoe is about 0.025 high. Everything laid on the ground is now flatter instead of lifting people
+    (`scene/terrain.ts PAVING_TOP` 0.012, `cobbleRise`, `CURB_H`; `paving.test.ts`): people, pets, vehicles, seats and
+    shadows already stand at the ground. Pictures `paving-*-after.png` (the stones by Grace's at night, the plaza).
+  - "tóc … cứ chỉa chỉa": three-vrm keeps a spring bone's hit radius, its colliders' radii, its stiffness and gravity
+    in the file's metres while only positions follow the scale; drawn at about 0.4 of its file's size, the sphere the
+    hair keeps out of was 2.5 × the head, and the hair stood out from it (Sarah's bob as two horns, Grace's bun with two
+    wings). `vrmBody.ts springScaler` brings them to the scale drawn (again when a seat on a vehicle changes it).
+    Pictures `hair-elders-after.png` (against `sweep2-elders.png`), `hair-sarah-room.png`, `hair-residents.png`. The
+    learner's spiky hair is its sample's style. Nobody has watched the hair sway, the new rhythm or a jog move.
+  - "con pet nó bự quá vậy": every pet stood about 0.36 of a tile, 58 % of an avatar, a dog up to the chest. With
+    avatars on, `characters.ts createPet` draws them at `petScale` (a dog, a fox, a panda 0.58: just over the knee; a
+    cat and the small ones 0.5), the speed handed to their legs divided by it so the feet keep their step; in a room
+    with the room's people (`ROOM_GROW`). The classic people keep them as built; the wardrobe's and the egg's pictures
+    (beside the code body) too. Where the pet walks behind the player and the town cat's body in the sim are as before.
+    Pictures `pet-after*.png` against `gait-jog-1400.png`.
+  - The body "sat on the ground" in those pictures was not the new rhythm: it came from motion reduced (above), and
+    every picture from `scripts/town-shot.mjs` is taken that way (the headless browser asks for reduced motion), so
+    judge a gait on the `?stride` sheet, never on a town picture.
+  - "thằng tí hon nào đây?": a child's avatar height was taken twice by its look's scale (`data/townVrm.ts vrmFor` gives
+    a child `tall` = scale × 0.84, and `vrmBody.ts` multiplied by `anim.tiles`, which holds the scale again): a
+    schoolchild stood 0.47 of a grown-up, a toddler a third, dolls with grown-up bodies. Now `vrmBody.ts` takes a child's
+    height from `tall` alone: a schoolchild 0.63, a toddler about 0.49 (the player's children, passers-by in the town and
+    Westbay, in rooms with `ROOM_GROW`); a child's head is drawn 1.15 × (`KID_HEAD`, the raw head bone, what is worn on
+    it too), and `springScaler` now takes each hair collider and joint at its own bone's scale, so the larger head does
+    not throw the hair out. The legs are not shortened (the gait reads the legs' lengths). Pictures
+    `kids-after-family.png`, `kids-after-passer.png` against `sweep2-iso-3-kids.png`. The classic people are as before.
 - **Cost**: `slim()` drops the outline pass and merges skinned meshes that share a material (a sample's 90–130
   draw calls become about 23). On the software renderer: the plaza with 10 avatars worn of 21 people, 249 draw calls
   and 0.77 M triangles; Westbay's terminal with 7 worn of 50, 254 and 1.31 M (the town alone: about 100 and 0.5 M).
@@ -2988,6 +3051,88 @@ in code again.
     body; `.assets-try/previews/elder-sheet.png`, `elder-faces.png`) and in the world at the usual camera, the person
     put beside the player (`elder-world-home|shop|osei.png`, `elder-world-close.png`): there Ben's dark beard reads,
     Dr Osei's white goatee is a small pale patch, Grace's lines do not show at all (a head is some 25 px).
+
+- **Older people dressed and built their age** (2026-11-27, later; owner, playing: "mấy ông bà già không làm già thêm
+  được hả, nhìn mặc đồ xì tin quá", on Grace in a pink top, a short skirt and black tights). Every woman's sample
+  (`?bases`) wears a short skirt over bare legs, socks or tights; the men's all wear long trousers. So:
+  - **Slacks, baked** (`scripts/vrm-bake.py apply_slacks`, recipe `"slacks": true`): a VRoid body's legs are part of
+    its skin, on the same place of every sample's skin texture (the lower halves of its two side columns: Victoria
+    Rubin's stockings and Vivi's painted boots lie there). Those triangles become a mesh of their own in a cloth
+    material named as the bottoms (`…_Slacks_Bottoms_01_CLOTH`: tinted with the bottoms' colour in the bake and, on a
+    tintable base, at run time by `vrmBody paint`), pushed out along their normals from nothing at the top of the
+    thigh to about 2 cm at the hem, so they read as a pair of slacks, not tights; the sample's short skirt, in the same
+    colour, reads as the top of them. One draw call more on such an avatar.
+  - **Eyes a little lidded, baked** (`apply_eyes`, recipe `"eyes_settle": {"Close": 0.22, "Sorrow": 0.25}`): two of the
+    face's own morph targets added into its rest shape; blinks and expressions play on top as before.
+  - **A blouse** (`paint_blouse`, recipe `"blouse"`): Grace's black lace camisole (painted on the sample's skin, both its
+    colour and its MToon shade image) is a cream blouse, as in her portrait.
+  - **Three new bases** (`data/townVrm.ts ELDERS`): `base-f-elder` (AvatarSample_A, the bob and cardigan, with slacks),
+    `base-m-elder-jacket` (AvatarSample_C), `base-m-elder-shirt` (Sakurada_Fumiriya, shirt and tie), all with the
+    lidded eyes. Anybody whose face is older or old (`FACES`, or grey hair: `faceOf`) wears one: a woman the cardigan
+    and slacks (her grey bun built on, `bun:#…`: Mei, Mrs Okafor), a man the shirt with a tie, collar or coat, else the
+    jacket, never the hoodie. Mrs Delaney and Kemp (the jobs' people, no portrait: "greying", "dark hair going grey")
+    are listed as older. An older person stands 0.98 of their height, an old one 0.94; Grace 0.91 (was 0.94).
+    Grace's own file is baked again with slacks (plum), the blouse and the eyes. `VRM_VERSION` 4. `public/vrm` 41.8 MB
+    → 48.4 MB (23 files).
+  - Lines on an old face a little deeper and wider (`vrmAge.ts`: 0.7 / 0.013, older 0.52 / 0.011; the line from the
+    nose ends at the mouth's corner, no lower); the first try (0.82) read as paint up close and was taken back.
+  - Seen (software renderer): the `?elders` sheet (`elder-sheet-3.png`), Mrs Okafor, Captain Odile, Mei, Dr Osei, Prof
+    Adeyemi and Frank beside the player in Westbay at the usual camera (`elder-women-street.png`,
+    `elder-men-street.png`), Mrs Okafor and Captain Odile close (`elder-women-close.png`), Grace in the town at the
+    usual camera and close (`elder-grace-street.png`, `elder-grace-close.png`). Not seen: Hal, Mr Finch, Mr Whitlock,
+    Mrs Delaney and Kemp in the world (Hal and Mrs Delaney were called to the group and did not show; not looked
+    into), anybody at night, walking.
+  - **Not done here:** the posture (in `vrmBody.ts`, another session's file): proposed a stronger stoop (`stoop` 0.17 →
+    0.28), the head lowered rather than held up against it (−0.6 × stoop → −0.25 ×), shoulders forward (upper arms
+    0.12 forward), a shorter step (`stride` 0.78 → 0.7) and less swing (0.7 → 0.55). Shorter legs and a heavier body
+    cannot be baked safely (scaling the leg bones in the file moves the feet off the ground the engine measures):
+    only the height is lower. Faces are still young anime faces with lines (the eyes lidded now). The hair standing
+    out in tufts on every avatar is the spring bones' collision sphere kept at the file's size (another session's fix in
+    `vrmBody.ts springScaler`), not the bake.
+
+- **Every resident's clothes and hair matched to the portrait** (2026-11-27, later still; owner: "nhiều nhân vật ko map
+  quá, bác sĩ mặc váy à?", on Kim, a doctor, in a white frilly doll's dress; the second time after "diện mạo gì mà
+  không map avatar vậy?"). The portraits are drawn to the chest, so below it the person's work decides: nobody in a
+  frilly dress or a school uniform. Of the ten samples (`?bases`) only AvatarSample_A dresses a woman for every day (a
+  cardigan); the others are school uniforms (Sendagaya_Shibu / _Shino), frilly dresses (Victoria_Rubin,
+  HairSample_Female, Darkness_Shibu), a dirndl (Vivi), a gyaru outfit (B), a bodysuit (Vita). So:
+  - **Another sample's hair, baked** (`vrm-bake.py apply_hair`, recipe `"hair_from"`): the female samples share one
+    head and skeleton (sized differently) and VRoid exports every bone with no rotation or scale, so a hair moves over as
+    data: its mesh and the hair cap VRoid puts on the body mesh, its bones under this head, its springs (colliders
+    matched by bone, hit radius scaled), its materials and images, taken from the source's head to this one and scaled
+    by the faces' sizes per axis. This body's own hair is replaced (its images left as one pixel).
+  - **Two colours on one image** (`recolour_duo`, a clothes value `[dark, light]`): Sakurada_Fumiriya's dark vest over a
+    white shirt becomes Ben's green over cream (his apron as a vest) and Daniel's mustard over white.
+  - The slacks' colour is its own clothes key (`"Slacks"`), so a white coat (the cardigan and the skirt in white) goes
+    over blue scrubs.
+
+  | Resident | Portrait | Before | Now |
+  |---|---|---|---|
+  | Kim (doctor) | black ponytail, white coat, blue scrubs, stethoscope | Victoria_Rubin: white frilly dress, bare legs, pink shoes | A + Victoria's ponytail (black), white cardigan and skirt as the coat, blue top and trousers |
+  | Emma (café) | brown ponytail with a bow, pink blouse, mint apron | Vivi: green dirndl, bob | A + Victoria's ponytail (brown), pink cardigan, mint skirt as the apron, grey trousers |
+  | Sarah (office) | red bob, navy blazer, white shirt | Shibu: school vest, bow, skirt, socks | A + Darkness_Shibu's red bob, navy cardigan, white blouse, navy trousers |
+  | Mia | black twin tails, lavender tee | HairSample_Female: frilly dress | A + its twin tails (the cat ears are part of that hair and stay), lavender cardigan, jeans |
+  | Zoe (cinema) | pink hair up, denim vest, yellow top | B: gyaru outfit, long tails | A + Vivi's hair (pink, the buns), denim cardigan, yellow blouse, jeans |
+  | Lily | long peach hair, flower crown, mint top | Shino: school uniform, socks | A + Shino's long hair, mint cardigan, cream blouse and trousers (crown in code as before) |
+  | Grace | grey bun, glasses, pink cardigan, white blouse | A: short skirt, black tights | A, plum trousers, cream blouse, lidded eyes (above) |
+  | Ben (shop) | cream shirt, green apron, beard | C: green jacket | Sakurada: green vest over a cream shirt, green tie; beard in code |
+  | Daniel (school) | glasses, mustard sweater, white shirt, tie | Sakurada all mustard | the same, the shirt white |
+  | Leo, Sam, Max, Tom | (hoodie / navy uniform / black tee / red hoodie) | as now | unchanged: already the portrait's clothes. Leo's curls: no sample has curly hair |
+
+  - Westbay's women and the town's passers-by wear the four female bases, which are now all A with slacks and the
+    hair of Shino (`f-long`), Victoria (`f-tail`), Vivi (`f-buns`) or A's own bob (`f-bob`): a cardigan and trousers
+    in their own colours, never a uniform or a frilly dress; a look's skirt is no longer a skirt (the same colour over
+    trousers). The men's bases are as before (all in trousers). `VRM_VERSION` 5; `public/vrm` 51.1 MB (48.4 before).
+  - Seen (software renderer): `?cast` before and after (`match-before-cast.png`, `match-after-cast.png`,
+    `-2.png`), one picture a resident with the portrait, before, after and the usual camera (`match-<name>.png`, 13),
+    the residents in groups of four at the usual camera (`match-town-1|2|3.png`), Westbay's women in four groups
+    (`match-westbay-1..4.png`).
+  - **Not done, and why:** a long lab coat past the hip and a stethoscope (a mesh to build in code: `vrmBody.ts`, another
+    session's file; Kim's coat is the hip-length cardigan in white); aprons (Emma's is her skirt, Ben's his vest);
+    Leo's curls, Zoe's single top bun, Emma's bow and Kim's ponytail at the BACK (Victoria's is at the side): no
+    sample has them; Mia's cat ears; every woman is one body shape (A); Wren's shorts and every look's skirt are
+    trousers. More free samples would fix most: VRoid Hub's own sample models allowing redistribution, to be picked
+    and read by the owner (not fetched).
 
 **Not done, not known.** Age is drawn ON a young face: the eyes stay big and round, the face round and smooth in
 shape, so an old person reads as a young face with lines and a beard, not an old face (Grace is still no old lady);
