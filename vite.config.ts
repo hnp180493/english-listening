@@ -103,6 +103,10 @@ const webBuild: UserConfig['build'] = {
   rolldownOptions: {
     output: {
       codeSplitting: {
+        // A group takes only the modules its test matches, not what they import: with the default (true) the `vrm` group
+        // had taken core/storage.ts, core/admin.ts and the town's people code, and `romance` took i18n/lang.ts, so the
+        // entry imported those chunks and every page downloaded three.js, the avatars' code and the town's stories
+        includeDependenciesRecursively: false,
         groups: [
           { name: 'react', test: /node_modules[/\\](react|react-dom|scheduler)[/\\]/ },
           // the town's episodes and the residents' arcs (data/stories, "Thân thiết"): over 200 kB of their own
@@ -116,8 +120,7 @@ const webBuild: UserConfig['build'] = {
           { name: 'city-jobs-2', test: /src[/\\]data[/\\]city[/\\]jobs[/\\]act2/, priority: 1 },
           { name: 'city-jobs-3', test: /src[/\\]data[/\\]city[/\\]jobs[/\\](act3|side)/, priority: 1 },
           { name: 'city-jobs', test: /src[/\\]data[/\\]city[/\\](jobs|dispatch)[/\\]/ },
-          // three.js, all but its glTF loader (that is the VRoid people's alone). First of the three: a group takes what
-          // its modules import as well, and three's core must stay here, not go with the loader
+          // three.js, all but its glTF loader (that is the VRoid people's alone): its core stays here, not with the loader
           { name: 'three', test: /node_modules[/\\]three[/\\](?!examples[/\\]jsm[/\\]loaders[/\\]GLTFLoader)/, priority: 3 },
           // the VRoid people (features/town/three/chars/vrmBody.ts: three-vrm and the glTF loader), loaded only when a
           // resident with an avatar is on the stage and the learner wants avatars; the old and the children's Quaternius

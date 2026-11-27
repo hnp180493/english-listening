@@ -4,7 +4,7 @@ import './fonts.css';
 import './index.css';
 import { preloadAudioManifest } from './core/audioManifest';
 import { initCloudSync } from './core/cloud/cloudController';
-import { seedAdmin } from './features/admin/seed';
+import { ADMIN } from './core/admin';
 import { reloadReview } from './core/review/api';
 import { getSettings, reloadSettings } from './core/settings';
 import { reloadStats } from './core/stats';
@@ -34,8 +34,15 @@ async function boot() {
   } catch {
     // sync is optional; the app works on local data
   }
-  // the admin sandbox (core/admin.ts): everything open the first time it starts
-  safely('admin', seedAdmin);
+  // the admin sandbox (core/admin.ts): everything open the first time it starts (its seed reads the town's data: loaded
+  // only in the sandbox, so a learner's first page does not download the town's stories)
+  if (ADMIN)
+    try {
+      const { seedAdmin } = await import('./features/admin/seed');
+      safely('admin', seedAdmin);
+    } catch {
+      // the sandbox starts empty
+    }
   // Settings/stats were read at import time; pick up whatever the sync wrote.
   safely('settings', reloadSettings);
   safely('stats', reloadStats);

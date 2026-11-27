@@ -10,9 +10,6 @@ import { SENTENCES } from '../../data/sentences';
 import { sanitizeChunks } from '../../features/drill/chunkData';
 import { sanitizeLibrary } from '../../features/media/library';
 import { parseCardId, parseMediaRef } from './ids';
-import { allStoryLines } from '../town/storyLines';
-import { allJobRefs } from '../../data/city/jobs';
-import { allDispatchRefs } from '../../data/city/dispatch';
 import { wordIndex } from './words';
 import type { CardId } from './types';
 
@@ -29,7 +26,10 @@ export interface CatalogInput {
   media: ReadonlyMap<string, number>; // itemId → unitCount
   /** Refs of word cards ('<word>~<sound>', core/review/words). Absent → no word card has content. */
   wordRefs?: ReadonlySet<string>;
-  /** Ids of the lines of "Chuyện ở thị trấn" (core/town/storyLines). Absent → no talk card has content. */
+  /**
+   * Ids of the lines a talk card can be (the town's stories, Westbay's jobs and calls). Absent → not known yet: every
+   * well-formed talk card counts (provideTalkIds).
+   */
   storyLineIds?: ReadonlySet<string>;
 }
 
@@ -56,7 +56,8 @@ export function buildCatalog(input: CatalogInput): Catalog {
         case 'word':
           return !!input.wordRefs?.has(p.ref);
         case 'talk':
-          return !!input.storyLineIds?.has(p.ref);
+          // (the lines not known yet: any talk card counts until they are: provideTalkIds)
+          return input.storyLineIds ? input.storyLineIds.has(p.ref) : p.ref.length > 0;
       }
     },
   };
@@ -70,10 +71,24 @@ interface StaticIds {
   chunkIds: ReadonlySet<string>;
   pairSetIds: ReadonlySet<string>;
   wordRefs: ReadonlySet<string>;
-  storyLineIds: ReadonlySet<string>;
+  /** The talk lines, once a page that has them said so (provideTalkIds); absent before. */
+  storyLineIds?: ReadonlySet<string>;
 }
 
 let staticIds: StaticIds | null = null;
+/**
+ * The lines a talk card can be. They are the town's stories and Westbay's jobs and calls: most of a megabyte of text,
+ * so the app's entry does not import them (every page would download them, and three.js behind the city's map). A page
+ * that has them anyway tells the catalog (features/review/resolve.ts: the Ôn tập page; its sessions are then exact);
+ * until then a talk card with a ref counts (the badge of cards due may count one whose line was removed since).
+ */
+let talkIds: ReadonlySet<string> | null = null;
+
+export function provideTalkIds(ids: Iterable<string>): void {
+  talkIds = new Set(ids);
+  if (staticIds) staticIds = { ...staticIds, storyLineIds: talkIds };
+  cached = null;
+}
 
 export function staticContentIds(): StaticIds {
   staticIds ??= {
@@ -82,7 +97,7 @@ export function staticContentIds(): StaticIds {
     chunkIds: new Set(sanitizeChunks(CHUNKS).map((c) => c.id)),
     pairSetIds: new Set(Object.keys(PAIR_SET_ITEMS)),
     wordRefs: new Set(wordIndex().all.map((w) => w.ref)),
-    storyLineIds: new Set([...allStoryLines().map((l) => l.id), ...allJobRefs(), ...allDispatchRefs()]),
+    ...(talkIds ? { storyLineIds: talkIds } : {}),
   };
   return staticIds;
 }

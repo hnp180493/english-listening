@@ -8,9 +8,11 @@ import type { CardId } from '../../core/review/types';
 import { wordIndex, type WordSource } from '../../core/review/words';
 import { speakerName } from '../../core/town/episodes';
 import type { StorySpeaker } from '../../core/town/story';
-import { storyLineById } from '../../core/town/storyLines';
-import { jobLineByRef } from '../../data/city/jobs';
-import { DISPATCH_CALLER, DISPATCH_TITLE, dispatchCallByRef, dispatchVoice } from '../../data/city/dispatch';
+import { allStoryLines, storyLineById } from '../../core/town/storyLines';
+import { allJobRefs, jobLineByRef } from '../../data/city/jobs';
+import { allDispatchRefs, DISPATCH_CALLER, DISPATCH_TITLE, dispatchCallByRef, dispatchVoice } from '../../data/city/dispatch';
+import { provideTalkIds } from '../../core/review/catalog';
+import { invalidateReview } from '../../core/review/api';
 import { jobVoice, revealedName } from '../../core/town/jobVoice';
 import type { SpeakVoice } from '../../core/tts';
 import type { DictionaryName } from '../../i18n/load';
@@ -23,6 +25,11 @@ import { annotationCount, detectedPhenomena } from '../dictation/decodeCache';
 import { sanitizeChunks } from '../drill/chunkData';
 import type { MediaItem } from '../media/library';
 import { createRng, itemPriority, type PairsProgress, type Question } from '../pairs/game';
+
+// The lines a talk card can be: this page has them (the town's stories, Westbay's jobs and calls), the app's entry does
+// not (core/review/catalog.ts provideTalkIds): from now on the catalog knows exactly which talk cards have content.
+provideTalkIds([...allStoryLines().map((l) => l.id), ...allJobRefs(), ...allDispatchRefs()]);
+invalidateReview();
 
 export const ALL_CHUNKS: readonly Chunk[] = sanitizeChunks(CHUNKS);
 

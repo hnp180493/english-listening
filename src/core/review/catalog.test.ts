@@ -5,7 +5,7 @@ import { LESSONS } from '../../data/lessons';
 import { PAIR_SETS } from '../../data/pairs';
 import { SENTENCES } from '../../data/sentences';
 import { TOWN_STORIES } from '../../data/townStories';
-import { buildCatalog, invalidateCatalog, readCatalog, staticContentIds } from './catalog';
+import { buildCatalog, invalidateCatalog, provideTalkIds, readCatalog, staticContentIds } from './catalog';
 
 describe('buildCatalog', () => {
   const cat = buildCatalog({
@@ -41,9 +41,13 @@ describe('buildCatalog', () => {
     });
     expect(withTalk.has('talk:cafe-1-01')).toBe(true);
     expect(withTalk.has('talk:cafe-1-99')).toBe(false);
-    expect(cat.has('talk:cafe-1-01')).toBe(false);
+    // (no talk ids known: every well-formed talk card counts until a page provides them)
+    expect(cat.has('talk:cafe-1-01')).toBe(true);
     const first = TOWN_STORIES[0]?.lines[0];
-    if (first) expect(staticContentIds().storyLineIds.has(first.id)).toBe(true);
+    if (first) {
+      provideTalkIds([first.id]);
+      expect(staticContentIds().storyLineIds?.has(first.id)).toBe(true);
+    }
   });
 
   it('media: the item exists and the unit is inside the transcript', () => {
