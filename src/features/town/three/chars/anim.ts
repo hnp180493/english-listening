@@ -840,22 +840,24 @@ export class Animator {
     }
 
     // an umbrella in the rain: the right forearm up in front of the chest, the hand at the shaft (on top of what the
-    // body does, the walk's swing too; a wave or a cheer lowers it while it lasts)
+    // body does, the walk's swing too; a wave is waved with the left hand and a cheer cheered with it, so the umbrella
+    // stays up: owner, 2026-11-27, on an umbrella left floating while the right hand waved)
     // (eased in a second; with reduced motion the engine passes no time: it is simply up or down)
     this.umbrellaBlend += ((this.umbrellaWant ? 1 : 0) - this.umbrellaBlend) * (dt > 0 ? 1 - Math.exp(-dt * 3.5) : 1);
     if (this.umbrellaBlend < 0.002) this.umbrellaBlend = 0;
     {
       const busy = Math.max(p[C.cup], p[C.can], p[C.rod], p[C.book]);
-      const shot = this.shots.reduce((m, s) => Math.max(m, this.shotWeight(s)), 0);
-      const u = this.umbrellaBlend * (1 - smoothstep(0, 0.4, busy)) * (1 - shot);
+      const u = this.umbrellaBlend * (1 - smoothstep(0, 0.4, busy));
       p[C.umbrella] = u;
       if (u > 0.001) {
         const i = J.shR * 3;
         const e = J.elR * 3;
-        p[i] = lerp(p[i], -0.7, u);
+        p[i] = lerp(p[i], -0.2, u);
         p[i + 1] = lerp(p[i + 1], 0, u);
-        p[i + 2] = lerp(p[i + 2], 0.12, u);
-        p[e] = lerp(p[e], -1.65, u);
+        // (the elbow out to the side: on the code body's big head a shaft held closer ran across the face; its short
+        // arm reaches no further, and chars/person.ts leans the shaft out a little more)
+        p[i + 2] = lerp(p[i + 2], -1.1, u);
+        p[e] = lerp(p[e], -1.5, u);
         p[e + 1] = lerp(p[e + 1], 0, u);
         p[e + 2] = lerp(p[e + 2], 0, u);
       }
@@ -1318,13 +1320,17 @@ export const ACTIVITY_POSES: Readonly<Record<Activity, ActivityPose>> = {
   read: readPose,
 };
 
-const wavePose: ShotPose = (p, t, dur) => {
+const wavePose: ShotPose = (p, t, dur, a) => {
   const up = smoothstep(0, 0.3, t) * (1 - smoothstep(dur - 0.35, dur, t));
   const wag = Math.sin((t - 0.25) * Math.PI * 2 * 2.1) * smoothstep(0.2, 0.4, t);
-  setRot(p, J.shR, lerp(p[J.shR * 3], -0.35, up), 0, lerp(p[J.shR * 3 + 2], -1.75, up));
-  setRot(p, J.elR, -0.1, 0, lerp(-0.2, -1.25, up) - 0.4 * wag);
-  p[J.head * 3 + 2] += 0.1 * up;
-  p[J.spine * 3 + 2] += 0.05 * up;
+  // (with an umbrella up in the right hand, the left one waves: the mirror of the right's wave)
+  const m = a.umbrellaBlend > 0.5 ? -1 : 1;
+  const sh = m > 0 ? J.shR : J.shL;
+  const el = m > 0 ? J.elR : J.elL;
+  setRot(p, sh, lerp(p[sh * 3], -0.35, up), 0, lerp(p[sh * 3 + 2], -1.75 * m, up));
+  setRot(p, el, -0.1, 0, (lerp(-0.2, -1.25, up) - 0.4 * wag) * m);
+  p[J.head * 3 + 2] += 0.1 * up * m;
+  p[J.spine * 3 + 2] += 0.05 * up * m;
   p[J.head * 3] -= 0.06 * up;
 };
 
@@ -1363,9 +1369,11 @@ const cheerPose: ShotPose = (p, t, _dur, a) => {
   const arms = smoothstep(0.08, 0.3, t);
   const shakeArms = Math.sin(t * 18) * 0.12 * arms;
   setRot(p, J.shL, lerp(p[J.shL * 3], -0.3, arms), 0, lerp(p[J.shL * 3 + 2], 2.25 + shakeArms, arms));
-  setRot(p, J.shR, lerp(p[J.shR * 3], -0.3, arms), 0, lerp(p[J.shR * 3 + 2], -2.25 + shakeArms, arms));
+  // (an umbrella up in the right hand stays up: the left arm cheers alone)
+  const right = arms * (1 - smoothstep(0.3, 0.7, a.umbrellaBlend));
+  setRot(p, J.shR, lerp(p[J.shR * 3], -0.3, right), 0, lerp(p[J.shR * 3 + 2], -2.25 + shakeArms, right));
   setRot(p, J.elL, -0.25, 0, 0.35);
-  setRot(p, J.elR, -0.25, 0, -0.35);
+  if (right > 0.001) setRot(p, J.elR, lerp(p[J.elR * 3], -0.25, right), lerp(p[J.elR * 3 + 1], 0, right), lerp(p[J.elR * 3 + 2], -0.35, right));
   p[J.head * 3] -= 0.18 * arms;
   if (free > 0) {
     p[C.hipY] += (hop - crouch * 0.05) * free;

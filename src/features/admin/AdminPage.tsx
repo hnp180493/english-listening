@@ -356,7 +356,7 @@ export default function AdminPage() {
         )}
       </section>
       {ModelPreview && (
-        <PreviewDetails title="Xem thử: nhân vật mô hình thật" auto={/[?&](acts|bases|cast|gait|worn|elders|stride|garments)/.test(window.location.hash)}>
+        <PreviewDetails title="Xem thử: nhân vật mô hình thật" auto={/[?&](acts|bases|cast|gait|worn|elders|stride|garments|umbrella)/.test(window.location.hash)}>
           <ModelPreview />
         </PreviewDetails>
       )}

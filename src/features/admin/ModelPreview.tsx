@@ -16,6 +16,7 @@ import { canvasOf, charStudio, paint } from '../town/three/offscreen';
 import { createPerson } from '../town/three/chars/person';
 import { wearVrm } from '../town/three/chars/vrmBody';
 import { avatarCadence } from '../town/three/chars/vrmGait';
+import { Umbrellas } from '../town/three/scene/umbrellas';
 import type { CharAction } from '../town/three/contracts';
 import { FACES, VRM_IDS, vrmFor } from '../../data/townVrm';
 // (Westbay's people, for the sheet of older faces: their looks register with the cast)
@@ -144,12 +145,34 @@ interface Act {
   who?: string;
   /** Where in a cycle of two steps (0…1): the time is worked out from the avatar's own cadence (`?stride`). */
   phase?: number;
+  /** In the rain, an umbrella up (`?umbrella`), the body turned this far from facing the camera, the code body. */
+  rain?: boolean;
+  turn?: number;
+  classic?: boolean;
 }
 
 /** `…?gait` in the address: a stride and a turn of the pedals frame by frame, and each vehicle's seat. */
 const GAIT = typeof window !== 'undefined' && window.location.hash.includes('gait');
 const strip = (name: string, action: CharAction, speed: number, from: number, step: number, n: number, ride?: string, seat?: number): Act[] =>
   Array.from({ length: n }, (_, k) => ({ name: `${name} ${k + 1}`, action, speed, seconds: from + k * step, ride, seat }));
+
+/**
+ * `…?umbrella` in the address: an umbrella held up in the rain (scene/umbrellas.ts, chars/vrmBody.ts HOLD): the learner,
+ * Grace (old, stooped), a child and the code body, each standing, walking and waving, turned four ways.
+ */
+const UMBRELLA_SHEET = typeof window !== 'undefined' && window.location.hash.includes('umbrella');
+const UMBRELLA_WHO: readonly { name: string; who: string; classic?: boolean }[] = [
+  { name: 'player', who: 'player' },
+  { name: 'Grace', who: 'home' },
+  { name: 'kid', who: 'kid1' },
+  { name: 'classic', who: 'player', classic: true },
+];
+const UMBRELLA_DOING: readonly { name: string; action: CharAction; speed: number; seconds: number }[] = [
+  { name: 'stand', action: 'idle', speed: 0, seconds: 1.6 },
+  { name: 'walk', action: 'walk', speed: 1.6, seconds: 1.6 },
+  { name: 'wave', action: 'wave', speed: 0, seconds: 0.85 },
+];
+const UMBRELLA_TURNS = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
 
 /** `…?worn` in the address: things held and hats of the wardrobe on an avatar. */
 const WORN = typeof window !== 'undefined' && window.location.hash.includes('worn');
@@ -176,7 +199,11 @@ const STRIDE_ROWS: readonly { name: string; who: string; action: CharAction; spe
 ];
 const STRIDE_PHASES = 8;
 
-const ACTIONS: readonly Act[] = STRIDE_SHEET
+const ACTIONS: readonly Act[] = UMBRELLA_SHEET
+  ? UMBRELLA_WHO.flatMap((w) =>
+      UMBRELLA_DOING.flatMap((d) => UMBRELLA_TURNS.map((turn, k): Act => ({ name: `${w.name} ${d.name} ${k * 90}°`, action: d.action, speed: d.speed, seconds: d.seconds, who: w.who, classic: w.classic, rain: true, turn }))),
+    )
+  : STRIDE_SHEET
   ? STRIDE_ROWS.flatMap((r) => Array.from({ length: STRIDE_PHASES }, (_, k): Act => ({ name: `${r.name} · ${k + 1}/8`, action: r.action, speed: r.speed, seconds: 0, who: r.who, phase: k / STRIDE_PHASES })))
   : WORN
   ? [
@@ -210,12 +237,13 @@ async function drawAction(c: HTMLCanvasElement, a: Act, w: number, h: number, si
   if (a.who) {
     ch = OTHERS[a.who] ? createPerson(a.who, OTHERS[a.who]) : createPerson(a.who);
     const who = vrmFor(a.who, ch.look, import.meta.env.BASE_URL);
-    await wearVrm(ch, who.url, who);
+    if (!a.classic) await wearVrm(ch, who.url, who);
   } else {
     ch = createPerson('cafe');
     await wearVrm(ch, import.meta.env.BASE_URL + 'vrm/school.vrm?acts');
   }
-  ch.setHeading(Math.PI / 2, true);
+  ch.setHeading(Math.PI / 2 + (a.turn ?? 0), true);
+  if (a.rain) ch.animator.umbrellaWant = true;
   if (a.hat) ch.setHat(a.hat);
   if (a.ride) {
     ch.ride = a.ride;
@@ -240,14 +268,23 @@ async function drawAction(c: HTMLCanvasElement, a: Act, w: number, h: number, si
   const st = charStudio();
   st.scene.add(ch.root);
   ch.root.updateMatrixWorld(true);
+  // (the umbrella is drawn by the town's one instanced mesh: one made here for the picture)
+  const brolly = a.rain ? new Umbrellas() : null;
+  const held = ch.umbrella();
+  if (brolly) {
+    brolly.begin();
+    if (held) brolly.add(held, a.who ?? 'cafe');
+    brolly.end();
+    st.scene.add(brolly.mesh);
+  }
   const cam = st.camera;
   cam.aspect = w / h;
   cam.fov = 24;
   // (framed on the avatar's own height: a sheet of phases has to show the legs; the older sheets keep their frame)
-  const tall = a.phase !== undefined ? Math.max(0.2, ch.headTop(at.set(0, 0, 0)).y) * 1.12 : 1.7;
+  const tall = a.phase !== undefined ? Math.max(0.2, ch.headTop(at.set(0, 0, 0)).y) * 1.12 : a.rain ? Math.max(0.2, ch.headTop(at.set(0, 0, 0)).y) * 1.45 : 1.7;
   const dist = (tall * 0.5) / Math.tan((cam.fov * Math.PI) / 360) / 0.86;
   const yaw = side ? 0.12 : Math.PI / 2 - 0.5;
-  const mid = a.phase !== undefined ? tall * 0.46 : 0.72;
+  const mid = a.phase !== undefined || a.rain ? tall * 0.46 : 0.72;
   cam.position.set(Math.cos(yaw) * dist, mid + 0.08 * tall + dist * 0.06, Math.sin(yaw) * dist);
   cam.near = 0.02;
   cam.far = 30;
@@ -257,6 +294,10 @@ async function drawAction(c: HTMLCanvasElement, a: Act, w: number, h: number, si
   const out = canvasOf(w * dpr, h * dpr);
   const ok = paint(st, out);
   st.scene.remove(ch.root);
+  if (brolly) {
+    st.scene.remove(brolly.mesh);
+    brolly.dispose();
+  }
   ch.dispose();
   const ctx = c.getContext('2d');
   if (!ok || !ctx) return;
@@ -347,7 +388,7 @@ const GARMENT_VIEWS: readonly { turn: number; bare: boolean; near?: boolean }[] 
 ];
 
 /** `…?acts` in the address: only the action sheet (quicker to look at). */
-const SKIP_ROWS = typeof window !== 'undefined' && /acts|bases|cast|gait|worn|elders|stride|garments/.test(window.location.hash);
+const SKIP_ROWS = typeof window !== 'undefined' && /acts|bases|cast|gait|worn|elders|stride|garments|umbrella/.test(window.location.hash);
 
 const W = 190;
 const H = 300;

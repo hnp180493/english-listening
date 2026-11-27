@@ -2088,6 +2088,19 @@ the town's sound on and "Lời chào của cư dân" on (device-local `town-ui`:
 time per resident; `said` = memory greetings said). `auto`: never a paid request. The bubble over their head shows
 sound bars, no words; a tap shows the line, its meaning and "Nghe lại".
 
+A speech bubble only over somebody drawn and in view, only while there is a voice (2026-11-28; owner: "bug phần âm
+thanh đi theo nhân vật chính nè": the greeting's bubble had stayed pinned 150 px from the stage's edge over the grass
+when its speaker was off screen, moving with the camera, and lingered 4 s after the line). `engine/speechBubble.ts`
+(pure, tested): the stage's `speakerPointOf` (`engine3d.ts speakerPoint`) is null when the speaker is gone inside, waiting
+for their avatar (`chars/vrmPeople.ts bodyDrawn`), culled far off or has their head outside the stage; the greeting's
+bubble (`friends/GreetBubble.tsx greetBubblePlace`) then hides, never pinned to an edge (only nudged by its half width,
+30 px closed, up to 150 px open, when the head is near a side); it shows while the line sounds or while it is open, and
+goes the moment the line has sounded or was cut short (`greetingStays`: no linger). The canvas bubble of a talk and of
+an overheard scene uses the same `speakerPoint`. A closed greeting bubble goes under the head only above 110 px from the
+stage's top (190 px opened): at 190 an avatar's head put it over the speaker's chest. The radio and the phone have no
+body and no floating bubble. Pictures: `.assets-try/previews/bubble-*.png` (before: pinned to the right edge; after: over
+Leo's head while greeting, nothing once walked away, a talk's canvas bubble).
+
 ### Sổ tay
 
 Activity `journal` (the HUD's "Chơi"; at a resident from their hearts pill: a conversation's header, which ends the
@@ -3306,6 +3319,26 @@ by the game's hour.
   (`umbrella()` on `Character3DPlus`: person.ts for the code body, vrmBody.ts for an avatar, which also stops the
   walk's swing of that arm). All of them are ONE instanced mesh (up to 128), a colour each by who holds it: +1 draw
   call while anybody holds one, none otherwise. A body hidden while its avatar loads shows no umbrella.
+- **The umbrella in the hand** (owner, 2026-11-27, two pictures and "lại lỗi hình ảnh, quá mệt": an umbrella floating
+  a body's width off the hand while the right hand waved; another whose shaft ran down in front of the face and chest,
+  the crook at the belly, no hand on it, the name tag across the canopy). The grip had been a fixed spot by the right
+  shoulder, made for the round code body, and a one-off gesture lowered the umbrella while the scene still drew it.
+  Now: an avatar's right arm is put where a person holds one (`vrmBody.ts HOLD`: the hand a little below the shoulder,
+  in front of it, the elbow bent; this body's own reach, `armTo`, not the code body's angles), and every frame, after
+  the pose, the grip is set in that hand's palm (between the wrist and the middle finger's knuckle), the canopy just
+  over the top of the head whatever the height, stoop or a child's head (`size` from `headTop`), leaned in so the
+  canopy is over the head rather than over the hand (`CANOPY_OVER_HEAD` 0.7; the shaft still goes up past the face on
+  the hand's side). The code body likewise: the grip in its right hand (`person.ts`, the hand of `buildBody`), the
+  elbow out to the side (`anim.ts`: its short arm reaches no further from its big head) and a lean in of 0.2. A wave
+  is waved with the LEFT hand and a cheer cheered with the left arm alone while an umbrella is up (`anim.ts wavePose`,
+  `cheerPose`), so it never comes down for a gesture. Seated, the arm keeps the seat's pose and the grip follows the
+  hand. The name tag and a speech bubble go over the canopy's tip (`engine3d.ts headOf`, `umbrellas.ts UMBRELLA_TIP`).
+  Admin sheet `?umbrella` (the learner, Grace, a child and the code body; standing, walking, waving; turned four ways).
+  Pictures `umbrella-sheet.png`, `umbrella-sheet-2.png`, `umbrella-zoom.png`, `umbrella-classic-zoom.png`, and in the
+  town in rain `umbrella-{front,back,side,wave,classic}.png`, `umbrella-town-zoom.png`. Seen from the hand's side the
+  shaft passes in front of part of the face, as it would; it never goes through the head. Seen only in pictures on the
+  software renderer (motion reduced): nobody has watched one held while walking or a wave under one, on a real GPU or a
+  phone; the in-town wave picture caught the end of the gesture, the wave itself is judged on the sheet.
 - **Life by the game's clock** (`engine/life.ts lifeMinutes`, the sim's default clock): the residents' day follows the
   game's hour through the one gate (`sky.ts gameMinutes` → `gameClock.ts gameNow`, so a sleep in the hideout moves it
   too): at the game's night most are indoors behind lit windows and the passers-by go home, in the morning they come

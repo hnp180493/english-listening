@@ -48,6 +48,9 @@ function umbrellaGeometry(): BufferGeometry {
 
 const _c = new Color();
 
+/** The tip over the canopy, in an umbrella's own units (above its grip): what is drawn highest. */
+export const UMBRELLA_TIP = new Vector3(0, 0.72, 0);
+
 export class Umbrellas {
   readonly mesh: InstancedMesh;
   private n = 0;

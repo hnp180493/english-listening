@@ -69,6 +69,10 @@ export const PROP_PLACES: Record<PropId, { bone: number; pos: [number, number, n
 const _q = new Quaternion();
 const _q2 = new Quaternion();
 const _e = new Euler();
+const _v3 = new Vector3();
+/** How much of the way from over the hand to over the head an umbrella's canopy leans (the head's centre on x = z = 0). */
+const UMBRELLA_IN = 0.2;
+const _up = new Vector3(0, 1, 0);
 
 export function createPerson(id: CharacterId, look: CharacterLook = castLook(id), opts: CharacterOptions = {}): Character3DPlus {
   const scale = look.scale ?? 1;
@@ -208,14 +212,15 @@ export function createPerson(id: CharacterId, look: CharacterLook = castLook(id)
 
   let lookPoint: Vector3 | null = null;
 
-  // the umbrella's grip: at the right side of the body, a little forward, about chest high, upright in the body's
-  // own frame, so its canopy is always over the head whatever the arm does (the pose brings the right hand up to
-  // it); drawn by the scene, see `umbrella`. (Body frame: +z forward, the right side at -x, design units.)
+  // the umbrella's grip: in the right hand as the pose has put it (chars/anim.ts C.umbrella: the arm out to the side,
+  // so the shaft stands clear of the big head), leaned a little in, the canopy just over the head; drawn
+  // by the scene, see `umbrella`. (Body frame: +z forward, the right side at -x, design units.) It was a fixed spot
+  // inside the head's reach, so the shaft ran across the face seen from the side.
   const umbrellaAt = new Object3D();
   umbrellaAt.name = 'umbrella';
-  umbrellaAt.position.set(-0.15, 0.56, 0.14);
   pivot.add(umbrellaAt);
   let umbrellaOn = false;
+  const handInFore = new Vector3(built.handR[0] - built.bones[J.elR][0], built.handR[1] - built.bones[J.elR][1], built.handR[2] - built.bones[J.elR][2]);
 
   const apply = (dt: number) => {
     const p = anim.pose;
@@ -261,8 +266,15 @@ export function createPerson(id: CharacterId, look: CharacterLook = castLook(id)
     umbrellaOn = uw > 0.02;
     if (umbrellaOn) {
       const k = clamp(uw, 0, 1);
+      pivot.updateWorldMatrix(true, true);
+      const grip = pivot.worldToLocal(bones[J.elR].localToWorld(umbrellaAt.position.copy(handInFore)));
+      umbrellaAt.position.copy(grip);
+      // (scene/umbrellas.ts: the rim 0.505 above the grip, in its units; the rim a little over the top of the head)
+      const size = clamp((HEAD_TOP + hatHeight + 0.04 - grip.y) / 0.505, 0.6, 1.6);
+      // leaned a little in, the canopy towards over the head (no further: the shaft would cut the big head)
+      umbrellaAt.quaternion.setFromUnitVectors(_up, _v3.set(-grip.x * UMBRELLA_IN, 0.6 * size, -grip.z * UMBRELLA_IN).normalize());
       // opens out as it comes up (with a small overshoot, like the other things held)
-      umbrellaAt.scale.setScalar(HEAD_TOP * Math.max(0.001, 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2)));
+      umbrellaAt.scale.setScalar(size * Math.max(0.001, 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2)));
     }
   };
 

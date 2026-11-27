@@ -51,6 +51,15 @@ const TALLER = 0.8;
 const KID_HEAD = 1.15;
 
 /**
+ * Where the right hand holds an umbrella, from the shoulder joint, in heights of the body: a little below it, in front
+ * and out to the side, so the shaft stands clear of the face and the canopy is over the head.
+ */
+const HOLD = { down: 0.05, ahead: 0.12, out: 0.02 };
+/** How much of the way from over the hand to over the head the canopy is leaned (the shaft still clear of the face). */
+const CANOPY_OVER_HEAD = 0.7;
+const UP = new Vector3(0, 1, 0);
+
+/**
  * An avatar on any vehicle, against one on foot: every vehicle is built for the code body (1.25 × an avatar's height).
  * Cars first; since 2026-11-27 the bikes, scooters, motorbikes and the horse too: at 0.8 × the rider leaned to its limit
  * and still could not reach the bars (the arms stuck out straight, the hands short of the grips), and sat on the horse
@@ -358,14 +367,19 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     chest.add(chestFrame);
   }
   let castPoint: Vector3 | null = null;
-  // the umbrella's grip (drawn by the scene's instanced mesh: scene/umbrellas.ts), as tall as this body: at its right
-  // side, a little forward, about chest high, upright in the body's frame (the canopy always over the head; the pose
-  // brings the right hand up to it)
+  // The umbrella (drawn by the scene's instanced mesh: scene/umbrellas.ts). The right arm is put where a person holds
+  // one (`HOLD`: the hand a little below the shoulder, in front of it and out to the side, the elbow bent), and every
+  // frame the grip is set in that hand's real palm, after the pose, upright, the canopy just over the top of the head
+  // (it was a fixed spot by the shoulder, made for the round code body: the canopy floated off the hand, or its shaft
+  // ran down in front of the face; owner, 2026-11-27, "lại lỗi hình ảnh, quá mệt").
   const umbrellaAt = new Group();
   umbrellaAt.name = 'umbrella';
-  umbrellaAt.position.set(-(Math.abs(shoulderAt.x) + tall * 0.02), ground + tall * 0.62, tall * 0.12);
   holder.add(umbrellaAt);
   let umbrellaOn = false;
+  const handR = bone('rightHand');
+  const fingerR = bone('rightMiddleProximal');
+  const hold = armTo(-tall * HOLD.down, tall * HOLD.ahead, upperArm, foreArm);
+  const holdOut = Math.atan2(tall * HOLD.out, Math.hypot(tall * HOLD.down, tall * HOLD.ahead));
 
   const weights: Record<string, number> = { blink: 0, happy: 0, surprised: 0, aa: 0, oh: 0, relaxed: 0 };
   const setJoint = (node: Object3D, q: Quaternion): void => {
@@ -470,6 +484,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       pedalR = legTo(axleY + r * Math.sin(pedal + Math.PI) - sitLegTop, axleZ + r * Math.cos(pedal + Math.PI), thigh, shin);
     }
 
+    const holding = MathUtils.clamp(p[C.umbrella], 0, 1) * (1 - seat);
     for (const b of bones) {
       if (!b.node) continue;
       const i = b.j * 3;
@@ -528,11 +543,16 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
         const pose = ridePose(ride, j, side, left ? pedalL : pedalR, a, reach, reachOut);
         if (pose) _q.slerp(_sit.setFromEuler(_euler.set(pose[0], pose[1], pose[2], 'XYZ')), seat);
       }
+      // the right arm holding an umbrella up: this body's own reach to the hold, not the code body's angles copied
+      if (holding > 0.001 && (b.j === J.shR || b.j === J.elR)) {
+        const pose = b.j === J.shR ? _euler.set(hold.thigh, 0, side * holdOut, 'XYZ') : _euler.set(hold.knee, 0, 0, 'XYZ');
+        _q.slerp(_sit.setFromEuler(pose), holding);
+      }
       // an old body's stoop, standing and walking, the head held up a quarter against it (so it reads a little bowed)
       // and the upper arms a little forward
       // (seated and riding: the seat's pose as it is)
       if (stoop > 0) {
-        const bend = b.j === J.spine ? stoop : b.j === J.head ? -0.25 * stoop : b.j === J.shL || b.j === J.shR ? -ELDER_ARMS : 0;
+        const bend = b.j === J.spine ? stoop : b.j === J.head ? -0.25 * stoop : b.j === J.shL ? -ELDER_ARMS : b.j === J.shR ? -ELDER_ARMS * (1 - holding) : 0;
         if (bend !== 0) _q.multiply(_gq.setFromEuler(_euler.set(bend * (1 - seat), 0, 0, 'XYZ')));
       }
       if (b.how === 'armL') _q.multiply(REST_L);
@@ -605,10 +625,24 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       }
     }
     const uw = p[C.umbrella];
-    umbrellaOn = uw > 0.02;
-    if (umbrellaOn) {
+    umbrellaOn = uw > 0.02 && !!handR;
+    if (umbrellaOn && handR) {
       const k = MathUtils.clamp(uw, 0, 1);
-      umbrellaAt.scale.setScalar(tall * Math.max(0.001, 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2)));
+      // the grip in the palm: between the wrist and the knuckles of the middle finger, in the holder's frame
+      handR.updateWorldMatrix(true, false);
+      const palm = handR.getWorldPosition(_v);
+      if (fingerR) palm.lerp(fingerR.getWorldPosition(_v2), 0.55);
+      holder.worldToLocal(palm);
+      umbrellaAt.position.copy(palm);
+      // the rim just over the top of the head (hair and all), whatever the body's height, stoop or head
+      const top = holder.worldToLocal(ch.headTop(_v2)).y;
+      // (scene/umbrellas.ts: the rim at 0.505 above the grip, in its units)
+      const size = MathUtils.clamp((top + tall * 0.07 - palm.y) / 0.505, tall * 0.6, tall * 1.6);
+      // leaned in, so the canopy is over the head and not over the hand (seen from the town's high camera the head
+      // stood out beside it); the shaft goes up past the face on the hand's side
+      const hc = head ? holder.worldToLocal(head.getWorldPosition(_v2)) : palm.clone();
+      umbrellaAt.quaternion.setFromUnitVectors(UP, _v2.set((hc.x - palm.x) * CANOPY_OVER_HEAD, 0.6 * size, (hc.z - palm.z) * CANOPY_OVER_HEAD).normalize());
+      umbrellaAt.scale.setScalar(size * Math.max(0.001, 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2)));
     }
     garments.update();
     vrm.update(dt);
