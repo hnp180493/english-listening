@@ -99,6 +99,13 @@ const admin: Record<string, string> = {
   'Thú cưng': 'Pet',
   'Áo đỏ (Tủ đồ)': 'Red top (wardrobe)',
   'Thêm ?states hoặc ?states2 vào địa chỉ để xem.': 'Add ?states or ?states2 to the address to see it.',
+  'Thử chuyển động dựng sẵn': 'Ready-made motion trial',
+  'Đi thường 1,6': 'Walk 1.6',
+  'Đang tải nhân vật…': 'Loading the characters…',
+  'Mỗi người hai bản: trái là chuyển động code của game, phải là clip dựng sẵn (Quaternius, CC0). Vạch trên sàn cách nhau một ô.': 'Each person twice: on the left the game\'s motion made in code, on the right a ready-made clip (Quaternius, CC0). The lines on the floor are one tile apart.',
+  'Phát chuyển động': 'Play the motion',
+  'Máy đang bật giảm chuyển động nên trang đứng yên. Bấm “Phát chuyển động” để xem.': 'This device asks for reduced motion, so the page is still. Press “Play the motion” to watch.',
+  'Tốc độ gốc của clip (ô/giây) → tốc độ phát:': 'The clip\'s own speed (tiles a second) → playback rate:',
 };
 
 export default admin;

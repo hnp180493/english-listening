@@ -1262,8 +1262,12 @@ the same way:
 - **'outside' at P**: both walk to P's front (`outsideSpots`: the resident at their own spot by the door, the player
   at the door, side by side along the wall; Mia close to her wall, at her window; a lodger on the plaza south of the
   fountain). A resident out of sight is put further along their way at once, never on the screen (`jumpResident`);
-  the player waits for one in sight (put there once out of sight after `WAIT_UNSEEN` 2.5 s, or after `WAIT_MOST` 9 s
-  whatever); one who gave a walk up sets off again (`RETRY_SECONDS` 1.2). Then the two face each other, the
+  the resident sets off when the talk is asked for, and once the player is at the spot they never stand watching them
+  walk up (2026-11-28, owner: "tao bấm vào nhà rồi phải đợi một đống thời gian cho bà già đi về nhà?"): a walk of at
+  most `TALK_WALK_WATCH` 2 s left is waited for, a longer one (or a wait past `TALK_WAIT_MOST` 2.5 s) ends in a short
+  dip with the resident at their spot (`staging.ts outsideTalkStep`, `sim.walkSecondsLeft`; `talkWait.test.ts`; until
+  then the player waited up to 9 s for one in sight); one who gave a walk up sets off again (`RETRY_SECONDS` 1.2). An
+  'inside' talk never waited: at the door, the dip into the room, the resident already at the host's place. Then the two face each other, the
   conversation shot below frames them with a little of the building behind (`backdrop`), and afterwards the camera
   follows the player again.
 - Until both are in place the town still takes input: a click elsewhere, the keys or Esc give the talk up
@@ -3206,6 +3210,23 @@ in code again.
     would fill the gaps could not be verified: VRoid Hub and the VRoid guidelines refused automated reading; the one
     lead, "Helen (Older, Lab Coat)" by Megabite on VRoid Hub (an older woman in a lab coat, its conditions said by a
     search summary to allow redistribution and alterations), needs a person to read its page.
+
+- **Ready-made motion, a trial (2026-11-28)** (owner: "tao vẫn không thấy tự nhiên chút nào? nó còn thua game này", of
+  his own game Giang Hồ, whose people move with ready-made clips). Source and licence: Quaternius' **Universal Animation
+  Library (CC0)**, as shipped in the owner's Giang Hồ (`.assets-try/quaternius-gh/anims.glb`, outside git, read as data
+  only). `scripts/anim-pack.mjs` keeps eight clips (idle, walk, jog, sprint, sit, fold, crouch, consume), only the
+  rotations of the 22 bones a VRM humanoid matches and the pelvis' translation, the skeleton's rest pose: 
+  `public/anim/people.glb`, 208 kB. `chars/vrmClips.ts` carries a clip over to a worn avatar's RAW bones (VRoid's J_Bip_*,
+  unrotated at rest): the source's turn from its rest, into the avatar's axes (from up and left), times a rest fix that
+  turns the avatar's T-pose limbs to the mannequin's A-pose; the pelvis' movement scaled by the hips' heights, its drift
+  removed; baked at 30 fps per avatar; its mixer runs after the character's own update. Shown LIVE (deployed too) at
+  `#/duyet-k7q2m9x4?clips` (`features/admin/ClipPreview.tsx`): the learner, Grace and a child, each the code's motion
+  beside the clip's, on a floor lined every tile, at the game's paces, a 0.2 s blend, a play / stop button for reduced
+  motion; `?clips&frames` draws eight frames of a cycle (`.assets-try/previews/clips-walk|run|grace-walk.png`). Not in
+  the game. Known: the clips' own ground speed at an avatar's size (from a foot's travel against the hips) is about
+  0.46 tiles/s for the walk and 1.2 for the jog, while the game walks at 1.6 and runs at 2.8: with the playback rate
+  held to 0.6–1.6 × the feet slide at the game's paces; an old body loses the code's stoop (the clip's spine wins);
+  the hair's springs and the code-built clothes (`vrmGarments.ts`) follow the code's pose a frame behind or not at all.
 
 **Not done, not known.** Age is drawn ON a young face: the eyes stay big and round, the face round and smooth in
 shape, so an old person reads as a young face with lines and a beard, not an old face (Grace is still no old lady);

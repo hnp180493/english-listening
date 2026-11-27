@@ -31,6 +31,8 @@ const LookPreview = lazy(() => import('./LookPreview'));
 /** Artist-made people on trial: the dev server only (its models are not in a build, so neither is the page). */
 const ModelPreview = import.meta.env.DEV ? lazy(() => import('./ModelPreview')) : null;
 const StatePreview = import.meta.env.DEV ? lazy(() => import('./StatePreview')) : null;
+// (the motion trial runs in the deployed app too: the owner looks at it there)
+const ClipPreview = lazy(() => import('./ClipPreview'));
 
 interface Item {
   id: string;
@@ -361,6 +363,7 @@ export default function AdminPage() {
           <ModelPreview />
         </PreviewDetails>
       )}
+      <PreviewDetails title="Thử chuyển động dựng sẵn" auto={/[?&]clips/.test(window.location.hash)}><ClipPreview /></PreviewDetails>
       {StatePreview && <PreviewDetails title="Rà trạng thái nhân vật" auto={/[?&]states/.test(window.location.hash)}><StatePreview /></PreviewDetails>}
       <PreviewDetails title="Xem thử: mặt nhân vật mới">
         <LookPreview />
