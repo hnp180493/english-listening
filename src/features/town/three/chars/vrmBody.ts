@@ -32,7 +32,7 @@ import type { Character3DPlus } from './person';
 import { BASE_SKIN, type VrmWear } from '../../../../data/townVrm';
 import type { VrmExtra } from '../../../../data/townVrm';
 import { ageFace, beardMesh, scalpMesh } from './vrmAge';
-import { avatarCadence, avatarRunShare } from './vrmGait';
+import { avatarCadence, avatarRunShare, avatarWalkReach } from './vrmGait';
 import { dressGarments } from './vrmGarments';
 
 /** The share of the code body's leg swing a VRM takes (its legs are about three times as long for the same pace). */
@@ -420,21 +420,25 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     // knee from toe-off through the swing, straightens to land and gives a little under the weight; running, the
     // body is in the air when the legs are furthest apart, not at its lowest.
     // The legs keep a person's rhythm whatever the ground speed (owner, 2026-11-27: "chân nó chuyển động nhiều quá",
-    // on legs turned as fast as the ground went by: six steps a second walking, seven running); the pace changes the
-    // gait instead: a stroll is a walk, the player's everyday pace an easy jog, the run a run (./vrmGait.ts).
+    // on legs turned as fast as the ground went by: six steps a second walking, seven running). Every pace up to the
+    // player's everyday one is a walk, with a longer step the quicker it is, and only a real run is a run (./vrmGait.ts:
+    // the everyday pace was an easy jog until "chạy mới vung tay nhiều chứ").
     const walk = anim.move * (1 - seat);
     const runWant = Math.max(anim.runShare, avatarRunShare(speed, world));
     runNow += (runWant - runNow) * (dt > 0 ? 1 - Math.exp(-6 * dt) : 1);
     const run = runNow;
-    const swing = MathUtils.lerp(0.36, 0.56, run) * stride;
+    // (a quicker walk takes a longer step, not quicker legs: ./vrmGait.ts; a run keeps its own span)
+    const span = stride * MathUtils.lerp(avatarWalkReach(speed, world), 1, run);
+    const swing = MathUtils.lerp(0.36, 0.56, run) * span;
     // (an old body at a stroll: a slower rhythm, back to the usual one at the everyday pace)
     const slow = elder ? MathUtils.lerp(0.88, 1, MathUtils.clamp((speed - 0.7) / 0.9, 0, 1)) : 1;
     gait += avatarCadence(speed, world) * slow * Math.PI * dt;
     const sn = Math.sin(gait);
-    const legL = legCycle(gait, run, stride, lift);
-    const legR = legCycle(gait + Math.PI, run, stride, lift);
-    // (the arms answer the legs, not more: owner, 2026-11-26, "mày đánh tay để làm gì vậy?")
-    const armSwing = MathUtils.lerp(0.22, 0.42, run) * (elder ? 0.55 : 1);
+    const legL = legCycle(gait, run, span, lift);
+    const legR = legCycle(gait + Math.PI, run, span, lift);
+    // (the arms answer the legs, not more: owner, 2026-11-26, "mày đánh tay để làm gì vậy?"; walking they hang nearly
+    // straight and swing a little, a little more the quicker the walk: 2026-11-27, "chạy mới vung tay nhiều chứ")
+    const armSwing = MathUtils.lerp(0.18 + 0.06 * (avatarWalkReach(speed, world) - 1) / 0.22, 0.42, run) * (elder ? 0.55 : 1);
     const elbow = MathUtils.lerp(0.25, 1.3, run);
     const lean = MathUtils.lerp(0.03, 0.14, run);
     const twist = MathUtils.lerp(0.07, 0.14, run);

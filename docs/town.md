@@ -2983,11 +2983,23 @@ in code again.
   indoors at the hours tried), anybody standing IN the boat (in the headless browser the ride goes straight to its
   landing). Noted, not a bug: a setState in a dev check that changes `look` or `kids` rebuilds the player, and for a few
   seconds the residents are hidden while their avatars come back.
+- **The everyday pace is a walk** (2026-11-27, after the owner played the build with the avatars' own rhythm: "sao đi
+  mà vung tay nhiều dữ vậy, chạy mới vung tay nhiều chứ, đi tự nhiên như nhân vật nữ này đc nè", a resident strolling
+  with her arms hanging nearly straight). The player's everyday 1.6 tiles a second had been an easy jog (elbows bent,
+  arms pumping, a lean and a moment in the air). Now every pace up to it is a walk (`vrmGait.ts WALK_UP_TO` 2.6 of the
+  body's heights a second, a full run from 4.4: Shift / `PLAYER_RUN` 2.8, or anybody the sim sets running), with a step
+  up to 1.22 × longer the quicker the walk (`avatarWalkReach`) and the arms hanging nearly straight, swinging a little
+  more (`vrmBody.ts armSwing` 0.18 → 0.24). The rhythm is NOT raised to make up for it (at most 3.3 steps a second):
+  the feet slide a little more at the everyday pace; the owner has minded legs going too fast, never a sliding foot.
+  A child is shorter, so the same ground speed is more of its heights: a child keeping up with the player at 1.6 runs
+  (about 0.8 of a run), as a child beside a walking grown-up does. Pictures `stride-walk-fix.png` (the `?stride` sheet: "Thường 1,6" beside "Dạo 0,7" and "Chạy 2,8")
+  and `stride-walk-town.png` (the town's pictures are taken with motion reduced, so it shows the player standing).
+  Seen only as posed phases: nobody has watched it walk.
 - **Legs, paving and hair, after the owner played** (2026-11-27). Three things he found:
   - "chân nó chuyển động nhiều quá" (the speed to stay): the legs turned as fast as the ground went by under a
     walking stride, about six steps a second at the everyday pace and seven running. Now a person's rhythm
     (`chars/vrmGait.ts` `avatarCadence`: about 2 strolling, 2.7 at the everyday pace, at most 3.3; `avatarRunShare`:
-    the everyday pace is an easy jog, a jog has a moment in the air), the thigh's swing ±0.36 rad walking to ±0.56
+    the everyday pace was first an easy jog, a jog has a moment in the air; see the next bullet), the thigh's swing ±0.36 rad walking to ±0.56
     running (was 0.46–0.74), the back foot kicked up less, the arms' swing about two thirds of what it was
     (`vrmBody.ts legCycle`, `armSwing`). Tested: nobody over 3.3 steps a second at any speed and height
     (`vrmGait.test.ts`). A sheet on the admin page shows a cycle in eight phases side on at the three paces, Grace and
