@@ -9,6 +9,7 @@
 // files are read at a time. A file that does not load brings the code-built body back.
 
 import { vrmFor } from '../../../../data/townVrm';
+import { quatFor } from '../../../../data/townQuat';
 import { getTownUi } from '../../townUi';
 import type { Character3D } from '../contracts';
 import type { Character3DPlus } from './person';
@@ -53,6 +54,8 @@ function start(ch: Character3D, d2: number, keep: boolean, grow = 1): void {
   const plus = ch as Partial<Character3DPlus>;
   if (!plus.animator || !plus.look) return;
   const who = vrmFor(ch.id, plus.look, import.meta.env.BASE_URL);
+  // the old and the children wear a Quaternius body instead (data/townQuat.ts, ./quatBody.ts)
+  const quat = quatFor(ch.id, plus.look, who.face, who.tall);
   const e: Entry = { worn: null, d2, keep, gone: false };
   people.set(ch, e);
   // not drawn until the avatar is there
@@ -67,8 +70,13 @@ function start(ch: Character3D, d2: number, keep: boolean, grow = 1): void {
   const job = async (): Promise<void> => {
     if (e.gone) return;
     try {
-      const { wearVrm } = await import('./vrmBody');
-      e.worn = await wearVrm(ch as Character3DPlus, who.url, grow === 1 ? who : { ...who, tall: (who.tall ?? 1) * grow }, () => e.gone);
+      if (quat) {
+        const { wearQuat } = await import('./quatBody');
+        e.worn = await wearQuat(ch as Character3DPlus, quat, grow, () => e.gone);
+      } else {
+        const { wearVrm } = await import('./vrmBody');
+        e.worn = await wearVrm(ch as Character3DPlus, who.url, grow === 1 ? who : { ...who, tall: (who.tall ?? 1) * grow }, () => e.gone);
+      }
       // (taken off again while its file was coming)
       if (e.gone) e.worn?.undress();
     } catch (err) {
@@ -78,8 +86,8 @@ function start(ch: Character3D, d2: number, keep: boolean, grow = 1): void {
       console.warn('[town] avatar not loaded, the usual body stays:', ch.id, err);
     }
   };
-  // the learner first
-  if (keep) waiting.unshift(job);
+  // the learner first, and a Quaternius body (two small files, read once) before the VRMs of 2 MB each
+  if (keep || quat) waiting.unshift(job);
   else waiting.push(job);
   pump();
 }

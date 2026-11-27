@@ -4102,3 +4102,57 @@ and is smaller than the hideout. Deposits are not in the simulation (they come b
 a deposit at 375 and 1400 px, the button beside Amira); the deposit paid and given back checked in the page by calling the
 store. Nobody has heard a report (the headless browser is mute) or played it by hand or over days; the managers' lines were
 written by a model and read by nobody.
+
+## 35. The old and the children in Quaternius bodies (2026-11-28)
+
+The owner, on the VRoid people (§23): an old person was a young woman with grey hair, a child a grown-up made small;
+"tham khảo model của game này xem, thấy vẽ ông già trẻ con này nọ khá tốt này", pointing at his own game Giang Hồ, whose
+people are Quaternius' base characters with an outfit and loose hair, tinted, moved by the Universal Animation Library.
+
+**Who** (`data/townQuat.ts quatFor`, tested): with the people look 'anime', everybody OLD or OLDER (their face in
+`data/townVrm.ts`: Grace's own entry, `FACES`, or grey hair in the look: Grace, Mei, Mrs Okafor, Dr Osei, Professor
+Adeyemi, Frank, Hal, Mr Finch, Mr Whitlock, Captain Odile, Mrs Delaney, Kemp, and any grey-haired passer-by) and every
+CHILD (a look under 0.9: the passers-by's children, the learner's own) wears a Quaternius body; young grown-ups stay
+VRoid. The colours are the look's (the ones the drawn portraits were matched to): top (a white coat makes it white),
+trousers, skin, hair; the table says what a look cannot (Grace's bun, Mei's and Mrs Okafor's buns, Odile's long hair
+under her cap, Mrs Delaney's short hair). A man's kit or a woman's by the canon, then the look; a beard where the face
+or the look has one; glasses, a bun and a cap are built in code on the head bone. Heights are the avatars' (`vrmFor`
+`tall`: old 0.94, older 0.98, a schoolchild 0.63 of a grown-up), so an old person stands beside a VRoid one at the same
+scale; a child's head bone is 1.2.
+
+**The files** (`scripts/quat-pack.mjs`, run by hand): `public/models/people-quat-m.glb` 1,042 kB and
+`people-quat-f.glb` 1,451 kB (one file a kit: the two skeletons share their bones' names, which one file would
+rename), loaded only when the first old person or child comes near (a chunk of its own with `chars/quatBody.ts`, outside
+the town's). Each kit is the Peasant outfit's skeleton with its four pieces (top, sleeves and hands, trousers, boots), the
+base character's head only (the triangles on the head and the neck bones: the rest is under the clothes), a woman's
+hands (the outfit's are painted in the cloth's picture), eyes, brows, and loose hair (a man: parted, a beard; a woman:
+buns, long, parted moved to her head). Pictures as they are (JPEG, 5 a kit); cloth and hair greyed in the browser once
+and tinted per person; the boots in the trousers' colour, darker (they read as trousers and shoes). The Ranger outfit
+is left out. Source and licence: Quaternius "Universal Base Characters" and "Modular Character Outfits" (CC0, public
+domain), the copies the owner's game Giang Hồ ships (`.assets-try/quaternius-gh/chars`, outside git, read as data only).
+
+**Motion** (`chars/quatBody.ts`, the same surface as `vrmBody.ts wearVrm`; hooked in `chars/vrmPeople.ts` in a few
+lines, a Quaternius body put at the front of the loading queue): the clips of `public/anim/people.glb` play on these
+very bones (no retargeting): idle; walk under 1.1 tiles a second, jog, sprint from 2.4 (an old body walks up to 1.7 and
+never sprints, its clips 0.82–0.92 slower); seated, the sit clip with the hips on the seat; faded over 0.2 s; each clip
+sped to the ground speed within 0.8–1.5×. On top: an old body's stoop (0.16 rad over the back for 'old', 0.08 for
+'older', the head a little down), the code pose's arms while waving, talking or holding (`Animator.armsBusy`), the head's
+turn toward whoever speaks, the umbrella in the right hand (the canopy over the head: seen in Westbay's rain), what is
+held (cup, can, rod in the right hand, a book before the chest). Three's mixer writes a bone only when its mixed value
+changed, so what is added is taken off before each mix (it had piled up: a body drifting off its place).
+
+**Admin sheet** `#/duyet-k7q2m9x4?quat` (also in the deployed app): each of the twelve old people and two children:
+the drawn portrait, the body from the front and the side, eight moments of a walking step.
+
+**Not good yet, said plainly.** There is ONE outfit, Peasant, medieval: a woman's top has a laced corset band, a man's
+a laced tunic, both over tall boots; tinted they read as a blouse or a shirt and trousers from the usual camera, but
+close up (the admin sheet) they are a costume, not a cardigan, a suit or a white coat; Hal's and Mei's aprons are not
+drawn. A child is the grown-up body at 0.63 with a larger head, not a child's build (Quaternius' base characters have no
+child). Faces are the base character's two faces (a man's, a woman's), the age only in the hair, the beard, the stoop
+and the slower step. What would help, to be fetched only with the owner's yes: Quaternius' CC0 "Modular Character
+Outfits" packs beyond Peasant and Ranger as Giang Hồ ships them (to look at on quaternius.com / its itch.io page; none
+fetched), or a modern casual outfit pack of the same base characters if one exists. Seen in pictures only
+(`.assets-try/previews/quat-*.png`: the sheet, Grace beside the player, a child passer-by, Hal and Mr Whitlock under
+umbrellas in Westbay); on the software renderer the VRoid files load so slowly that the pictures of the child and Hal
+were taken after dressing them by calling `wearQuat` directly (the same function); nobody has watched one move on a
+real screen, on a phone, sitting on a bench, waving or fishing.

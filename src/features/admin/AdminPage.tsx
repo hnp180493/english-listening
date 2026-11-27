@@ -33,6 +33,8 @@ const ModelPreview = import.meta.env.DEV ? lazy(() => import('./ModelPreview')) 
 const StatePreview = import.meta.env.DEV ? lazy(() => import('./StatePreview')) : null;
 // (the motion trial runs in the deployed app too: the owner looks at it there)
 const ClipPreview = lazy(() => import('./ClipPreview'));
+/** The old and the children in Quaternius bodies (`…?quat`, docs/town.md §35), live in the deployed app too. */
+const QuatPreview = lazy(() => import('./QuatPreview'));
 
 interface Item {
   id: string;
@@ -364,7 +366,8 @@ export default function AdminPage() {
         </PreviewDetails>
       )}
       <PreviewDetails title="Thử chuyển động dựng sẵn" auto={/[?&]clips/.test(window.location.hash)}><ClipPreview /></PreviewDetails>
-      {StatePreview && <PreviewDetails title="Rà trạng thái nhân vật" auto={/[?&]states/.test(window.location.hash)}><StatePreview /></PreviewDetails>}
+      <PreviewDetails title="Người già và trẻ con: thân Quaternius" auto={/[?&]quat/.test(window.location.hash)}><QuatPreview /></PreviewDetails>
+      {StatePreview && <PreviewDetails title="Rà trạng thái nhân vật" auto={/[?&](states|horse)/.test(window.location.hash)}><StatePreview /></PreviewDetails>}
       <PreviewDetails title="Xem thử: mặt nhân vật mới">
         <LookPreview />
       </PreviewDetails>

@@ -106,6 +106,23 @@ const admin: Record<string, string> = {
   'Phát chuyển động': 'Play the motion',
   'Máy đang bật giảm chuyển động nên trang đứng yên. Bấm “Phát chuyển động” để xem.': 'This device asks for reduced motion, so the page is still. Press “Play the motion” to watch.',
   'Tốc độ gốc của clip (ô/giây) → tốc độ phát:': 'The clip\'s own speed (tiles a second) → playback rate:',
+  'Đi bước 1,0': 'Walk 1.0',
+  'Kiệu 2,4': 'Trot 2.4',
+  '· có người cưỡi': ' · with a rider',
+  'Người già và trẻ con: thân Quaternius': 'Old people and children: Quaternius bodies',
+  'Trẻ con 1': 'Child 1',
+  'Trẻ con 2': 'Child 2',
+  'Đang dựng người…': 'Building the people…',
+  'không dùng thân Quaternius': 'not in a Quaternius body',
+  'nữ': 'female',
+  'Người già và trẻ con mặc thân Quaternius (CC0, như game Giang Hồ): chân dung vẽ, thân nhìn trước và ngang, tám khoảnh khắc của một bước đi.': 'Old people and children in Quaternius bodies (CC0, as in the game Giang Hồ): the drawn portrait, the body from the front and the side, eight moments of one walking step.',
+  'Chân dung vẽ': 'Drawn portrait',
+  'Nhìn trước': 'From the front',
+  'Nhìn ngang': 'From the side',
+  'Tám khoảnh khắc khi đi': 'Eight moments of a step',
+  // no diacritics, so the scan does not see them (features/admin/QuatPreview.tsx)
+  nam: 'male',
+  '{} · {} · cao {}': '{0} · {1} · height {2}',
 };
 
 export default admin;
