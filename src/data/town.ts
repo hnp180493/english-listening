@@ -15,7 +15,7 @@ export const TOWN_PLACES: readonly TownPlace[] = [
   place('square', 'Quảng trường', 'Giao tiếp', 'Leo', 0),
   place('cafe', 'Quán cà phê', 'Ăn uống', 'Emma', 0),
   place('friend', 'Nhà bạn', 'Bạn bè', 'Mia', 0),
-  place('home', 'Nhà', 'Gia đình', 'Grace', 20),
+  place('home', 'Nhà bà Grace', 'Gia đình', 'Grace', 20),
   place('shop', 'Cửa hàng', 'Mua sắm', 'Ben', 30),
   place('office', 'Văn phòng', 'Công việc', 'Sarah', 40),
   place('school', 'Trường học', 'Học tập', 'Daniel', 50),

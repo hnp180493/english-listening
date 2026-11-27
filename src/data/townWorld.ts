@@ -440,7 +440,7 @@ export const WORLD_PLACES: readonly WorldPlace[] = [
   place('cafe', 'Quán cà phê', 'Emma', [38, 27, 3, 2], 'y', [39, 29], [40, 29]),
   // the residential lane (south-west)
   place('friend', 'Nhà bạn', 'Mia', [25, 42, 2, 2], 'x', [27, 43], [27, 42]),
-  place('home', 'Nhà', 'Grace', [28, 38, 2, 2], 'x', [30, 39], [30, 40]),
+  place('home', 'Nhà bà Grace', 'Grace', [28, 38, 2, 2], 'x', [30, 39], [30, 40]),
   // the market street (north): the shops face the street from its north side
   place('shop', 'Cửa hàng', 'Ben', [40, 19, 2, 2], 'y', [41, 21], [40, 21]),
   place('phone', 'Tiệm điện thoại', 'Max', [46, 19, 2, 2], 'y', [46, 21], [47, 21]),

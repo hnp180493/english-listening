@@ -8,6 +8,7 @@ const dataTown: Record<string, string> = {
   'Nhà bạn': 'Friend\'s house',
   'Bạn bè': 'Friends',
   'Nhà': 'Home',
+  'Nhà bà Grace': 'Grace\'s house',
   'Gia đình': 'Family',
   'Cửa hàng': 'Shop',
   'Mua sắm': 'Shopping',

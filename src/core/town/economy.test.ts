@@ -129,7 +129,7 @@ describe('balance and buying', () => {
   });
 
   it('canBuy: enough xu, not owned, known', () => {
-    expect(canBuy(rich(20), 'home')).toEqual({ ok: true, item: { id: 'home', kind: 'place', name: 'Nhà', cost: 20 } });
+    expect(canBuy(rich(20), 'home')).toEqual({ ok: true, item: { id: 'home', kind: 'place', name: 'Nhà bà Grace', cost: 20 } });
     expect(canBuy(rich(19), 'home')).toMatchObject({ ok: false, reason: 'poor', missing: 1 });
     expect(canBuy(emptyTownProgress(), 'flowers')).toMatchObject({ ok: false, reason: 'poor', missing: 8 });
     expect(canBuy(rich(500, ['home']), 'home')).toMatchObject({ ok: false, reason: 'owned', missing: 0 });
