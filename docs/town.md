@@ -518,11 +518,17 @@ and a third person cut in. Now a line may be the learner's (`who: 'you'`, `scene
 the talk stops on it, `SceneFlow` shows it with its meaning ("Bạn", the character's name when made), and "Nói câu
 này" (or Enter) says it in the browser's voice of the character's sex (`cityAudio` `cast.you`, never a clip) and
 lets the other answer; a replay plays straight through. A third person is introduced before they speak. The
-questions stay on what the others said. Done as a sample of three for the owner to try: Rico's first episode,
-Jun's first (with Gus) and Leo's first visit (with Theo); the other city talks are still overheard. Content tests
-count the cast's lines without the learner's (`city.test.ts cast`); a learner's line is 2–12 words, only in a talk,
-never the last. Leo's changed lines have no Gemini clip until the owner runs `npm run audio:generate` (the browser's
-voice of his sex meanwhile). Checked in headless Edge (Jun: the turn, "Nói câu này", the next turn); not by hand.
+questions stay on what the others said. First a sample of three (Rico's first episode, Jun's first with Gus, Leo's
+first visit with Theo); the owner then said "làm hết luôn", and every talk the learner begins was rewritten the same
+way: the 36 episodes, the 50 short talks, the 26 visits and the 48 chapters of the long stories and the main story
+(2–5 lines of the learner each, by agents on Opus from one brief). Overheard scenes, the radio, the bus,
+get-togethers, festivals and outings stay listening. Town residents' lines were kept word for word (only moved), so
+their clips stand; the facts a question asks about are always said by somebody else, never in the learner's shown
+line. Content tests count the cast's lines without the learner's (`city.test.ts cast`); a learner's line is 3–12
+words, only in a talk or a chapter, never the last, never two in a row, and every talk has some. Leo's changed lines
+in the sample have no Gemini clip until the owner runs `npm run audio:generate` (the browser's voice of his sex
+meanwhile). Checked in headless Edge (Jun: the turn, "Nói câu này", the next turn) and by the content tests; the ~1,000
+new lines were written by models and read by nobody; not played by hand.
 
 **Moving about** (the player's control, `TownSim.steer / move` in `engine/sim.ts`, tested; rebuilt 2026-11-21 after the
 owner found the keys "delayed or not going where I want" and the character moving unnaturally). Direct control, like a
@@ -3519,17 +3525,31 @@ guess until somebody plays it.
    staging decides then), a CLOSED board stands at the door; clicking them says "Mei đang đóng cửa. Mở lúc 17:00.";
    a quest card to them says "Đang đóng cửa · mở lúc 17:00" (`city/hoursQuest.ts`). No place is shut more than sixteen
    game hours (32 real minutes, tested); the admin sandbox has no hours; a job's own cards and staging ignore them.
-5. **Waiting for an hour ("Ngủ tới tối / tới sáng"): NOT built, a proposal.** The game's clock is a pure function of
-   the real time and is the same on every machine; it is read in at least thirteen places that pass `Date.now()`
-   themselves (`core/town/job.ts`, `phone.ts`, `radio.ts` and its forecast, `office.ts`, `hideout.ts`, `sky.ts skyAt`,
-   `sunPath.ts`, the engine's sun and night, `SkyChip.tsx`, `stageShell.ts`, `useCityJob.tsx`, `ListenPanel.tsx`). An
-   offset per machine would have to go through all of them (some in the job engine, which another session is changing),
-   and while it lasts this machine's hour, sky, radio forecast, rests and phone deadlines would disagree with the
-   account's other machines; when it ends the clock jumps back. Proposal, if the owner wants it: one `gameNow()` in
-   `core/town/sky.ts` (real time + an offset of whole game hours, device-local key, never synced) read everywhere the
-   GAME's time is meant, the offset ending at the next real game dawn or dusk so the jump back lands at the same light;
-   the weather keeps the real time (shared). "Ca đêm" would then call `sleepUntil('night')`. Until then the night jobs
-   wait for the real game night (24 real minutes at most).
+5. **Waiting for an hour: "Ngủ tới tối / tới sáng" (built 2026-11-27).** The one way into the game's time is
+   `core/town/gameClock.ts gameNow(real)`: the real time plus THIS machine's offset, set by a sleep in the hideout
+   (`HideoutPanel.tsx`: "Ngủ tới tối" by day, to 18:00; "Ngủ tới sáng" in the evening and the night, to 06:00; a dip to
+   dark, then the learner wakes; once a real hour, a guess; the heat goes too). The offset is a part of a game day,
+   never negative, stored per browser (`KEYS.gameClock`, in DEVICE_LOCAL_KEYS: never synced, never in a backup), and
+   ends by itself (`rejoinAt`) at the first moment, at least two game hours after the sleep, when the shared clock and
+   the moved one show the same light (both night, or both day, the gold within a hair), so the jump back is not seen as
+   a change of light: sleeping to the evening by day gives the evening and the night (about ten game hours). Two sleeps
+   in a row go on from the clock as it shows. A small line under the buttons says the truth: "Giờ trong game trên máy
+   này đang đi trước các máy khác, tới khoảng HH:MM thì khớp lại."
+   - **The gate** sits in the clock everybody reads: `sky.ts gameMinutes / gameHour / clockLabel` and skyAt's hour call
+     `gameNow` (the pure arithmetic moved to `clockMath.ts`, which `gameClock.ts` uses without importing `sky.ts`). So
+     the light, the sun and the moon, the HUD, the town's day and night, Westbay's opening hours, the jobs'
+     appointments (`job.ts` reads `gameMinutes`: no line there changed) and Bay FM's time follow it. The phone's
+     call-back deadlines are kept as game times (`phone.ts callbackDeadline`, `canCallBack`, `goneUntil`;
+     `phoneStore.ts offerHeld`), so a sleep past "Gọi lại trước 04:00" makes the call late, as the clock says (tested). Bay FM's forecast is worked out on the clock
+     as shown and never looks past the moment it comes back (`radio.ts forecastAt`, `whenSaid`), so every time it names
+     is what the learner will see then (tested over forty sleeps in `gameClock.test.ts`).
+   - **What does not move:** the weather (its stretches keep the real time on every machine: a sleep never dodges the
+     rain), the traffic lights (a function of the real clock, for smoothness), the residents' daily life (the real
+     clock, as before), and everything counted per REAL day or that pays: the daily tasks and allowances, a chapter a
+     day, a date a day, xu a day (`progress.ts townDay` of the real time), the office's word of the game day
+     (`office.ts gameDayOf`, raw time: sleeping must not bring the next word sooner), Bay FM's paid edition id and the
+     hideout's rest of the hour (real time: the jump back could otherwise lock it for hours). Tested.
+   - Admin: `debugSky(hour, sky, wet)` still holds any hour for a picture, on top of all this.
 6. **The HUD** (`SkyChip.tsx`): after the hour, the rules in force in a word or two ("Đường trơn", "Mưa át tiếng",
    "Radio rè"; `rulesNow`), what each does in the pill's title. No new pill. The pill is hidden under 560 px, so a phone
    does not show the words.
@@ -3538,5 +3558,6 @@ Dev: `window.__town3d.debugSky(21, 'storm', 1)` now also holds the sky for the r
 words, the radio's static, the slippery roads and the traffic follow the held sky.
 
 **Not known.** Nobody has driven a wet road by hand (the feel of the slide is a guess), heard a broken bulletin or a
-muffled bench (the headless browser is mute), or waited at a shut stall. Seen in pictures only
+muffled bench (the headless browser is mute), waited at a shut stall, or slept and watched the clock come back (the
+rule "once a real hour" and the two game hours before it may rejoin are guesses). Seen in pictures only
 (`.assets-try/previews/rules-*`, `hours-*`).

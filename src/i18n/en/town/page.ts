@@ -717,6 +717,13 @@ const page: Record<string, string> = {
   'Mưa to: nghe lỏm khó hơn một nấc.': 'Heavy rain: overhearing is a step harder.',
   'Giông: radio và bộ đàm bị rè, mất vài chữ.': 'Storm: the radio and the scanner crackle and drop a few words.',
   'Giờ trong thị trấn {}, {}. {}': 'Time in town {0}, {1}. {2}',
+  'Ngủ một giấc tới tối.': 'You slept until evening.',
+  'Ngủ một giấc tới sáng.': 'You slept until morning.',
+  'Ngủ được lại sau {} phút': 'Sleep again in {0} min',
+  'Ngủ tới tối': 'Sleep until evening',
+  'Ngủ tới sáng': 'Sleep until morning',
+  'Giờ trong game trên máy này đang đi trước các máy khác, tới khoảng {} thì khớp lại.': 'The game clock on this device is ahead of your other devices; they line up again around {0}.',
+  'Ngủ tới tối hoặc tới sáng: giờ trong game trên máy này chạy trước một lúc rồi tự khớp lại với máy khác. Thời tiết, việc trong ngày và xu không đổi. Mỗi giờ thật ngủ được một lần.': 'Sleep until evening or morning: the game clock on this device runs ahead for a while, then lines up with your other devices by itself. The weather, today\'s tasks and xu don\'t change. You can sleep once per real hour.',
 };
 
 export default page;

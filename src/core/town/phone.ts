@@ -6,24 +6,31 @@
 
 import { GAME_MINUTE_MS } from './job';
 import { GAME_DAY_MS, gameMinutes } from './sky';
+import { gameNow } from './gameClock';
 
 /** A ringing job is missed after this long unanswered (real ms). */
 export const RING_MS = 30_000;
 /** A missed call's deadline is the first full hour of the game at least this many game minutes away. */
 export const CALLBACK_AHEAD = 90;
 
-/** The game day a real time falls in (counted from 1970; a game day is GAME_DAY_MS long). */
-export const gameDayOf = (nowMs: number): number => Math.floor(nowMs / GAME_DAY_MS);
+/**
+ * The game day a real time falls in (counted from 1970; a game day is GAME_DAY_MS long), on this machine's clock (a
+ * sleep in the hideout moves it on: ./gameClock.ts gameNow).
+ */
+export const gameDayOf = (nowMs: number): number => Math.floor(gameNow(nowMs) / GAME_DAY_MS);
 
-/** When a missed call must be returned by: the minute of the game's day, and the real time it comes round. */
+/**
+ * When a missed call must be returned by: the minute of the game's day, and the GAME time it comes round (ms on this
+ * machine's clock, ./gameClock.ts gameNow: a sleep in the hideout past it makes the call late, as it should).
+ */
 export function callbackDeadline(nowMs: number): { minute: number; at: number } {
   const g = gameMinutes(nowMs);
   const minute = Math.ceil((g + CALLBACK_AHEAD) / 60) * 60;
-  return { minute: minute % 1440, at: nowMs + (minute - g) * GAME_MINUTE_MS };
+  return { minute: minute % 1440, at: gameNow(nowMs) + (minute - g) * GAME_MINUTE_MS };
 }
 
-/** A missed call's offer, called back late, is gone until the game day after its deadline begins. */
-export const goneUntil = (deadlineAt: number): number => (gameDayOf(deadlineAt) + 1) * GAME_DAY_MS;
+/** A missed call's offer, called back late, is gone until the game day after its deadline begins (a game time). */
+export const goneUntil = (deadlineAt: number): number => (Math.floor(deadlineAt / GAME_DAY_MS) + 1) * GAME_DAY_MS;
 
 export type CallKind = 'missed' | 'voicemail' | 'call';
 export type CallStatus = 'new' | 'heard' | 'returned' | 'expired';
@@ -43,8 +50,8 @@ export interface PhoneEntry {
   status: CallStatus;
 }
 
-/** Whether a missed call can still be returned at `now`. */
-export const canCallBack = (e: PhoneEntry, now: number): boolean => e.kind === 'missed' && e.status !== 'returned' && e.status !== 'expired' && !!e.deadline && now < e.deadline.at;
+/** Whether a missed call can still be returned at `now` (a real time; the deadline is the game's). */
+export const canCallBack = (e: PhoneEntry, now: number): boolean => e.kind === 'missed' && e.status !== 'returned' && e.status !== 'expired' && !!e.deadline && gameNow(now) < e.deadline.at;
 
 /** What waits for the learner (the badge): missed calls still open and voice messages not heard. */
 export function waiting(log: readonly PhoneEntry[], now: number): number {

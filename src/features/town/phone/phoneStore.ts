@@ -5,12 +5,13 @@
 
 import { useSyncExternalStore } from 'react';
 import { callbackDeadline, canCallBack, goneUntil, type PhoneEntry } from '../../../core/town/phone';
+import { gameNow } from '../../../core/town/gameClock';
 
 interface PhoneState {
   log: readonly PhoneEntry[];
   /** The job ringing now and who rings. */
   incoming: { jobId: string; from: string } | null;
-  /** Job id → until when (real ms) its offer is gone. */
+  /** Job id → until when (a game time: core/town/gameClock.ts gameNow) its offer is gone. */
   gone: Readonly<Record<string, number>>;
 }
 
@@ -83,11 +84,13 @@ export function callBack(id: string, now: number = Date.now()): 'ok' | 'late' | 
  * its deadline passed and the game day has not turned yet.
  */
 export function offerHeld(jobId: string, now: number = Date.now()): 'waiting' | 'gone' | null {
-  if ((state.gone[jobId] ?? 0) > now) return 'gone';
+  // (deadlines are game times: a sleep in the hideout moves this machine's clock on past them)
+  const g = gameNow(now);
+  if ((state.gone[jobId] ?? 0) > g) return 'gone';
   for (const e of state.log) {
     if (e.kind !== 'missed' || e.jobId !== jobId || e.status === 'returned') continue;
-    if (e.status !== 'expired' && e.deadline && now < e.deadline.at) return 'waiting';
-    if (e.deadline && now < goneUntil(e.deadline.at)) return 'gone';
+    if (e.status !== 'expired' && e.deadline && g < e.deadline.at) return 'waiting';
+    if (e.deadline && g < goneUntil(e.deadline.at)) return 'gone';
   }
   return null;
 }

@@ -3,10 +3,15 @@
 //  - bought: the learner is in the room (the stage's dip to dark: TownStageHandle.enterOwnRoom), and from there
 //    "Nghe lại băng" (the lines missed in jobs and at the dispatch office, the newest first, each heard in its speaker's
 //    voice before its words show; nothing is scored: Ôn tập is where they are tested), "Đổi đồ" (the town's Tủ đồ) and
-//    "Nằm nghỉ" (the police's search called off and the heat back to zero, once an hour of the game).
+//    "Nằm nghỉ" (the police's search called off and the heat back to zero, once an hour of the game), and "Ngủ tới tối /
+//    tới sáng" (this machine's game clock moved on to 18:00 or 06:00 for a while, once a real hour: core/town/gameClock.ts;
+//    a dip to dark and the learner wakes; a small line says the clock here is ahead of their other machines till when).
 
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BedDouble, CassetteTape, KeyRound, Shirt } from 'lucide-react';
+import { lazy, Suspense, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { ArrowLeft, BedDouble, CassetteTape, KeyRound, MoonStar, Shirt, Sunrise } from 'lucide-react';
+import { prefersReducedMotion } from '../../../core/motion';
+import { currentShift, onShift, sleepFor, sleepUntil, sleepWait, offsetAt } from '../../../core/town/gameClock';
+import { clockLabel, gameHour } from '../../../core/town/sky';
 import { Icon } from '../../../components/Icon';
 import ListenPair from '../../../components/ListenPair';
 import { navigate } from '../../../core/nav';
@@ -62,6 +67,14 @@ export default function HideoutPanel({ sound, onReward, onClose, enter }: Hideou
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [wait]);
+
+  // the game's clock of this machine: moved on by a sleep (re-read every ten seconds and on a sleep)
+  const shift = useSyncExternalStore(onShift, currentShift, currentShift);
+  const [dip, setDip] = useState<'in' | 'out' | null>(null);
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 10_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const tape = useMemo(() => tapeLines(hideoutTape(now)), [now]);
   const due = dueOnTape(tape, now);
@@ -160,6 +173,29 @@ export default function HideoutPanel({ sound, onReward, onClose, enter }: Hideou
     playSfx('pop', sound);
     onReward({ label: 'Ngủ một giấc. Không ai còn để ý bạn.' });
   };
+  // "Ngủ tới tối / tới sáng": the one that fits the hour; a dip to dark, the clock on, and the learner wakes
+  const sleepTo = sleepFor(gameHour(now));
+  const sleepIn = sleepWait(shift, now);
+  const sleep = () => {
+    const run = () => {
+      if (!sleepUntil(sleepTo)) return;
+      coolDownAt(HIDEOUT_ID);
+      setHeat(0);
+      setNow(Date.now());
+      onReward({ label: sleepTo === 'evening' ? 'Ngủ một giấc tới tối.' : 'Ngủ một giấc tới sáng.' });
+    };
+    if (prefersReducedMotion()) {
+      run();
+      return;
+    }
+    setDip('in');
+    window.setTimeout(() => {
+      run();
+      setDip('out');
+      window.setTimeout(() => setDip(null), 600);
+    }, 600);
+  };
+  const ahead = offsetAt(now, shift) > 0 && shift ? clockLabel(shift.until - 1) : null;
   const primary: 'rest' | 'tape' | 'wardrobe' = heat > 0 && restNow ? 'rest' : tape.length > 0 ? 'tape' : 'wardrobe';
   const cls = (k: typeof primary) => (k === primary ? 'btn btn-primary' : 'btn');
   return (
@@ -186,11 +222,18 @@ export default function HideoutPanel({ sound, onReward, onClose, enter }: Hideou
           <Icon icon={BedDouble} size={16} />
           {restNow ? 'Nằm nghỉ' : tl`Nằm nghỉ · được lại sau ${Math.ceil(wait / 1000)} giây`}
         </button>
+        <button type="button" className="btn" onClick={sleep} disabled={sleepIn > 0 || dip !== null}>
+          <Icon icon={sleepTo === 'evening' ? MoonStar : Sunrise} size={16} />
+          {sleepIn > 0 ? tl`Ngủ được lại sau ${Math.ceil(sleepIn / 60_000)} phút` : sleepTo === 'evening' ? 'Ngủ tới tối' : 'Ngủ tới sáng'}
+        </button>
       </div>
+      {ahead && <p className="hid-note">{tl`Giờ trong game trên máy này đang đi trước các máy khác, tới khoảng ${ahead} thì khớp lại.`}</p>}
+      {dip && <div className={'hid-dip' + (dip === 'in' ? ' is-dark' : '')} aria-hidden="true" />}
       <details className="how">
         <summary>Chỗ ẩn để làm gì?</summary>
         <p>Làm hỏng việc thì người ta để ý bạn (độ nóng). Về đây nằm nghỉ là hạ về 0, mỗi giờ trong game một lần (hai phút thật).</p>
         <p>Băng là những câu bạn nghe sót: nghe lại ở đây cho quen tai. Chúng cũng nằm trong Ôn tập, nơi bạn được kiểm tra thật.</p>
+        <p>Ngủ tới tối hoặc tới sáng: giờ trong game trên máy này chạy trước một lúc rồi tự khớp lại với máy khác. Thời tiết, việc trong ngày và xu không đổi. Mỗi giờ thật ngủ được một lần.</p>
       </details>
       <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
         Ra ngoài

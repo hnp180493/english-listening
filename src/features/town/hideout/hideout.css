@@ -78,3 +78,33 @@
   color: var(--text-muted);
   font-size: var(--fs-sm);
 }
+
+/* a sleep: the screen goes dark for a moment, then the learner wakes (HideoutPanel.tsx; none under reduced motion) */
+.hid-dip {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: black;
+  opacity: 0;
+  pointer-events: none;
+  animation: hid-dip-out 0.6s ease forwards;
+}
+.hid-dip.is-dark {
+  animation: hid-dip-in 0.6s ease forwards;
+}
+@keyframes hid-dip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes hid-dip-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

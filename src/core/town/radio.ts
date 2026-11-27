@@ -15,6 +15,7 @@
 import { CHANGE_LEADS, CITY_EVENT_LINES, CLOCK, EVENT_Q, EVENTS_LEAD, greeting, HOUR_WORDS, IDENTS, laterVi, LIVE_INTRO, LIVE_TITLE, MINUTE_WORDS, NEWS_LEADS, partOfDayVi, SIGN_OFFS, SKY_GIST, SKY_NOW, SKY_SHORT, skyChange, STAYS, SUMMARY, THEN_LEAD, TIME_LEADS, TOWN_EVENT_LINES, WEEKDAYS, WHEN, WHEN_Q, whenWhatVi, type CityRadioEvent, type Piece } from '../../data/scenes/radioLive';
 import type { ListenScene, SceneLine, SceneQuestion, Weather } from './sceneTypes';
 import { GAME_DAY_MS, gameMinutes, SKIES, skyAt, type Sky } from './sky';
+import { currentShift, offsetAt, type Shift } from './gameClock';
 import type { TownEvent } from './world';
 import { AD_LEADS, RADIO_ADS, type RadioAd, type RadioCall } from '../../data/scenes/radioCalls';
 
@@ -84,7 +85,10 @@ export function spokenTime(minutes: number): Piece {
  * "midnight", "seven tomorrow morning"), else the clock ("quarter past six"). `at` and `now` are real times.
  */
 export function whenSaid(at: number, now: number): Piece {
-  const minutes = (at - dayStart(now)) / GAME_MINUTE_MS;
+  // (on this machine's clock: moved on by a sleep in the hideout, ./gameClock.ts; a forecast never looks past the
+  // moment it comes back, so `at` and `now` share the offset)
+  const off = offsetAt(now, currentShift());
+  const minutes = (at + off - dayStart(now + off)) / GAME_MINUTE_MS;
   const tomorrow = minutes >= 24 * 60;
   const m = Math.round(minutes) % (24 * 60);
   if (m % 60 !== 0) return spokenTime(m);
@@ -137,16 +141,23 @@ export interface Forecast {
   stays: number | null;
 }
 
-/** The forecast at a real time, by the day's weather at any time (as the world reads it: skyAt(t, weatherAt(t))). */
-export function forecastAt(now: number, weatherAt: (t: number) => Weather): Forecast {
+/**
+ * The forecast at a real time, by the day's weather at any time (as the world reads it: skyAt(t, weatherAt(t))). The
+ * times are named on this machine's clock (a sleep in the hideout moves it on: ./gameClock.ts), the weather is the
+ * real time's; while the clock is moved on the forecast looks no further than the moment it comes back (a time named
+ * across the jump back would not be the time the learner then sees). All times returned are real ms.
+ */
+export function forecastAt(now: number, weatherAt: (t: number) => Weather, shift: Shift | null = currentShift()): Forecast {
+  const off = offsetAt(now, shift);
   const skyOf = (t: number): Sky => skyAt(t, weatherAt(t)).sky;
   const nowSky = skyOf(now);
-  const start = dayStart(now);
-  const nowMin = (now - start) / GAME_MINUTE_MS;
+  // the clock's marks, on the clock as shown (u = real + off); `at` gives the real time of a mark
+  const start = dayStart(now + off);
+  const nowMin = (now + off - start) / GAME_MINUTE_MS;
   // the marks of the clock after now: every five minutes of the game
   const first = Math.floor(nowMin / STEP_MIN) * STEP_MIN + STEP_MIN;
-  const last = nowMin + HORIZON_MIN;
-  const at = (min: number): number => start + min * GAME_MINUTE_MS;
+  const last = off > 0 && shift ? Math.min(nowMin + HORIZON_MIN, (shift.until - 1 + off - start) / GAME_MINUTE_MS) : nowMin + HORIZON_MIN;
+  const at = (min: number): number => start + min * GAME_MINUTE_MS - off;
   const changes: SkyChange[] = [];
   let cur = nowSky;
   let min = first;

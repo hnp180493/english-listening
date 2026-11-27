@@ -3,23 +3,27 @@
 // a day in the game takes 48 real minutes (an hour of the game is two minutes), the light follows the hour through
 // dawn, day, dusk and night, and the weather changes by itself every few hours of the game, one kind easing into the
 // next. Everything here is a pure function of the real time, so every machine sees the same hour and the same sky, a
-// reload changes nothing, and nothing is stored. The day's own weather (core/town/world.ts `weatherOf`, what the
+// reload changes nothing, and nothing is stored, except one thing: a learner who sleeps in their hideout moves THIS
+// machine's clock on for a while (./gameClock.ts, docs/town.md §33); the weather stays the real time's everywhere. The day's own weather (core/town/world.ts `weatherOf`, what the
 // radio reads) leans the odds: on a "rain" day it rains most of the time, on a clear one seldom.
 
 import type { Weather } from './sceneTypes';
+import { clockMinutes, DAWN, DUSK, GAME_DAY_MS, glowOf, nightOf } from './clockMath';
+import { gameNow } from './gameClock';
 
-/** A day of the game in real milliseconds (GTA V: 48 minutes). */
-export const GAME_DAY_MS = 48 * 60 * 1000;
-const MINUTES = 24 * 60;
+export { DAWN, DUSK, GAME_DAY_MS, glowOf, nightOf };
 
 /** The kinds of sky. */
 export type Sky = 'clear' | 'cloudy' | 'rain' | 'storm';
 export const SKIES: readonly Sky[] = ['clear', 'cloudy', 'rain', 'storm'];
 
-/** Minutes since the game's midnight (0 … 1440) at a real time. */
+/**
+ * Minutes since the game's midnight (0 … 1440) at a REAL time, as this machine's clock shows it: the same on every
+ * machine, unless the learner slept here ("Ngủ tới tối / tới sáng": ./gameClock.ts gameNow, the one way into the game's
+ * time). The weather (skyAt's stretches) keeps the real time on every machine.
+ */
 export function gameMinutes(nowMs: number): number {
-  const m = ((nowMs % GAME_DAY_MS) + GAME_DAY_MS) % GAME_DAY_MS;
-  return (m / GAME_DAY_MS) * MINUTES;
+  return clockMinutes(gameNow(nowMs));
 }
 
 /** The game's hour as a number (13.5 = 13:30). */
@@ -38,28 +42,6 @@ const smooth = (a: number, b: number, x: number): number => {
   const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
 };
-
-/** Dawn 05:00–07:00, dusk 17:30–20:00. */
-export const DAWN = [5, 7] as const;
-export const DUSK = [17.5, 20] as const;
-
-/** How much of the night it is at an hour: 0 by day, 1 at night, easing through dawn and dusk. */
-export function nightOf(hour: number): number {
-  const h = ((hour % 24) + 24) % 24;
-  if (h < 12) return 1 - smooth(DAWN[0], DAWN[1], h);
-  return smooth(DUSK[0], DUSK[1], h);
-}
-
-/** How golden the light is: up to 1 in the middle of dawn and of dusk, 0 at noon and at night. */
-export function glowOf(hour: number): number {
-  const h = ((hour % 24) + 24) % 24;
-  const bump = (a: number, b: number): number => {
-    if (h <= a || h >= b) return 0;
-    const t = (h - a) / (b - a);
-    return Math.sin(t * Math.PI);
-  };
-  return Math.max(bump(DAWN[0] - 0.3, DAWN[1] + 0.8), bump(DUSK[0] - 1.2, DUSK[1] - 0.3));
-}
 
 // ───────────────────────── the weather ─────────────────────────
 
