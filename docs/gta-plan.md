@@ -698,7 +698,7 @@ Ba kết cục của phi vụ 6 bằng cờ gieo: 5 cờ giữ → `end-best`; 2
 5 cờ + heat 7 (đặt qua module `heatStore` trong trang) → `end-middle`. Ảnh: `.assets-try/previews/act3-*.png` (Lyle ở nhà
 ga, Lyle và Shona ở Twin Ovens, ba mạch một mình và với Tess, ba Rico, hai màn xem lại).
 
-**Chưa / đoán:** Lyle "đứng sau cửa sổ" ở phi vụ 4 chưa dựng: nghe lén gọi hai người ra đứng ngoài đường trước tiệm; áo
+**Chưa / đoán:** Lyle "đứng sau cửa sổ" ở phi vụ 4 dựng ngày 2026-11-27: hai bước nghe lén tụ ở điểm `poppy-window` (`data/city/jobs/spots.ts`), Lyle đứng sát mặt tiền tiệm Twin Ovens ngay dưới cửa sổ, Shona cạnh hắn qua góc tiệm, không còn giữa đường; nghe lén vẫn tính theo khoảng cách tới hai người như cũ (ảnh `.assets-try/previews/sweep2-lyle-before.png` / `-after.png`). Hắn đứng NGOÀI cửa sổ, không ở trong tiệm (tiệm không có phòng). Áo
 "xám dài" trên avatar VRoid ra tối màu (màu nhân lên phần thân của mẫu). Ai nghe phi vụ không ai biết; độ dài lời thật của
 giọng trình duyệt có thể khác độ dài đoán (`lineSeconds`) nên khoảng 4 giây giữa hai câu chốt là theo đồng hồ của máy, không
 theo tai. Câu chưa ai đọc, chưa ai nghe, chưa ai chơi bằng tay hay trên điện thoại.

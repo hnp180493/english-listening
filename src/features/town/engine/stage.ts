@@ -8,6 +8,7 @@ import type { EmoteKind } from './draw/overlay';
 import type { Marker, StageState } from './sim';
 import type { TalkSetting } from './staging';
 import type { StageExtra, StageExtraCtx } from '../three/scene/stageExtra';
+import type { InteriorId } from '../three/interiors/contracts';
 
 
 /** What can be ridden here and now: the vehicle beside the player, the one ridden, and whether that one is the learner's own (its garage id). */
@@ -101,7 +102,7 @@ export interface TownStageHandle {
    * `room`, alone with their pet; `ready` once inside; endTalk brings them out. False = no world (or busy). `cast`: the
    * people of a job's room (warehouse fifteen, docs/town.md §32): the host, a visitor, more at the room's extras.
    */
-  enterOwnRoom: (room: 'hideout' | 'warehouse15', door: Tile, out: number, ready: () => void, cast?: { host?: string; visitor?: string; more?: readonly string[] }) => boolean;
+  enterOwnRoom: (room: InteriorId, door: Tile, out: number, ready: () => void, cast?: { host?: string; visitor?: string; more?: readonly string[] }) => boolean;
   /** A courtship scene here (docs/town.md §15): the resident beside the player, the camera on the two. False = no world. */
   meet: (placeId: PlaceId, ready: () => void) => boolean;
   /** The town gathers round the player (a wedding), all but these. */

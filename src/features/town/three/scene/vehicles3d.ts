@@ -26,6 +26,12 @@ export interface RideSpec {
   side?: number;
   seatSlim?: number;
   /**
+   * For such a figure, how much further back than `seatAt` its hips go (tiles, along the vehicle): its back against the
+   * seat's back, not sitting forward of it (2026-11-27, the sweep: .assets-try/previews/car-seat-2.png). The hands
+   * still reach the wheel (chars/vrmBody.ts reaches from where the hips are).
+   */
+  seatBack?: number;
+  /**
    * Vietnamese, for "Mượn …": whose it is, so riding is borrowing (owner, 2026-11-26: "chạy xe ô tô của người khác có
    * phải là cướp như gta không?": no, a shared bike, a scooter for hire, a car of Rico's taxi firm, the farm's horse).
    */
@@ -35,11 +41,11 @@ export interface RideSpec {
 export const RIDES: Readonly<Record<VehicleKind, RideSpec>> = {
   bike: { speed: 3.6, seat: 0.4, seatAt: -0.1, name: 'xe đạp công cộng' },
   scooter: { speed: 4.6, seat: 0.36, seatAt: -0.12, name: 'xe máy cho thuê' },
-  car: { speed: 5.6, seat: 0.22, seatAt: -0.12, side: -0.13, seatSlim: 0.35, name: 'xe của hãng taxi Rico' },
+  car: { speed: 5.6, seat: 0.22, seatAt: -0.12, side: -0.13, seatSlim: 0.35, seatBack: 0.04, name: 'xe của hãng taxi Rico' },
   horse: { speed: 4.4, seat: 0.62, seatAt: 0, name: 'ngựa của nông trại' },
   // only bought (data/townGarage.ts): never parked for borrowing
   motorbike: { speed: 6.6, seat: 0.42, seatAt: -0.1, name: 'mô tô' },
-  sportscar: { speed: 8.2, seat: 0.18, seatAt: -0.12, side: -0.14, seatSlim: 0.285, name: 'siêu xe' },
+  sportscar: { speed: 8.2, seat: 0.18, seatAt: -0.12, side: -0.14, seatSlim: 0.285, seatBack: 0.04, name: 'siêu xe' },
 };
 
 /** Colours a vehicle may come in (by its index: two of a kind are told apart). */

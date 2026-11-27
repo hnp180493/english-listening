@@ -59,9 +59,10 @@ export interface ActivityPanelProps {
   onOpen?: (id: ActivityId) => void;
   /**
    * A courtship scene begins (docs/town.md §15): the stage takes the player where it happens (`spot`, data/romance/places;
-   * null = here) and puts the one courted beside them; `wedding`: the town gathers round.
+   * null = here) and puts the one courted beside them; `wedding`: the town gathers round. A get-together (`event`, its
+   * speakers `who`): everybody who speaks in it is there (scenes/eventStaging.ts).
    */
-  onScene?: (scene: { placeId: string; spot: SceneSpot | null; wedding: boolean }) => void;
+  onScene?: (scene: { placeId: string; spot: SceneSpot | null; wedding: boolean; event?: string; who?: readonly string[] }) => void;
   /** The scene is over (or left): the camera back on the player; `celebrate` for a yes, a proposal, a wedding. */
   onSceneEnd?: (end: { placeId: string; celebrate: boolean }) => void;
   /**

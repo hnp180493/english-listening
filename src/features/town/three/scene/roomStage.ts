@@ -117,6 +117,8 @@ export class RoomStage {
   private camSet = false;
   readonly host: string;
   readonly visitor: string | null;
+  /** The cast's own people at the extras (a job's, a get-together's): framed with the host and the player. */
+  private readonly more: readonly string[];
   /**
    * The neighbour who drops in (docs/town.md §7 "Staging"): 'out' of the room (not drawn) until their first line, then
    * walking in from outside the room's open side round the furniture ('enter', `k` 0 → 1 along `way`, interiors/rooms.ts
@@ -130,6 +132,7 @@ export class RoomStage {
     this.room = room;
     this.host = cast.host;
     this.visitor = cast.visitor;
+    this.more = cast.more ? cast.more.slice(0, room.extras.length) : [];
     this.rng = seeded(seed * 7919 + room.id.length * 31);
     this.scene.add(room.root);
     // (no host: the learner's own room, entered alone: docs/town.md §29)
@@ -321,7 +324,7 @@ export class RoomStage {
   /** Feet and head (with room for a bubble over it) of the ones who talk: what the shot must show whole. */
   private framePoints(bubble: number): Vector3[] {
     const pts: Vector3[] = [];
-    for (const id of [this.host, 'player', this.visitor]) {
+    for (const id of [this.host, 'player', this.visitor, ...this.more]) {
       const p = id ? this.people.get(id) : null;
       // (a neighbour not in the room yet is not framed: the shot widens to them as they come in)
       if (!p || (id === this.visitor && this.visit?.state === 'out')) continue;

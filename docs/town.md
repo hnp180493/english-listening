@@ -2561,7 +2561,18 @@ closes, then back to their day); both are named, and whoever speaks has the talk
 animation (`ActivityPanelProps.onListen` / `onSpeaking` → `TownStageHandle.listenFrom` / `endListen`, the stage's
 `speaking`). A key or a click walk gets the player up. Looked at in pictures (the bench on the plaza, with one of
 the two speaking; the stool by the radio); the walk in, the sitting down and the getting up were not watched moving.
-A get-together is not staged this way yet: the player goes to the host's place and only the host is there.
+**Get-togethers staged** (2026-11-27, `features/town/scenes/eventStaging.ts`): everybody who speaks in a get-together
+is there. Grace's Sunday lunch, Daniel's Thursday club and Emma's Friday dinner are inside the host's room (through the
+dark, the host at their place, the others at the room's extras: `enterOwnRoom` with `more`; the room's shot now frames
+those extras too, `roomStage.ts framePoints`); Leo's board games and Tom's Saturday market are on the plaza (an outside
+talk with the host, the others coming to stand round: `joinTalk`, the bubble over whoever speaks); one at a place not
+built yet is on the plaza too; whoever is not in town is left out. ListenPanel passes the event and its speakers in
+`onScene`, TownPage stages it and ends it with the scene. Found on the way: in dev, React's StrictMode ended the staged
+scene at once and the panel's guard kept it from being staged again (the player stood at the café's door alone); the
+guard is reset now. Westbay's get-togethers and festivals were staged already (CityPage: an outside talk at the host's,
+`joinTalk`). Seen in pictures: Friday dinner from "Việc hôm nay → Tới dự" (Emma behind the counter, Mia, Ben and Max at
+the café's tables), the Saturday market's four on the plaza with the bubble over the speaker
+(`.assets-try/previews/sweep2-event-*.png`); the others not looked at, nothing heard.
 
 **Seeing the town** (`scripts/town-shot.mjs`, `three/webgl.ts wantsSoft`). The machine an agent's commands run on
 has no graphics card (WebGL reports "Microsoft Basic Render Driver"), so the 3D town did not draw in its headless
@@ -2924,6 +2935,18 @@ in code again.
   tag under somebody's feet is the overlay's rule when there is no room above (the HUD's top row, the stage's edge).
   Not looked at: children (the sandbox has none), Grace's stoop up close (she was in the woods), held cup / can / book
   in the street, the wedding, a passenger getting in or out, the boat, the police car, night; motion, sound, a real GPU.
+- **The second sweep** (2026-11-27, `.assets-try/previews/sweep2-*.png`). Fixed: in a car or the sports car the driver
+  sat forward of the seat's back (`car-seat-2.png`): an avatar's hips now go `seatBack` 0.04 of a tile further back
+  (`vehicles3d.ts RideSpec`, `engine3d.ts seatOffset`, the wheel's reach in `vrmBody.ts` from there), back against the
+  seat, hands still on the wheel (`sweep2-car-seat.png`). Looked at and fine: a child following the player (a toddler
+  set in `kids`, about knee to hip of the grown-up); the straw hat from the wardrobe on the avatar's head; Grace, Ben,
+  Dr Osei on the admin page's `?elders` sheet (lines and beards drawn, Grace's glasses and bun); the wedding (the one
+  courted beside the player, the town walking in round them); a passenger set down beside the car; the patrol car beside
+  the player (their head just over its roof); night in the town and in Westbay (lamps, string lights, windows lit). Not
+  made out: held things in the street (at the game's noon nobody near was holding one), Grace's stoop walking (she was
+  indoors at the hours tried), anybody standing IN the boat (in the headless browser the ride goes straight to its
+  landing). Noted, not a bug: a setState in a dev check that changes `look` or `kids` rebuilds the player, and for a few
+  seconds the residents are hidden while their avatars come back.
 - **Cost**: `slim()` drops the outline pass and merges skinned meshes that share a material (a sample's 90–130
   draw calls become about 23). On the software renderer: the plaza with 10 avatars worn of 21 people, 249 draw calls
   and 0.77 M triangles; Westbay's terminal with 7 worn of 50, 254 and 1.31 M (the town alone: about 100 and 0.5 M).
@@ -3051,14 +3074,68 @@ So that the hour reads in the light and the weather on the ground, as in GTA:
   151 / 1.63 M, dusk 18:30 147 / 1.44 M (the town's plaza could not be compared: people walking in and out of view
   move it by 60 calls). Dev: `debugSky(hour, sky, wet?)` (wet defaults to 1 in rain and storm, else 0).
 
-**Not done, not known.** No clouds drawn in the 3D sky (only their shadows and the canvas's shapes), no moon drawn,
-no reflections of buildings in puddles (only the sky's colour and the lamps' highlights), no splashes, nobody opens an
-umbrella or goes indoors, the birds fly in the rain. The app's dark theme no longer makes the town dark (a learner in
-the dark theme sees a bright town at the game's noon). Residents still live by the REAL clock (their week, their
-opening hours), not the game's. Seen only in pictures from `scripts/town-shot.mjs` on the software renderer
+**Not done, not known.** No reflections of buildings in puddles (only the sky's colour and the lamps' highlights), no
+splashes, nobody goes indoors because of the rain, the birds fly in it. The app's dark theme no longer makes the town
+dark (a learner in the dark theme sees a bright town at the game's noon). Clouds, the moon, umbrellas and the
+residents' day by the game's clock came later (below). Seen only in pictures from `scripts/town-shot.mjs` on the software renderer
 (`.assets-try/previews/sky-*.png`, outside git); nobody has heard the rain or the thunder (the headless browser is
 mute), watched a sky ease into another, a shadow step, the clouds drift or a flash. The loudness, the odds, the mist's
 strength, the drying time and the puddles' look are guesses.
+
+### Clouds and the moon, umbrellas, and life by the game's clock (2026-11-27)
+
+The owner asked for what §24 had left: clouds and the moon in 3D, umbrellas in the rain, and the residents living
+by the game's hour.
+
+- **What the camera can see of the sky.** The camera looks down at 33° (26° in a conversation) with a lens of 28°, so
+  its highest ray is still 19° (12°) below the horizon: the sky itself is never in the picture, in the follow view or
+  the overview. A cloud or a moon drawn overhead would be drawn for nobody, so neither is.
+- **Clouds** (`three/scene/clouds.ts`, made with the backdrop): low cloud lying on the range behind the far sides (30
+  puffs a few tiles over the slopes) and banks over the open sea past the range's two ends (16 puffs that drift along
+  the wind and wrap round). Seen from the edge of town towards the mountains and in the overview. How many show goes
+  with the sky's cloud (a few small white ones on a clear day, most on a cloudy one, all of them, lower and bigger, in
+  rain); their colour goes white → grey → dark grey with rain and storm, pink-gold at dawn and dusk, dim blue-grey at
+  night, faded into the mist far off. One mesh, one draw call, no shadow (the cloud shadows on the ground were already
+  there, weather3d.ts), its shader moves and hides the puffs from a few uniforms (`TownScene.setClouds`, set where the
+  engine sets the air).
+- **The moon** is seen where the camera can see it: on the water. The water's shader (`materials.ts addWater`,
+  `Shared.moon`) reflects the moon's direction, the same one `sunPath.ts sunAt` gives the night's light and shadows,
+  off small slanted wavelets towards the eye: sparse twinkling glints over a soft silver sheen, thickest on the side
+  the moon is on (the shadows point the other way), dimmed by cloud (`TownScene.paintMoon`: strength × night ×
+  (1 − 0.92 × cloud)). No draw call, no pass. From the usual camera (turned the default way) the moon is off to the
+  left, so the path shows best in the overview and when the camera is turned towards it.
+- **Umbrellas** (`three/scene/umbrellas.ts`): out in the rain (sky.ts mix.rain > 0.3: a shower or a storm, not a
+  drizzle as it clears) everybody drawn in the town holds one up, the anime bodies and the code-built ones alike,
+  residents, passers-by, the learner and the children walking with them; not while riding, not while fishing, not
+  with a cup, a can, a rod or a book in hand (the pose's `C.umbrella` stays down), never in a room. The pose
+  (`chars/anim.ts`, `umbrellaWant` / `umbrellaBlend`, eased in a second, at once under reduced motion) brings the
+  right forearm up; the umbrella stands at the body's right side, upright, its canopy over the head, sized to the body
+  (`umbrella()` on `Character3DPlus`: person.ts for the code body, vrmBody.ts for an avatar, which also stops the
+  walk's swing of that arm). All of them are ONE instanced mesh (up to 128), a colour each by who holds it: +1 draw
+  call while anybody holds one, none otherwise. A body hidden while its avatar loads shows no umbrella.
+- **Life by the game's clock** (`engine/life.ts lifeMinutes`, the sim's default clock): the residents' day follows the
+  game's hour through the one gate (`sky.ts gameMinutes` → `gameClock.ts gameNow`, so a sleep in the hideout moves it
+  too): at the game's night most are indoors behind lit windows and the passers-by go home, in the morning they come
+  out, as the light says. A game day is 48 real minutes, so their day turns 30 times faster than before; an activity
+  still lasts its 10–90 real seconds, so nobody hurries or freezes (tested: a game night and morning played at its
+  real pace, no resident moves more than half a tile in a frame other than sitting down or getting up, which they
+  always did). The one the main button sends the player to never goes in (as before), and anybody indoors comes out
+  when a talk, a walk to them or a staged scene needs them (as at a real night before). What is counted by the REAL
+  day does not move: the daily tasks and allowances, the weekly get-togethers by the learner's weekday
+  (`world.ts weekdayOf`), who comes up to Westbay, a chapter a day (tested with a sleep: `life.test.ts`).
+- Draw calls (software renderer, 1400×900, measured by drawing the same frame with and without each): the plaza in
+  rain 214 with everything, 213 without the umbrellas (4 held), 213 without the clouds; the overview in rain 1085 /
+  1084 / 1084; the plaza on a clear day 209, 208 without the clouds. The moon costs none.
+- **Not done, not known.** No cloud or moon in the sky itself (never in view, see above). The moon's path is faint
+  from the default turn of the camera. Nobody goes indoors because of the rain; nobody sits under an umbrella on a
+  bench differently from standing; the hand meets the shaft at the body's side but the arm's pose was set by eye on
+  one avatar and one code body; children and the city's crowd under umbrellas were seen only in passing. Westbay's
+  opening hours were already by the game's clock (§33); the residents' life there now is too. Seen only in pictures
+  from `scripts/town-shot.mjs` on the software renderer (`.assets-try/previews/sky2-*.png`: clear, cloudy, dusk and
+  night overviews, rain on the plaza near and far, the code-built bodies in rain, a storm, the moon on the sea from
+  the beach, Westbay in rain, a phone in rain and at night). Nobody watched an umbrella open, the clouds drift, the
+  glints twinkle, or a game day of the residents go by; the puff counts, heights, colours, the rain threshold and the
+  glints' strength are guesses.
 
 ## 25. Bay FM, true of the game (2026-11-26)
 

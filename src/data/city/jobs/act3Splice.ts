@@ -136,7 +136,7 @@ export const JOB_SPLICE: JobDoc = {
     // in by the back door (the clue): the rehearsal is heard a third time
     {
       kind: 'overhear',
-      at: 'poppy',
+      at: 'poppy-window',
       who: ['shona', 'lyle'],
       lines: ['o01', 'o02', 'o03', 'o04', 'o05', 'o06', 'o07', 'o08', 'o09'].map(id),
       passes: 3,
@@ -145,7 +145,7 @@ export const JOB_SPLICE: JobDoc = {
     },
     {
       kind: 'overhear',
-      at: 'poppy',
+      at: 'poppy-window',
       who: ['shona', 'lyle'],
       lines: ['o01', 'o02', 'o03', 'o04', 'o05', 'o06', 'o07', 'o08', 'o09'].map(id),
       passes: 2,

@@ -46,6 +46,7 @@ import type { FishStagePhase, MapSnapshot, Near, TownStageHandle, TravelMode, Tr
 import { narrowStage, useFullStage, useStageInsets, useTownTheme } from './stageShell';
 import MiniMap from './map/MiniMap';
 import { metInStreet, playerStand, type TalkSetting } from './engine/staging';
+import { stageTownEvent } from './scenes/eventStaging';
 import { homeSetting, streetTalkView } from './streetModel';
 import { deliveriesLeftNow, getCarrying, handDelivery, startDeliveryClock, useCarrying } from '../../core/town/deliveryStore';
 import { deliverySeconds } from '../../core/town/delivery';
@@ -558,10 +559,19 @@ export default function TownPage() {
    * A courtship scene (docs/town.md §15): a dip to where it happens (a place's door, the pier, a part of town), the one
    * courted beside the player, the camera on the two; a wedding brings the whole town round.
    */
-  const onScene = useCallback(({ placeId, spot, wedding }: { placeId: string; spot: SceneSpot | null; wedding: boolean }) => {
+  // a get-together staged with everybody who speaks in it (scenes/eventStaging.ts), ended with the scene
+  const eventStaged = useRef(false);
+  const builtNow = useRef<readonly string[]>([]);
+  builtNow.current = overview.places.filter((p) => p.built).map((p) => p.place.id);
+  const onScene = useCallback(({ placeId, spot, wedding, event, who }: { placeId: string; spot: SceneSpot | null; wedding: boolean; event?: string; who?: readonly string[] }) => {
     const st = stage.current;
     if (!st) return;
     const id = placeId as PlaceId;
+    if (event) {
+      const speakers = (who ?? []).filter((w): w is PlaceId => (PLACE_IDS as readonly string[]).includes(w));
+      eventStaged.current = stageTownEvent(st, event, speakers, builtNow.current);
+      if (eventStaged.current) return;
+    }
     const here = () => {
       st.meet(id, () => {});
       if (wedding) st.crowd([id]);
@@ -580,6 +590,8 @@ export default function TownPage() {
         st.emote('player', 'heart');
         sfx('task');
       }
+      if (eventStaged.current) st.endListen();
+      eventStaged.current = false;
       st.endTalk();
     },
     [sfx],

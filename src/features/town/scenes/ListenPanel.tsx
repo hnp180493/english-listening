@@ -119,9 +119,12 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
   useEffect(() => {
     if (!host || !scene || staged.current) return;
     staged.current = true;
-    onScene?.({ placeId: host, spot: { kind: 'place', id: host }, wedding: false });
+    onScene?.({ placeId: host, spot: { kind: 'place', id: host }, wedding: false, event: focus?.startsWith('event:') ? focus.slice('event:'.length) : undefined, who: [...new Set(scene.lines.map((l) => l.who))] });
     return () => {
       onSceneEnd?.({ placeId: host, celebrate: false });
+      // (staged again if the effect runs again: React's StrictMode in dev ends and restarts it at once, and the
+      // gathering it ended has to come back)
+      staged.current = false;
     };
     // once, for the scene this panel opened with
     // eslint-disable-next-line react-hooks/exhaustive-deps
