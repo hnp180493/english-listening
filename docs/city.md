@@ -671,3 +671,15 @@ Six jobs (`data/city/jobs/act3*.ts`: `job-forged`, `job-twomarcus`, `job-samcall
   air ("Not one dollar has moved"). The outcome depends on what the learner kept (docs/gta-story-3.md §6): at best Kemp's bid
   is withdrawn and **Mrs Delaney is asked back** by the Trust; in the middle the listeners' bid stands "for now"; at worst the
   sale is paused another month. Kemp is never arrested.
+
+## 22. What the learner's assets added (now canon, if the owner keeps them)
+
+From the assets after the dispatch office (`core/town/assets.ts`, `data/city/assetReports.ts`, docs/town.md §34).
+
+- **Amira** minds a small spice stall the learner owns next to hers on Market Street and rings at the end of the day: how
+  many jars, at what price. She calls the learner "love".
+- **Theo** fixes cars for the firm's customers on the days the ferry does not need him, and reports in as few words as he
+  can: the car, its plate, the repair, the bill.
+- **Kit** says which Bay FM programme carries the firm's name tonight and when; **Marcus** reads it himself: "This hour of
+  Bay FM comes to you with the help of Rico's cars, at the old gatehouse on Pier Road. Ring phone two, day or night."
+- **Captain Odile** lends the ferry's launch for the water door only against a deposit (job "Cửa nước").

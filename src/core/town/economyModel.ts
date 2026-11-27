@@ -23,6 +23,7 @@ import { FISH_DAILY_XU } from './fishing';
 import { JOB_PAY, JOBS_PAID_A_DAY, jobLevelPay, type JobGrade } from './job';
 import { SPEECH_RULES, type SpeechLevel } from './difficulty';
 import { OFFICE_UPGRADES, officeTakings, shiftSetup, WORDS_PAID_A_DAY, wordPay } from './office';
+import { ASSET_LOSS, ASSET_REPORTS_A_DAY, ASSETS } from './assets';
 import { fineFor } from './police';
 import { SHIFT_XU_DAY } from './shift';
 import { TAXI_FIRST_XU, TAXI_PAID_A_DAY, TAXI_XU } from './taxi';
@@ -56,7 +57,8 @@ export type SourceId =
   | 'workShift'
   | 'job'
   | 'dispatch'
-  | 'takings';
+  | 'takings'
+  | 'assets';
 
 /** What the learner's state is when a session is played (some sources pay less once their fresh content is used). */
 export interface ModelState {
@@ -70,6 +72,8 @@ export interface ModelState {
   cityLeft: number;
   /** Office upgrades owned. */
   upgrades: readonly string[];
+  /** The learner's assets owned (./assets.ts; absent: none). */
+  assets?: readonly string[];
 }
 
 export interface Source {
@@ -215,6 +219,16 @@ export const SOURCES: readonly Source[] = [
     perDay: WORDS_PAID_A_DAY,
     xu: (p, s) => p * wordPay(officeTakings(s.upgrades), true) + (1 - p) * wordPay(officeTakings(s.upgrades), false),
   },
+  {
+    // the managers' reports (./assets.ts): two things to hear each, ASSET_LOSS of the takings lost for each misheard
+    id: 'assets',
+    name: "Assets (the managers' reports)",
+    opens: 'office',
+    minutes: 1.5,
+    perDay: ASSET_REPORTS_A_DAY,
+    xu: (p, s) => ASSETS.filter((a) => (s.assets ?? []).includes(a.id)).reduce((n, a) => n + a.takings * (1 - 2 * ASSET_LOSS * (1 - p)), 0),
+    left: (s) => ((s.assets ?? []).length > 0 ? Infinity : 0),
+  },
 ];
 
 export interface Learner {
@@ -235,7 +249,7 @@ export const LEARNERS: readonly Learner[] = [
     name: '10 min a day, understands 70%',
     minutes: 10,
     understood: 0.7,
-    mix: { chat: 4, episode: 2, tasks: 1, fish: 1, farm: 1, radio: 1, overheard: 1, cityScene: 2, taxi: 1, job: 1, takings: 1 },
+    mix: { chat: 4, episode: 2, tasks: 1, fish: 1, farm: 1, radio: 1, overheard: 1, cityScene: 2, taxi: 1, job: 1, takings: 1, assets: 1 },
   },
   {
     id: 'twenty',
@@ -244,7 +258,7 @@ export const LEARNERS: readonly Learner[] = [
     understood: 0.8,
     mix: {
       chat: 3, episode: 2, relisten: 1, tasks: 1, fish: 1, farm: 2, cafe: 1, delivery: 1, case: 1, overheard: 1, radio: 1, event: 1,
-      ride: 1, cityScene: 2, taxi: 1, workShift: 1, job: 2, dispatch: 2, takings: 1,
+      ride: 1, cityScene: 2, taxi: 1, workShift: 1, job: 2, dispatch: 2, takings: 1, assets: 1,
     },
   },
   {
@@ -254,7 +268,7 @@ export const LEARNERS: readonly Learner[] = [
     understood: 0.85,
     mix: {
       chat: 2, episode: 2, relisten: 1, tasks: 1, fish: 1, farm: 2, cafe: 1, delivery: 1, case: 1, overheard: 1, radio: 1, event: 1,
-      ride: 1, cityScene: 2, taxi: 1, workShift: 1, job: 2, dispatch: 2, takings: 1,
+      ride: 1, cityScene: 2, taxi: 1, workShift: 1, job: 2, dispatch: 2, takings: 1, assets: 1,
     },
   },
 ];
@@ -294,7 +308,9 @@ function nextBuy(owned: ReadonlySet<string>, office: boolean): { id: string; cos
   for (const d of TOWN_DECORATIONS) if (!owned.has(d.id)) return { id: d.id, cost: d.cost };
   if (!office) return null;
   if (!owned.has('hideout')) return { id: 'hideout', cost: HIDEOUT_COST };
-  for (const u of OFFICE_UPGRADES) if (!owned.has(u.id)) return { id: u.id, cost: u.cost };
+  // the office's upgrades and the assets (./assets.ts), the cheapest first
+  const next = [...OFFICE_UPGRADES, ...ASSETS].filter((x) => !owned.has(x.id)).sort((a, b) => a.cost - b.cost)[0];
+  if (next) return { id: next.id, cost: next.cost };
   for (const g of GARAGE) if (!owned.has(g.id)) return { id: g.id, cost: g.cost };
   return null;
 }
@@ -302,7 +318,7 @@ function nextBuy(owned: ReadonlySet<string>, office: boolean): { id: string; cos
 /** Sixty days (or `days`) of a learner. */
 export function simulate(learner: Learner, days = 60, sources: readonly Source[] = SOURCES): Simulation {
   const p = learner.understood;
-  let state: ModelState = { freshLines: 300, episodesLeft: 60, chaptersLeft: 15, cityLeft: 160, upgrades: [] };
+  let state: ModelState = { freshLines: 300, episodesLeft: 60, chaptersLeft: 15, cityLeft: 160, upgrades: [], assets: [] };
   let balance = 0;
   const owned = new Set<string>();
   const boughtOn: Record<string, number> = {};
@@ -358,7 +374,7 @@ export function simulate(learner: Learner, days = 60, sources: readonly Source[]
       boughtOn[next.id] = day;
       bought.push(next.id);
     }
-    state = { ...state, upgrades: OFFICE_UPGRADES.filter((u) => owned.has(u.id)).map((u) => u.id) };
+    state = { ...state, upgrades: OFFICE_UPGRADES.filter((u) => owned.has(u.id)).map((u) => u.id), assets: ASSETS.filter((a) => owned.has(a.id)).map((a) => a.id) };
     // Westbay opens the day after the bus station stands; the office a while into its story
     if (cityDay === null && STATION >= 0 && owned.has(LOTS[STATION].id)) cityDay = day + 1;
     if (officeDay === null && cityDay !== null && day + 1 >= cityDay + OFFICE_AFTER_CITY_DAYS) officeDay = day + 1;

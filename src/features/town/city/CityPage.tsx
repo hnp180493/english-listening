@@ -77,7 +77,10 @@ import { ownsHideout } from '../../../core/town/hideout';
 import { useTownHideout } from '../../../core/town/hideoutStore';
 import { useHeat } from '../jobs/heatStore';
 import { HIDEOUT_QUEST_ID, hideoutQuest } from '../hideout/hideoutQuest';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, Store } from 'lucide-react';
+// the learner's assets after the office (../assets, docs/town.md §34): the panel, the quest card, the managers
+import { ASSET_MANAGERS, ASSETS_QUEST_PREFIX, assetsQuest } from '../assets/assetsQuest';
+import { ASSETS, type AssetId } from '../../../core/town/assets';
 // the clock as a rule: opening hours (docs/town.md §33)
 import { hourLabel, opensAt } from '../../../data/city/hours';
 import { makeHoursLayer } from './hours3d';
@@ -95,6 +98,8 @@ const TaxiPanel = lazy(() => import('./TaxiPanel'));
 const HideoutPanel = lazy(() => import('../hideout/HideoutPanel'));
 /** Rico's dispatch office in the old gatehouse (../dispatch, docs/town.md §27). */
 const DispatchOffice = lazy(() => import('../dispatch/DispatchOffice'));
+/** The learner's assets: the stall, the workshop, the Bay FM sponsorship (../assets, docs/town.md §34). */
+const AssetsPanel = lazy(() => import('../assets/AssetsPanel'));
 /** The full map (M, or the minimap): the town's, on Westbay's world. */
 const TownMap = lazy(() => import('../map/TownMap'));
 
@@ -113,6 +118,7 @@ type Sheet =
   | { kind: 'taxi'; key: number }
   | { kind: 'dispatch'; key: number }
   | { kind: 'hideout'; key: number }
+  | { kind: 'assets'; key: number; focus: AssetId | null }
   | { kind: 'event'; key: number; event: CityEvent };
 
 /** What the one button offers beside somebody. */
@@ -442,14 +448,18 @@ export default function CityPage() {
   const riding = !!ridingTo;
   // Rico's dispatch office (../dispatch): open once Gus offered him the gatehouse (the main story's part 2)
   const officeOpen = dispatchOpen(city);
+  const gameHourNow = useGameHour();
   const withOffice = useMemo(() => {
     if (!officeOpen) return allQuests;
     // the hideout behind Gus's hut is offered with the office (../hideout/hideoutQuest.ts)
     const room = hideoutQuest(hideoutOwned, heat);
-    return [...allQuests, dispatchQuest(DISPATCH_SHIFTS_A_DAY - shiftsPaidToday()), ...(room ? [room] : [])];
-  }, [officeOpen, allQuests, hideoutOwned, heat]);
+    // the learner's assets come after the office (../assets/assetsQuest.ts): one card at most
+    const owns = assetsQuest();
+    return [...allQuests, dispatchQuest(DISPATCH_SHIFTS_A_DAY - shiftsPaidToday()), ...(room ? [room] : []), ...(owns ? [owns] : [])];
+    // (progress: a report paid or an asset bought changes the card; gameHour: a new game day brings a report)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [officeOpen, allQuests, hideoutOwned, heat, progress, gameHourNow]);
   // (a card to somebody whose place is shut says when it opens: ./hoursQuest.ts)
-  const gameHourNow = useGameHour();
   const questList = useMemo(() => [...job.quests, ...withHours(withOffice, gameHourNow, ADMIN)], [job.quests, withOffice, gameHourNow]);
   const quest = job.active ? job.quests[0] : riding ? allQuests[0] : followed(questList, questPick);
   // a main story chapter to get to in time (data/city/seasonsMain.ts `rush`): the clock starts when it is taken on
@@ -487,6 +497,11 @@ export default function CityPage() {
     }
     if (q.id === HIDEOUT_QUEST_ID) {
       void stage.current?.travelTo({ kind: 'activity', id: HIDEOUT_THING }, 'walk', () => openThing(HIDEOUT_THING));
+      return;
+    }
+    if (q.id.startsWith(ASSETS_QUEST_PREFIX)) {
+      const a = ASSETS.find((x) => x.id === q.id.slice(ASSETS_QUEST_PREFIX.length));
+      if (a) void stage.current?.walkTo(a.manager as PlaceId, () => setSheet((sh) => sh ?? { kind: 'assets', key: ++keys.current, focus: a.id }));
       return;
     }
     if (q.id === DISPATCH_QUEST_ID) {
@@ -663,6 +678,13 @@ export default function CityPage() {
                     </button>
                   </li>
                 )}
+                {officeOpen && (
+                  <li>
+                    <button type="button" className="btn btn-ghost" onClick={() => setSheet({ kind: 'assets', key: ++keys.current, focus: null })}>
+                      Tài sản
+                    </button>
+                  </li>
+                )}
                 {CITY_SHIFTS.filter((s) => shiftAt(s.at)).map((s) => (
                   <li key={s.id}>
                     <button type="button" className="btn btn-ghost" onClick={() => setSheet({ kind: 'shift', key: ++keys.current, id: s.id })}>
@@ -788,6 +810,17 @@ export default function CityPage() {
                 <span className="town-prompt-gift-label">Văn phòng</span>
               </button>
             )}
+            {officeOpen && nearId && ASSET_MANAGERS.includes(nearId as string) && (
+              <button
+                type="button"
+                className="btn btn-lg town-prompt-gift"
+                onClick={() => !sheet && setSheet({ kind: 'assets', key: ++keys.current, focus: ASSETS.find((a) => a.manager === (nearId as string))?.id ?? null })}
+                aria-label="Tài sản"
+              >
+                <Icon icon={Store} size={18} />
+                <span className="town-prompt-gift-label">Tài sản</span>
+              </button>
+            )}
             {nearOuting && nearId && (
               <button type="button" className="btn btn-lg town-prompt-gift" onClick={() => startOuting(nearId, nearOuting)} aria-label={nearOuting.kind === 'family' ? 'Cả nhà ghé đây' : 'Hẹn hò ở đây'}>
                 <Icon icon={Heart} size={18} />
@@ -847,6 +880,13 @@ export default function CityPage() {
           <CitySheet title="Chỗ ẩn" onClose={closeSheet}>
             <Suspense fallback={<p className="town-build-hint">Đang mở…</p>}>
               <HideoutPanel key={shownSheet.key} sound={ui.sound} onReward={onReward} onClose={closeSheet} enter={flat ? null : (ready) => stage.current?.enterOwnRoom('hideout', HIDEOUT_DOOR, Math.PI / 2, ready) ?? false} />
+            </Suspense>
+          </CitySheet>
+        )}
+        {shownSheet?.kind === 'assets' && (
+          <CitySheet title="Tài sản" onClose={closeSheet}>
+            <Suspense fallback={<p className="town-build-hint">Đang mở…</p>}>
+              <AssetsPanel key={shownSheet.key} focus={shownSheet.focus} sound={ui.sound} onReward={onReward} />
             </Suspense>
           </CitySheet>
         )}

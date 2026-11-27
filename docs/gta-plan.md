@@ -702,3 +702,21 @@ ga, Lyle và Shona ở Twin Ovens, ba mạch một mình và với Tess, ba Rico
 "xám dài" trên avatar VRoid ra tối màu (màu nhân lên phần thân của mẫu). Ai nghe phi vụ không ai biết; độ dài lời thật của
 giọng trình duyệt có thể khác độ dài đoán (`lineSeconds`) nên khoảng 4 giây giữa hai câu chốt là theo đồng hồ của máy, không
 theo tai. Câu chưa ai đọc, chưa ai nghe, chưa ai chơi bằng tay hay trên điện thoại.
+
+## 21. Tài sản, tiếng tăm và đặt cọc, as built (2026-11-27)
+
+§4.4 và §5 "Mở khóa", chi tiết ở docs/town.md §34.
+
+- **Ba tài sản** (`core/town/assets.ts`, `assetsStore.ts`, `features/town/assets/`): sạp gia vị ở Market Street (Amira,
+  900 xu, 6 xu mỗi ngày game), xưởng sửa xe (Theo, 1.500, 8), bảo trợ một chương trình Bay FM (Kit, 2.000, 7). Mua qua
+  cửa hàng của thị trấn (`bought`, không key mới). Mỗi ngày game người quản lý báo bằng lời (giọng trình duyệt), hai điều
+  phải nghe, mỗi tài sản một kiểu: số hũ và giá (-teen/-ty, pence); biển số từng chữ (B/D/P/T/V) và tiền; tên chương
+  trình (lệch một âm) và giờ ("quarter to/past"). Đúng cả hai giữ trọn tiền thu, mỗi điều sai mất 30%. `sponsorLine()`
+  cho đài đọc câu bảo trợ khi đã mua.
+- **Tiếng tăm** (`core/town/fame.ts`): tính thuần từ town-jobs (hạng tốt nhất: 3/2/1), town-ear (8 cuộc gọi điều xe = 1),
+  tài sản (2) và nâng cấp văn phòng (1). Không lưu, không giảm. Hiện ở panel điện thoại Westbay, ghi rõ là điểm trò chơi.
+- **Đặt cọc / điều kiện**: `JobDoc.needs` (`wellFormed` kiểm). Cửa nước cọc 150 (mượn xuồng của phà), Kho 15 tiếng tăm
+  24 + cọc 300, Phát sóng trực tiếp tiếng tăm 40. Phi vụ còn thiếu không đổ chuông; thẻ nhiệm vụ ghi thiếu gì và mở điện
+  thoại để đặt cọc. Cọc trả lại lần đầu xong phi vụ (Hỏng: hai phần ba). Đã chơi rồi không bị khóa lại; admin bỏ qua.
+- Mọi con số là đoán. `economyModel.ts` có tài sản là nguồn và chỗ tiêu; các tính chất cũ vẫn xanh, thêm ba tính chất.
+  Chưa ai nghe một bản báo cáo hay chơi bằng tay; câu thoại do model viết, chưa ai đọc.

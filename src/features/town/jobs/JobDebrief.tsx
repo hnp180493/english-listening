@@ -134,6 +134,7 @@ export default function JobDebrief({ run, say, news, newsNow, lineOf, onAgain, o
             {tl`Đi cùng: ${jobSpeakerName(crewRole.who)} (${crewRole.role})`} · {run.crewTake > 0 ? tl`lấy ${run.crewTake} xu` : 'không lấy gì hôm nay'}
           </p>
         )}
+        {(run.depositBack ?? 0) > 0 && <p className="town-build-hint">{tl`Tiền đặt cọc trả lại: +${run.depositBack} xu.`}</p>}
         {hits.length > 0 ? (
           <ul className="job-problems">
             {hits.map((h) => (

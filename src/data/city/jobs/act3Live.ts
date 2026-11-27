@@ -139,6 +139,8 @@ export const JOB_LIVE: JobDoc = {
   opens: ['ct-rico-1'],
   after: 'job-forged',
   afterAll: ['job-twomarcus', 'job-samcall', 'job-splice', 'job-tomcall'],
+  // the finale asks for a name in the city first (core/town/fame.ts, gta-plan §5 "Mở khóa"): a guess
+  needs: { fame: 40 },
   from: 'marcus',
   lines: LINES,
   facts: [

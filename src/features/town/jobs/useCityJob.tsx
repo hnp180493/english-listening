@@ -46,6 +46,8 @@ import { evalCond, gradeHits, saidNow, type CondState, type CrewRole, type Inten
 import { enrolJobMisses, payJob } from '../../../core/town/jobStore';
 import { hasClue, jobDone, jobUnlocked, pastFlag } from '../../../core/town/jobProgress';
 import { recordJobEar } from '../ear/gameEarFacts';
+import { payDeposit, returnDeposit } from '../../../core/town/assetsStore';
+import { needsStep, useJobNeeds } from './jobNeeds';
 import { finishJobRun, grantClue, loadTownJobs, pinSpeechLevel, recordSpeechRun, speechLevelNow, useTownJobs } from '../../../core/town/jobsStore';
 import { brokenPieces, emptySpeech, SPEECH_RULES, type SpeechLevel } from '../../../core/town/difficulty';
 import { clockOf, timeWords } from '../../../core/town/job';
@@ -120,6 +122,8 @@ export interface JobRunState {
   /** The speech level this run is played at (core/town/difficulty.ts), and whether it was pinned by the learner. */
   speech: SpeechLevel;
   pinned: boolean;
+  /** The deposit given back at the end (core/town/fame.ts), when one was. */
+  depositBack?: number;
 }
 
 type UiKind = 'idle' | 'ringing' | 'crew' | 'voicemail' | 'patrol' | 'threads' | 'pick' | 'spot' | 'call' | 'notes' | 'go' | 'find' | 'ride' | 'phone' | 'radio' | 'scene' | 'overhear' | 'intent' | 'password' | 'closing' | 'debrief';
@@ -257,6 +261,8 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
   /** Offered: the next of the chain (not done yet) and the side jobs; the done ones only to replay. */
   const open = useMemo(() => unlocked.filter((d) => d.side || !jobDone(progress, d.id)), [unlocked, progress]);
   const replays = useMemo(() => unlocked.filter((d) => !d.side && jobDone(progress, d.id)), [unlocked, progress]);
+  // a big job waits for fame or a deposit (core/town/fame.ts): it does not ring, its card says what is missing
+  const needs = useJobNeeds(open, ADMIN);
   const [run, setRun] = useState<JobRunState | null>(null);
   const runRef = useRef<JobRunState | null>(null);
   const patch = useCallback((change: (r: JobRunState) => JobRunState) => {
@@ -941,11 +947,13 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       const missed = [...new Set(ids.map((id) => lineOf(id).ref))].filter((ref) => said.has(ref));
       const enrolled = enrolJobMisses(missed, t);
       recordJobEar(doc, r, r.speech); // "Trong game: nghe 1 lần là đúng" (core/town/gameEar.ts), before the run is written as done
+      // a big job's deposit comes back the first time it is done (core/town/fame.ts), before the run is written as done
+      const back = returnDeposit(doc.id, grade, !jobDone(loadTownJobs(), doc.id), t);
       const fatal = [...hits].some((h) => doc.consequences[h]?.fatal);
       setHeat(heatAfter(getHeat(), grade, hits.size, fatal));
       // what the story remembers: the grade, and the flags and consequences later jobs read
       finishJobRun(doc.id, grade, [...runRef.current!.flags.filter((f) => !f.startsWith('aboard:') && !f.startsWith('asked:')), ...[...hits].map((h) => `hit:${h}`)], t);
-      patch((x) => ({ ...x, xu, missed, enrolled, crewTake: take }));
+      patch((x) => ({ ...x, xu, missed, enrolled, crewTake: take, ...(back > 0 ? { depositBack: back } : {}) }));
       // the speech level follows the learner (core/town/difficulty.ts): each fact said in this run, right or not, and
       // each junction heard, right the first time or not
       const saidLines = new Set(runRef.current!.log.map((l) => l.line.id));
@@ -955,7 +963,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       ];
       if (!r.pinned) recordSpeechRun(results, t);
       show({ kind: 'debrief' });
-      onReward({ label: tl`Phi vụ xong: ${tr(GRADE_NAME[grade])}`, ...(xu > 0 ? { xu } : {}) });
+      onReward({ label: tl`Phi vụ xong: ${tr(GRADE_NAME[grade])}`, ...(xu + back > 0 ? { xu: xu + back } : {}) });
     },
     [lineOf, now, onReward, patch, say, show, stage, unpark],
   );
@@ -996,7 +1004,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
 
   // ── starting, giving up ──
   // a job whose offer is held by the phone (a missed call waiting to be returned, or gone until the next game day) does not ring
-  const ringing = ui.kind === 'idle' ? (open.find((d) => !d.side && !declined.includes(d.id) && !offerHeld(d.id, clock)) ?? null) : null;
+  const ringing = ui.kind === 'idle' ? (open.find((d) => !d.side && !declined.includes(d.id) && !offerHeld(d.id, clock) && !needs.missing.has(d.id)) ?? null) : null;
   const [ringFor, setRingFor] = useState<JobDoc | null>(null);
   const offered = ui.kind === 'ringing' ? ringFor : free && !phoneOpen ? ringing : null;
   // a job not answered: a missed call with the caller's voice message and a deadline by the game's clock
@@ -1021,6 +1029,11 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
     (jobId: string) => {
       const doc = jobs.find((d) => d.id === jobId);
       if (!doc || (uiRef.current.kind !== 'idle' && uiRef.current.kind !== 'ringing')) return;
+      // still waiting for fame or a deposit: the phone says what is missing (the deposit is paid there)
+      if (needs.missing.has(jobId)) {
+        setPhoneOpen(true);
+        return;
+      }
       const held = offerHeld(jobId);
       if (held === 'gone') return;
       if (held === 'waiting') {
@@ -1030,7 +1043,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       setRingFor(doc);
       show({ kind: 'ringing' });
     },
-    [jobs, show, setPhoneOpen],
+    [jobs, show, setPhoneOpen, needs.missing],
   );
   const accept = useCallback(
     (doc: JobDoc) => {
@@ -1198,6 +1211,9 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           .filter((d) => offerHeld(d.id, clock) !== 'gone')
           .map((d) => {
             const missed = offerHeld(d.id, clock) === 'waiting' ? phone.log.find((e) => e.kind === 'missed' && e.jobId === d.id && e.deadline) : undefined;
+            // still waiting for fame or a deposit (./jobNeeds.ts): the card says what is missing
+            const wait = needs.waiting.find((w) => w.id === d.id);
+            if (wait) return { id: `job:${d.id}`, tag, title: d.title, step: needsStep(wait), target: null };
             return { id: `job:${d.id}`, tag, title: d.title, step: missed?.deadline ? tl`Gọi lại ${nameOf(d.from)} trước ${clockOf(missed.deadline.minute)}` : tl`${nameOf(d.from)} có việc cho bạn`, target: null };
           }),
         ...replays.map((d) => ({ id: `job:${d.id}`, tag: tr('Chơi lại'), title: d.title, step: tr('Phi vụ đã làm. Chơi lại để thử cách khác'), target: null })),
@@ -1240,7 +1256,7 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
       }
     })();
     return [{ ...base, step, target: ui.kind === 'go' && ui.target ? targetOf(ui.target) : null }];
-  }, [active, run, open, replays, ui, clock, phone]);
+  }, [active, run, open, replays, ui, clock, phone, needs]);
 
   // ── what is drawn over the stage ──
   const pill = heatLevel(heat) !== 'none' && (
@@ -1459,6 +1475,10 @@ export function useCityJob({ jobs, stage, isOpen, free, nearId, sound, playerGen
           onClose={() => setPhoneOpen(false)}
           speech={progress.speech ?? emptySpeech()}
           onPin={(l) => pinSpeechLevel(l)}
+          fame={needs.fame}
+          xu={needs.xu}
+          waiting={needs.waiting}
+          onDeposit={(id) => payDeposit(id)}
         />
       )}
       {ui.kind === 'crew' && run && run.doc.crew && <CrewPicker doc={run.doc} world={crewWorld} nameOf={nameOf} onPick={pickCrew} onClose={quit} />}

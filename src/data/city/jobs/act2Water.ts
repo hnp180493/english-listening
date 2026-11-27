@@ -18,6 +18,7 @@
 import { CREW_CUT } from '../../../core/town/crew';
 import type { NoteEntry } from '../../../core/town/job';
 import type { JobDoc } from '../../../core/town/jobDoc';
+import { JOB_DEPOSITS } from '../../../core/town/fame';
 
 const id = (key: string) => `job-water-${key}`;
 const LATE = { note: 'time', is: 'wrong' as const };
@@ -104,6 +105,8 @@ export const JOB_WATER: JobDoc = {
   order: 16,
   opens: ['ct-rico-1'],
   after: 'job-night',
+  // Captain Odile lends the ferry's launch against a deposit (core/town/fame.ts): a guess
+  needs: { deposit: JOB_DEPOSITS['job-water'] },
   from: 'gus',
   clock: 'half',
   lines: LINES,

@@ -21,6 +21,8 @@ import { EGG_COST } from '../../data/townGame';
 import { garageVehicle } from '../../data/townGarage';
 import { HIDEOUT_COST, HIDEOUT_ID } from '../../data/city/hideout';
 import { officeUpgrade } from './office';
+import { asset } from './assets';
+import { depositJob, JOB_DEPOSITS } from './fame';
 import { TOWN_GIFTS } from '../../data/townGifts';
 import { noteConversation, noteLine, type TaskPayout } from './daily';
 import { addBought, addEarned, addTyped, earnedTotal, eggCountTotal, finesTotal, giftCount, hasBought, isLineId, lineProgress, linesStats, recordLine, type LineBest, type TownProgress, type TownStats } from './progress';
@@ -88,7 +90,7 @@ export function conversationBonus(outcomes: readonly LineOutcome[], size: number
 
 // ───────────────────────── buying ─────────────────────────
 
-export type TownItemKind = 'place' | 'decoration' | 'vehicle' | 'hideout' | 'office';
+export type TownItemKind = 'place' | 'decoration' | 'vehicle' | 'hideout' | 'office' | 'asset' | 'deposit';
 
 export interface TownItem {
   id: string;
@@ -110,7 +112,13 @@ export function townItem(id: string): TownItem | undefined {
   if (id === HIDEOUT_ID) return { id, kind: 'hideout', name: 'Chỗ ẩn', cost: HIDEOUT_COST };
   // an upgrade of Rico's dispatch office (./office.ts): bought and kept like the hideout
   const u = officeUpgrade(id);
-  return u ? { id: u.id, kind: 'office', name: u.name, cost: u.cost } : undefined;
+  if (u) return { id: u.id, kind: 'office', name: u.name, cost: u.cost };
+  // one of the learner's assets in Westbay (./assets.ts): bought and kept like an upgrade
+  const a = asset(id);
+  if (a) return { id: a.id, kind: 'asset', name: a.name, cost: a.cost };
+  // a big job's deposit (./fame.ts): paid once, it opens the job; it comes back as xu earned when the job is first done
+  const job = depositJob(id);
+  return job ? { id, kind: 'deposit', name: 'Tiền đặt cọc', cost: JOB_DEPOSITS[job] } : undefined;
 }
 
 /**
@@ -145,7 +153,7 @@ export function isBuilt(progress: TownProgress, placeId: string): boolean {
 
 /** Whether the learner has it: a built place (the three free ones always) or a bought decoration. */
 export function owns(progress: TownProgress, id: string): boolean {
-  return townPlace(id) ? isBuilt(progress, id) : !!(townDecoration(id) || garageVehicle(id) || id === HIDEOUT_ID || officeUpgrade(id)) && hasBought(progress, id);
+  return townPlace(id) ? isBuilt(progress, id) : !!(townDecoration(id) || garageVehicle(id) || id === HIDEOUT_ID || officeUpgrade(id) || asset(id) || depositJob(id)) && hasBought(progress, id);
 }
 
 /** The places that stand, in their listed order. */

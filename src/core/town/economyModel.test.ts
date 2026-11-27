@@ -10,6 +10,8 @@ import { gradeOdds, LEARNERS, perMinute, simulate, SOURCES, sourceShares, speech
 import { jobLevelPay, JOBS_PAID_A_DAY } from './job';
 import { OFFICE_UPGRADES, officeTakings, wordPay } from './office';
 import { FINE_SHARE_MAX, fineFor } from './police';
+import { ASSET_IDS, ASSETS, assetPay } from './assets';
+import { depositBack, JOB_DEPOSITS } from './fame';
 
 const learner = (id: string): Learner => LEARNERS.find((l) => l.id === id)!;
 const LOTS = TOWN_PLACES.filter((p) => p.cost > 0).map((p) => p.id);
@@ -88,7 +90,8 @@ describe('the economy: no source dominates, listening pays', () => {
   });
 
   it('every source pays more to a learner who understands more', () => {
-    const s = { freshLines: 300, episodesLeft: 60, chaptersLeft: 15, cityLeft: 160, upgrades: [] };
+    // (every asset owned: a source paying nothing to nobody would compare 0 with 0)
+    const s = { freshLines: 300, episodesLeft: 60, chaptersLeft: 15, cityLeft: 160, upgrades: [], assets: ASSET_IDS };
     for (const src of SOURCES) expect(src.xu(0.9, s), src.id).toBeGreaterThan(src.xu(0.5, s));
   });
 
@@ -96,6 +99,37 @@ describe('the economy: no source dominates, listening pays', () => {
     expect(wordPay(10, false)).toBeLessThan(wordPay(10, true));
     expect(wordPay(10, false)).toBeGreaterThan(0);
     expect(officeTakings(OFFICE_UPGRADES.map((u) => u.id))).toBeGreaterThan(officeTakings([]));
+  });
+});
+
+describe('the economy: assets and deposits (docs/town.md §34)', () => {
+  it('an asset is no money machine: it pays itself back only over weeks of reports heard right', () => {
+    for (const a of ASSETS) {
+      // two reports a real day at most, both heard right: still more than two months of days to pay it back
+      expect(a.cost / (2 * a.takings), a.id).toBeGreaterThanOrEqual(60);
+      // a misheard report loses part, never all
+      expect(assetPay(a.takings, 1)).toBeLessThan(a.takings);
+      expect(assetPay(a.takings, 2)).toBeGreaterThan(0);
+      expect(assetPay(a.takings, 2)).toBeLessThan(assetPay(a.takings, 1));
+    }
+  });
+
+  it('the 40-minute learner buys an asset within the 60 days, the 10-minute learner none', () => {
+    const forty = simulate(learner('forty'));
+    expect(ASSETS.some((a) => forty.boughtOn[a.id] !== undefined)).toBe(true);
+    const ten = simulate(learner('ten'));
+    expect(ASSETS.some((a) => ten.boughtOn[a.id] !== undefined)).toBe(false);
+  });
+
+  it('a deposit comes back when its job is done; a broken job keeps part of it', () => {
+    for (const d of Object.values(JOB_DEPOSITS)) {
+      expect(depositBack(d, 'clean')).toBe(d);
+      expect(depositBack(d, 'messy')).toBe(d);
+      expect(depositBack(d, 'broken')).toBeLessThan(d);
+      expect(depositBack(d, 'broken')).toBeGreaterThan(0);
+      // never more than the hideout: a deposit waits, it is not a purchase
+      expect(d).toBeLessThan(HIDEOUT_COST);
+    }
   });
 });
 

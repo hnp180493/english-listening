@@ -2903,9 +2903,27 @@ in code again.
   camera: with avatars on the view starts at 0.55 of the classic distance (`engine3d.ts zoomUser`; `ZOOM_MIN` 0.3 so
   the learner can still go closer), so a figure is about a sixth of the stage high. Vehicles are drawn as modelled
   (`RIDE_SCALE_AVATAR` 1), the small street things too (§26). In a room an avatar is 1.25 × that (`roomStage.ts
-  ROOM_GROW`: the counters and chairs are built for the code body). Seen in pictures on the software renderer (beside
+  ROOM_GROW`: the counters and chairs are built for the code body). On ANY vehicle a seated avatar is 1.25 × too
+  (`vrmBody.ts RIDE_GROW`, cars only until the sweep below). Seen in pictures on the software renderer (beside
   the bus and the bins, at the café's door, on a scooter and a bike, driving a car and beside traffic in Westbay, in
   the café's room, a talk on the plaza); a driver sits low in the open car; nobody watched it move.
+- **The sweep after the resize** (2026-11-27, pictures `.assets-try/previews/sweep-*.png`, the admin sandbox on the
+  software renderer). One bug: on the bike, the scooter and the motorbike the rider leaned to its limit and the arms
+  still ended short of the grips, stuck out straight; on the horse a small rider sat on a giant (`sweep-ride-*.png`,
+  front). Cause: the vehicles are drawn as modelled for the code body and only the cars grew their rider. Fix:
+  `RIDE_GROW` (was `CAR_GROW`) for every ride; after it, seen from the side (`sweep-ride-*-side.png`), the hands are at
+  the bars on the bike, scooter and motorbike, the rider's leg hangs down the horse's side, the drivers sit at the
+  wheel. Looked at and fine: getting off (beside the car); the four district benches and the classic one, the café's
+  stool ("Ngồi xuống nghe": seated on the seat, feet down; at the stool a bought blossom tree stands in front of the
+  camera, the see-through hole shows the player); the 14 rooms, the hideout and warehouse fifteen (host behind the
+  counter, extras on chairs and sofas, everybody under the door); a street talk and a talk outside the pavilion (that
+  one frames the building, so the two are about a seventh of the stage high: by design, not changed); the crew
+  gathered at fifteen's door; the emote over the name tag, the "!" over Hal; fishing at the pier end with the rod;
+  Dr Osei and Hal up close; a phone at 390×844 (the default view, a street talk: the HUD's column clear of the
+  people); "kiểu cũ" (zoom 1, the round body in the middle of the car, on the bike and the bench, as before). A name
+  tag under somebody's feet is the overlay's rule when there is no room above (the HUD's top row, the stage's edge).
+  Not looked at: children (the sandbox has none), Grace's stoop up close (she was in the woods), held cup / can / book
+  in the street, the wedding, a passenger getting in or out, the boat, the police car, night; motion, sound, a real GPU.
 - **Cost**: `slim()` drops the outline pass and merges skinned meshes that share a material (a sample's 90–130
   draw calls become about 23). On the software renderer: the plaza with 10 avatars worn of 21 people, 249 draw calls
   and 0.77 M triangles; Westbay's terminal with 7 worn of 50, 254 and 1.31 M (the town alone: about 100 and 0.5 M).
@@ -3090,9 +3108,44 @@ repeats its own words). The ladder: three clear and unhurried calls, three hurri
 radio's three a day. Each generated bulletin reads one advert before its sign-off (`RADIO_ADS`, nine, for real places
 of Westbay and the town, true of them); three say something a job could use (`RADIO_CLUE_ADS`: `ad-bo`, Bo's big room
 booked from nine on Thursdays; `ad-twin-ovens`, the bakery's back door from five; `ad-wheel`, the big wheel's last
-ride at quarter to ten), exported with stable ids for the job engine's `clue:<id>` and NOT wired from the radio.
+ride at quarter to ten), exported with stable ids for the job engine's `clue:<id>`; wired the same day (below).
 Checked by `radioCalls.test.ts` (the scene rules, the ladder, the manners, the places, the clue ids, an advert in every
 bulletin); nobody has heard a caller.
+
+**The traffic, the clue adverts, the sponsor** (2026-11-27, the rest of gta-plan §4.5).
+
+- *Traffic* (`core/town/radioTraffic.ts`, pieces `data/scenes/radioTraffic.ts`): while Westbay's page is open its streets
+  layer (`features/town/streets/streetsWorld.ts`) is the radio's traffic source (`setTrafficSource`, released on
+  dispose); the bulletin reads the streets AS THEY ARE when it is made, after the forecast: the busiest car street (two
+  cars or more, the most of any) and which way most of it is going ("Market Street is busy just now, mostly heading
+  east"; "both ways" when even; "slow just now, with cars standing still" when two of its cars stand), a street with no
+  car ("Bay Road is clear, if you're heading that way"), or "the roads are quiet" when no street has two; "the roads are
+  wet, so traffic is moving slower" when `skyRules.trafficPace` of the same wet the cars drive by takes 5 % or more off;
+  "there's a police car on Quay Street" (a search's or a job's patrol, by `streetAt` of where it is), or "out and about"
+  off the named streets. One question of what was said (the busy street, its heading, why it is slow, the patrol's
+  street, or how the roads are), the `detail` of the bulletin: always in a vehicle, half the editions on a radio that
+  stands still. The questions and answers are meanings (`q`, `options`, `vi`), shown in Vietnamese in English mode like
+  every radio question. In the town there is no traffic source and nothing is said: the no. 9's road up has no
+  timetable or traffic in the game to be true of. Proved by `core/town/radioTraffic.test.ts`: 400 moments of traffic
+  driven by the real rules on Westbay's network (some crowded, some with three cars, a patrol on a random road tile or
+  none, wet or dry): every line is checked against the cars it came from (the busy street has the most cars and the
+  heading said is the most common; a clear street has none; quiet only when none has two; wet said exactly when the
+  pace drops; the patrol's street is `streetAt` of the patrol), the question's right answer is true and the wrong ones
+  are not (a wrong "busy" street has fewer cars), every piece is plain English of 3–16 words, SAPI-safe, at every street
+  name; the town's bulletin is unchanged.
+- *The clue adverts*: the three are clues of the same id in `data/city/clues.ts` (`from: { ad }`, Marcus's line of the
+  advert, a note for the phone); a bulletin that read one gives it once heard through (`Bulletin.clues`, granted by
+  `radioStore.radioHeard`), shown in the phone's clues. **Used**: `ad-twin-ovens` in "Phòng ghép băng"
+  (`data/city/jobs/act3Splice.ts`): the learner who heard it goes in by Twin Ovens' back door (Poppy: "The back door,
+  like Marcus says? Come in.") and hears the rehearsal three times instead of two. **Earned but used by no job yet**:
+  `ad-bo`, `ad-wheel` (`CLUES_NOT_USED_YET`; `clues.test.ts` fails when one is used and still listed, or a clue is
+  unused and not listed).
+- *The sponsor*: once the learner has bought the sponsorship (`core/town/assetsStore.ts sponsorLine`, the dispatch
+  session's), its words are read after the advert's lead, a line a sentence (`BulletinInput.sponsor`).
+
+Nobody has heard any of it; looked at in no picture (no interface changed: the lines and the question appear in the
+radio's panel as every bulletin's do). The traffic is true of the moment the bulletin is made; the cars move on while
+it is read (as the sky does).
 
 **News about the player** (`core/town/radioNews.ts`): `queueRadioNews({ id, lines: [{ text, vi, say? }] })` queues up
 to 4 of Marcus's lines for the next bulletin (at most 3 items, the same id replaces, forgotten after 6 real hours or a
@@ -3572,3 +3625,70 @@ words, the radio's static, the slippery roads and the traffic follow the held sk
 muffled bench (the headless browser is mute), waited at a shut stall, or slept and watched the clock come back (the
 rule "once a real hour" and the two game hours before it may rejoin are guesses). Seen in pictures only
 (`.assets-try/previews/rules-*`, `hours-*`).
+
+## 34. Assets after the office, and what opens a big job: fame and deposits (2026-11-27)
+
+docs/gta-plan.md §4.4 ("Sau đó: xưởng xe, một sạp ở Market Street, bảo trợ một chương trình trên Bay FM. Tài sản không
+phải máy in tiền: quản lý gọi báo việc bằng lời, nghe sót thì lỗ.") and §5 "Mở khóa" ("Mở bằng tiếng tăm và tiền góp
+vốn, ví dụ phải có 300 xu đặt cọc cho Kho 15").
+
+**Assets** (`core/town/assets.ts`, pure, tested; IO `core/town/assetsStore.ts`; panel `features/town/assets/`). Three
+store items of the town (ids in town-progress `bought`, their cost counted by `economy.spentTotal`, kind `'asset'`): no new
+stored or synced key. Each has a manager of Westbay in the browser's voice, who gives a spoken report once a GAME day (as
+Tess's word, §30; at most `ASSET_REPORTS_A_DAY` = 2 a real day an asset), with two things to hear, a different kind each:
+
+| Asset | Cost | Takings / game day | Manager | What is heard |
+|---|---|---|---|---|
+| `asset-stall`, the spice stall on Market Street | 900 | 6 | Amira | how many jars ("seventy" / "seventeen") and the price of one ("three pounds thirty" / "thirteen") |
+| `asset-workshop`, the car repair workshop | 1,500 | 8 | Theo | the plate letter by letter (B / D / P / T / V, M / N, F / S) and the bill in pounds |
+| `asset-sponsor`, a Bay FM programme sponsored | 2,000 | 7 | Kit | the programme (Night Owls / Night Calls / Light Owls …) and the time ("quarter to" / "quarter past") |
+
+A report is made from the game day (stable on every machine; `assetReport`), its words from `data/city/assetReports.ts`
+(the meanings are `vi`: class meaning). Sound first ("Nghe … báo cáo", one more listen), then two questions of three
+options, then the words, "Nghe lại" and "Rõ từng từ". Both right keeps the takings; each one wrong loses `ASSET_LOSS` (30%)
+of them, never all. A report heard is `as-<stall|workshop|sponsor>-<game day>` in the day's `heard`, its xu in `earned`.
+Tests check each report says its right answers (the jars and price in words, the plate's letters and digits, the
+programme and the "quarter to / past" of the time) over 300 game days.
+
+Where: once Rico's office is open (`cs-bigdeal-6`), a "Tài sản" button beside Amira, Theo or Kit (the panel opened on
+theirs), ONE quest card (a report waiting: walk to its manager; nothing owned: "Mua tài sản ở Westbay" at Amira; owned
+and nothing waits: none), and "Tài sản" in the list without 3D. One primary button: the report of the asset the panel was
+opened for. On the air: `assetsStore.sponsorLine()` returns what Marcus reads once the sponsorship is bought ("This hour of
+Bay FM comes to you with the help of Rico's cars …", `null` before); the radio's bulletin calls it (the radio's files are
+the gta-radio session's; not wired at the time of writing).
+
+**Fame** (`core/town/fame.ts`, pure, tested). Never stored: counted from what is kept, and nothing in it goes down, so a job
+once opened never shuts again. Each job done by its best grade (clean 3, messy 2, broken 1), 1 for every 8 dispatch calls
+met (town-ear `met` ids `dc-<n>`), 2 an asset owned, 1 an office upgrade. Shown in ONE place: the Westbay phone panel
+("Tiếng tăm": the number, where it comes from, "Điểm trò chơi, không phải thước đo trình độ", what each waiting job needs,
+how it is counted in a closed `details`).
+
+**Deposits and needs.** `JobDoc.needs?: { fame?, deposit? }` (`core/town/jobDoc.ts`; `wellFormed` checks a fame is a
+whole number above 0, a deposit is `JOB_DEPOSITS[id]`, and a job in `JOB_DEPOSITS` asks for it). As written:
+
+| Job | Fame | Deposit | Why |
+|---|---|---|---|
+| "Cửa nước" (`job-water`) | | 150 | Captain Odile lends the ferry's launch against a deposit |
+| "Kho 15" (`job-warehouse`) | 24 | 300 | the plan's own example |
+| "Phát sóng trực tiếp" (`job-live`) | 40 | | the finale asks for a name in the city first |
+
+A job of the chain that is next but still needs something does not ring; its quest card says what is missing ("Cần tiếng
+tăm 24 · Cần đặt cọc 300 xu") and opens the phone, where the deposit is paid ("Đặt cọc 300 xu", a ghost button: the call
+back stays the one primary). A deposit is a store item `deposit-<job id>` (kind `'deposit'`); the first time the job is
+done it comes back as xu earned (all, or two thirds when the job ended broken: `DEPOSIT_KEPT_BROKEN`), never on a replay
+(`assetsStore.returnDeposit`, called in `useCityJob` finish before the run is written as done; the debrief says "Tiền đặt cọc
+trả lại"). A job done before is never shut by its needs; the admin sandbox ignores them. Known: two browsers finishing the
+same job for the first time before they sync would each get the deposit back once (the earned xu are per browser).
+
+**Economy** (`economyModel.ts`, §31): the assets are a source (`assets`: the reports, 1.5 minutes, the expected pay at `p`)
+and a sink bought after the hideout, interleaved with the office's upgrades by price. The pinned properties hold (lots,
+hideout, the upgrades not all bought by the 20-minute learner in 60 days, no source above 40%); new ones: an asset pays
+itself back in no less than 60 real days of two reports heard right, a misheard report loses part never all, the
+40-minute learner buys an asset in 60 days and the 10-minute learner none, a deposit comes back (part of it when broken)
+and is smaller than the hideout. Deposits are not in the simulation (they come back).
+
+**Every number is a guess** (costs, takings, the loss, the fame values, 24 / 40, the deposits). Seen in pictures only
+(`.assets-try/previews/assets-*`: the panel at 375 px Vietnamese and English and at 1400 px, the phone panel with fame and
+a deposit at 375 and 1400 px, the button beside Amira); the deposit paid and given back checked in the page by calling the
+store. Nobody has heard a report (the headless browser is mute) or played it by hand or over days; the managers' lines were
+written by a model and read by nobody.

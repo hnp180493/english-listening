@@ -1,0 +1,136 @@
+/* The learner's assets in Westbay (./AssetsPanel.tsx): a card each, the manager's report under it. Tokens only. */
+
+.ast-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.ast-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ast-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+.ast-card.is-focus {
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.ast-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.ast-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ast-name {
+  font-weight: 650;
+}
+.ast-meta,
+.ast-blurb {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.ast-owned {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ast-buy {
+  white-space: nowrap;
+}
+.ast-report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.ast-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.ast-q {
+  margin: 0 0 var(--space-2);
+  font-weight: 600;
+}
+.ast-opts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-2);
+}
+.ast-opt {
+  min-height: 44px;
+  padding: var(--space-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.ast-opt:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+.ast-opt[aria-pressed='true'] {
+  box-shadow: 0 0 0 1px var(--accent);
+  color: var(--accent);
+}
+.ast-opt:disabled:not([aria-pressed='true']) {
+  opacity: 0.55;
+  cursor: default;
+}
+.ast-verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-weight: 600;
+}
+.ast-answers {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ast-answers .ast-q {
+  display: inline;
+  margin: 0;
+}
+.ast-was {
+  margin-left: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.ast-answers .is-wrong .ast-was {
+  color: var(--bad);
+}
+.ast-en {
+  margin: 0;
+}
+@media (max-width: 480px) {
+  .ast-head {
+    flex-direction: column;
+  }
+}

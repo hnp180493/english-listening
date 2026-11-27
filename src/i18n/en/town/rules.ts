@@ -174,6 +174,20 @@ const rules: Record<string, string> = {
   'Người áo xám': 'The man in the grey coat',
   '{} (băng ghép)': '{0} (cut-together tape)',
   '{} (nhại {})': '{0} (imitating {1})',
+  'Sạp gia vị ở Market Street': 'Spice stall on Market Street',
+  'Một sạp nhỏ cạnh sạp của Amira. Amira trông giúp, cuối ngày gọi báo bán được bao nhiêu.': 'A small stall next to Amira\'s. Amira minds it and rings at the end of the day to say how much it sold.',
+  'Xưởng sửa xe': 'Car repair workshop',
+  'Theo sửa xe cho khách của hãng những hôm phà không cần anh. Anh báo việc bằng vài chữ.': 'Theo repairs the firm\'s customers\' cars on the days the ferry doesn\'t need him. He reports in a few words.',
+  'Bảo trợ một chương trình Bay FM': 'Sponsoring a Bay FM programme',
+  'Marcus đọc tên hãng xe của Rico trên sóng. Kit báo chương trình nào, mấy giờ phát.': 'Marcus reads Rico\'s firm\'s name on air. Kit says which programme and what time it goes out.',
+  'Biển số xe nào?': 'Which number plate?',
+  'Khách trả bao nhiêu?': 'How much did the customer pay?',
+  'Bán được bao nhiêu hũ?': 'How many jars were sold?',
+  '{} hũ': '{0} jars',
+  'Giá một hũ?': 'Price of one jar?',
+  'Chương trình nào?': 'Which programme?',
+  'Mấy giờ phát?': 'What time does it go out?',
+  'Tiền đặt cọc': 'Deposit',
 };
 
 export default rules;

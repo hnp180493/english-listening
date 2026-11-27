@@ -71,6 +71,7 @@
 // steps really play each one out. Pure: types and checks only.
 
 import type { JobGrade, JobLine, Junction, NoteEntry } from './job';
+import { JOB_DEPOSITS, type JobNeeds } from './fame';
 
 /** When a line is said or a step plays (evaluated against the run: core/town/jobDoc evalCond). */
 export type Cond =
@@ -315,6 +316,12 @@ export interface JobDoc {
   news: Readonly<Record<JobGrade, readonly Said[]>> & { none?: readonly Said[] };
   /** The consequence that means "the goal was not reached" (the news then reads `none`). */
   failed?: string;
+  /**
+   * What opens a big job besides the chain (./fame.ts, gta-plan §5 "Mở khóa"): fame counted from what the learner has
+   * done, and a deposit paid down (its amount is JOB_DEPOSITS[id]; it comes back when the job is first done). A job
+   * done before is never shut by it; the admin sandbox ignores it.
+   */
+  needs?: JobNeeds;
 }
 
 // ───────────────────────── conditions ─────────────────────────
@@ -552,6 +559,13 @@ export function wellFormed(doc: JobDoc, w: WorldCheck): string[] {
   if (new Set(entries.map((e) => e.key)).size !== entries.length) out.push('notebook keys repeat across notebooks');
   out.push(...playedOut(doc));
   for (const f of doc.facts) if (!Object.hasOwn(doc.consequences, f.consequence)) out.push(`fact without a consequence: ${f.id}`);
+  if (doc.needs) {
+    const { fame, deposit } = doc.needs;
+    if (fame !== undefined && !(Number.isInteger(fame) && fame > 0)) out.push(`needs: fame must be a whole number above 0`);
+    if (deposit !== undefined && deposit !== JOB_DEPOSITS[doc.id]) out.push(`needs: a deposit must be JOB_DEPOSITS['${doc.id}']`);
+    if (fame === undefined && deposit === undefined) out.push('needs: empty');
+  }
+  if (JOB_DEPOSITS[doc.id] !== undefined && doc.needs?.deposit !== JOB_DEPOSITS[doc.id]) out.push(`a deposit is set for ${doc.id} but the job does not ask for it`);
   for (const s of doc.steps) {
     const places = s.kind === 'goto' ? [s.place] : s.kind === 'scene' ? (s.at ? [s.at] : []) : s.kind === 'pickup' ? [s.place, ...Object.values(s.places)] : s.kind === 'ride' ? [s.place, ...Object.values(s.places ?? {})] : s.kind === 'overhear' ? [s.at] : [];
     for (const p of places) if (!w.place(p)) out.push(`no place ${p}`);

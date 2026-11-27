@@ -5,7 +5,7 @@
 // clues earned (data/city/clues.ts). One primary action at most: calling back the first open missed call.
 
 import { useRef } from 'react';
-import { Gauge, Lightbulb, Phone, PhoneCall, PhoneMissed, Play, Users, Voicemail, X } from 'lucide-react';
+import { Gauge, Lightbulb, Phone, PhoneCall, PhoneMissed, Play, Star, Users, Voicemail, X } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import { canCallBack, waiting as waitingCount, type PhoneEntry } from '../../../core/town/phone';
 import { clockOf } from '../../../core/town/job';
@@ -13,6 +13,8 @@ import { clueById } from '../../../data/city/clues';
 import { SPEECH_LEVELS, type SpeechLevel, type SpeechState } from '../../../core/town/difficulty';
 import { tl } from '../../../i18n';
 import type { Contact } from '../jobs/crewWorld';
+import type { Fame } from '../../../core/town/fame';
+import type { WaitingJob } from '../jobs/jobNeeds';
 import { usePanelKeys } from '../panelKeys';
 import './phone.css';
 
@@ -40,9 +42,14 @@ export interface PhonePanelProps {
   /** The speech level of the jobs and the dispatch office (core/town/difficulty.ts): automatic, or pinned. */
   speech: SpeechState;
   onPin: (level: SpeechLevel | null) => void;
+  /** The learner's fame (core/town/fame.ts), the xu in hand, the big jobs still waiting for fame or a deposit. */
+  fame?: Fame;
+  xu?: number;
+  waiting?: readonly WaitingJob[];
+  onDeposit?: (jobId: string) => void;
 }
 
-export default function PhonePanel({ log, now, nameOf, contacts, clues, busy, onCallBack, onPlay, onClose, speech, onPin }: PhonePanelProps) {
+export default function PhonePanel({ log, now, nameOf, contacts, clues, busy, onCallBack, onPlay, onClose, speech, onPin, fame, xu = 0, waiting = [], onDeposit }: PhonePanelProps) {
   const boxRef = useRef<HTMLElement>(null);
   usePanelKeys(boxRef, onClose);
   const calls = log.filter((e) => e.kind !== 'voicemail');
@@ -168,6 +175,43 @@ export default function PhonePanel({ log, now, nameOf, contacts, clues, busy, on
               </li>
             ))}
           </ul>
+        )}
+        {fame && (
+          <>
+            <h3 className="town-ls-sub">
+              <Icon icon={Star} size={16} /> Tiếng tăm
+            </h3>
+            <p className="phone-fame">
+              <span className="phone-fame-n tabular">{fame.total}</span>
+              <span className="phone-note">{tl`Phi vụ ${fame.jobs} · điều xe ${fame.calls} · tài sản ${fame.assets}`}</span>
+            </p>
+            <p className="town-build-hint">Điểm trò chơi, không phải thước đo trình độ. Vài phi vụ lớn cần đủ tiếng tăm, hoặc tiền đặt cọc, mới mở.</p>
+            {waiting.length > 0 && (
+              <ul className="phone-list">
+                {waiting.map((w) => (
+                  <li key={w.id} className="phone-row">
+                    <span className="phone-who">{w.title}</span>
+                    <span className="phone-what">
+                      {w.missing.fame > 0 && <span>{tl`Cần tiếng tăm ${w.fame}: còn thiếu ${w.missing.fame}.`}</span>}
+                      {w.missing.deposit > 0 && <span>{tl`${nameOf(w.from)} cần ${w.missing.deposit} xu đặt cọc. Xong phi vụ thì nhận lại (kết Hỏng thì mất một phần).`}</span>}
+                      {w.missing.deposit === 0 && w.deposit > 0 && <span>Đã đặt cọc.</span>}
+                    </span>
+                    {w.missing.deposit > 0 && onDeposit && (
+                      <span className="phone-acts">
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => onDeposit(w.id)} disabled={xu < w.missing.deposit} title={xu < w.missing.deposit ? tl`Còn thiếu ${w.missing.deposit - xu} xu` : undefined}>
+                          {tl`Đặt cọc ${w.missing.deposit} xu`}
+                        </button>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <details className="how">
+              <summary>Tiếng tăm từ đâu ra?</summary>
+              <p>Mỗi phi vụ đã xong cho 3 (Sạch), 2 (Lộn xộn) hoặc 1 (Hỏng), theo lần chơi tốt nhất. Cứ 8 cuộc gọi ở văn phòng điều xe thêm 1. Mỗi tài sản thêm 2, mỗi nâng cấp văn phòng thêm 1. Tiếng tăm không bao giờ giảm, nên phi vụ đã mở không khóa lại.</p>
+            </details>
+          </>
         )}
         <h3 className="town-ls-sub">
           <Icon icon={Gauge} size={16} /> Độ khó lời nói
