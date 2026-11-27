@@ -142,6 +142,11 @@ export interface TownStageHandle {
   walkToActivity: (id: ActivitySpotId, then?: () => void) => boolean;
   /** Where somebody's head is on the stage, in CSS pixels (to hang a bubble on); null when they are not in town. */
   pointOf: (target: 'player' | PlaceId) => { x: number; y: number } | null;
+  /**
+   * Where a speaker's head is on the stage for a speech bubble: null when they are not drawn (gone inside, avatar on
+   * its way, culled) or their head is not inside the stage (engine/speechBubble.ts). No floating bubble then.
+   */
+  speakerPointOf?: (target: 'player' | PlaceId) => { x: number; y: number } | null;
   /** A short text with a coin rising over somebody's head ("+3"). */
   float: (target: 'player' | PlaceId, text: string) => void;
   /**

@@ -352,11 +352,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .town-friend-pill.is-new,
-  .town-greet.is-below .town-greet-in {
-  top: 56px;
-  bottom: auto;
-}
-.town-greet-bubble {
+  .town-greet-bubble {
     animation: none;
   }
 }

@@ -17,13 +17,14 @@ import type { VehicleKind } from '../../../../data/townWorld';
 import { RIDES, vehicleGeometry } from './vehicles3d';
 import type { StageExtra, StageExtraCtx } from './stageExtra';
 import type { RideState } from '../../engine/stage';
+import { onStage } from '../../engine/speechBubble';
 import { Birds } from './birds';
 import { UMBRELLA_TIP, Umbrellas } from './umbrellas';
 import { paletteFor, type TownPalette } from '../../engine/palette';
 import { Particles } from '../../engine/particles';
 import { bodyFits, gridDistance, PLAYER_RADIUS, spotFits, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
 import { createCharacter, createPet, passerLook, type Character3DPlus } from '../characters';
-import { avatarsSettled, dressInVrm, dressWhenNear } from '../chars/vrmPeople';
+import { avatarsSettled, bodyDrawn, dressInVrm, dressWhenNear } from '../chars/vrmPeople';
 import { gameHour, glowOf, lightningAt, nightOf, type Sky, type SkyNow } from '../../../../core/town/sky';
 import { holdSky, skyNow, wetNow } from '../../../../core/town/skyNow';
 import { rideGrip } from '../../../../core/town/skyRules';
@@ -1889,6 +1890,21 @@ export class TownEngine3D {
     return this.project(head.x, head.y + 0.08, head.z);
   }
 
+  /**
+   * Where a speaker's head is on the stage, for a speech bubble: only when they are here and drawn (not gone inside, not
+   * waiting for their avatar, not culled far off) and their head is inside the stage; else null, and no bubble is shown
+   * (owner, 2026-11-28: a greeting's bubble had stayed pinned to the stage's edge, over grass, following the camera).
+   */
+  speakerPoint(id: string): { x: number; y: number } | null {
+    if (!this.room) {
+      const a = this.sim.actor(id);
+      const p = this.people.get(id);
+      if (!a || (a as Resident).hidden || !p || !p.ch.root.visible || !bodyDrawn(p.ch)) return null;
+    }
+    const at = this.screenPointOf(id as StageTarget);
+    return at && onStage(at, this.viewW, this.viewH) ? at : null;
+  }
+
   private headOf(id: string, a: Actor): P3 {
     if (this.room && this.room.head(id, this.v)) return { x: this.v.x, y: this.v.y, z: this.v.z };
     const p = this.people.get(id);
@@ -3487,14 +3503,15 @@ export class TownEngine3D {
       ctx.globalAlpha = 1;
     }
     const tagOpts = { t: this.t, still: this.still, font: this.font };
-    if (talking && (this.speaking === talking.place.id || this.speaking === 'player')) {
+    // (a bubble only over somebody drawn and in view: speakerPoint)
+    if (talking && (this.speaking === talking.place.id || this.speaking === 'player') && this.speakerPoint(this.speaking === 'player' ? 'player' : talking.id)) {
       const who = this.speaking === 'player' ? this.sim.player : talking;
       const at = this.headAt(this.speaking === 'player' ? 'player' : talking.id, who);
       drawTalkBubble(ctx, pal, at.x, Math.max(this.safe.top + 44, at.y + 2), this.t, this.still);
     }
     // a scene overheard (docs/town.md §19): the bubble over whichever of the two is speaking
     const aside = this.speaking && this.sim.inAside(this.speaking) ? this.sim.residents.get(this.speaking as PlaceId) : undefined;
-    if (aside && !aside.hidden) {
+    if (aside && !aside.hidden && this.speakerPoint(aside.id)) {
       const at = this.headAt(aside.id, aside);
       drawTalkBubble(ctx, pal, at.x, Math.max(this.safe.top + 44, at.y + 2), this.t, this.still);
     }

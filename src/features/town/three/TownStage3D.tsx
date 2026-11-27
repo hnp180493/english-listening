@@ -523,6 +523,7 @@ export default function TownStage3D({
         return e.walkToActivity(id, then);
       },
       pointOf: (target) => engineRef.current?.screenPointOf(target) ?? null,
+      speakerPointOf: (target) => (flatRef.current ? null : (engineRef.current?.speakerPoint(target) ?? null)),
       float: (target, text) => engineRef.current?.float(target, text),
       celebrate: (id) => engineRef.current?.celebrate(id) ?? 0,
       focus: () => {

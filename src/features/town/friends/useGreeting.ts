@@ -11,11 +11,10 @@ import type { PlaceId } from '../../../data/townWorld';
 import type { Near } from '../engine/stage';
 import { getTownUi, setTownUi } from '../townUi';
 import { useSaidLine } from './useSaidLine';
+import { greetingStays } from '../engine/speechBubble';
 
 /** A resident greets at most once in this long (ms). */
 export const GREET_EVERY_MS = 10 * 60_000;
-/** The bubble stays this long after the line has sounded (ms), unless it was opened. */
-export const GREET_LINGER_MS = 4000;
 /** A moment after the player stops: the greeting does not land on the same frame as the stop. */
 const GREET_DELAY_MS = 350;
 
@@ -83,12 +82,6 @@ export function useGreeting(near: Near, enabled: boolean, onGreet?: (placeId: Pl
     if (!enabled) stop();
   }, [enabled, stop]);
 
-  // gone a moment after it has sounded, unless it was opened
-  useEffect(() => {
-    if (!greeting || held || voice.playing || ended === 0) return;
-    const id = window.setTimeout(() => setGreeting(null), GREET_LINGER_MS);
-    return () => window.clearTimeout(id);
-  }, [greeting, held, voice.playing, ended]);
 
   const replay = useCallback(() => {
     if (greeting) void play(greeting.line, greeting.placeId);
@@ -99,5 +92,7 @@ export function useGreeting(near: Near, enabled: boolean, onGreet?: (placeId: Pl
     setGreeting(null);
   }, [stop]);
 
-  return { greeting: enabled ? greeting : null, sounding: enabled && voice.sounding, replay, hold: setHeld, dismiss };
+  // gone as soon as it has sounded or was cut short (stopped, a talk, a panel), unless it was opened
+  const stays = greetingStays({ held, playing: voice.playing, ended: ended !== 0 });
+  return { greeting: enabled && stays ? greeting : null, sounding: enabled && voice.sounding, replay, hold: setHeld, dismiss };
 }

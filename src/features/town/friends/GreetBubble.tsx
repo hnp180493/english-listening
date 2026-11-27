@@ -8,6 +8,7 @@ import { townPlace } from '../../../data/town';
 import type { TownStageHandle } from '../engine/stage';
 import { SoundBars } from '../art';
 import type { GreetingState } from './useGreeting';
+import { greetBubblePlace } from '../engine/speechBubble';
 import './friends.css';
 import { tl } from '../../../i18n';
 
@@ -25,21 +26,23 @@ export default function GreetBubble({ stage, greet }: { stage: RefObject<TownSta
   }
   useEffect(() => hold(open), [open, hold]);
 
-  // follow the resident's head every frame while it is up
+  // follow the resident's head every frame while it is up: only over them while they are drawn and in view, never
+  // pinned to the stage's edge (engine/speechBubble.ts greetBubblePlace); while it sounds, or while it is open
+  const shown = useRef({ sounding: greet.sounding, open });
+  useEffect(() => {
+    shown.current = { sounding: greet.sounding, open };
+  }, [greet.sounding, open]);
   useEffect(() => {
     if (!g) return;
     let raf = 0;
     const tick = () => {
-      const at = stage.current?.pointOf(g.placeId);
       const el = boxRef.current;
       if (el) {
+        const head = stage.current?.speakerPointOf?.(g.placeId) ?? null;
+        const at = greetBubblePlace({ greeting: true, ...shown.current }, head, el.parentElement?.clientWidth ?? 0);
         if (at) {
-          // kept inside the stage: below the head when it is near the top, never past a side edge
-          const w = el.parentElement?.clientWidth ?? 0;
-          const half = Math.min(150, w / 2);
-          const x = w > 0 ? Math.min(w - half, Math.max(half, at.x)) : at.x;
-          el.style.transform = `translate(${Math.round(x)}px, ${Math.round(at.y)}px)`;
-          el.classList.toggle('is-below', at.y < 190);
+          el.style.transform = `translate(${at.x}px, ${at.y}px)`;
+          el.classList.toggle('is-below', at.below);
           el.style.visibility = 'visible';
         } else el.style.visibility = 'hidden';
       }

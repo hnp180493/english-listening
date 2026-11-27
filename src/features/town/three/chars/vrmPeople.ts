@@ -134,3 +134,14 @@ export function avatarsSettled(): boolean {
   for (const e of people.values()) if (!e.worn && !e.gone) return false;
   return true;
 }
+
+/**
+ * Whether somebody is drawn at all: false while their avatar is on its way (the code body is hidden until it comes),
+ * true once it is worn, and for the code body when no avatar is asked for (classic look, failed, too far to dress).
+ * A speech bubble belongs only over somebody drawn (engine3d.ts speakerPoint).
+ */
+export function bodyDrawn(ch: Character3D): boolean {
+  const e = people.get(ch);
+  if (e) return !!e.worn && !e.gone;
+  return bodyOf(ch)?.visible !== false;
+}
