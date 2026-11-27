@@ -4141,6 +4141,15 @@ turn toward whoever speaks, the umbrella in the right hand (the canopy over the 
 held (cup, can, rod in the right hand, a book before the chest). Three's mixer writes a bone only when its mixed value
 changed, so what is added is taken off before each mix (it had piled up: a body drifting off its place).
 
+**After the first look (2026-11-28, main session on `quat-grace.png`: still a costume, a corset band, black trousers
+and boots, a wide stance).** Cloth keeps only a little of its picture's light and dark (the top 18 %, the rest 35 %:
+the laced band now only a faint shape in the top's own colour); the trousers are the look's colour (Grace lavender);
+the boots are coloured per vertex on a copy of their geometry, the shaft in the trousers' colour and the foot below
+13 cm in the shoes', so they read as trousers and shoes; standing, the thighs are turned 0.07 rad inward (the clips'
+mannequin stands wide); an old body's shoulder joints are brought in along the collarbone (0.84 old, 0.9 older).
+Still the Peasant cut: the band's shape, puffed sleeves and cuffs at the shins show close up. `chars/quatBody.ts` is in
+the `vrm` chunk (`vite.config.ts`), loaded with the avatars.
+
 **Admin sheet** `#/duyet-k7q2m9x4?quat` (also in the deployed app): each of the twelve old people and two children:
 the drawn portrait, the body from the front and the side, eight moments of a walking step.
 

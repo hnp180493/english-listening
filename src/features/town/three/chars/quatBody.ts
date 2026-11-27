@@ -15,7 +15,7 @@
 // talks or holds something (Animator.armsBusy), the head's turn toward whoever speaks, the umbrella and what is held in
 // the right hand.
 
-import { AnimationMixer, CanvasTexture, Color, CylinderGeometry, Group, MathUtils, Mesh, MeshToonMaterial, Quaternion, SphereGeometry, SRGBColorSpace, TorusGeometry, Vector3, type AnimationAction, type AnimationClip, type Material, type Object3D, type SkinnedMesh, type Texture } from 'three';
+import { AnimationMixer, CanvasTexture, Color, CylinderGeometry, Float32BufferAttribute, type BufferGeometry, Group, MathUtils, Mesh, MeshToonMaterial, Quaternion, SphereGeometry, SRGBColorSpace, TorusGeometry, Vector3, type AnimationAction, type AnimationClip, type Material, type Object3D, type SkinnedMesh, type Texture } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { QuatRecipe } from '../../../../data/townQuat';
@@ -45,6 +45,15 @@ const HELD_SIZE = { cup: 0.35, book: 0.45, rod: 0.55, can: 0.75 } as const;
 const PROPS: readonly PropId[] = ['cup', 'can', 'rod', 'book'];
 /** Night: the colours darkened toward a cool grey (as the avatars). */
 const NIGHT = new Color('#bcc2e4');
+/** How much of the cloth picture's light and dark is kept (./grey). */
+const CLOTH_KEEP = 0.35;
+const TOP_KEEP = 0.18;
+/** Where a boot's foot ends and its shaft begins (metres up from the sole, at rest). */
+const SHOE_TOP = 0.13;
+/** Standing, the legs brought together (the clips' mannequin stands wide), radians each thigh. */
+const STAND_CLOSE = 0.07;
+/** An old body's shoulders brought in (the shoulder joint along the collarbone). */
+const SHOULDERS = { old: 0.84, older: 0.9 } as const;
 /** The base character's own skin, which the look's skin is reckoned against. */
 const SKIN_REF = new Color('#e3ae8f');
 
@@ -78,10 +87,14 @@ function loadKit(sex: 'm' | 'f'): Promise<Kit> {
   return at;
 }
 
-/** Cloth and hair pictures greyed and brightened once (they are browns and near-blacks): the tint then reads true. */
-const greyed = new Map<Texture, Texture>();
-function grey(tex: Texture, level: number): Texture {
-  const done = greyed.get(tex);
+/**
+ * Cloth and hair pictures greyed and brightened once (they are browns and near-blacks): the tint then reads true.
+ * `keep`: how much of the picture's own light and dark is kept (cloth little: the Peasant top's dark laced band, a
+ * corset from the usual camera, nearly goes, the folds stay).
+ */
+const greyed = new Map<string, Texture>();
+function grey(tex: Texture, level: number, keep = 1): Texture {
+  const done = greyed.get(tex.uuid + ':' + keep);
   if (done) return done;
   const img = tex.image as CanvasImageSource & { width: number; height: number };
   const w = Math.min(512, img.width);
@@ -98,7 +111,7 @@ function grey(tex: Texture, level: number): Texture {
   const mean = sum / (d.data.length / 4) || 1;
   const k = (level * 255) / mean;
   for (let i = 0; i < d.data.length; i += 4) {
-    const y = Math.min(255, (0.3 * d.data[i] + 0.59 * d.data[i + 1] + 0.11 * d.data[i + 2]) * k);
+    const y = Math.min(255, level * 255 + ((0.3 * d.data[i] + 0.59 * d.data[i + 1] + 0.11 * d.data[i + 2]) * k - level * 255) * keep);
     d.data[i] = d.data[i + 1] = d.data[i + 2] = y;
   }
   g.putImageData(d, 0, 0);
@@ -107,7 +120,7 @@ function grey(tex: Texture, level: number): Texture {
   out.flipY = tex.flipY;
   out.wrapS = tex.wrapS;
   out.wrapT = tex.wrapT;
-  greyed.set(tex, out);
+  greyed.set(tex.uuid + ':' + keep, out);
   return out;
 }
 
@@ -151,6 +164,8 @@ export async function wearQuat(ch: Character3DPlus, recipe: QuatRecipe, grow = 1
   const skin = new Color(recipe.skin);
   const skinTint = new Color(Math.min(1.6, skin.r / SKIN_REF.r), Math.min(1.6, skin.g / SKIN_REF.g), Math.min(1.6, skin.b / SKIN_REF.b));
   const tops: MeshToonMaterial[] = [];
+  /** Geometries made for this person alone (freed with them). */
+  const owned: BufferGeometry[] = [];
   let headMesh: SkinnedMesh | null = null;
   body.traverse((o) => {
     const mesh = o as SkinnedMesh;
@@ -163,15 +178,34 @@ export async function wearQuat(ch: Character3DPlus, recipe: QuatRecipe, grow = 1
     let map = src.map ?? null;
     let color = new Color('#ffffff');
     if (kind === 'cloth') {
-      map = map ? grey(map, 0.82) : null;
-      // (the outfit's tall boots in the trousers' colour, a little darker: they read as trousers and shoes, not riding boots)
-      color = mesh.name === 'legs' ? new Color(recipe.bottom) : mesh.name === 'feet' ? new Color(recipe.bottom).multiplyScalar(0.8) : top.clone();
+      // (the top flatter still: its laced band)
+      map = map ? grey(map, 0.86, mesh.name === 'top' || mesh.name === 'arms' ? TOP_KEEP : CLOTH_KEEP) : null;
+      // the trousers in the look's colour; the outfit's tall boots: their shafts in the trousers' colour, the foot in
+      // the shoes' (per vertex, on a copy of the geometry: it is shared by every clone), so they read as trousers and
+      // shoes
+      if (mesh.name === 'feet') {
+        const g = mesh.geometry.clone();
+        const pos = g.getAttribute('position');
+        const cols = new Float32Array(pos.count * 3);
+        const lower = new Color(recipe.shoes);
+        const upper = new Color(recipe.bottom);
+        for (let i = 0; i < pos.count; i++) {
+          const c = pos.getY(i) > SHOE_TOP ? upper : lower;
+          cols[i * 3] = c.r;
+          cols[i * 3 + 1] = c.g;
+          cols[i * 3 + 2] = c.b;
+        }
+        g.setAttribute('color', new Float32BufferAttribute(cols, 3));
+        mesh.geometry = g;
+        owned.push(g);
+      }
+      color = mesh.name === 'legs' ? new Color(recipe.bottom) : mesh.name === 'feet' ? new Color('#ffffff') : top.clone();
     } else if (kind === 'skin' || kind === 'skin-hands') color = skinTint.clone();
     else if (kind === 'hair1' || kind === 'hair2') {
       map = map ? grey(map, 0.85) : null;
       color = new Color(mesh.name === 'beard' ? (recipe.beard ?? recipe.hairColor) : recipe.hairColor);
     }
-    const m = new MeshToonMaterial({ map, color, gradientMap: ramp });
+    const m = new MeshToonMaterial({ map, color, gradientMap: ramp, vertexColors: mesh.name === 'feet' && kind === 'cloth' });
     if (kind === 'cloth' && (mesh.name === 'top' || mesh.name === 'arms')) tops.push(m);
     tinted.push({ m, color: color.clone() });
     mesh.material = m;
@@ -192,6 +226,9 @@ export async function wearQuat(ch: Character3DPlus, recipe: QuatRecipe, grow = 1
   const chestBone = bone('spine_03');
   const arms = { shL: bone('upperarm_l'), elL: bone('lowerarm_l'), shR: bone('upperarm_r'), elR: bone('lowerarm_r') };
   const pelvisRest = pelvis ? pelvis.position.clone() : new Vector3();
+  const thighs = [bone('thigh_l'), bone('thigh_r')] as const;
+  // an old body: narrower shoulders (the clips turn bones, they never move them, so this stays)
+  if (recipe.kind === 'old' || recipe.kind === 'older') for (const b of [arms.shL, arms.shR]) b?.position.multiplyScalar(SHOULDERS[recipe.kind]);
 
   // as tall as the avatar it stands in for (./vrmBody.ts: a child by its own tall, a grown-up by the body's tiles)
   const anim = ch.animator;
@@ -355,6 +392,10 @@ export async function wearQuat(ch: Character3DPlus, recipe: QuatRecipe, grow = 1
       for (const b of spine) turn(b, X, st / 3);
       turn(neck, X, -st * 0.25);
     }
+    // standing, the feet nearer together (the left thigh is on +x: turned toward -x round z, the right the other way)
+    const close = STAND_CLOSE * (w.idle + 0.4 * (w.walk + w.jog));
+    turn(thighs[0], Z, -close);
+    turn(thighs[1], Z, close);
     // the code pose's arms while they wave, talk or hold (the clips' arms otherwise), and the head's turn
     const busyL = anim.armsBusy[0];
     const busyR = anim.armsBusy[1];
@@ -473,6 +514,7 @@ export async function wearQuat(ch: Character3DPlus, recipe: QuatRecipe, grow = 1
     mixer.stopAllAction();
     mixer.uncacheRoot(body);
     for (const m of built) m.geometry.dispose();
+    for (const g of owned) g.dispose();
     for (const t of tinted) t.m.dispose();
   };
   const dispose = ch.dispose.bind(ch);
