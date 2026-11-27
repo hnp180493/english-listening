@@ -152,3 +152,11 @@ describe('the pirate station: when it plays', () => {
     expect(scenePay(s, { asked: 2, right: 2, plays: 1 }, [s.id]).xu).toBe(0);
   });
 });
+
+describe('the pirate station: its title in the town-side code', () => {
+  it("the listen panel's title for 91.5 is the station's title (kept apart so the town's chunk skips the tapes)", async () => {
+    const { PIRATE_TITLE } = await import('../../data/scenes/pirate');
+    const { listenTitle, PIRATE_RADIO } = await import('../../features/town/scenes/things');
+    expect(listenTitle(PIRATE_RADIO)).toBe(PIRATE_TITLE);
+  });
+});

@@ -25,11 +25,19 @@ import { Portrait } from '../art';
 import { tl, tr } from '../../../i18n';
 import SceneFlow, { type FaceLook, type FlowEnd, type FlowResult } from './SceneFlow';
 import { speakerHasFace, speakerName } from './speakers';
-import { CAR_RADIO, PIRATE_RADIO } from './things';
-import { ADMIN } from '../../../core/admin';
-import { loadTownJobs } from '../../../core/town/jobsStore';
-import { pirateEnding, pirateNow, pirateSegments, pirateState } from '../../../core/town/pirate';
-import { PIRATE_SEGMENTS, PIRATE_SILENT, type PirateSegment } from '../../../data/scenes/pirate';
+import { CAR_RADIO } from './things';
+
+/**
+ * A channel the host page adds to the panel (Westbay's pirate station: city/pirateChannel.ts), so its scenes load with
+ * that page, not with the town: what it plays at `focus`, a line after the answer, the line when it plays nothing.
+ */
+export interface ListenChannel {
+  focus: string;
+  pick: (now: number, recent: ReadonlySet<string>) => ListenScene | null;
+  /** Vietnamese, put through the interface language. */
+  after?: (scene: ListenScene) => string | null;
+  empty: () => string;
+}
 
 export interface ListenPanelProps extends ActivityPanelProps {
   /** Where the panel is open: the town (the default) or Westbay. The bus goes to the other one. */
@@ -38,10 +46,12 @@ export interface ListenPanelProps extends ActivityPanelProps {
   overheard?: readonly ListenScene[];
   /** The bus sets off (the ride was heard, or skipped): the page goes to the other place (with the friend asked along). */
   onTravel?: (withId?: string) => void;
+  /** A channel of the host page's (the pirate station in Westbay). */
+  channel?: ListenChannel;
 }
 
 /** The scene this panel plays, and whose get-together it is (a place id), if any. */
-function pickScene(at: string | null | undefined, now: number, where: 'town' | 'city', overheard: readonly ListenScene[]): { scene: ListenScene | null; host: string | null } {
+function pickScene(at: string | null | undefined, now: number, where: 'town' | 'city', overheard: readonly ListenScene[], channel?: ListenChannel): { scene: ListenScene | null; host: string | null } {
   const today = townToday(now);
   const progress = loadTownProgress();
   const recent = new Set(scenesHeard(progress));
@@ -50,12 +60,8 @@ function pickScene(at: string | null | undefined, now: number, where: 'town' | '
     return { scene: ev ? eventScene(EVENT_SCENES, ev.id, today.day) : null, host: ev?.host ?? null };
   }
   const kind = at ? thingKind(at) : null;
-  // the pirate station on 91.5 (Westbay, while Act III is on): a forged or a real old tape (core/town/pirate.ts)
-  if (at === PIRATE_RADIO) {
-    const jobs = loadTownJobs();
-    if (pirateState(jobs, ADMIN) !== 'on') return { scene: null, host: null };
-    return { scene: pirateNow(pirateSegments(PIRATE_SEGMENTS, jobs, ADMIN), recent, now), host: null };
-  }
+  // a channel of the host page (the pirate station on 91.5 in Westbay: city/pirateChannel.ts)
+  if (channel && at === channel.focus) return { scene: channel.pick(now, recent), host: null };
   // the radio (the café's, or a vehicle's): Bay FM's bulletin of the moment, taking turns with the written segments
   if (kind === 'radio' || at === CAR_RADIO) {
     const turn = scenesHeard(progress, today.day).filter((id) => id.startsWith('fm-') && !isLiveId(id) && !id.startsWith('fm-call-') && !id.startsWith('fm-pirate-')).length;
@@ -102,9 +108,10 @@ async function say(line: SceneLine, level: number, careful: boolean, kind?: List
   return speak(p.text, p.options);
 }
 
-export default function ListenPanel({ onClose, onReward, sound, focus, onScene, onSceneEnd, onListen, onSpeaking, where = 'town', overheard = OVERHEARD_SCENES, onTravel, companions }: ListenPanelProps) {
+export default function ListenPanel({ onClose, onReward, sound, focus, onScene, onSceneEnd, onListen, onSpeaking, where = 'town', overheard = OVERHEARD_SCENES, onTravel, companions, channel }: ListenPanelProps) {
   // the scene is chosen once, when the panel opens (what was paid meanwhile must not change it under the learner)
-  const [{ scene, host }] = useState(() => pickScene(focus, Date.now(), where, overheard));
+  const [{ scene, host }] = useState(() => pickScene(focus, Date.now(), where, overheard, channel));
+  const onChannel = !!channel && focus === channel.focus;
   const ride = scene?.kind === 'ride';
   // a friend asked along to Westbay (from the town only): they ride with the learner and are up there for the day
   const [withId, setWithId] = useState('');
@@ -141,7 +148,7 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
   }, []);
   // at a bench or the radio: the player sits down, and the people who are overheard come and talk nearby
   useEffect(() => {
-    if (!scene || host || ride || focus === CAR_RADIO || focus === PIRATE_RADIO) return;
+    if (!scene || host || ride || focus === CAR_RADIO || onChannel) return;
     onListen?.([...new Set(scene.lines.map((l) => l.who))].filter(speakerHasFace));
     return () => onListen?.(null);
     // once, for the scene this panel opened with
@@ -162,11 +169,12 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
       // a bulletin's forecast is true of the world: say when to look (the clock in the corner)
       const next = radioHeard(scene.id);
       if (next) notes.push(tl`Bay FM báo cho ${clockLabel(next.at)}: ${tr(SKY_NAME[next.sky])}.`);
-      // the pirate's tape: why it was real, or what gave it away
-      if (focus === PIRATE_RADIO && 'why' in scene) notes.push(tr((scene as PirateSegment).why));
+      // a channel's line after the answer (the pirate's tape: why it was real, or what gave it away)
+      const after = onChannel ? channel?.after?.(scene) : null;
+      if (after) notes.push(tr(after));
       return { xu: e.xu, notes };
     },
-    [scene, host, onReward, focus],
+    [scene, host, onReward, onChannel, channel],
   );
 
   const there = where === 'city' ? 'thị trấn' : 'Westbay';
@@ -176,10 +184,8 @@ export default function ListenPanel({ onClose, onReward, sound, focus, onScene, 
         <p className="town-build-hint">
           {focus && thingKind(focus) === 'bus'
             ? tl`Xe số 9 đang chờ ở bến. Lên xe là tới ${there}.`
-            : focus === PIRATE_RADIO
-              ? pirateState(loadTownJobs(), ADMIN) === 'ended'
-                ? PIRATE_SILENT[pirateEnding(loadTownJobs())]
-                : 'Chín mốt phẩy năm chỉ có tiếng rè.'
+            : onChannel && channel
+              ? tr(channel.empty())
               : 'Lúc này chưa có gì để nghe ở đây. Ghé lại sau nhé.'}
         </p>
         <div className="town-talk-foot">

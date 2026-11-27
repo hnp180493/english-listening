@@ -7,34 +7,25 @@ import { useEffect, useState, type RefObject } from 'react';
 import { Radio } from 'lucide-react';
 import { Icon } from '../../../components/Icon';
 import type { TownStageHandle } from '../engine/stage';
-import { ADMIN } from '../../../core/admin';
-import { loadTownJobs } from '../../../core/town/jobsStore';
-import { pirateState } from '../../../core/town/pirate';
 import './carRadio.css';
 
 /**
- * `onPirate` (Westbay only): a second channel, the pirate station on 91.5 (core/town/pirate.ts), shown while Act III is
- * on and, silent, after it (a line says why); never before `job-forged` is done.
+ * `onPirate` (Westbay only): a second channel, the pirate station on 91.5, shown while `pirateOn` says so (Act III on,
+ * and silent after it: city/pirateChannel.ts, which keeps the station's tapes out of the town's chunk).
  */
-export default function CarRadio({ stage, onOpen, onPirate }: { stage: RefObject<TownStageHandle | null>; onOpen: () => void; onPirate?: () => void }) {
+export default function CarRadio({ stage, onOpen, onPirate, pirateOn }: { stage: RefObject<TownStageHandle | null>; onOpen: () => void; onPirate?: () => void; pirateOn?: () => boolean }) {
   const [riding, setRiding] = useState(false);
   const [pirate, setPirate] = useState(false);
   useEffect(() => {
     const read = () => {
       const on = !!stage.current?.rideState().riding;
       setRiding(on);
-      if (on && onPirate) {
-        try {
-          setPirate(pirateState(loadTownJobs(), ADMIN) !== 'off');
-        } catch {
-          setPirate(false);
-        }
-      }
+      if (on && onPirate && pirateOn) setPirate(pirateOn());
     };
     read();
     const id = window.setInterval(read, 400);
     return () => window.clearInterval(id);
-  }, [stage, onPirate]);
+  }, [stage, onPirate, pirateOn]);
   if (!riding) return null;
   return (
     <div className="town-carradio">

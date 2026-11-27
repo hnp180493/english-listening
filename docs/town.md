@@ -3246,7 +3246,7 @@ proves every fake breaks exactly one rule, the tell its question asks about, the
 tape breaks none, no real line of the city's scenes breaks a habit, the gating and the pay. Looked at in pictures only
 (`scripts/town-shot.mjs`, admin, a car summoned): the two pills at 1600×900 and 375×812 (on a phone they sit over a
 call's notice while it shows, as the Radio pill did), the panel in English at 1600×900, its first question at 375×812.
-Nobody has heard a segment or read the lines but the model that wrote them.
+Nobody has heard a segment or read the lines but the model that wrote them. The station's tapes and rules load only with Westbay: the city page hands them to the shared panel as a channel (`city/pirateChannel.ts`, `ListenPanel` `channel`, `CarRadio` `pirateOn`), which took the TownRoute chunk from 487.21 kB back to 476.06 kB (CityPage 236.39 → 247.75 kB).
 
 **News about the player** (`core/town/radioNews.ts`): `queueRadioNews({ id, lines: [{ text, vi, say? }] })` queues up
 to 4 of Marcus's lines for the next bulletin (at most 3 items, the same id replaces, forgotten after 6 real hours or a

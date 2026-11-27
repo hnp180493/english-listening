@@ -40,6 +40,7 @@ import { usePanelKeys } from '../panelKeys';
 import { usePlayerOnStage } from '../playerStage';
 import MiniMap from '../map/MiniMap';
 import ListenPanel from '../scenes/ListenPanel';
+import { PIRATE_CHANNEL, pirateOn } from './pirateChannel';
 import { CAR_RADIO, listenTitle, PIRATE_RADIO, thingPrompt } from '../scenes/things';
 import CarRadio from '../scenes/CarRadio';
 import { playSfx } from '../sfx';
@@ -719,7 +720,7 @@ export default function CityPage() {
 
         {!flat && ready && !sheet && !welcome && !map && <QuestTracker quests={questList} current={quest} stage={stage} onPick={goQuest} deadline={job.active ? job.deadline : riding ? (taxiRide?.until ?? null) : rush && rush.id === quest?.id ? rush.until : null} />}
         {!flat && ready && !sheet && !welcome && !map && <RideButton stage={stage} />}
-        {!flat && ready && !sheet && !welcome && !map && <CarRadio stage={stage} onOpen={() => openThing(CAR_RADIO as ActivitySpotId)} onPirate={openPirate} />}
+        {!flat && ready && !sheet && !welcome && !map && <CarRadio stage={stage} onOpen={() => openThing(CAR_RADIO as ActivitySpotId)} onPirate={openPirate} pirateOn={pirateOn} />}
         <div className="town-hud">
           <div className="town-level is-new" role="img" aria-label={tl`Westbay, ${weekday}`}>
             <span className="town-level-title">
@@ -861,7 +862,7 @@ export default function CityPage() {
         )}
         {shownSheet?.kind === 'thing' && (
           <CitySheet title={thingKind(shownSheet.id) === 'bus' ? 'Xe buýt số 9' : listenTitle(shownSheet.id)} onClose={closeSheet}>
-            <ListenPanel key={shownSheet.key} where="city" overheard={CITY_OVERHEARD} focus={shownSheet.id} sound={ui.sound} onClose={closeSheet} onReward={onReward} onListen={onListen} onSpeaking={setSpeaking} onTravel={toTown} />
+            <ListenPanel key={shownSheet.key} where="city" overheard={CITY_OVERHEARD} focus={shownSheet.id} sound={ui.sound} onClose={closeSheet} onReward={onReward} onListen={onListen} onSpeaking={setSpeaking} onTravel={toTown} channel={PIRATE_CHANNEL} />
           </CitySheet>
         )}
         {eventUp && (
