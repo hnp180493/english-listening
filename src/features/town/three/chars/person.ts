@@ -1,7 +1,7 @@
 // A person in the 3D town: one skinned mesh (body, clothes, hair, extras), one face mesh (shared atlas), and a hat
 // and props when needed: 2 draw calls standing about, 3–4 with a hat and a cup. The Animator drives every bone.
 
-import { Bone, Euler, Group, Matrix4, Mesh, Quaternion, Skeleton, SkinnedMesh, Sphere, Vector3 } from 'three';
+import { Bone, Euler, Group, Matrix4, Mesh, Object3D, Quaternion, Skeleton, SkinnedMesh, Sphere, Vector3 } from 'three';
 import type { CharAction, Character3D, CharacterId, CharacterLook } from '../contracts';
 import { ACTION_SECONDS, Animator, C, J, JOINT_COUNT, LEG_GROW, angleDelta, clamp } from './anim';
 import { B, BONE_COUNT, BONE_REST, buildBody, HEAD, HEAD_TOP } from './body';
@@ -42,6 +42,12 @@ export interface Character3DPlus extends Character3D {
   readonly hatId: string | null;
   /** While fishing: the line runs from the rod's tip to this world point (the float), or hangs from it (null). */
   castLine(point: Vector3 | null): void;
+  /**
+   * Holding an umbrella up in the rain (the pose's C.umbrella): where it is held, upright, scaled to the body's
+   * height (one unit = the top of the head), or null. Nothing is drawn here: the scene draws every umbrella with one
+   * instanced mesh (scene/umbrellas.ts), so a street full of them costs one draw call.
+   */
+  umbrella(): Object3D | null;
   /** Current eased heading (radians). */
   readonly heading: number;
 }
@@ -202,6 +208,15 @@ export function createPerson(id: CharacterId, look: CharacterLook = castLook(id)
 
   let lookPoint: Vector3 | null = null;
 
+  // the umbrella's grip: at the right side of the body, a little forward, about chest high, upright in the body's
+  // own frame, so its canopy is always over the head whatever the arm does (the pose brings the right hand up to
+  // it); drawn by the scene, see `umbrella`. (Body frame: +z forward, the right side at -x, design units.)
+  const umbrellaAt = new Object3D();
+  umbrellaAt.name = 'umbrella';
+  umbrellaAt.position.set(-0.15, 0.56, 0.14);
+  pivot.add(umbrellaAt);
+  let umbrellaOn = false;
+
   const apply = (dt: number) => {
     const p = anim.pose;
     for (let j = 0; j < JOINT_COUNT; j++) bones[j].rotation.set(p[j * 3], p[j * 3 + 1], p[j * 3 + 2]);
@@ -242,6 +257,13 @@ export function createPerson(id: CharacterId, look: CharacterLook = castLook(id)
         r.tick(dt, p[C.tug]);
       }
     }
+    const uw = p[C.umbrella];
+    umbrellaOn = uw > 0.02;
+    if (umbrellaOn) {
+      const k = clamp(uw, 0, 1);
+      // opens out as it comes up (with a small overshoot, like the other things held)
+      umbrellaAt.scale.setScalar(HEAD_TOP * Math.max(0.001, 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2)));
+    }
   };
 
   const character: Character3DPlus = {
@@ -249,6 +271,9 @@ export function createPerson(id: CharacterId, look: CharacterLook = castLook(id)
     root,
     castLine(point) {
       castPoint = point;
+    },
+    umbrella() {
+      return umbrellaOn ? umbrellaAt : null;
     },
     look,
     animator: anim,

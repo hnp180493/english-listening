@@ -272,6 +272,14 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     chest.add(chestFrame);
   }
   let castPoint: Vector3 | null = null;
+  // the umbrella's grip (drawn by the scene's instanced mesh: scene/umbrellas.ts), as tall as this body: at its right
+  // side, a little forward, about chest high, upright in the body's frame (the canopy always over the head; the pose
+  // brings the right hand up to it)
+  const umbrellaAt = new Group();
+  umbrellaAt.name = 'umbrella';
+  umbrellaAt.position.set(-(Math.abs(shoulderAt.x) + tall * 0.02), ground + tall * 0.62, tall * 0.12);
+  holder.add(umbrellaAt);
+  let umbrellaOn = false;
 
   const weights: Record<string, number> = { blink: 0, happy: 0, surprised: 0, aa: 0, oh: 0, relaxed: 0 };
   const setJoint = (node: Object3D, q: Quaternion): void => {
@@ -283,7 +291,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   let gait = 0;
   /** The bike's cranks (radians). */
   let pedal = 0;
-  const before = { update: ch.update, headTop: ch.headTop, setNight: ch.setNight, setOutfit: ch.setOutfit, dispose: ch.dispose, setHat: ch.setHat, castLine: ch.castLine };
+  const before = { update: ch.update, headTop: ch.headTop, setNight: ch.setNight, setOutfit: ch.setOutfit, dispose: ch.dispose, setHat: ch.setHat, castLine: ch.castLine, umbrella: ch.umbrella };
   const update = ch.update.bind(ch);
   ch.update = (dt: number, speed: number) => {
     update(dt, speed);
@@ -342,7 +350,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       let dz = 0;
       for (; ; lean += 0.04) {
         dy = ground + bars.y * u - (sitHips + (spineY - hipsY) + torso * Math.cos(lean));
-        dz = (bars.x - spec.seatAt) * u - torso * Math.sin(lean);
+        dz = (bars.x - (spec.seatAt - (spec.seatBack ?? 0))) * u - torso * Math.sin(lean);
         if (Math.hypot(dy, dz) <= (upperArm + foreArm) * 0.94 || lean >= (bars.max ?? 0.7)) break;
       }
       reach = armTo(dy, dz, upperArm, foreArm);
@@ -414,7 +422,9 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
           default:
             break;
         }
-        if (gx !== null) _q.slerp(_gq.setFromEuler(_euler.set(gx, gy, gz, 'XYZ')), walk);
+        // (an umbrella held up keeps the right arm where the pose has it: no swing)
+        const swingW = b.j === J.shR || b.j === J.elR ? walk * (1 - p[C.umbrella]) : walk;
+        if (gx !== null) _q.slerp(_gq.setFromEuler(_euler.set(gx, gy, gz, 'XYZ')), swingW);
       }
       if (seat > 0.001) {
         // (still in the code body's frame)
@@ -493,8 +503,15 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
         r.tick(dt, p[C.tug]);
       }
     }
+    const uw = p[C.umbrella];
+    umbrellaOn = uw > 0.02;
+    if (umbrellaOn) {
+      const k = MathUtils.clamp(uw, 0, 1);
+      umbrellaAt.scale.setScalar(tall * Math.max(0.001, 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2)));
+    }
     vrm.update(dt);
   };
+  ch.umbrella = () => (umbrellaOn ? umbrellaAt : null);
 
   const headTop = ch.headTop.bind(ch);
   ch.headTop = (target: Vector3) => {
@@ -551,6 +568,8 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     // (out of the tree first: the hat's geometry and the toon material are shared, deepDispose must not free them)
     hat?.removeFromParent();
     for (const r of held.values()) r.root.removeFromParent();
+    umbrellaAt.removeFromParent();
+    umbrellaOn = false;
     for (const m of worn) {
       m.geometry.dispose();
       (m.material as Material).dispose();
@@ -575,6 +594,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       ch.dispose = before.dispose;
       ch.setHat = before.setHat;
       ch.castLine = before.castLine;
+      ch.umbrella = before.umbrella;
       if (pivot) pivot.visible = true;
     },
   };

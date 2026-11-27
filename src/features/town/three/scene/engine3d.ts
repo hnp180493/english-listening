@@ -3,7 +3,7 @@
 // the overlay canvas (name tags, bubbles, emotes, particles in screen pixels, engine/draw/overlay.ts) and the sky
 // canvas behind, and offers what the page asks of its stage (engine/stage.ts TownStageHandle) through TownStage3D.
 
-import { ACESFilmicToneMapping, BufferGeometry, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, PCFShadowMap, PerspectiveCamera, Raycaster, RingGeometry, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer, type Object3D } from 'three';
+import { ACESFilmicToneMapping, BufferGeometry, Color, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, PCFShadowMap, PerspectiveCamera, Raycaster, RingGeometry, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer, type Object3D } from 'three';
 import { prefersReducedMotion } from '../../../../core/motion';
 import { collidersIn, findPath, nearestWalkable, walkable } from '../../../../core/town/map';
 import { lootItem } from '../../../../data/townGame';
@@ -18,6 +18,7 @@ import { RIDES, vehicleGeometry } from './vehicles3d';
 import type { StageExtra, StageExtraCtx } from './stageExtra';
 import type { RideState } from '../../engine/stage';
 import { Birds } from './birds';
+import { Umbrellas } from './umbrellas';
 import { paletteFor, type TownPalette } from '../../engine/palette';
 import { Particles } from '../../engine/particles';
 import { bodyFits, gridDistance, PLAYER_RADIUS, TownSim, type Actor, type Folk, type Resident, type StageState } from '../../engine/sim';
@@ -363,6 +364,8 @@ export class TownEngine3D {
   private ridesMade = false;
   /** Two flocks over the view by day (birds.ts). */
   private birds: Birds | null = null;
+  /** Everybody's umbrella in the rain, one instanced mesh (scene/umbrellas.ts). */
+  private umbrellas: Umbrellas | null = null;
   /** The one the player rides (an index of `rides`), -1 = on foot. */
   private riding = -1;
   /** The quest followed (setGuide), its way (tile-grid points, found twice a second) and how long that is (tiles). */
@@ -883,6 +886,7 @@ export class TownEngine3D {
     }
     this.rides = [];
     this.birds?.dispose();
+    this.umbrellas?.dispose();
     this.birds = null;
     lastPlayerTile.set(this.world.rows, { ...this.sim.player.tile });
     for (const p of this.people.values()) p.ch.dispose();
@@ -1627,10 +1631,12 @@ export class TownEngine3D {
   private seatOffset(kind: VehicleKind, heading: number): { x: number; y: number } {
     const spec = RIDES[kind];
     const k = this.rideScale();
-    const side = getTownUi().people === 'anime' ? (spec.side ?? 0) * k : 0;
+    const anime = getTownUi().people === 'anime';
+    const side = anime ? (spec.side ?? 0) * k : 0;
+    const along = (spec.seatAt - (anime ? (spec.seatBack ?? 0) : 0)) * k;
     const c = Math.cos(heading);
     const s = Math.sin(heading);
-    return { x: c * spec.seatAt * k - s * side, y: s * spec.seatAt * k + c * side };
+    return { x: c * along - s * side, y: s * along + c * side };
   }
 
   /** How high the rider's seat is (tiles): the cushion's top for an avatar in a car, else where the round body sits. */
@@ -2265,6 +2271,8 @@ export class TownEngine3D {
       const a = airNow(this.sky, this.night, this.wet, DAY_PAL, NIGHT_PAL);
       this.skyPals = a.pals;
       this.town.setAir(a.air);
+      // the clouds the camera can see (scene/clouds.ts): as many and as grey as the sky, lit by its hour
+      this.town.setClouds({ cloud: this.sky.mix.cloud, rain: this.sky.mix.rain, storm: this.sky.mix.storm, night: this.night, glow: this.sky.glow * (1 - this.night * 0.5), mist: new Color(a.air.mist), haze: a.air.haze });
     }
     // lightning: the whole picture brighter for a moment (the thunder is the page's, from the same clock)
     const flash = this.still ? 0 : lightningAt(Date.now(), this.sky.mix.storm);
@@ -2311,6 +2319,7 @@ export class TownEngine3D {
       this.birds?.update(this.t, this.target, this.night, this.still, dt);
       this.updatePet(dt);
       this.updateKids(dt);
+      this.updateUmbrellas();
     }
     // following the player, the camera keeps the sim's own time (a late frame moves the two together: the player stays
     // in the middle); a glide to a shot is never more than 1.5 usual frames ahead in a late frame (cameraDt)
@@ -2841,6 +2850,10 @@ export class TownEngine3D {
   private place(id: string, a: Actor, dt: number, show: boolean): void {
     const p = this.personFor(a);
     if (!p) return;
+    // out in the rain an umbrella goes up: not riding, not fishing (the hands are busy: the body itself also keeps it
+    // down while it holds a cup, a can, a rod or a book)
+    const an = (p.ch as Partial<Character3DPlus>).animator;
+    if (an) an.umbrellaWant = this.wetOut && !(a.kind === 'player' && (this.riding >= 0 || !!this.fish));
     // well off the screen: not drawn, not animated (the sim walks them on; in the city's crowd, posing everybody
     // every frame was a good part of a frame's work)
     const off = Math.hypot(a.x - this.target.x, a.y - this.target.z) > this.reach;
@@ -3124,6 +3137,33 @@ export class TownEngine3D {
   }
 
   /** The learner's children walk behind the player, after the pet (the youngest last), in step with them. */
+  /**
+   * Out in the rain everybody holds an umbrella up (docs/town.md §24): the bodies pose for it (`umbrellaWant`, set in
+   * place / updateKids), and the umbrellas of all who hold one are drawn here by one instanced mesh.
+   */
+  private updateUmbrellas(): void {
+    if (!this.umbrellas) {
+      if (!this.ready) return;
+      this.umbrellas = new Umbrellas();
+      this.town.scene.add(this.umbrellas.mesh);
+    }
+    const u = this.umbrellas;
+    u.begin();
+    const hold = (id: string, ch: Character3D) => {
+      if (!ch.root.visible) return;
+      const at = (ch as Partial<Character3DPlus>).umbrella?.();
+      if (at) u.add(at, id);
+    };
+    for (const [id, p] of this.people) hold(id, p.ch);
+    for (const k of this.kids) hold(k.key, k.ch);
+    u.end();
+  }
+
+  /** Raining hard enough to put an umbrella up (a shower, a storm; not a drizzle as the sky clears). */
+  private get wetOut(): boolean {
+    return this.sky.mix.rain > 0.3;
+  }
+
   private updateKids(dt: number): void {
     const want = this.state.kids ?? [];
     const key = (k: (typeof want)[number]) => `${k.id}|${k.skin}|${k.hair}|${k.toddler ? 't' : 'c'}`;
@@ -3186,6 +3226,8 @@ export class TownEngine3D {
         kid.ch.setAction(action);
       }
       kid.ch.root.position.set(kid.x, this.town.lift(kid.x, kid.y), kid.y);
+      const kan = (kid.ch as Partial<Character3DPlus>).animator;
+      if (kan) kan.umbrellaWant = this.wetOut;
       dressWhenNear(kid.ch, kid.x - this.target.x, kid.y - this.target.z);
       kid.ch.setHeading(kid.heading, this.still);
       kid.ch.update(this.still ? 0 : dt, kid.walking && dt > 0 ? step / dt : 0);
@@ -3247,7 +3289,7 @@ export class TownEngine3D {
     this.town.mats.shared.sway.value = this.still ? 0 : 1 + 0.9 * this.sky.mix.wind;
     // the sun's (by night the moon's) arc over the game's day: shadows turn and lengthen (sunPath.ts)
     const sun = sunAt(this.skyForce ? this.sky.hour : gameHour(Date.now()));
-    this.town.setSun(sun.dir, sun.strength);
+    this.town.setSun(sun.dir, sun.strength, sun.moon);
     this.town.update(this.t, this.target, Math.max(e.across, e.deep) * 1.25, this.still);
     // how far from the camera's target somebody is still drawn and animated (next frame's place): what shows, a margin
     this.reach = Math.max(e.across, e.deep) * 1.4 + 3;

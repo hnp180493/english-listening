@@ -1,6 +1,9 @@
-// Everyday life in "Thị trấn" (docs/town.md §7 "Life"), the pure part: what part of the day it is by the learner's
-// own clock, what a resident feels like doing then, for how long, and how many townsfolk pass through. The sim
+// Everyday life in "Thị trấn" (docs/town.md §7 "Life"), the pure part: what part of the day it is by the GAME's
+// clock (since 2026-11-27, docs/town.md §24: the light and the people keep the same hour, a game day being 48 real
+// minutes), what a resident feels like doing then, for how long, and how many townsfolk pass through. The sim
 // (sim.ts) walks them there and the engine draws it. No randomness of its own: the caller passes `rng`.
+
+import { gameMinutes } from '../../../core/town/sky';
 
 /** What a resident is doing. */
 export type Activity =
@@ -27,7 +30,7 @@ export type Activity =
 
 export type DayPart = 'night' | 'morning' | 'work' | 'noon' | 'afternoon' | 'evening' | 'late';
 
-/** Minutes since local midnight → the part of the day. */
+/** Minutes since midnight of the game's clock → the part of the day. */
 export function dayPart(minutes: number): DayPart {
   const m = ((minutes % 1440) + 1440) % 1440;
   if (m < 6 * 60) return 'night';
@@ -39,9 +42,14 @@ export function dayPart(minutes: number): DayPart {
   return 'late';
 }
 
-/** The local time of day in minutes (the learner's clock). */
-export function minutesNow(now: Date = new Date()): number {
-  return now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+/**
+ * The time of day that everyday life follows: the GAME's clock (core/town/sky.ts gameMinutes, through the one gate
+ * core/town/gameClock.ts gameNow, so a sleep in the hideout moves it too), the hour the sky shows. Only the hour:
+ * what is counted per REAL day (the daily tasks and allowances, the weekly get-togethers by the learner's weekday,
+ * who comes up to Westbay) keeps reading the real date.
+ */
+export function lifeMinutes(nowMs: number = Date.now()): number {
+  return gameMinutes(nowMs);
 }
 
 /**

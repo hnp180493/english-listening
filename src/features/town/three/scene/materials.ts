@@ -26,6 +26,13 @@ export interface Shared {
   holeFloor: IUniform<number[]>;
   /** Wet ground, cloud shadows and mist (weather3d.ts). */
   weather: WeatherUniforms;
+  /**
+   * The moon on the water (docs/town.md §24 "Clouds and the moon"): xyz = towards the moon (core/town/sunPath.ts
+   * sunAt at night: where the night's light and shadows come from), w = how bright its glints are now (0 by day,
+   * under thick cloud and at the hand-overs). The camera never looks up at the sky, so this is where the moon is
+   * seen: a path of glints where its light is reflected towards the eye.
+   */
+  moon: IUniform<Vector4>;
 }
 
 /** The water's colour at the shoreline and out in the middle (terrain.ts paints between them; the shader reads it back). */
@@ -131,6 +138,7 @@ function addWater(shader: WebGLProgramParametersWithUniforms, shared: Shared): v
   shader.uniforms.uTime = shared.time;
   shader.uniforms.uSway = shared.sway;
   shader.uniforms.uNight = shared.night;
+  shader.uniforms.uMoon = shared.moon;
   shader.uniforms.uShallow = { value: WATER_SHALLOW };
   shader.uniforms.uDeep = { value: WATER_DEEP };
   shader.vertexShader = shader.vertexShader
@@ -143,7 +151,7 @@ function addWater(shader: WebGLProgramParametersWithUniforms, shared: Shared): v
     )
     .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uSway;\nuniform float uNight;\nuniform vec3 uShallow;\nuniform vec3 uDeep;\nvarying vec3 vWorld;')
+    .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uSway;\nuniform float uNight;\nuniform vec4 uMoon;\nuniform vec3 uShallow;\nuniform vec3 uDeep;\nvarying vec3 vWorld;')
     .replace(
       '#include <color_fragment>',
       `#include <color_fragment>
@@ -165,12 +173,30 @@ function addWater(shader: WebGLProgramParametersWithUniforms, shared: Shared): v
       float foam = max(rim, waves * 0.5);
       diffuseColor.rgb = mix(diffuseColor.rgb, glint, foam * 0.88);
       // clear at the shore, deeper out
-      diffuseColor.a = clamp(mix(0.34, 0.86, smoothstep(0.0, 0.9, depth)) + foam * 0.5, 0.0, 1.0);`,
-    );
+      diffuseColor.a = clamp(mix(0.34, 0.86, smoothstep(0.0, 0.9, depth)) + foam * 0.5, 0.0, 1.0);
+      // the moon: its light reflected off small slanted wavelets towards the eye, a scatter of glints that gathers
+      // into a path on the side the moon is on (the wavelets lean up to about 30 degrees, so a path shows from most
+      // ways the camera turns, thicker towards the moon)
+      float moonGlint = 0.0;
+      if (uMoon.w > 0.001) {
+        vec3 eyeDir = normalize(cameraPosition - vWorld);
+        vec2 g = vWorld.xz * 2.4;
+        float mt = tt * 0.55;
+        vec3 wn = normalize(vec3(sin(g.x * 1.7 + mt) * 0.3 + sin(g.y * 2.9 - mt * 1.3) * 0.3, 1.7, sin(g.y * 1.9 + mt * 0.8) * 0.3 + sin(g.x * 3.1 - mt) * 0.3));
+        float lobe = pow(max(dot(reflect(-eyeDir, wn), uMoon.xyz), 0.0), 60.0);
+        // (a twinkle: a wavelet catches it and lets it go; most of the water is dark between)
+        float tw = smoothstep(0.3, 0.95, sin(g.x * 5.3 + mt * 2.3) * sin(g.y * 4.7 - mt * 1.9));
+        // and a soft silver sheen where the flat water would mirror the moon: the path the glints lie along
+        float sheen = pow(max(dot(reflect(-eyeDir, vec3(0.0, 1.0, 0.0)), uMoon.xyz), 0.0), 7.0);
+        moonGlint = (lobe * tw * 1.4 + sheen * 0.3) * uMoon.w * smoothstep(0.05, 0.4, depth);
+        diffuseColor.a = max(diffuseColor.a, min(1.0, moonGlint * 1.5));
+      }`,
+    )
+    .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(0.86, 0.9, 1.0) * moonGlint * 1.7;');
 }
 
 export function makeMaterials(): Materials {
-  const shared: Shared = { time: { value: 0 }, sway: { value: 1 }, night: { value: 0 }, holes: { value: [new Vector4(), new Vector4()] }, holeFloor: { value: [0, 0] }, weather: makeWeatherUniforms() };
+  const shared: Shared = { time: { value: 0 }, sway: { value: 1 }, night: { value: 0 }, holes: { value: [new Vector4(), new Vector4()] }, holeFloor: { value: [0, 0] }, weather: makeWeatherUniforms(), moon: { value: new Vector4(0, 1, 0, 0) } };
   const std = new MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0 });
   std.onBeforeCompile = (s) => {
     addHoles(s, shared);

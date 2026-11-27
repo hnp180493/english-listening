@@ -19,7 +19,7 @@ import { TOWN_WORLD, type ActivitySpot, type Collider, type ActivitySpotId, type
 import { extraDecorSpots } from './extraDecor';
 import { HIDEOUT_HALF, HIDEOUT_HOME, HIDEOUT_LET } from '../../../data/city/hideout';
 import { CAT_STRIDE, personStride } from './gait';
-import { activitySeconds, dayPart, folkCount, kidsOut, minutesNow, pickActivity, type Activity } from './life';
+import { activitySeconds, dayPart, folkCount, kidsOut, lifeMinutes, pickActivity, type Activity } from './life';
 import type { TownTheme } from './palette';
 
 /**
@@ -268,7 +268,7 @@ export type Arrival = { kind: 'talk'; placeId: PlaceId } | { kind: 'lot'; placeI
 /** Options of the sim. `life`: everyday life (docs/town.md §7 "Life"); off, the town of before (tests). */
 export interface SimOptions {
   life?: boolean;
-  /** Minutes since local midnight (life.ts minutesNow): what the residents feel like doing. */
+  /** Minutes since midnight of the game's clock (life.ts lifeMinutes): what the residents feel like doing. */
   clock?: () => number;
 }
 
@@ -1657,7 +1657,7 @@ export class TownSim {
     this.base = world;
     this.rng = rng;
     this.life = !!opts.life && !!world.life;
-    this.clock = opts.clock ?? (() => minutesNow());
+    this.clock = opts.clock ?? (() => lifeMinutes());
     const at = start && walkable(start, world) ? start : world.start;
     this.player = makeActor('player', 'player', at, PLAYER_SPEED, personStride('player'));
     if (this.life) {

@@ -19,6 +19,7 @@ import { buildCrops, buildDecorations, buildProject, buildProps, buildScenery, t
 import { buildStreetFurniture } from './streetFurniture';
 import { buildTerrain, type Terrain } from './terrain';
 import { buildBackdrop, type Backdrop } from './backdrop';
+import type { CloudLight } from './clouds';
 import { NOON_SUN, stepSun, type Vec3 } from '../../../../core/town/sunPath';
 import { srgb01 } from './skyLook';
 
@@ -168,6 +169,10 @@ export class TownScene {
   private sunBase = 1;
   /** The wind (cloud shadows drift with it) and the time they last drifted. */
   private wind = 0;
+  /** How cloudy (the moon's glints go under it) and the clouds' light as last set (setClouds; the backdrop comes later). */
+  private cloudNow = 0;
+  private cloudLight: CloudLight | null = null;
+  private moonNow = { on: false, strength: 0 };
   private driftT = -1;
 
   /** How high the ground is at a point (the hill; 0 elsewhere): what stands on it stands that much higher. */
@@ -258,6 +263,7 @@ export class TownScene {
   makeBackdrop(): Group | null {
     if (this.backdrop || !this.world.coast) return null;
     this.backdrop = buildBackdrop(this.world, this.mats);
+    if (this.cloudLight) this.backdrop.clouds.setSky(this.cloudLight);
     return this.backdrop.group;
   }
 
@@ -494,6 +500,7 @@ export class TownScene {
   /** Day (0) to night (1): the light rig, the windows, the lamps, halos and fireflies. */
   setNight(k: number): void {
     this.night = k;
+    this.paintMoon();
     const rig = lightRig(k);
     this.hemi.color.set(rig.hemiSky);
     this.hemi.groundColor.set(rig.hemiGround);
@@ -521,6 +528,8 @@ export class TownScene {
    * dusk the sun is gold.
    */
   setWeather(cloud: number, glow: number): void {
+    this.cloudNow = cloud;
+    this.paintMoon();
     const rig = lightRig(this.night);
     const day = 1 - this.night;
     this.sun.color.set(rig.sunColor).lerp(SKY_GOLD, Math.min(1, glow) * 0.8).lerp(SKY_GREY, cloud * 0.6);
@@ -537,13 +546,34 @@ export class TownScene {
    * day, the moon's at night. The shadows are re-aimed only once it has turned by a fraction of a degree (stepSun), and
    * their snapping (shadowCenter) uses the basis of that held direction, so they never shimmer from frame to frame.
    */
-  setSun(towards: Vec3, strength: number): void {
+  setSun(towards: Vec3, strength: number, moon = false): void {
+    // the moon's glints on the water follow its own direction every frame (they do not shimmer like shadows)
+    if (moon) this.mats.shared.moon.value.set(towards.x, towards.y, towards.z, this.mats.shared.moon.value.w);
+    if (moon !== this.moonNow.on || strength !== this.moonNow.strength) {
+      this.moonNow = { on: moon, strength };
+      this.paintMoon();
+    }
     const next = stepSun(this.basis.dir, towards);
     if (next !== this.basis.dir) this.basis = lightBasis(next);
     if (strength !== this.sunStrength) {
       this.sunStrength = strength;
       this.sun.intensity = this.sunBase * strength;
     }
+  }
+
+  /** How bright the moon's glints on the water are: only at night, the moon up, through the cloud there is. */
+  private paintMoon(): void {
+    const m = this.mats.shared.moon.value;
+    m.w = this.moonNow.on ? this.moonNow.strength * this.night * (1 - 0.92 * this.cloudNow) : 0;
+  }
+
+  /**
+   * The clouds the camera can see (clouds.ts, on the backdrop): how many, how grey, lit by dawn and dusk, dim at
+   * night. Kept for a backdrop made later.
+   */
+  setClouds(l: CloudLight): void {
+    this.cloudLight = l;
+    this.backdrop?.clouds.setSky(l);
   }
 
   /** The light's direction as the shadows are drawn now (unit, towards it). */
@@ -609,6 +639,7 @@ export class TownScene {
       w.cloud.value.x -= dt * speed * 0.85;
       w.cloud.value.y -= dt * speed * 0.35;
     }
+    this.backdrop?.clouds.tick(Math.min(0.25, Math.max(0, t - this.driftT)), this.wind, still);
     this.driftT = t;
     if (this.night > 0.05 && (this.lightsAt < 0 || t - this.lightsAt > 0.3)) {
       this.lightsAt = t;

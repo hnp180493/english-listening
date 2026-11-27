@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { walkable } from '../../../core/town/map';
 import { TOWN_WORLD, WORLD_ACTIVITIES, WORLD_PLACES, type PlaceId } from '../../../data/townWorld';
 import { ACTIVITIES, hasSpot, SPOT_ACTIVITIES } from '../activities/types';
-import { activitySeconds, dayPart, DAY_WEIGHTS, folkCount, kidsOut, pickActivity, type Activity } from './life';
+import { setShiftForTests, sleepFor, sleepShift } from '../../../core/town/gameClock';
+import { townDay } from '../../../core/town/progress';
+import { gameMinutes } from '../../../core/town/sky';
+import { weekdayOf } from '../../../core/town/world';
+import { activitySeconds, dayPart, DAY_WEIGHTS, folkCount, kidsOut, lifeMinutes, pickActivity, type Activity } from './life';
 import { TownSim, type Resident } from './sim';
 
 /** A small seeded random (mulberry32): the same town every run. */
@@ -192,6 +196,55 @@ describe('a living town', () => {
     expect(sim.residents.size).toBe(3);
     expect(sim.folk).toHaveLength(0);
   });
+});
+
+describe("life by the game's clock (a game day is 48 real minutes: 30 times the real pace)", () => {
+  it("lifeMinutes is the hour the sky shows; a sleep moves it, never the learner's real day or weekday", () => {
+    const t = Date.UTC(2026, 10, 27, 9, 13, 7);
+    expect(lifeMinutes(t)).toBe(gameMinutes(t));
+    const day = townDay(t);
+    const weekday = weekdayOf(t);
+    const before = lifeMinutes(t);
+    try {
+      setShiftForTests(sleepShift(t, sleepFor(before / 60), null));
+      expect(lifeMinutes(t)).not.toBeCloseTo(before, 0);
+      // the daily allowances, the weekly get-togethers and who comes up to Westbay read these: unchanged
+      expect(townDay(t)).toBe(day);
+      expect(weekdayOf(t)).toBe(weekday);
+    } finally {
+      setShiftForTests(null);
+    }
+  });
+
+  it('from the evening through the night to the morning: in at night, out by day, nobody jumps, the suggested one stays out', () => {
+    // the game's clock runs a game minute every 2 real seconds of the sim
+    let clock = 19 * 60;
+    const sim = new TownSim(TOWN_WORLD, seeded(11), undefined, { life: true, clock: () => clock });
+    sim.setState({ built: FREE, decorations: [] });
+    sim.setHint('cafe');
+    const dt = 1 / 15;
+    const last = new Map<string, { x: number; y: number; hidden: boolean; seat: boolean }>();
+    let worst = 0;
+    const inAt: Record<string, number> = {};
+    for (let t = 0; t < 13 * 60 * 2; t += dt) {
+      clock = 19 * 60 + t / 2;
+      sim.update(dt);
+      for (const r of sim.residents.values()) {
+        const was = last.get(r.id);
+        // a step a frame, never a leap (coming out of a door shows them AT the door, and sitting down or getting up
+        // puts them on or off the seat as it always did, whatever the clock: those are not steps)
+        if (was && !was.hidden && !r.hidden && was.seat === !!r.seat) worst = Math.max(worst, Math.hypot(r.x - was.x, r.y - was.y));
+        last.set(r.id, { x: r.x, y: r.y, hidden: r.hidden, seat: !!r.seat });
+        if (r.place.id === 'cafe') expect(r.hidden, `${Math.floor(clock / 60)}:00`).toBe(false);
+      }
+      const h = Math.round(clock);
+      if (h === 26 * 60 || h === 31 * 60 + 30) inAt[String(h)] ??= [...sim.residents.values()].filter((r) => r.hidden).length;
+    }
+    expect(worst).toBeLessThan(0.5);
+    // at two in the night most are in; at half past seven in the morning most are out again
+    expect(inAt[String(26 * 60)]).toBeGreaterThanOrEqual(8);
+    expect(inAt[String(31 * 60 + 30)]).toBeLessThanOrEqual(4);
+  }, 120_000);
 });
 
 describe('the suggested resident when the town opens', () => {

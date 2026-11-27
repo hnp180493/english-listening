@@ -11,6 +11,7 @@ import { BufferGeometry, Color, Float32BufferAttribute, Group, Mesh, MeshBasicMa
 import type { TownWorld } from '../../../../data/townWorld';
 import { hash2, valueNoise } from './coords';
 import { CUT_BANK, EDGE_LIFT, FALLS_OUT, FALLS_TOP, FALLS_Z, mountainHeight, RANGE_DEPTH, ROAD_CLIMB, smooth, TOWN_RANGE } from './range';
+import { buildClouds, type Clouds } from './clouds';
 import type { Materials } from './materials';
 import { C } from './palette3d';
 import { POND_BED, WATER_LEVEL } from './terrain';
@@ -23,6 +24,8 @@ export interface Backdrop {
   group: Group;
   /** The mountains' height at a point (tile coordinates; below 0 in the sea, 0 on the island and the near sea). */
   heightAt: (x: number, z: number) => number;
+  /** Low cloud on the range and banks over the far corners' sea (clouds.ts): what of the sky the camera ever sees. */
+  clouds: Clouds;
   dispose: () => void;
 }
 
@@ -345,12 +348,18 @@ export function buildBackdrop(world: TownWorld, mats: Materials): Backdrop {
     add(sg, spray, 3);
   }
 
+  // ── the clouds the camera can see: on the range and over the sea at the far corners ──
+  const clouds = buildClouds(S, heightAt);
+  group.add(clouds.mesh);
+
   return {
     group,
     heightAt,
+    clouds,
     dispose: () => {
       for (const g of geos) g.dispose();
       for (const m of own) m.dispose();
+      clouds.dispose();
     },
   };
 }

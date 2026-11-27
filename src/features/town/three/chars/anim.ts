@@ -54,8 +54,10 @@ export const C = {
   tug: 49,
   /** Cup at the mouth 0…1 (the cup tilts toward the face). */
   sip: 50,
+  /** An umbrella held up in the rain 0…1 (docs/town.md §24: shown by the scene's one instanced mesh, scene/umbrellas.ts). */
+  umbrella: 51,
 } as const;
-export const CHANNELS = 51;
+export const CHANNELS = 52;
 
 export type Pose = Float32Array;
 export const newPose = (): Pose => new Float32Array(CHANNELS);
@@ -346,6 +348,12 @@ export class Animator {
   readonly hair = new Float32Array(4);
   /** 0…1: how seated the person is (props and the cheer's jump look at it). */
   seatBlend = 0;
+  /**
+   * Out in the rain (the engine says so: outdoors, not riding, not fishing): the right hand holds an umbrella up over
+   * the head, eased in and out. Never while the hands are busy with something else (a cup, a can, a rod, a book).
+   */
+  umbrellaWant = false;
+  umbrellaBlend = 0;
   /** Locomotion weight 0…1 and the run share 0…1 (read by tests and the harness). */
   move = 0;
   runShare = 0;
@@ -826,6 +834,28 @@ export class Animator {
       SHOT_POSES[s.action](tmp, s.t, s.dur, this);
       blendInto(p, tmp, w);
       if (s.action === 'cheer') cheer = Math.max(cheer, w);
+    }
+
+    // an umbrella in the rain: the right forearm up in front of the chest, the hand at the shaft (on top of what the
+    // body does, the walk's swing too; a wave or a cheer lowers it while it lasts)
+    // (eased in a second; with reduced motion the engine passes no time: it is simply up or down)
+    this.umbrellaBlend += ((this.umbrellaWant ? 1 : 0) - this.umbrellaBlend) * (dt > 0 ? 1 - Math.exp(-dt * 3.5) : 1);
+    if (this.umbrellaBlend < 0.002) this.umbrellaBlend = 0;
+    {
+      const busy = Math.max(p[C.cup], p[C.can], p[C.rod], p[C.book]);
+      const shot = this.shots.reduce((m, s) => Math.max(m, this.shotWeight(s)), 0);
+      const u = this.umbrellaBlend * (1 - smoothstep(0, 0.4, busy)) * (1 - shot);
+      p[C.umbrella] = u;
+      if (u > 0.001) {
+        const i = J.shR * 3;
+        const e = J.elR * 3;
+        p[i] = lerp(p[i], -0.7, u);
+        p[i + 1] = lerp(p[i + 1], 0, u);
+        p[i + 2] = lerp(p[i + 2], 0.12, u);
+        p[e] = lerp(p[e], -1.65, u);
+        p[e + 1] = lerp(p[e + 1], 0, u);
+        p[e + 2] = lerp(p[e + 2], 0, u);
+      }
     }
 
     // head: look-at / look-around on top (less while nodding or shaking)
