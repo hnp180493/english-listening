@@ -51,6 +51,13 @@ const TALLER = 0.8;
 const KID_HEAD = 1.15;
 
 /**
+ * Things held, as large as a person's (chars/props.ts makes them for the code body's big hand): a cup about 10 cm
+ * high, a book about 30 cm open, a rod about 2.5 m, a watering can (the admin sheet `?states`: at the code body's
+ * size a cup was as big as the head, a rod three bodies long).
+ */
+const HELD_SIZE = { cup: 0.35, book: 0.45, rod: 0.55, can: 0.75 } as const;
+
+/**
  * Where the right hand holds an umbrella, from the shoulder joint, in heights of the body: a little below it, in front
  * and out to the side, so the shaft stands clear of the face and the canopy is over the head.
  */
@@ -336,6 +343,8 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       hat = null;
     }
     const h = id ? hatGeometry(id) : null;
+    // a bun built in code goes under the hat (it came up through a beanie, a cap, a chef's hat or a crown)
+    headFrame?.traverse((o) => void (o.userData.bun && (o.visible = !h)));
     if (!h || !headFrame) return;
     hat = new Mesh(h.geometry, materials().body);
     hat.castShadow = true;
@@ -608,7 +617,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       r.root.visible = true;
       const k = MathUtils.clamp(w, 0, 1);
       // (pops in with a small overshoot, as on the code body; a little larger: this hand is)
-      const size = ((anim.tiles * 1.5) / s) * Math.max(0.001, 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2));
+      const size = ((anim.tiles * 1.5) / s) * HELD_SIZE[pid] * Math.max(0.001, 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2));
       r.root.scale.setScalar(size);
       if (pid === 'book') {
         r.root.position.set(0, tall * 0.02, tall * 0.16);
@@ -911,6 +920,8 @@ function wear(frame: Group, extra: VrmExtra, mid: Vector3, gap: number, crown: n
     const color = extra.slice(4);
     add(new SphereGeometry(gap * 1.6, 14, 10), color, 0, crown * 1.04, -gap * 1.1, { sy: 0.88 });
     add(new TorusGeometry(gap * 1.0, gap * 0.24, 6, 14), color, 0, crown * 0.86, -gap * 1.05, { rx: Math.PI / 2 - 0.35 });
+    // (under a hat of the wardrobe the bun is not drawn: it came up through it; putHat)
+    for (const m of out.slice(-2)) m.userData.bun = true;
   } else if (extra.startsWith('peaked:')) {
     // a uniform's peaked cap: a band round the head, a crown wider than the band, a visor, a badge
     const color = extra.slice(7);

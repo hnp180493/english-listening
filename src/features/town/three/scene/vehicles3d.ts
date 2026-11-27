@@ -28,7 +28,8 @@ export interface RideSpec {
   /**
    * For such a figure, how much further back than `seatAt` its hips go (tiles, along the vehicle): its back against the
    * seat's back, not sitting forward of it (2026-11-27, the sweep: .assets-try/previews/car-seat-2.png). The hands
-   * still reach the wheel (chars/vrmBody.ts reaches from where the hips are).
+   * still reach the wheel (chars/vrmBody.ts reaches from where the hips are). Negative: further forward (a scooter's
+   * and a motorbike's rider, whose hands fell short of the grips: admin sheet `?states`).
    */
   seatBack?: number;
   /**
@@ -40,11 +41,12 @@ export interface RideSpec {
 
 export const RIDES: Readonly<Record<VehicleKind, RideSpec>> = {
   bike: { speed: 3.6, seat: 0.4, seatAt: -0.1, name: 'xe đạp công cộng' },
-  scooter: { speed: 4.6, seat: 0.36, seatAt: -0.12, name: 'xe máy cho thuê' },
+  // (an avatar a little forward on the seat: from where it sat, its straight arms stopped short of the grips)
+  scooter: { speed: 4.6, seat: 0.36, seatAt: -0.12, seatBack: -0.06, name: 'xe máy cho thuê' },
   car: { speed: 5.6, seat: 0.22, seatAt: -0.12, side: -0.13, seatSlim: 0.35, seatBack: 0.04, name: 'xe của hãng taxi Rico' },
   horse: { speed: 4.4, seat: 0.62, seatAt: 0, name: 'ngựa của nông trại' },
   // only bought (data/townGarage.ts): never parked for borrowing
-  motorbike: { speed: 6.6, seat: 0.42, seatAt: -0.1, name: 'mô tô' },
+  motorbike: { speed: 6.6, seat: 0.42, seatAt: -0.1, seatBack: -0.05, name: 'mô tô' },
   sportscar: { speed: 8.2, seat: 0.18, seatAt: -0.12, side: -0.14, seatSlim: 0.285, seatBack: 0.04, name: 'siêu xe' },
 };
 
