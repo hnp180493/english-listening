@@ -6,6 +6,8 @@
 // scripts/vrm-recipes.json (which sample, the resident's own hair, skin and clothes colours; docs/town.md §23). What
 // a sample cannot give is added on the head in code (features/town/three/chars/vrmBody.ts `wear`).
 
+import { cityPerson } from '../core/town/cityPeople';
+
 /**
  * A thing built on an avatar's head, as the resident's drawn portrait has it: glasses, sunglasses (worn, or pushed up
  * into the hair), a crown of flowers, a cap or a uniform's peaked cap of a colour, a bun of the hair's colour.
@@ -43,13 +45,18 @@ export interface VrmPerson {
   face?: VrmFace;
 }
 
-/** Every resident with an avatar (the keys are place ids; each has a file). */
+/**
+ * Every resident with an avatar (the keys are place ids; each has a file). Their clothes and hair follow the drawn
+ * portrait and their work (scripts/vrm-recipes.json; docs/town.md §23 "Every resident's clothes and hair matched"):
+ * nobody in a school uniform or a frilly dress, the women in AvatarSample_A's cardigan with trousers and another
+ * sample's hair where their own is different.
+ */
 const PEOPLE: Readonly<Record<string, VrmPerson>> = {
   square: {},
   cafe: {},
   friend: { tall: 0.93 },
   // (Grace: an old lady in her portrait; Ben: a short dark beard)
-  home: { tall: 0.94, extras: ['glasses', 'bun:#c9c9cf'], face: { age: 'old' } },
+  home: { tall: 0.91, extras: ['glasses', 'bun:#c9c9cf'], face: { age: 'old' } },
   shop: { tall: 1.03, face: { beard: 'short', beardColor: '#4a3426' } },
   office: {},
   school: { extras: ['glasses'] },
@@ -65,7 +72,7 @@ const PEOPLE: Readonly<Record<string, VrmPerson>> = {
  * Goes up when the files are baked again: it is part of each file's address, so browsers and the service worker (its
  * cache of avatars is cache-first, public/sw.js) fetch the new ones.
  */
-export const VRM_VERSION = 3;
+export const VRM_VERSION = 6;
 
 /** Colours for a tintable base: its hair and clothes are baked white, its skin to BASE_SKIN. */
 export interface VrmTint {
@@ -105,6 +112,10 @@ export const FACES: Readonly<Record<string, VrmFace>> = {
   finch: { age: 'older' },
   whitlock: { age: 'older' },
   odile: { age: 'older' },
+  // (the jobs' people, no portrait: Mrs Delaney of the Harbour Trust, greying, a grey suit and red glasses; Kemp,
+  // "dark hair going grey": features/town/jobs/jobCast.ts)
+  delaney: { age: 'older' },
+  kemp: { age: 'older' },
   // a beard on a young face
   gus: { beard: 'moustache', beardColor: '#4a3527', stubble: true },
   marcus: { beard: 'short', beardColor: '#231c1c' },
@@ -154,9 +165,24 @@ export function faceOf(id: string, look: LookLike): VrmFace | null {
 /** A white coat (a doctor's, a pharmacist's: the look's 'coat') worn as the top of a tintable avatar. */
 export const COAT_WHITE = '#f4f2ee';
 
-/** The tintable bases: three men (a jacket, a hoodie, a shirt and tie), four women (a bob, long hair, a ponytail, a bob with buns). */
+/**
+ * The tintable bases: three men (a jacket, a hoodie, a shirt and tie, all in trousers), four women (a bob, long hair,
+ * a ponytail, a bob with buns): since VRM_VERSION 5 the four women are one body, AvatarSample_A's cardigan with
+ * trousers, wearing those four samples' hair (vrm-bake.py "hair_from"): a look's skirt is the same colour over trousers.
+ */
 const MEN = ['m-jacket', 'm-hoodie', 'm-shirt'] as const;
 const WOMEN = ['f-bob', 'f-long', 'f-tail', 'f-buns'] as const;
+/**
+ * The bases of older people (owner, 2026-11-27, on Grace in a short skirt and black tights: "mấy ông bà già không làm
+ * già thêm được hả, nhìn mặc đồ xì tin quá"): every woman's sample wears a short skirt over bare legs, socks or
+ * tights, so an older woman wears the bob-and-cardigan sample with its legs made into slacks (scripts/vrm-bake.py
+ * "slacks": long trousers in the bottoms' colour, the short skirt over them in the same colour); a man the jacket or
+ * the shirt and tie (never the hoodie). All three have their eyes a little lidded ("eyes_settle": the face's own
+ * morph targets baked into its rest shape). docs/town.md §23 "Older people".
+ */
+const ELDERS = ['f-elder', 'm-elder-jacket', 'm-elder-shirt'] as const;
+/** An older person stands a little lower ('old' more than 'older'). */
+const ELDER_TALL: Readonly<Record<VrmAge, number>> = { older: 0.98, old: 0.94 };
 
 /** What of a code-built look picks an avatar (three/contracts.ts CharacterLook, as much as is needed). */
 export interface LookLike {
@@ -174,20 +200,37 @@ function hash(s: string): number {
   return h >>> 0;
 }
 
-/** The base that suits a look: by who it reads as, then by the hair and the clothes. */
-function baseFor(id: string, look: LookLike): { base: string; bald: boolean } {
+/** The jobs' people, who are not in Westbay's canon list (features/town/jobs/jobCast.ts). */
+const JOB_CAST_SEX: Readonly<Record<string, 'male' | 'female'>> = { kemp: 'male', delaney: 'female', shona: 'female', lyle: 'male', driver: 'male' };
+
+/** Who the canon says somebody is, when it says (Westbay's people, the jobs' people). */
+function sexOf(id: string): 'male' | 'female' | null {
+  return cityPerson(id)?.gender ?? JOB_CAST_SEX[id] ?? null;
+}
+
+/** The base that suits a look: by who it reads as, then by the hair and the clothes; an older person's own bases. */
+function baseFor(id: string, look: LookLike, elder = false): { base: string; bald: boolean } {
   const style = look.hair.style;
   const has = (x: string): boolean => (look.extras ?? []).some((e) => e === x || e.startsWith(x + ':'));
-  // A beard settles it (Jonah's long hair and Theo's dungarees once put the two of them, beards and all, in a girl's
-  // body with a bow at the neck).
-  const man = has('beard') || (Object.hasOwn(FACES, id) && !!FACES[id].beard);
-  const woman = !man && (has('lashes') || has('skirt') || has('dungarees') || style === 'long' || style === 'bun' || style === 'ponytail' || style === 'pigtails' || style === 'bob');
+  // The canon settles it, then a beard (Sol, a man with long hair under a headband, wore a woman's body; Jonah's long
+  // hair and Theo's dungarees once put the two of them, beards and all, in a girl's body with a bow at the neck).
+  const sex = sexOf(id);
+  const man = sex ? sex === 'male' : has('beard') || (Object.hasOwn(FACES, id) && !!FACES[id].beard);
+  const woman = sex ? sex === 'female' : !man && (has('lashes') || has('skirt') || has('dungarees') || style === 'long' || style === 'bun' || style === 'ponytail' || style === 'pigtails' || style === 'bob');
+  if (elder) {
+    if (woman) return { base: 'f-elder', bald: false };
+    return { base: has('tie') || has('collar') || has('coat') ? 'm-elder-shirt' : 'm-elder-jacket', bald: style === 'bald' };
+  }
   if (woman) {
-    const base = style === 'long' ? 'f-long' : style === 'ponytail' || style === 'pigtails' ? 'f-tail' : style === 'bob' ? 'f-bob' : style === 'bun' ? 'f-buns' : WOMEN[hash(id) % WOMEN.length];
+    // (the hair nearest the portrait: curls and a bun take the fluffy hair with buns, short spiky hair the bob)
+    const base = style === 'long' ? 'f-long' : style === 'ponytail' || style === 'pigtails' ? 'f-tail' : style === 'bob' || style === 'spiky' || style === 'short' ? 'f-bob' : style === 'bun' || style === 'curly' ? 'f-buns' : WOMEN[hash(id) % WOMEN.length];
     return { base, bald: false };
   }
   if (style === 'bald') return { base: 'm-jacket', bald: true };
   if (has('tie') || has('collar') || has('coat')) return { base: 'm-shirt', bald: false };
+  // a hoodie with the station's logo (Kit, Dev); a jacket for a scarf, a work jacket, a stocky build (Marcus, Gus, Rico)
+  if (has('logo')) return { base: 'm-hoodie', bald: false };
+  if (has('scarf') || has('stocky') || has('apron')) return { base: 'm-jacket', bald: false };
   if (style === 'curly' || style === 'spiky') return { base: 'm-hoodie', bald: false };
   return { base: MEN[hash(id) % MEN.length], bald: false };
 }
@@ -203,14 +246,16 @@ export function vrmOf(id: string, base: string): VrmWear | null {
 export function vrmFor(id: string, look: LookLike, base: string): VrmWear {
   const own = vrmOf(id, base);
   if (own) return own;
-  const pick = baseFor(id, look);
+  const face = faceOf(id, look);
+  const pick = baseFor(id, look, !!face?.age);
   const kid = (look.scale ?? 1) < 0.9;
   const extras: VrmExtra[] = [];
   const own2 = look.extras ?? [];
   if (own2.includes('glasses')) extras.push('glasses');
   if (own2.includes('sunglasses')) extras.push('sunglasses');
   if (own2.includes('cap')) extras.push(`cap:#${look.top.replace('#', '')}`);
-  const face = faceOf(id, look);
+  // an older woman's bun (the elder base has a bob: Mei and Mrs Okafor wear their grey hair up, as Grace does)
+  if (pick.base === 'f-elder' && look.hair.style === 'bun') extras.push(`bun:#${look.hair.color.replace('#', '')}`);
   return {
     url: file(base, 'base-' + pick.base),
     // (a white coat over the top: the base has no coat, so its top turns white)
@@ -218,7 +263,7 @@ export function vrmFor(id: string, look: LookLike, base: string): VrmWear {
     ...(face ? { face } : {}),
     // (a child stands lower than its code-built size says: these legs are long. Its head keeps its size: a larger
     // head throws the hair's spring bones about)
-    tall: kid ? (look.scale ?? 0.75) * 0.84 : (look.scale ?? 1),
+    tall: kid ? (look.scale ?? 0.75) * 0.84 : (look.scale ?? 1) * (face?.age ? ELDER_TALL[face.age] : 1),
     bald: pick.bald,
     extras,
   };
@@ -231,4 +276,4 @@ export function anyVrm(): boolean {
 
 /** The residents with a file of their own, and every file there must be (tests). */
 export const VRM_IDS: readonly string[] = Object.keys(PEOPLE);
-export const VRM_FILES: readonly string[] = [...VRM_IDS, ...[...MEN, ...WOMEN].map((b) => 'base-' + b)];
+export const VRM_FILES: readonly string[] = [...VRM_IDS, ...[...MEN, ...WOMEN, ...ELDERS].map((b) => 'base-' + b)];

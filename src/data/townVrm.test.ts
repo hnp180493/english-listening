@@ -63,6 +63,40 @@ describe('who has which VRoid avatar', () => {
     for (const [id, f] of Object.entries(FACES)) if (f.beard && f.beard !== 'stubble') expect(f.beardColor, id).toMatch(/^#[0-9a-f]{6}$/);
   });
 
+  it('older people wear an older body: trousers for the women, never the hoodie, a little lower', () => {
+    const grey = (style: string, extras: string[] = []) => ({ ...look(style, extras), hair: { style, color: '#cfc9c2' } });
+    // (Mei and Mrs Okafor: grey buns, once a girl's short skirt and tights)
+    const mei = vrmFor('mei', grey('bun', ['apron:#c9473f', 'lashes']), '/');
+    expect(mei.url).toContain('base-f-elder');
+    expect(mei.extras).toContain('bun:#cfc9c2');
+    expect(vrmFor('okafor', grey('bun', ['glasses', 'skirt', 'lashes']), '/').url).toContain('base-f-elder');
+    expect(vrmFor('odile', grey('ponytail', ['cap', 'lashes']), '/').url).toContain('base-f-elder');
+    // the men: a jacket, or the shirt and tie; a bald head stays bald
+    expect(vrmFor('hal', grey('short', ['beard', 'stocky']), '/').url).toContain('base-m-elder-jacket');
+    expect(vrmFor('whitlock', grey('short', ['tie:#8f3f4f', 'collar']), '/').url).toContain('base-m-elder-shirt');
+    const frank = vrmFor('frank', grey('bald', ['beard', 'glasses']), '/');
+    expect(frank.url).toContain('base-m-elder-jacket');
+    expect(frank.bald).toBe(true);
+    // a passer-by with grey hair is older too; a young look keeps the young bases
+    expect(vrmFor('p1', grey('short'), '/').url).toMatch(/base-m-elder-/);
+    expect(vrmFor('p2', look('short'), '/').url).not.toMatch(/elder/);
+    // lower than the same look young
+    expect(vrmFor('mei', grey('bun', ['lashes']), '/').tall!).toBeLessThan(vrmFor('p3', look('bun', ['lashes']), '/').tall!);
+    expect(vrmOf('home', '/')?.tall).toBeLessThan(0.94);
+  });
+
+  it("Westbay: the canon's sex first, then the clothes the portrait has", () => {
+    // Sol is a man with long hair under a headband: once a woman's body
+    expect(vrmFor('sol', look('long', ['headband:#9b7cc6']), '/').url).toMatch(/base-m-/);
+    expect(vrmFor('kit', look('short', ['cap', 'logo']), '/').url).toContain('base-m-hoodie');
+    expect(vrmFor('marcus', look('short', ['beard', 'scarf:#f2c45a']), '/').url).toContain('base-m-jacket');
+    expect(vrmFor('gus', look('short', ['cap', 'beard', 'stocky']), '/').url).toContain('base-m-jacket');
+    // women's hair: curls take the fluffy hair, short spiky hair the bob
+    expect(vrmFor('nora', look('curly', ['apron:#5f9472', 'lashes']), '/').url).toContain('base-f-buns');
+    expect(vrmFor('wren', look('spiky', ['shorts', 'lashes']), '/').url).toContain('base-f-bob');
+    expect(vrmFor('delaney', look('bob', ['glasses']), '/').url).toContain('base-f-elder');
+  });
+
   it('anybody else: a beard of the look is a short one in the hair colour, grey hair an older face, a child never', () => {
     expect(faceOf('p1', look('bald', ['beard']))).toEqual({ beard: 'short', beardColor: '#2a2224' });
     expect(faceOf('p2', { ...look('short'), hair: { style: 'short', color: '#c9c4bd' } })).toEqual({ age: 'older' });

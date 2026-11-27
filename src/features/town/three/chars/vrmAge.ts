@@ -170,60 +170,60 @@ function drawAge(ctx: CanvasRenderingContext2D, size: number, face: VrmFace, see
   const old = face.age === 'old';
   const lined = face.age === 'older' || old;
   ctx.save();
-  // darker skin, whatever the skin: multiplied, as the tint is
+  // Skin that has aged, not lines drawn on it (owner, 2026-11-27: Grace's first lines read as a cat's whiskers of
+  // face paint): fine creases that taper at both ends, only a little darker than the skin (multiplied by a pale warm
+  // tone, as the skin's own tint is), curved as the face is: the fold from the nose round the cheek to the mouth's
+  // corner, crow's feet, a soft line under each eye, faint lines on the forehead. They show up close; at the usual
+  // camera a head is some 25 px and the grey hair, the glasses and the clothes tell the age.
   ctx.globalCompositeOperation = 'multiply';
   ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  // soft creases, not cuts (sharp lines read as scars on a dark skin)
-  ctx.filter = `blur(${(S * 0.0035).toFixed(1)}px)`;
-  const ink = (a: number): string => `rgba(150, 96, 82, ${a})`;
-  const curve = (pts: readonly [number, number][], width: number, a: number): void => {
-    ctx.beginPath();
-    ctx.moveTo(...P(...pts[0]));
-    if (pts.length === 3) ctx.quadraticCurveTo(...P(...pts[1]), ...P(...pts[2]));
-    else for (const p of pts.slice(1)) ctx.lineTo(...P(...p));
-    ctx.lineWidth = width * S;
-    ctx.strokeStyle = ink(a);
-    ctx.stroke();
+  ctx.filter = `blur(${(S * 0.0018).toFixed(1)}px)`;
+  const ink = (a: number): string => `rgba(176, 132, 118, ${a.toFixed(3)})`;
+  /** A quadratic curve drawn in short pieces, thinner and fainter at both ends. */
+  const crease = (p0: readonly [number, number], c: readonly [number, number], p1: readonly [number, number], width: number, a: number): void => {
+    const n = 14;
+    let prev = P(...p0);
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      const u = (1 - t) * (1 - t) * p0[0] + 2 * (1 - t) * t * c[0] + t * t * p1[0];
+      const v = (1 - t) * (1 - t) * p0[1] + 2 * (1 - t) * t * c[1] + t * t * p1[1];
+      const at = P(u, v);
+      const k = Math.sin(Math.PI * (t - 0.5 / n));
+      ctx.beginPath();
+      ctx.moveTo(...prev);
+      ctx.lineTo(...at);
+      ctx.lineWidth = Math.max(0.6, width * S * (0.35 + 0.65 * k));
+      ctx.strokeStyle = ink(a * (0.25 + 0.75 * k));
+      ctx.stroke();
+      prev = at;
+    }
   };
-  const both = (pts: readonly [number, number][], width: number, a: number): void => {
-    curve(pts, width, a);
-    curve(
-      pts.map(([u, v]) => [1 - u, v] as [number, number]),
-      width,
-      a,
-    );
+  const mirror = (q: readonly [number, number]): [number, number] => [1 - q[0], q[1]];
+  const both = (p0: [number, number], c: [number, number], p1: [number, number], width: number, a: number): void => {
+    crease(p0, c, p1, width, a);
+    crease(mirror(p0), mirror(c), mirror(p1), width, a);
   };
-  const shade = (u: number, v: number, r: number, a: number): void => {
-    const [x, y] = P(u, v);
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r * S);
-    g.addColorStop(0, ink(a));
-    g.addColorStop(1, ink(0));
-    ctx.fillStyle = g;
-    ctx.fillRect(x - r * S, y - r * S, 2 * r * S, 2 * r * S);
-  };
-  const a = old ? 0.6 : 0.45;
-  const w = old ? 0.011 : 0.009;
+  const a = old ? 0.75 : 0.5;
+  const w = 0.0055;
   if (lined) {
-    // the forehead: two lines (three when old), a little arched
-    const rows = old ? [0.355, 0.39, 0.425] : [0.375, 0.41];
-    for (const v of rows) curve([[0.38, v + 0.006], [0.5, v - 0.012], [0.62, v + 0.006]], w * 0.9, a * 0.8);
-    // from the nose's wings down past the mouth's corners
-    both([[0.435, 0.66], [0.395, 0.705], [0.385, 0.785]], w * 1.15, a);
+    // the fold from the nose's wing, out round the cheek, to just past the mouth's corner
+    both([0.445, 0.652], [0.385, 0.69], [0.392, 0.762], w * 1.2, a);
+    // the forehead: faint, gently arched
+    const rows = old ? [0.37, 0.4, 0.43] : [0.39, 0.42];
+    for (const v of rows) crease([0.39, v + 0.004], [0.5, v - 0.01], [0.61, v + 0.004], w * 0.8, a * 0.45);
+    // crow's feet: a few short fine lines fanning out from each eye's outer corner
+    const ux = FACE_UV.eyeL.u - FACE_UV.eyeHalf - 0.008;
+    const vy = FACE_UV.eyeL.v + 0.004;
+    for (const t of old ? [-0.35, 0.05, 0.42] : [-0.1, 0.3]) {
+      const end: [number, number] = [ux - 0.034 * Math.cos(t), vy + 0.034 * Math.sin(t)];
+      both([ux, vy], [(ux + end[0]) / 2, (vy + end[1]) / 2 - 0.004], end, w * 0.7, a * 0.6);
+    }
   }
   if (old) {
-    // crow's feet at the eyes' outer corners
-    for (const t of [-0.45, 0, 0.45]) {
-      const u0 = FACE_UV.eyeL.u - FACE_UV.eyeHalf - 0.012;
-      const v0 = FACE_UV.eyeL.v + 0.005;
-      both([[u0, v0], [u0 - 0.04 * Math.cos(t), v0 + 0.04 * Math.sin(t)]], w * 0.75, a * 0.75);
-    }
-    // bags under the eyes
-    for (const e of [FACE_UV.eyeL]) both([[e.u - 0.055, e.v + 0.04], [e.u, e.v + 0.072], [e.u + 0.055, e.v + 0.04]], w * 0.85, a * 0.8);
-    // hollow cheeks under the cheekbones, lines down from the mouth's corners
-    shade(0.25, 0.69, 0.085, 0.32);
-    shade(0.75, 0.69, 0.085, 0.32);
-    both([[0.405, 0.77], [0.41, 0.81]], w * 0.9, a * 0.75);
+    // a soft line under each eye, following its lower lid
+    both([FACE_UV.eyeL.u - 0.05, FACE_UV.eyeL.v + 0.038], [FACE_UV.eyeL.u, FACE_UV.eyeL.v + 0.064], [FACE_UV.eyeL.u + 0.045, FACE_UV.eyeL.v + 0.04], w * 0.8, a * 0.5);
+    // short lines down from the mouth's corners
+    both([0.402, 0.772], [0.398, 0.79], [0.404, 0.808], w * 0.8, a * 0.45);
   }
   ctx.filter = 'none';
   if (face.beard === 'stubble' || face.stubble) {
