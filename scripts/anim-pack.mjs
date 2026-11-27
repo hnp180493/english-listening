@@ -40,7 +40,6 @@ while (off < buf.length) {
   off += 8 + len;
 }
 const g = json;
-const SIZE = { 5126: 4, 5125: 4, 5123: 2, 5121: 1 };
 const COUNT = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
 
 /** An accessor's floats. */
