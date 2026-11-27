@@ -146,7 +146,7 @@ export const JOB_CROSSED: JobDoc = {
   },
   crew: {
     roles: [
-      { who: 'phone', role: 'Máy ghi âm', listen: 'Max gài máy dưới cửa sổ văn phòng: cuộc gọi được ghi, bạn nghe lại ở chỗ ẩn, tua bao nhiêu cũng được.', opens: { hearts: 4 }, cut: CREW_CUT.friend, with: 'ride' },
+      { who: 'phone', role: 'Máy ghi âm', listen: 'Max gài máy dưới cửa sổ văn phòng: cuộc gọi được ghi, bạn nghe lại ở chỗ ẩn (chưa có thì ở sạp Jun), tua bao nhiêu cũng được.', opens: { hearts: 4 }, cut: CREW_CUT.friend, with: 'ride' },
       { who: 'gus', role: 'Người gác cảng', listen: 'Gus canh xe tuần tra từ chòi: anh báo trước khi nó vòng lại.', opens: { heard: ['ct-gus-2'] }, cut: CREW_CUT.friend },
     ],
   },

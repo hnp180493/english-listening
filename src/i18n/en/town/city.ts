@@ -1405,7 +1405,7 @@ const city: Record<string, string> = {
   'Claire có đúng con số, muộn một ngày.': 'Claire gets the right figure, a day late.',
   'Ghi sai ngày họp: bà Delaney xếp lịch muộn rồi phải dời': 'Meeting day noted wrong: Mrs Delaney books late and has to move it',
   'Buổi kiểm tra vẫn kịp trước ngày họp.': 'The inspection still comes before the meeting.',
-  'Max gài máy dưới cửa sổ văn phòng: cuộc gọi được ghi, bạn nghe lại ở chỗ ẩn, tua bao nhiêu cũng được.': 'Max hides his recorder under the office window: the call is taped, and you play it back at the hideout as often as you like.',
+  'Max gài máy dưới cửa sổ văn phòng: cuộc gọi được ghi, bạn nghe lại ở chỗ ẩn (chưa có thì ở sạp Jun), tua bao nhiêu cũng được.': "Max hides his recorder under the office window: the call is taped, and you play it back at the hideout (at Jun's stall if you have none) as often as you like.",
   'Người gác cảng': 'Harbour gatekeeper',
   'Gus canh xe tuần tra từ chòi: anh báo trước khi nó vòng lại.': 'Gus watches for the patrol from his hut and warns you before it comes round again.',
   'Tới chỗ đã ghi': 'Go to the place you wrote',
