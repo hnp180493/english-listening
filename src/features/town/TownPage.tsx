@@ -730,20 +730,21 @@ export default function TownPage() {
   const toCity = useCallback((withId?: string) => navigate('town', { at: 'city', with: withId }), []);
   /** A "cảnh nghe" at a thing: the player sits down on it, the two who are overheard come and talk nearby. */
   const [listenSpeaking, setListenSpeaking] = useState<string | null>(null);
-  const listenThing = useRef<string | null>(null);
-  useEffect(() => {
-    listenThing.current = listenAt;
-  }, [listenAt]);
-  const onListen = useCallback((who: readonly string[] | null) => {
-    const s = stage.current;
-    if (!who) {
-      setListenSpeaking(null);
-      s?.endListen();
-      return;
-    }
-    const at = listenThing.current;
-    if (s && at?.startsWith('thing:')) s.listenFrom(at as ActivitySpotId, who.filter((id): id is PlaceId => (PLACE_IDS as readonly string[]).includes(id)));
-  }, []);
+  // (the thing is read from this render's listenAt: ListenPanel calls this from its first effect, which runs BEFORE an
+  // effect of this page could copy listenAt into a ref, so a ref held the bench of the scene before and the player was
+  // sat down on that one: "ngồi ở ghế này bị teleport tới ghế khác?", 2026-11-28)
+  const onListen = useCallback(
+    (who: readonly string[] | null) => {
+      const s = stage.current;
+      if (!who) {
+        setListenSpeaking(null);
+        s?.endListen();
+        return;
+      }
+      if (s && listenAt?.startsWith('thing:')) s.listenFrom(listenAt as ActivitySpotId, who.filter((id): id is PlaceId => (PLACE_IDS as readonly string[]).includes(id)));
+    },
+    [listenAt],
+  );
   /** Today's get-together (the day's list): its scene opens. */
   const openEvent = useCallback(
     (eventId: string) => {
