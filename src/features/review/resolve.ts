@@ -13,6 +13,7 @@ import { jobLineByRef } from '../../data/city/jobs';
 import { DISPATCH_CALLER, DISPATCH_TITLE, dispatchCallByRef, dispatchVoice } from '../../data/city/dispatch';
 import { jobVoice, revealedName } from '../../core/town/jobVoice';
 import type { SpeakVoice } from '../../core/tts';
+import type { DictionaryName } from '../../i18n/load';
 import type { Chunk, Sentence } from '../../core/types';
 import { CHUNKS } from '../../data/chunks';
 import { LESSONS, type Lesson } from '../../data/lessons';
@@ -172,6 +173,22 @@ export function createResolver(src: ResolveSources): Resolver {
   };
 
   return { resolve, phenomenonOf };
+}
+
+/**
+ * The English dictionaries the cards of a session need beyond 'ui' and 'content' (docs/i18n.md §4): a line of the town
+ * ('talk:' of a story) the town's, a Westbay job's or dispatch call's the town's and the city's (their meanings live in
+ * the 'city' bundle, their titles and speakers in the town's). None for a session without such a card.
+ */
+export function dictionariesFor(ids: readonly CardId[]): DictionaryName[] {
+  const out = new Set<DictionaryName>();
+  for (const id of ids) {
+    const p = parseCardId(id);
+    if (p?.kind !== 'talk') continue;
+    out.add('town');
+    if (jobLineByRef(p.ref) || dispatchCallByRef(p.ref)) out.add('city');
+  }
+  return [...out];
 }
 
 /** FNV-1a: a stable seed from a string. */

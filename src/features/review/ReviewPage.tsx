@@ -42,7 +42,8 @@ import LessonItem from './items/LessonItem';
 import PairItem from './items/PairItem';
 import WordItem from './items/WordItem';
 import type { GradeOutcome } from './items/types';
-import { hashSeed, type Resolver } from './resolve';
+import { dictionariesFor, hashSeed, type Resolver } from './resolve';
+import { useDictionaries } from '../../i18n/load';
 import { laterSet, queueFrom, readResolver, resolverFor, sessionSize } from './sessionPlan';
 import {
   currentId,
@@ -192,6 +193,19 @@ export default function ReviewPage() {
   const live = !run || run.state.ended;
   const resolver = useMemo(() => (live ? resolverFor(snap.version) : null), [live, snap.version]);
   const preview = useMemo(() => (resolver ? queueFrom(snap, resolver) : []), [snap, resolver]);
+  // English mode: the town's / Westbay's dictionaries for their lines' cards, loaded while the start screen shows; a
+  // session waits for them rather than show a meaning in Vietnamese first (docs/i18n.md §4)
+  const needs = useMemo(() => dictionariesFor(run ? run.state.queue : preview), [run, preview]);
+  const dictsReady = useDictionaries(needs);
+  // a session started before they arrived resolved its cards' labels (a forged line's real speaker) without them
+  const waited = useRef(false);
+  useEffect(() => {
+    if (!dictsReady) waited.current = true;
+    else if (waited.current) {
+      waited.current = false;
+      setRun((r) => (r && !r.state.ended ? { ...r, resolver: readResolver() } : r));
+    }
+  }, [dictsReady]);
 
   const start = () => {
     const now = Date.now();
@@ -249,7 +263,13 @@ export default function ReviewPage() {
 
   let body;
   if (run && !run.state.ended) {
-    body = <SessionView run={run} now={snap.now} setRun={setRun} undo={undo} setUndo={setUndo} />;
+    body = dictsReady ? (
+      <SessionView run={run} now={snap.now} setRun={setRun} undo={undo} setUndo={setUndo} />
+    ) : (
+      <p className="meta" role="status">
+        Đang tải…
+      </p>
+    );
   } else if (run) {
     body = <SummaryView run={run} snap={snap} more={preview.length} onMore={start} />;
   } else if (preview.length > 0) {

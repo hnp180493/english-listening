@@ -1,6 +1,6 @@
 // Loads the English dictionaries (separate chunks, never downloaded in Vietnamese mode) and switches the language.
 import { addDictionary, getLang, setActiveLang, subscribeLang, type Lang } from './lang';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 type Dictionary = Readonly<Record<string, string>>;
 
@@ -69,6 +69,35 @@ export function withDictionary<T>(name: DictionaryName, load: () => Promise<T>):
     const [mod] = await Promise.all([load(), needDictionary(name)]);
     return mod;
   };
+}
+
+/** Whether a dictionary has been loaded (English mode). */
+export function hasDictionary(name: DictionaryName): boolean {
+  return loaded.has(name);
+}
+
+/**
+ * A page needs these dictionaries for what it is about to show (Ôn tập: the town's and Westbay's lines): in English mode
+ * they are loaded, and the hook says false until they are, so the page can wait instead of flashing Vietnamese first.
+ * Vietnamese mode, or nothing missing: true at once, nothing loaded. A dictionary that cannot be loaded (offline)
+ * stops the wait all the same (the texts then stay Vietnamese).
+ */
+export function useDictionaries(names: readonly DictionaryName[]): boolean {
+  const lang = useLang();
+  const key = [...names].sort().join(',');
+  const [tried, setTried] = useState('');
+  const missing = lang === 'en' && names.some((n) => !loaded.has(n)) && tried !== `${lang}:${key}`;
+  useEffect(() => {
+    if (!missing) return;
+    const live = { on: true };
+    void Promise.all(key.split(',').map((n) => needDictionary(n as DictionaryName))).then(() => {
+      if (live.on) setTried(`en:${key}`);
+    });
+    return () => {
+      live.on = false;
+    };
+  }, [missing, key]);
+  return !missing;
 }
 
 /** The active language; re-renders when it changes. */
