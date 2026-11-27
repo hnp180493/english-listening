@@ -45,6 +45,9 @@ const STRIDE = 0.62;
  */
 const TALLER = 0.8;
 
+/** An avatar in a car's seat, against one on foot (the cars are built for the code body, 1.25 × an avatar's height). */
+const CAR_GROW = 1.25;
+
 const Z = new Vector3(0, 0, 1);
 /** T pose → arms down (a little out from the body, so the hands clear the hips). */
 const REST_L = new Quaternion().setFromAxisAngle(Z, -(Math.PI / 2 - 0.02));
@@ -285,7 +288,12 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     const ride = seat > 0.001 ? ((ch as { ride?: string | null }).ride ?? null) : null;
 
     // seated on this VRM's own legs: the hip joints a little over the seat, the shins straight down to the ground
-    const seatY = (anim.seat * anim.tiles) / s + ground;
+    // (in a car a little larger: the cars are built for the round code body, and at the height that suits the doors
+    // and the bus an avatar is lost in their seats; the size comes and goes with the sitting down)
+    const inCar = ride === 'car' || ride === 'sportscar';
+    const sg = s * (inCar ? 1 + (CAR_GROW - 1) * seat : 1);
+    holder.scale.setScalar(sg);
+    const seatY = (anim.seat * anim.tiles) / sg + ground;
     const sitHips = seatY + tall * 0.055;
     const sitLegTop = sitHips - (hipsY - legTop);
     const a = Math.acos(MathUtils.clamp((sitLegTop - ankleY - shin) / thigh, -0.85, 1));
@@ -320,7 +328,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     const spec = ride && Object.hasOwn(RIDES, ride) ? RIDES[ride as keyof typeof RIDES] : undefined;
     if (bars && spec) {
       // (the engine gives the seat's height already scaled: that tells how large the vehicle is drawn)
-      const u = ((anim.seat * anim.tiles) / spec.seat) / s;
+      const u = ((anim.seat * anim.tiles) / (spec.seatSlim ?? spec.seat)) / sg;
       const torso = shoulderAt.y - spineY;
       // the rider leans as far as it takes for the hands to get there with the elbows still a little bent (these toy
       // vehicles' bars are a long way from the seat), from the vehicle's own lean up to a racing crouch
@@ -330,7 +338,7 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
       for (; ; lean += 0.04) {
         dy = ground + bars.y * u - (sitHips + (spineY - hipsY) + torso * Math.cos(lean));
         dz = (bars.x - spec.seatAt) * u - torso * Math.sin(lean);
-        if (Math.hypot(dy, dz) <= (upperArm + foreArm) * 0.94 || lean >= 0.7) break;
+        if (Math.hypot(dy, dz) <= (upperArm + foreArm) * 0.94 || lean >= (bars.max ?? 0.7)) break;
       }
       reach = armTo(dy, dz, upperArm, foreArm);
       // (in the leaning chest's own frame; the lean itself rides along for the spine and the head)
@@ -821,10 +829,14 @@ function armTo(dy: number, dz: number, u: number, f: number): Leg {
  * Where the grips of a vehicle's bars are in its own model (scene/vehicles3d.ts: x forward, y up, z half the bars'
  * width; read off its code on 2026-11-26), and how far the rider leans to them.
  */
-const BARS: Readonly<Record<string, { x: number; y: number; z: number; lean: number }>> = {
+const BARS: Readonly<Record<string, { x: number; y: number; z: number; lean: number; max?: number }>> = {
   bike: { x: 0.21, y: 0.47, z: 0.14, lean: 0.3 },
   scooter: { x: 0.23, y: 0.49, z: 0.13, lean: 0.12 },
   motorbike: { x: 0.24, y: 0.56, z: 0.17, lean: 0.28 },
+  // a car's steering wheel, in front of the driver's seat (z: half the wheel's width, from the seat's own middle); the
+  // driver sits back in the seat and hardly leans to it (`max`), the arms out to the wheel
+  car: { x: 0.07, y: 0.46, z: 0.05, lean: -0.1, max: 0.06 },
+  sportscar: { x: 0.01, y: 0.37, z: 0.05, lean: -0.22, max: -0.06 },
 };
 
 /** One turn of a bike's cranks for this many tiles of ground. */
@@ -877,8 +889,9 @@ function ridePose(ride: string | null, j: number, side: number, pedal: Leg | nul
       if (thigh) return [-1.42, 0, side * 0.06];
       if (knee) return [0.75, 0, 0];
       if (ankle) return [-0.2, 0, 0];
-      if (upper) return [-0.85, 0, side * 0.05];
-      if (fore) return [-0.5, 0, 0];
+      if (upper) return reach ? [reach.thigh, 0, side * out] : [-0.85, 0, side * 0.05];
+      if (fore) return reach ? [reach.knee, 0, 0] : [-0.5, 0, 0];
+      if (j === J.spine && reach) return [reach.ankle, 0, 0];
       return null;
     default:
       // a bench, a chair, a stool

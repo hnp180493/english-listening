@@ -17,6 +17,15 @@ export interface RideSpec {
   /** The seat's place along the vehicle (tiles from its middle, + forward): the vehicle is drawn so the seat is under the player. */
   seatAt: number;
   /**
+   * For a figure of real proportions (the VRoid avatars: chars/vrmBody.ts), who does not fill a car from its middle as
+   * the round code body does: the driver's seat sideways from the vehicle's middle (tiles, the model's own +z; the
+   * steering wheel is in front of it), and the top of its cushion, where such a figure's hips sit (`seat` is how low
+   * the round body sinks in). Owner, 2026-11-27, on a driver between the two seats and half sunk in them: "ngồi ô tô
+   * gì mà bé tí tẹo vậy, lại còn không ngồi vào ghế".
+   */
+  side?: number;
+  seatSlim?: number;
+  /**
    * Vietnamese, for "Mượn …": whose it is, so riding is borrowing (owner, 2026-11-26: "chạy xe ô tô của người khác có
    * phải là cướp như gta không?": no, a shared bike, a scooter for hire, a car of Rico's taxi firm, the farm's horse).
    */
@@ -26,11 +35,11 @@ export interface RideSpec {
 export const RIDES: Readonly<Record<VehicleKind, RideSpec>> = {
   bike: { speed: 3.6, seat: 0.4, seatAt: -0.1, name: 'xe đạp công cộng' },
   scooter: { speed: 4.6, seat: 0.36, seatAt: -0.12, name: 'xe máy cho thuê' },
-  car: { speed: 5.6, seat: 0.22, seatAt: -0.12, name: 'xe của hãng taxi Rico' },
+  car: { speed: 5.6, seat: 0.22, seatAt: -0.12, side: -0.13, seatSlim: 0.35, name: 'xe của hãng taxi Rico' },
   horse: { speed: 4.4, seat: 0.62, seatAt: 0, name: 'ngựa của nông trại' },
   // only bought (data/townGarage.ts): never parked for borrowing
   motorbike: { speed: 6.6, seat: 0.42, seatAt: -0.1, name: 'mô tô' },
-  sportscar: { speed: 8.2, seat: 0.18, seatAt: -0.12, name: 'siêu xe' },
+  sportscar: { speed: 8.2, seat: 0.18, seatAt: -0.12, side: -0.14, seatSlim: 0.285, name: 'siêu xe' },
 };
 
 /** Colours a vehicle may come in (by its index: two of a kind are told apart). */

@@ -1602,9 +1602,9 @@ export class TownEngine3D {
       i = this.rides.length - 1;
     }
     const r = this.rides[i];
-    const seatAt = RIDES[kind].seatAt * this.rideScale();
-    r.x = p.x - Math.cos(heading) * seatAt;
-    r.y = p.y - Math.sin(heading) * seatAt;
+    const off = this.seatOffset(kind, heading);
+    r.x = p.x - off.x;
+    r.y = p.y - off.y;
     r.heading = heading;
     r.speed = speed;
     this.mount(i);
@@ -1617,6 +1617,26 @@ export class TownEngine3D {
    */
   private rideScale(): number {
     return getTownUi().people === 'anime' ? RIDE_SCALE_AVATAR : 1;
+  }
+
+  /**
+   * From a vehicle's middle to where its rider is (world tiles), the vehicle heading `heading`: along it to the seat,
+   * and for an avatar in a car sideways to the driver's seat (vehicles3d.ts RideSpec `side`; the model's +z is the
+   * vehicle's right as it is drawn).
+   */
+  private seatOffset(kind: VehicleKind, heading: number): { x: number; y: number } {
+    const spec = RIDES[kind];
+    const k = this.rideScale();
+    const side = getTownUi().people === 'anime' ? (spec.side ?? 0) * k : 0;
+    const c = Math.cos(heading);
+    const s = Math.sin(heading);
+    return { x: c * spec.seatAt * k - s * side, y: s * spec.seatAt * k + c * side };
+  }
+
+  /** How high the rider's seat is (tiles): the cushion's top for an avatar in a car, else where the round body sits. */
+  private seatHeight(kind: VehicleKind): number {
+    const spec = RIDES[kind];
+    return (getTownUi().people === 'anime' ? (spec.seatSlim ?? spec.seat) : spec.seat) * this.rideScale();
   }
 
   /** On the vehicle beside the player, or off the one ridden. False = neither (none in reach, a talk, a dip). */
@@ -1638,8 +1658,8 @@ export class TownEngine3D {
     const spec = RIDES[r.kind];
     this.cancelWalk();
     // onto its seat, facing the way it faces
-    const seatAt = spec.seatAt * this.rideScale();
-    this.sim.placePlayer({ x: r.x + Math.cos(r.heading) * seatAt, y: r.y + Math.sin(r.heading) * seatAt }, r.heading);
+    const off = this.seatOffset(r.kind, r.heading);
+    this.sim.placePlayer({ x: r.x + off.x, y: r.y + off.y }, r.heading);
     this.riding = i;
     this.sim.setRideSpeed(r.speed ?? spec.speed);
   }
@@ -1681,10 +1701,10 @@ export class TownEngine3D {
       r.mesh.scale.setScalar(k);
       if (i === this.riding && me) {
         // the seat under the player, the vehicle the way the body faces; a horse's back rises and falls at a trot
-        const spec = RIDES[r.kind];
         r.heading = me.heading;
-        r.x = me.rx - Math.cos(r.heading) * spec.seatAt * k;
-        r.y = me.rz - Math.sin(r.heading) * spec.seatAt * k;
+        const off = this.seatOffset(r.kind, r.heading);
+        r.x = me.rx - off.x;
+        r.y = me.rz - off.y;
         const trot = r.kind === 'horse' && this.sim.player.moving && !this.still ? Math.abs(Math.sin(this.t * 9)) * 0.035 : 0;
         r.mesh.position.set(r.x, this.town.lift(r.x, r.y) + trot, r.y);
       } else r.mesh.position.set(r.x, this.town.lift(r.x, r.y), r.y);
@@ -2855,7 +2875,7 @@ export class TownEngine3D {
       tz += Math.sin(h) * SEAT_FORWARD;
       (p.ch as Character3DPlus).setSeatHeight?.(SEAT_TOP);
     }
-    if (a.kind === 'player' && this.riding >= 0) (p.ch as Character3DPlus).setSeatHeight?.(RIDES[this.rides[this.riding].kind].seat * this.rideScale());
+    if (a.kind === 'player' && this.riding >= 0) (p.ch as Character3DPlus).setSeatHeight?.(this.seatHeight(this.rides[this.riding].kind));
     // (what is ridden: an avatar poses for a bike, a horse, a car each in its way: chars/vrmBody.ts)
     if (a.kind === 'player') (p.ch as Partial<Character3DPlus>).ride = this.riding >= 0 ? this.rides[this.riding].kind : null;
     const gap = Math.hypot(tx - p.rx, tz - p.rz);
