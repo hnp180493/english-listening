@@ -15,7 +15,7 @@ import type { TownLine } from '../core/town/types';
 import { isVietnamese } from '../../scripts/i18n-scan.mjs';
 import { CITY_JOBS } from '../data/city/jobs';
 import { fillLine } from '../core/town/job';
-import { officerScene, scanLines, type ScanFacts } from '../core/town/scanner';
+import { officerScene, scanLines, type ScanFacts, type ScanLine } from '../core/town/scanner';
 import { assetReport } from '../core/town/assets';
 
 // The meanings of the English lines in English mode (docs/i18n.md §4): the answers of one question must stay different
@@ -81,7 +81,7 @@ describe('the meanings in English', () => {
         for (const kind of kinds)
           for (const pick of [0, 1, 2]) {
             const f = { unit: 12, look: { on, colour: on === 'foot' ? null : 'red', outfit: 'blue' }, road: 'Quay Street', heading: 'north', near: "Emma's", nearVi: null, offence: 'red', thing: null } as unknown as ScanFacts;
-            for (const l of [...scanLines(kind, f, pick), ...Object.values(officerScene(f, pick)).filter((x): x is { vi: string } => !!x && typeof x === 'object' && 'vi' in x)]) if (isVietnamese(l.vi)) bad.push(`scanner ${kind}: ${l.vi}`);
+            for (const l of [...scanLines(kind, f, pick), ...Object.values(officerScene(f, pick)).filter((x): x is ScanLine => !!x && typeof x === 'object' && !Array.isArray(x) && 'vi' in x)]) if (isVietnamese(l.vi)) bad.push(`scanner ${kind}: ${l.vi}`);
           }
       for (const id of ['asset-stall', 'asset-workshop', 'asset-sponsor'] as const) for (const day of [1, 2, 3]) if (isVietnamese(assetReport(id, day).vi)) bad.push(`${id}: ${assetReport(id, day).vi}`);
       expect(bad.slice(0, 20).join('\n')).toBe('');
