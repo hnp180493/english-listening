@@ -9,6 +9,7 @@ import { cityPerson } from './cityPeople';
 import { SCENE_VOICES } from './sceneTypes';
 import { CAST_VOICES } from './voices';
 import { townPlace } from '../../data/town';
+import { tl } from '../../i18n';
 
 /**
  * The learner's own lines in a job (an answer by intent; docs/gta-story.md §1 "Giọng của người chơi"). `docs/city.md`
@@ -24,6 +25,20 @@ export function jobVoice(who: string, playerGender: 'male' | 'female' = 'male'):
   if (who !== 'player' && Object.hasOwn(CAST_VOICES, who)) return CAST_VOICES[who];
   const gender = cityPerson(who)?.gender ?? (Object.hasOwn(SCENE_VOICES, who) ? SCENE_VOICES[who].gender : undefined);
   return gender ? { voice: `scene-${who}`, gender } : null;
+}
+
+/** The real names of people a job does not name while it plays (the man in the grey coat is Lyle Penn). */
+const REVEALED: Readonly<Record<string, string>> = { lyle: 'Lyle Penn' };
+
+/**
+ * Who said a line, once the job is over (the debrief, a review card, the hideout's tape): a forged line (JobLine `as`,
+ * core/town/jobDoc.ts header) says who really said it: "Lyle Penn (nhại Rico)", or "Marcus (băng ghép)" for a tape cut
+ * together. Without `as`, the speaker's name as ever.
+ */
+export function revealedName(line: { who: string; as?: string }): string {
+  if (!line.as) return jobSpeakerName(line.who);
+  if (line.as === 'splice') return tl`${jobSpeakerName(line.who)} (băng ghép)`;
+  return tl`${REVEALED[line.as] ?? jobSpeakerName(line.as)} (nhại ${jobSpeakerName(line.who)})`;
 }
 
 /** The speaker's name as the panels show it. */

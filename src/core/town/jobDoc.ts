@@ -53,6 +53,18 @@
 //   8  step `spot` { lines, at, early, late, never, fact, via? }: the lines play; the learner presses "Đó!" when the
 //      line `at` is said (until a moment after it ends); too early, too late and never are each a consequence.
 //
+// Added for Act III's jobs (docs/gta-story-3.md §7, gta-plan §20; only ADDED):
+//   1  Cond `{ heat: { min?, max? } }`: the heat (core/town/heat.ts, kept in memory) when the step begins.
+//   3  JobLine `as` (job.ts): who really says a forged line (a speaker id, or 'splice' for a tape cut together). While
+//      playing nothing changes (the strip shows `who`, the voice is `who`'s); the debrief, the review card and the
+//      hideout's tape say "Lyle Penn (nhại Rico)" / "Marcus (băng ghép)" (core/town/jobVoice.ts revealedName).
+//   4  Cond `{ grade: '<job id>', min: 'clean' | 'messy' | 'broken' }`: that job's best grade (town-jobs) is at least min.
+//   5  step `flag` { set, if? }: sets a flag of the run when its condition holds, says nothing (kept in town-jobs like
+//      every flag: `job-live:end-best`).
+//   8  `pick.why`: per wrong clip, a line that says why it was wrong (a tape cut together is not an imitation).
+//      thread `cover` (a Cond, e.g. `{ crew: 'tess' }`): somebody else keeps that thread; when it holds as the step
+//      begins, its key lines going by unheard are no consequence (two keys at once can be caught only with a crew).
+//
 // Facts and consequences (owner's review, gta-plan §11.4): every fact the learner can mishear has ONE consequence that
 // plays out in the world and then rejoins the main line; the grade counts the consequences hit. `wellFormed` (tested
 // for every job: data/city/jobs/jobs.test.ts) checks that each fact has its consequence and its rejoin, and that the
@@ -70,6 +82,8 @@ export type Cond =
   | { crew: string }
   | { clue: string }
   | { count: readonly Cond[]; min?: number; max?: number }
+  | { heat: { min?: number; max?: number } }
+  | { grade: string; min: JobGrade }
   | { not: Cond }
   | { all: readonly Cond[] }
   | { any: readonly Cond[] };
@@ -119,6 +133,8 @@ export interface Track {
   /** Lines that matter: one going by while another thread is listened to is `consequence`. */
   key?: readonly string[];
   consequence?: string;
+  /** Somebody else keeps this thread (a crew member: `{ crew: 'tess' }`): when it holds as the step begins, its key lines going by unheard are no consequence. */
+  cover?: Cond;
 }
 
 export type Step =
@@ -228,7 +244,8 @@ export type Step =
     }
   | { kind: 'scanner'; lines: readonly Said[]; if?: Cond }
   | { kind: 'threads'; tracks: readonly Track[]; if?: Cond }
-  | { kind: 'pick'; ask?: readonly Said[]; clips: readonly string[]; right: number; consequence: string; fact: string; if?: Cond }
+  | { kind: 'pick'; ask?: readonly Said[]; clips: readonly string[]; right: number; consequence: string; fact: string; why?: Readonly<Record<string, string>>; if?: Cond }
+  | { kind: 'flag'; set: string; if?: Cond }
   | { kind: 'spot'; lines: readonly Said[]; at: string; early: string; late: string; never: string; fact: string; via?: 'scene' | 'radio' | 'phone' | 'scanner'; if?: Cond }
   | { kind: 'password'; who: string; line: string; chunk: string; ask: string; right: string; close: string; wrong: string; consequence: string; if?: Cond };
 
@@ -314,7 +331,13 @@ export interface CondState {
   crew?: string | null;
   /** A clue the learner holds (core/town/jobProgress hasClue). */
   clue?: (id: string) => boolean;
+  /** The heat now (core/town/heat.ts). */
+  heat?: number;
+  /** An earlier job's best grade (null: not done). */
+  grade?: (jobId: string) => JobGrade | null;
 }
+
+const GRADE_ORDER: Readonly<Record<JobGrade, number>> = { broken: 0, messy: 1, clean: 2 };
 
 export function evalCond(c: Cond | undefined, s: CondState): boolean {
   if (!c) return true;
@@ -329,6 +352,14 @@ export function evalCond(c: Cond | undefined, s: CondState): boolean {
   if ('count' in c) {
     const n = c.count.filter((x) => evalCond(x, s)).length;
     return n >= (c.min ?? 0) && n <= (c.max ?? Infinity);
+  }
+  if ('heat' in c) {
+    const h = s.heat ?? 0;
+    return h >= (c.heat.min ?? -Infinity) && h <= (c.heat.max ?? Infinity);
+  }
+  if ('grade' in c) {
+    const g = s.grade?.(c.grade) ?? null;
+    return g !== null && GRADE_ORDER[g] >= GRADE_ORDER[c.min];
   }
   const n = s.note(c.note);
   if ('value' in c) return n.value === c.value;
@@ -464,11 +495,13 @@ export function docRefs(doc: JobDoc, keep: (c: Cond | undefined) => boolean = ()
         for (const t of st.tracks) {
           said(t.lines);
           if (t.consequence) consequences.push(t.consequence);
+          if (t.cover) conds.push(t.cover);
         }
         break;
       case 'pick':
         said(st.ask);
         lines.push(...st.clips);
+        lines.push(...Object.values(st.why ?? {}));
         consequences.push(st.consequence);
         break;
       case 'spot':
@@ -552,6 +585,8 @@ export function wellFormed(doc: JobDoc, w: WorldCheck): string[] {
       }
     }
     if (s.kind === 'pick' && (s.clips.length < 2 || s.right < 0 || s.right >= s.clips.length)) out.push(`pick out of range: ${s.fact}`);
+    if (s.kind === 'pick') for (const k of Object.keys(s.why ?? {})) if (!s.clips.includes(k) || k === s.clips[s.right]) out.push(`pick why for no wrong clip: ${k}`);
+    if (s.kind === 'flag' && !/^[a-z0-9][a-z0-9-]{0,40}$/.test(s.set)) out.push(`flag not a name: ${s.set}`);
     if (s.kind === 'spot' && !s.lines.map(lineOf).includes(s.at)) out.push(`spot line not said in it: ${s.at}`);
   }
   // into the warehouse and out again: every `enter` has its `leave` after it, never two in (for each crew choice: the
@@ -588,6 +623,17 @@ export function wellFormed(doc: JobDoc, w: WorldCheck): string[] {
     if ('heard' in r.opens ? r.opens.heard.length === 0 : !(r.opens.hearts >= 0 && r.opens.hearts <= 10)) out.push(`crew opens nothing: ${r.who}`);
   }
   const crewsIn = (c: Cond): string[] => ('crew' in c ? [c.crew] : 'not' in c ? crewsIn(c.not) : 'all' in c ? c.all.flatMap(crewsIn) : 'any' in c ? c.any.flatMap(crewsIn) : 'count' in c ? c.count.flatMap(crewsIn) : []);
+  // Act III's conditions: a heat between 0 and 10, a grade of a job id
+  const condsDeep = (c: Cond): Cond[] => [c, ...('not' in c ? condsDeep(c.not) : 'all' in c ? c.all.flatMap(condsDeep) : 'any' in c ? c.any.flatMap(condsDeep) : 'count' in c ? c.count.flatMap(condsDeep) : [])];
+  for (const c of refs.conds.flatMap(condsDeep)) {
+    if ('heat' in c) {
+      const { min, max } = c.heat;
+      if ((min !== undefined && (min < 0 || min > 10)) || (max !== undefined && (max < 0 || max > 10)) || (min !== undefined && max !== undefined && min > max) || (min === undefined && max === undefined)) out.push('heat condition out of range');
+    }
+    if ('grade' in c && !/^job-[a-z0-9-]+$/.test(c.grade)) out.push(`grade condition of no job: ${c.grade}`);
+  }
+  // forged lines: who really says them is a speaker, or a tape cut together
+  for (const l of doc.lines) if (l.as !== undefined && l.as !== 'splice' && !w.speaker(l.as)) out.push(`as not a speaker: ${l.as} (${l.id})`);
   for (const id of new Set(refs.conds.flatMap(crewsIn))) if (!crewIds.has(id)) out.push(`crew condition without a role: ${id}`);
   if (roles.length > 0)
     for (const who of [null, ...crewIds]) {

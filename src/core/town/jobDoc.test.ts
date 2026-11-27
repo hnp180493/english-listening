@@ -209,3 +209,44 @@ describe("Act II's engine pieces", () => {
     for (const m of ['patrol without a length: Nowhere Lane', 'no street Nowhere Lane', 'patrol line not on the scanner: s2', 'leave while outside', 'enter without a leave', 'threads with fewer than two tracks', 'thread a: key line not on it: l3', 'thread a: key lines without a consequence', 'pick out of range: tape', 'spot line not said in it: l3', 'no place mars']) expect(p).toContain(m);
   });
 });
+
+describe("Act III's engine pieces", () => {
+  it('reads the heat and an earlier grade', () => {
+    const s = { ...state({}), heat: 6, grade: (id: string) => (id === 'job-warehouse' ? ('messy' as const) : null) };
+    expect(evalCond({ heat: { min: 6 } }, s)).toBe(true);
+    expect(evalCond({ heat: { max: 5 } }, s)).toBe(false);
+    expect(evalCond({ heat: { min: 2, max: 7 } }, s)).toBe(true);
+    expect(evalCond({ heat: { min: 1 } }, state({}))).toBe(false);
+    expect(evalCond({ grade: 'job-warehouse', min: 'messy' }, s)).toBe(true);
+    expect(evalCond({ grade: 'job-warehouse', min: 'clean' }, s)).toBe(false);
+    expect(evalCond({ grade: 'job-warehouse', min: 'broken' }, s)).toBe(true);
+    expect(evalCond({ grade: 'job-live', min: 'broken' }, s)).toBe(false);
+    expect(crewTri({ heat: { min: 6 } }, null)).toBe(2);
+  });
+
+  it('checks a flag step, why a clip is wrong, who really says a line, the new conditions', () => {
+    const good: JobDoc = {
+      ...GOOD,
+      lines: [...GOOD.lines, { ...L('w1'), as: 'kemp' }, { ...L('w2'), as: 'splice' }],
+      consequences: { ...GOOD.consequences, clip: { name: 'C', rejoin: 'r' } },
+      steps: [
+        ...GOOD.steps,
+        { kind: 'pick', clips: ['l1', 'l3', 'w2'], right: 1, consequence: 'clip', fact: 'clip', why: { l1: 'w1' } },
+        { kind: 'flag', set: 'end-best', if: { all: [{ heat: { max: 5 } }, { grade: 'job-m2', min: 'clean' }] } },
+      ],
+    };
+    expect(wellFormed(good, WORLD)).toEqual([]);
+    const bad: JobDoc = {
+      ...good,
+      lines: [...good.lines.filter((l) => l.id !== 'w1'), { ...L('w1'), as: 'nobody' }],
+      steps: [
+        ...GOOD.steps,
+        { kind: 'pick', clips: ['l1', 'l3', 'w2'], right: 1, consequence: 'clip', fact: 'clip', why: { l3: 'w1', zz: 'w1' } },
+        { kind: 'flag', set: 'End Best' },
+        { kind: 'scene', lines: ['l1'], if: { any: [{ heat: { min: 8, max: 3 } }, { grade: 'warehouse', min: 'clean' }] } },
+      ],
+    };
+    const p = wellFormed(bad, WORLD);
+    for (const m of ['as not a speaker: nobody (w1)', 'pick why for no wrong clip: l3', 'pick why for no wrong clip: zz', 'flag not a name: End Best', 'heat condition out of range', 'grade condition of no job: warehouse']) expect(p).toContain(m);
+  });
+});

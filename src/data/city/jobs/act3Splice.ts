@@ -132,7 +132,7 @@ export const JOB_SPLICE: JobDoc = {
     {
       kind: 'overhear',
       at: 'poppy',
-      who: ['shona'],
+      who: ['shona', 'lyle'],
       lines: ['o01', 'o02', 'o03', 'o04', 'o05', 'o06', 'o07', 'o08', 'o09'].map(id),
       passes: 2,
       word: id('o07'),

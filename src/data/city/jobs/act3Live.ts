@@ -7,7 +7,11 @@
 // The three endings (gta-story-3 §6) are lines with conditions, not new code: how many of the five people / things the
 // learner kept through Act III (Cond `count` over the flags those jobs leave, read with `past`). Four or five: Kemp's
 // bid is withdrawn and Mrs Delaney is asked back. Two or three: the listeners' bid stands, for now. One or none:
-// Coastline cannot tell who is lying, the sale is paused again. Heat (§6) needs the engine (gta-story-3 §7 item 1).
+// Coastline cannot tell who is lying, the sale is paused again. Heat of six or more (Cond `heat`) puts the police outside
+// the studio and drops the ending a step (never below "for now" when four or five were kept); the ending is kept as a flag
+// (`end-best` / `end-middle` / `end-worst`, step `flag`); Kit trusts the learner's ears after a clean warehouse (Cond `grade`).
+// The two key lines of the threads (line thirteen ringing, the pirate coming on) start four seconds apart, so a sharp ear
+// alone can catch both; Tess keeps the booth and Max the street (thread `cover`, gta-story-3 §4.6 step 3).
 // Uses only steps the engine has: goto, scene, notebook via scene, threads, spot via radio, pick, intent, phone.
 
 import type { NoteEntry } from '../../../core/town/job';
@@ -25,8 +29,14 @@ export const ACT3_KEPT: readonly Cond[] = [
   { past: 'job-splice:knows-plan' },
   { past: 'job-tomcall:kept-tom' },
 ];
-const BEST: Cond = { count: ACT3_KEPT, min: 4 };
-const MIDDLE: Cond = { count: ACT3_KEPT, min: 2, max: 3 };
+// heat (gta-story-3 §6, §7 item 1): six or more when the show starts, a patrol is outside the studio and the ending drops
+// one step, never below "for now" when four or five were kept
+const HOT: Cond = { heat: { min: 6 } };
+const KEPT4: Cond = { count: ACT3_KEPT, min: 4 };
+const BEST: Cond = { all: [KEPT4, { not: HOT }] };
+const MIDDLE: Cond = { any: [{ count: ACT3_KEPT, min: 2, max: 3 }, { all: [KEPT4, HOT] }] };
+// the crew's trust (§7 item 4): Kit says so when Act II's warehouse was clean
+const TRUSTED: Cond = { grade: 'job-warehouse', min: 'clean' };
 const WORST: Cond = { count: ACT3_KEPT, max: 1 };
 const PLAN: Cond = { past: 'job-splice:knows-plan' };
 
@@ -54,19 +64,21 @@ const LINES = [
   { id: id('h07'), who: 'jun', text: "Jun in the van. Ninety-one point five is quiet. So far.", vi: 'Jun trong xe. Chín mốt phẩy năm đang im. Tới giờ.' },
   { id: id('h08'), who: 'jun', text: 'Ninety-one point five just came on. Same tape, new bits.', vi: 'Chín mốt phẩy năm vừa lên sóng. Cuộn cũ, có đoạn mới.' },
   { id: id('h09'), who: 'phone', text: "Got it rolling, mate. Every word they play, we keep.", vi: 'Máy đang chạy rồi. Chúng phát chữ nào, mình giữ chữ đó.' },
+  { id: id('h10'), who: 'jun', text: 'Still nothing. Just the gulls and the ferry horn.', vi: 'Vẫn chưa có gì. Chỉ có tiếng mòng biển và còi phà.' },
   { id: id('k01'), who: 'kit', text: 'Thirteen rang and I missed it. He is already through to Marcus.', vi: 'Đường mười ba reo mà tôi lỡ. Hắn đã nối vào Marcus rồi.' },
   { id: id('k02'), who: 'jun', text: "The pirate's been on two minutes. Half the harbour heard it first.", vi: 'Đài lậu lên sóng hai phút rồi. Nửa bến cảng nghe nó trước.' },
   // ── "Rico" on line thirteen ──
-  { id: id('s01'), who: 'lyle', text: "Marcus, partner, it's Rico. Rico here. Listen, listen.", vi: 'Marcus, cộng sự, Rico đây. Rico đây. Nghe này, nghe này.' },
-  { id: id('s02'), who: 'lyle', text: "The listeners' money bought my new taxi. I'm sorry, partner.", vi: 'Tiền thính giả góp đã mua chiếc taxi mới của tôi. Xin lỗi, cộng sự.' },
-  { id: id('s03'), who: 'lyle', text: "I'll hand the keys in at nine thirty. Nine thirty, partner.", vi: 'Tôi sẽ nộp chìa khóa lúc chín giờ ba mươi. Chín giờ ba mươi, cộng sự.' },
-  { id: id('s04'), who: 'lyle', text: "That's all. Got to go.", vi: 'Vậy thôi. Phải đi đây.' },
+  { id: id('s01'), who: 'rico', as: 'lyle', text: "Marcus, partner, it's Rico. Rico here. Listen, listen.", vi: 'Marcus, cộng sự, Rico đây. Rico đây. Nghe này, nghe này.' },
+  { id: id('s02'), who: 'rico', as: 'lyle', text: "The listeners' money bought my new taxi. I'm sorry, partner.", vi: 'Tiền thính giả góp đã mua chiếc taxi mới của tôi. Xin lỗi, cộng sự.' },
+  { id: id('s03'), who: 'rico', as: 'lyle', text: "I'll hand the keys in at nine thirty. Nine thirty, partner.", vi: 'Tôi sẽ nộp chìa khóa lúc chín giờ ba mươi. Chín giờ ba mươi, cộng sự.' },
+  { id: id('s04'), who: 'rico', as: 'lyle', text: "That's all. Got to go.", vi: 'Vậy thôi. Phải đi đây.' },
   { id: id('s05'), who: 'marcus', text: 'Nine thirty. Westbay, remember that. We will come back to it.', vi: 'Chín giờ ba mươi. Westbay, nhớ chữ đó nhé. Chút nữa mình quay lại.' },
   // ── three Ricos ──
   { id: id('p01'), who: 'marcus', text: 'Westbay, three Ricos. Only one is sitting next to me. Which?', vi: 'Westbay, ba Rico. Chỉ một người đang ngồi cạnh tôi. Ai?' },
-  { id: id('c1'), who: 'lyle', text: 'Nine thirty, partner. Always nine thirty with me.', vi: 'Chín giờ ba mươi, cộng sự. Với tôi lúc nào cũng chín giờ ba mươi.' },
+  { id: id('c1'), who: 'rico', as: 'lyle', text: 'Nine thirty, partner. Always nine thirty with me.', vi: 'Chín giờ ba mươi, cộng sự. Với tôi lúc nào cũng chín giờ ba mươi.' },
   { id: id('c2'), who: 'rico', text: "Half nine, partner. It's always half nine. Ask anyone. Ask Tess.", vi: '"Half nine", cộng sự. Lúc nào cũng "half nine". Hỏi ai cũng được. Hỏi Tess.' },
-  { id: id('c3'), who: 'rico', text: 'Rico on thirteen. Half nine at the station. Over.', vi: 'Rico ở kênh mười ba. Chín rưỡi ở nhà ga. Hết.' },
+  { id: id('c3'), who: 'rico', as: 'splice', text: 'Rico on thirteen. Half nine at the station. Over.', vi: 'Rico ở kênh mười ba. Chín rưỡi ở nhà ga. Hết.' },
+  { id: id('p03'), who: 'rico', text: "Not that one, partner. I never say nine thirty. That's somebody doing me.", vi: 'Không phải cái đó, cộng sự. Tôi chưa bao giờ nói "nine thirty". Có người nhại tôi đấy.' },
   { id: id('p02'), who: 'rico', text: "Not that one, partner. We moved off thirteen. That's an old tape.", vi: 'Không phải cái đó, cộng sự. Mình bỏ kênh mười ba rồi. Băng cũ đấy.' },
   // ── the microphone ──
   { id: id('i01'), who: 'marcus', text: 'You heard every one of them. Say one thing to Westbay.', vi: 'Bạn đã nghe từng người. Nói một câu với Westbay đi.' },
@@ -81,6 +93,8 @@ const LINES = [
   { id: id('v02'), who: 'delaney', text: 'Mrs Delaney. The Trust has asked me back. Noted, with thanks.', vi: 'Delaney đây. Ban quản lý cảng đã mời tôi trở lại. Ghi nhận, cảm ơn.' },
   { id: id('v03'), who: 'kemp', text: 'Lovely show, Marcus. Truly. Goodnight.', vi: 'Chương trình tuyệt lắm, Marcus. Thật đấy. Chúc ngủ ngon.' },
   { id: id('v04'), who: 'ashby', text: "The listeners' bid stands, for now. We will listen again next year.", vi: 'Giá của thính giả giữ nguyên, tạm thời. Năm sau chúng tôi nghe lại.' },
+  { id: id('v06'), who: 'ashby', text: 'And I am told the police are outside your studio, Marcus.', vi: 'Và tôi được báo là cảnh sát đang ở ngoài phòng thu của anh, Marcus.' },
+  { id: id('e05'), who: 'kit', text: 'You found the reel in fifteen. I trusted your ears again tonight.', vi: 'Bạn tìm ra cuộn băng ở kho mười lăm. Tối nay tôi lại tin tai bạn.' },
   { id: id('v05'), who: 'ashby', text: 'Coastline cannot tell who is lying tonight. The sale is paused another month.', vi: 'Tối nay Coastline không biết ai nói dối. Việc bán tạm dừng thêm một tháng.' },
   // ── the end ──
   { id: id('e01'), who: 'rico', text: 'A firm of two, a radio, and a city that listens. Not bad, partner.', vi: 'Một hãng hai người, một cái đài, và một thành phố biết nghe. Không tệ, cộng sự.' },
@@ -166,8 +180,8 @@ export const JOB_LIVE: JobDoc = {
       kind: 'threads',
       tracks: [
         { id: 'air', label: 'Trên sóng', lines: [id('h01'), id('h02'), id('h03')] },
-        { id: 'booth', label: 'Bàn đường dây', lines: [id('h04'), { line: id('h06'), if: { crew: 'tess' } }, id('h05')], key: [id('h05')], consequence: 'line' },
-        { id: 'street', label: 'Ngoài đường', lines: [id('h07'), { line: id('h09'), if: { crew: 'phone' } }, id('h08')], key: [id('h08')], consequence: 'pirate' },
+        { id: 'booth', label: 'Bàn đường dây', lines: [id('h04'), { line: id('h06'), if: { crew: 'tess' } }, id('h05')], key: [id('h05')], consequence: 'line', cover: { crew: 'tess' } },
+        { id: 'street', label: 'Ngoài đường', lines: [id('h07'), { line: id('h09'), if: { crew: 'phone' } }, id('h10'), id('h08')], key: [id('h08')], consequence: 'pirate', cover: { crew: 'phone' } },
       ],
     },
     { kind: 'scene', at: 'kit', lines: [id('w01')], if: { note: 'tom', is: 'wrong' } },
@@ -176,8 +190,8 @@ export const JOB_LIVE: JobDoc = {
     // "Đó!" on the word Rico never says
     { kind: 'spot', lines: ['s01', 's02', 's03', 's04'].map(id), at: id('s03'), early: 'tell', late: 'tell', never: 'tell', fact: 'tell', via: 'radio' },
     { kind: 'radio', lines: [id('s05')], if: { hit: 'tell' } },
-    { kind: 'pick', ask: [id('p01')], clips: ['c1', 'c2', 'c3'].map(id), right: 1, consequence: 'clip', fact: 'real' },
-    { kind: 'scene', at: 'kit', lines: [id('p02')], if: { hit: 'clip' } },
+    // a wrong clip says why: the imitation (it says nine thirty) is not the old tape (it says thirteen)
+    { kind: 'pick', ask: [id('p01')], clips: ['c1', 'c2', 'c3'].map(id), right: 1, consequence: 'clip', fact: 'real', why: { [id('c1')]: id('p03'), [id('c3')]: id('p02') } },
     {
       kind: 'intent',
       who: 'marcus',
@@ -193,6 +207,7 @@ export const JOB_LIVE: JobDoc = {
     {
       kind: 'phone',
       lines: [
+        { line: id('v06'), if: HOT },
         { line: id('v01'), if: BEST },
         { line: id('v02'), if: BEST },
         { line: id('v03'), if: BEST },
@@ -200,10 +215,14 @@ export const JOB_LIVE: JobDoc = {
         { line: id('v05'), if: WORST },
       ],
     },
+    // the ending kept for later acts (gta-story-3 §7 item 5): one flag, said by nobody
+    { kind: 'flag', set: 'end-best', if: BEST },
+    { kind: 'flag', set: 'end-middle', if: MIDDLE },
+    { kind: 'flag', set: 'end-worst', if: WORST },
   ],
   ending: {
-    clean: [{ line: id('e01'), if: { not: WORST } }, { line: id('e04'), if: WORST }, id('e02')],
-    messy: [{ line: id('e03'), if: { not: WORST } }, { line: id('e04'), if: WORST }, id('e02')],
+    clean: [{ line: id('e01'), if: { not: WORST } }, { line: id('e04'), if: WORST }, { line: id('e05'), if: TRUSTED }, id('e02')],
+    messy: [{ line: id('e03'), if: { not: WORST } }, { line: id('e04'), if: WORST }, { line: id('e05'), if: TRUSTED }, id('e02')],
     broken: [id('e04'), id('e02')],
   },
   news: { clean: [id('n1'), id('n2')], messy: [id('n1'), id('n2')], broken: [id('n2')] },

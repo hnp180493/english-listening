@@ -7,7 +7,7 @@ import { decode, speakableFor } from '../../../core/decoder';
 import { LONE_APOSTROPHE, SAPI_MISREAD } from '../../../core/decoder/sapiMisread';
 import { cityPerson } from '../../../core/town/cityPeople';
 import { fillLine, timeWords } from '../../../core/town/job';
-import { wellFormed, type JobDoc, type Step } from '../../../core/town/jobDoc';
+import { evalCond, wellFormed, type CondState, type JobDoc, type Step } from '../../../core/town/jobDoc';
 import { judgeTyped } from '../../../core/town/typing';
 import { SCENE_VOICES } from '../../../core/town/sceneTypes';
 import { CAST_VOICES } from '../../../core/town/voices';
@@ -54,6 +54,24 @@ describe('the jobs', () => {
     // the engine's samples for Act II (gta-plan §17): a crew, a voice message, two clues
     expect(byId.get('job-chip')?.crew?.roles.map((r) => r.who)).toEqual(['jun', 'phone']);
     expect(byId.get('job-delaney')?.steps.some((s) => s.kind === 'notebook' && s.via === 'voicemail')).toBe(true);
+    // Act III (gta-story-3 §7): forged lines say who really said them; job 6 keeps its ending as a flag; picks say why
+    const act3 = CITY_JOBS.filter((j) => j.id.startsWith('job-') && ['job-forged', 'job-twomarcus', 'job-samcall', 'job-tomcall', 'job-live'].includes(j.id));
+    for (const j of act3) expect(j.lines.some((l) => l.as), j.id).toBe(true);
+    const live = byId.get('job-live')!;
+    expect(live.steps.filter((s) => s.kind === 'flag').map((s) => (s.kind === 'flag' ? s.set : ''))).toEqual(['end-best', 'end-middle', 'end-worst']);
+    for (const j of ['job-twomarcus', 'job-live']) expect(byId.get(j)!.steps.some((s) => s.kind === 'pick' && Object.keys(s.why ?? {}).length === 2), j).toBe(true);
+  });
+  it("job 6's three endings: exactly one flag for every number kept and every heat; heat 6+ drops best to middle, never lower", () => {
+    const live = CITY_JOBS.find((j) => j.id === 'job-live')!;
+    const flags = live.steps.filter((s): s is Extract<Step, { kind: 'flag' }> => s.kind === 'flag');
+    const refs = ['job-forged:kept-tess', 'job-twomarcus:kept-marcus', 'job-samcall:asked-dog', 'job-splice:knows-plan', 'job-tomcall:kept-tom'];
+    const expected = (n: number, heat: number) => (n >= 4 ? (heat >= 6 ? 'end-middle' : 'end-best') : n >= 2 ? 'end-middle' : 'end-worst');
+    for (let n = 0; n <= 5; n++)
+      for (const heat of [0, 5, 6, 10]) {
+        const kept = new Set(refs.slice(0, n));
+        const state: CondState = { note: () => ({ value: undefined, right: false, early: false, late: false }), flags: new Set(), hits: new Set(), past: (r) => kept.has(r), heat };
+        expect(flags.filter((f) => evalCond(f.if!, state)).map((f) => f.set), `${n} kept, heat ${heat}`).toEqual([expected(n, heat)]);
+      }
   });
 });
 
@@ -139,6 +157,23 @@ describe.each(CITY_JOBS.map((j) => [j.id, j] as const))('job %s', (_, job) => {
     }
   });
 
+  it('threads alone: two key lines of threads nobody keeps start at least 3 s apart (catchable by ear)', () => {
+    // as the engine times them (jobAudio lineSeconds + 0.6 s), with only the lines said whoever comes along
+    const secs = (text: string) => 0.6 + text.split(/\s+/).length * 0.36 + 0.6;
+    for (const st of job.steps.filter((s): s is Extract<Step, { kind: 'threads' }> => s.kind === 'threads')) {
+      const starts: number[] = [];
+      for (const t of st.tracks) {
+        let at = 0;
+        for (const x of t.lines) {
+          if (typeof x !== 'string') continue;
+          if ((t.key ?? []).includes(x) && t.consequence) starts.push(at);
+          at += secs(job.lines.find((l) => l.id === x)!.text);
+        }
+      }
+      starts.sort((p, q) => p - q);
+      for (let i = 1; i < starts.length; i++) expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(3);
+    }
+  });
   it('a password is a chunk of the line it is said in, and typing it is judged right', () => {
     for (const s of job.steps) {
       if (s.kind !== 'password') continue;

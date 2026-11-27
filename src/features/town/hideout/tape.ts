@@ -5,7 +5,7 @@
 
 import type { SpeakVoice } from '../../../core/tts';
 import type { TapeCard } from '../../../core/town/hideout';
-import { jobSpeakerName, jobVoice } from '../../../core/town/jobVoice';
+import { jobVoice, revealedName } from '../../../core/town/jobVoice';
 import { DISPATCH_CALLER, DISPATCH_TITLE, dispatchCallByRef, dispatchVoice } from '../../../data/city/dispatch';
 import { jobLineByRef } from '../../../data/city/jobs';
 
@@ -32,7 +32,7 @@ export function tapeLine(card: TapeCard): TapeLine | null {
   if (job) {
     const voice = jobVoice(job.line.who);
     if (!voice) return null;
-    return { ref: card.ref, text: job.line.text, vi: job.line.vi, ...(job.line.say ? { say: job.line.say } : {}), speaker: jobSpeakerName(job.line.who), where: job.job.title, voice, browserOnly: true, added: card.added, due: card.due };
+    return { ref: card.ref, text: job.line.text, vi: job.line.vi, ...(job.line.say ? { say: job.line.say } : {}), speaker: revealedName(job.line), where: job.job.title, voice, browserOnly: true, added: card.added, due: card.due };
   }
   const call = dispatchCallByRef(card.ref);
   if (call) return { ref: card.ref, text: call.text, vi: call.vi, ...(call.say ? { say: call.say } : {}), speaker: DISPATCH_CALLER, where: DISPATCH_TITLE, voice: dispatchVoice(call), browserOnly: true, added: card.added, due: card.due };

@@ -21,10 +21,10 @@ const LINES = [
   { id: id('a02'), who: 'rico', text: "You've heard him on a phone. Three words at a time, remember?", vi: 'Bạn nghe cậu ấy nói điện thoại rồi. Mỗi lần ba chữ, nhớ không?' },
   { id: id('m01'), who: 'mei', text: "If it's urgent, it's lying, dear. Ask him something only he knows.", vi: 'Cái gì gấp là cái đó nói dối, cháu. Hỏi cậu ta một điều chỉ cậu ta biết.' },
   // ── the impostor ──
-  { id: id('f01'), who: 'sam-fake', text: "Hey, it's Sam. Listen, I need a big favor from you guys tonight.", vi: 'Này, Sam đây. Nghe này, tối nay tôi cần các anh giúp một việc lớn.' },
-  { id: id('f02'), who: 'sam-fake', text: "Kemp's drivers are all over my bus route, and I want to call them in.", vi: 'Tài xế của Kemp nhan nhản trên tuyến xe buýt của tôi, tôi muốn báo cho các anh.' },
-  { id: id('f03'), who: 'sam-fake', text: 'So what channel are you on now, and what do you call the station?', vi: 'Vậy giờ các anh dùng kênh nào, và các anh gọi nhà ga là gì?' },
-  { id: id('f04'), who: 'sam-fake', text: 'My mom says hi, by the way. Call me back on this number.', vi: 'Mà mẹ tôi gửi lời chào. Gọi lại cho tôi số này nhé.' },
+  { id: id('f01'), who: 'sam-fake', as: 'lyle', text: "Hey, it's Sam. Listen, I need a big favor from you guys tonight.", vi: 'Này, Sam đây. Nghe này, tối nay tôi cần các anh giúp một việc lớn.' },
+  { id: id('f02'), who: 'sam-fake', as: 'lyle', text: "Kemp's drivers are all over my bus route, and I want to call them in.", vi: 'Tài xế của Kemp nhan nhản trên tuyến xe buýt của tôi, tôi muốn báo cho các anh.' },
+  { id: id('f03'), who: 'sam-fake', as: 'lyle', text: 'So what channel are you on now, and what do you call the station?', vi: 'Vậy giờ các anh dùng kênh nào, và các anh gọi nhà ga là gì?' },
+  { id: id('f04'), who: 'sam-fake', as: 'lyle', text: 'My mom says hi, by the way. Call me back on this number.', vi: 'Mà mẹ tôi gửi lời chào. Gọi lại cho tôi số này nhé.' },
   // ── is it him ──
   { id: id('q01'), who: 'rico', text: 'Well? Is that my cousin? He wants our channel and our word for the station.', vi: 'Sao? Đó là em họ tôi à? Nó hỏi kênh của mình và mã của mình cho nhà ga.' },
   { id: id('q01a'), who: 'player', text: "That's not Sam. Sam says three words on a phone, not thirty.", vi: 'Đó không phải Sam. Sam nói điện thoại ba chữ, không phải ba mươi.' },
@@ -33,15 +33,15 @@ const LINES = [
   { id: id('q02'), who: 'rico', text: 'Ha! Thirty words, and not one of them is Sam.', vi: 'Ha! Ba mươi chữ, mà chẳng chữ nào là Sam.' },
   { id: id('q03'), who: 'rico', text: 'Thirteen, and Chip for the station. There. Told him.', vi: 'Kênh mười ba, và "Chip" là nhà ga. Đấy. Nói rồi.' },
   { id: id('q04'), who: 'rico', text: "Quick one, Sam. What's your dog called?", vi: 'Hỏi nhanh, Sam. Con chó của cậu tên gì?' },
-  { id: id('q05'), who: 'sam-fake', text: 'My dog? Uh, Buddy. Good old Buddy. So, that channel?', vi: 'Con chó á? À, Buddy. Buddy già. Vậy, kênh đó?' },
+  { id: id('q05'), who: 'sam-fake', as: 'lyle', text: 'My dog? Uh, Buddy. Good old Buddy. So, that channel?', vi: 'Con chó á? À, Buddy. Buddy già. Vậy, kênh đó?' },
   { id: id('q06'), who: 'rico', text: 'Wrong dog, friend. Wrong cousin, too. Goodbye.', vi: 'Sai chó rồi, ông bạn. Sai cả em họ. Chào.' },
   { id: id('g01'), who: 'driver', text: "Desk, Rico's lot use Chip for the station. Somebody just told us.", vi: 'Tổng đài, bọn Rico dùng "Chip" cho nhà ga. Có người vừa báo.' },
   { id: id('g02'), who: 'rico', text: 'They know our code, partner. So, new code. Today. Now.', vi: 'Chúng biết mã của mình rồi, cộng sự. Vậy đổi mã. Hôm nay. Ngay.' },
   // ── which one is Sam ──
   { id: id('p01'), who: 'rico', text: 'I kept a few calls off phone two. Which one is really Sam?', vi: 'Tôi giữ vài cuộc gọi từ máy số hai. Cuộc nào thật là Sam?' },
-  { id: id('c1'), who: 'sam-fake', text: "Hey, it's Sam. The bus is running late, sorry about that.", vi: 'Này, Sam đây. Xe buýt đang trễ, xin lỗi nhé.' },
+  { id: id('c1'), who: 'sam-fake', as: 'lyle', text: "Hey, it's Sam. The bus is running late, sorry about that.", vi: 'Này, Sam đây. Xe buýt đang trễ, xin lỗi nhé.' },
   { id: id('c2'), who: 'station', text: 'Bus. Late. Sorry.', vi: 'Xe buýt. Trễ. Xin lỗi.' },
-  { id: id('c3'), who: 'sam-fake', text: "Sam here, buddy. I'll be there in five minutes, okay?", vi: 'Sam đây, ông bạn. Năm phút nữa tôi tới, nhé?' },
+  { id: id('c3'), who: 'sam-fake', as: 'lyle', text: "Sam here, buddy. I'll be there in five minutes, okay?", vi: 'Sam đây, ông bạn. Năm phút nữa tôi tới, nhé?' },
   { id: id('p02'), who: 'rico', text: 'That one talks too well. My cousin never finished a sentence on a phone.', vi: 'Cuộc đó nói trơn tru quá. Em họ tôi chưa từng nói hết một câu qua điện thoại.' },
   // ── the real Sam, and a new code ──
   { id: id('r01'), who: 'station', text: "Sam. Didn't call. Promise.", vi: 'Sam đây. Không gọi. Thề.' },

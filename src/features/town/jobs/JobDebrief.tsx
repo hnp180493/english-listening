@@ -10,7 +10,7 @@ import SpokenSentence from '../../../components/SpokenSentence';
 import { CAREFUL_LABEL } from '../../../core/playback';
 import { clockOf, noteAnswer, type JobLine } from '../../../core/town/job';
 import type { Said } from '../../../core/town/jobDoc';
-import { jobSpeakerName } from '../../../core/town/jobVoice';
+import { jobSpeakerName, revealedName } from '../../../core/town/jobVoice';
 import { tl } from '../../../i18n';
 import { Coin, SoundBars } from '../art';
 import { safeDecode } from '../../dictation/decodeCache';
@@ -51,7 +51,7 @@ function SaidLine({ said, missed, say }: { said: SaidJobLine; missed: boolean; s
   return (
     <li className={'town-ls-line' + (missed ? ' job-missed' : '') + (own ? ' job-own' : '')}>
       <span className="town-ls-line-who">
-        {jobSpeakerName(said.line.who)}
+        {revealedName(said.line)}
         {missed && <span className="job-missed-tag">Nghe hụt · đã vào Ôn tập</span>}
       </span>
       {decoded.tokens.length > 0 ? (

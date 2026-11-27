@@ -639,3 +639,66 @@ bậc tự động không đổi), và tự động với người đang đúng 
 **Đoán / chưa kiểm:** mọi con số của thang (tốc độ, kiên nhẫn, khoảng cách, tiền), α, 95% / 72%, 12 câu, và bậc theo tỉ lệ
 hiểu trong mô hình kinh tế đều là đoán. Chưa ai nghe bằng tai hay chơi bằng tay; chưa chạy một ca điều xe bằng kịch bản ở các
 bậc (chỉ test thuần); trong ảnh, popup bộ đàm cảnh sát của phiên đường phố đè lên đầu bảng điện thoại.
+
+## 20. Hồi III: máy còn thiếu và sáu phi vụ chạy thử, as built (2026-11-27)
+
+Theo docs/gta-story-3.md §7 "NEEDS ENGINE". Làm mục 1, 2, 3, 4, 5, 8; **mục 6 (kênh 91.5 trên radio xe) và 7 (người học
+nói trên sóng) KHÔNG làm, chờ chủ dự án.** Chỉ THÊM trường, không đổi tên; ghi ở đầu `src/core/town/jobDoc.ts`.
+
+| Mục | Làm gì | Ở đâu |
+|---|---|---|
+| 1 | `Cond { heat: { min?, max? } }`: độ truy nã lúc bước bắt đầu (bộ nhớ, `jobs/heatStore.ts`); `wellFormed` đòi 0–10, min ≤ max, ít nhất một đầu | `jobDoc.ts`, `useCityJob.tsx condState` |
+| 2 | Lyle Penn có thân: dáng trong `JOB_CAST_LOOKS` (áo xám, tóc nâu gọn), đứng cạnh bảng giờ tàu ở nhà ga ("Người áo xám", 15, 28); phi vụ 1 cảnh ở quầy vé gọi hắn tới (`who: ['lyle']`), phi vụ 4 nghe lén Shona và hắn (`overhear who: ['shona', 'lyle']`) | `jobs/jobCast.ts`, `act3Forged.ts`, `act3Splice.ts` |
+| 3 | `JobLine.as`: ai nói thật một câu giả (id người nói, hoặc `'splice'` = băng ghép). Lúc chơi không đổi gì (dải chữ và giọng là của `who`); màn xem lại, thẻ Ôn tập `talk:job-…` và băng ở chỗ ẩn ghi "Lyle Penn (nhại Rico)" / "Marcus (băng ghép)" (`jobVoice.ts revealedName`); `wellFormed`: `as` phải là người nói hoặc `'splice'` | `job.ts`, `jobVoice.ts`, `JobDebrief.tsx`, `review/resolve.ts`, `hideout/tape.ts` |
+| 4 | `Cond { grade: '<job id>', min }`: hạng tốt nhất của phi vụ đó trong `town-jobs` ít nhất bằng min (chưa làm = sai) | `jobDoc.ts`, `condState` |
+| 5 | Bước `flag { set, if? }`: đặt cờ của lượt khi điều kiện đúng, không nói gì; lưu trong `town-jobs` như mọi cờ (`job-live:end-best`) | `jobDoc.ts`, `useCityJob.tsx` |
+| 8 | `pick.why`: với mỗi clip sai, một câu nói vì sao sai (băng ghép khác người nhại); `wellFormed`: chỉ clip sai | `jobDoc.ts`, `useCityJob.tsx` |
+| thêm | `threads` có `cover` (một Cond, vd `{ crew: 'tess' }`): có người giữ mạch đó thì câu chốt trôi qua không thành hệ quả | `jobDoc.ts`, `useCityJob.tsx` |
+
+**Áp vào sáu phi vụ** (câu đổi so với bản của phiên gta-radio, từ chữ tới người nói):
+- `act3Forged.ts`: v01–v06, v03r, v04r có `as: 'lyle'`; cảnh ở quầy vé có `who: ['lyle']`.
+- `act3TwoMarcus.ts`: f01–f04, c1 `as: 'splice'`; c3 từ `who: 'lyle'` thành `who: 'marcus', as: 'lyle'` (nghe như Marcus);
+  k04 tách thành k04a (Kit: "Not that one. Ten o'clock is an old timetable. That one's cut from an old tape.") và k04b
+  (Kit: "Not that one. Marcus never says mate, or everybody. Somebody is doing him."), là `pick.why` của c1 / c3; bước cảnh
+  nói k04 bỏ.
+- `act3SamCall.ts`: f01–f04, q05, c1, c3 (`sam-fake`) có `as: 'lyle'`. `act3TomCall.ts`: f01–f04, c1, c3 (`tom-fake`) có `as: 'lyle'`.
+- `act3Live.ts`: s01–s04, c1 từ `who: 'lyle'` thành `who: 'rico', as: 'lyle'`; c3 `as: 'splice'`; câu mới p03 (Rico: "Not that
+  one, partner. I never say nine thirty. That's somebody doing me."); `pick.why` = { c1: p03, c3: p02 }, bước cảnh p02 bỏ;
+  HOT = heat ≥ 6, câu mới v06 (Ashby: "And I am told the police are outside your studio, Marcus.") đứng đầu phán quyết, và
+  kết "tốt" tụt thành "tạm" (không bao giờ thấp hơn khi giữ được 4–5); TRUSTED = `job-warehouse` sạch, câu mới e05 (Kit: "You
+  found the reel in fifteen. I trusted your ears again tonight.") ở kết sạch / lộn xộn; ba bước `flag` end-best / end-middle /
+  end-worst sau phán quyết, cùng điều kiện với các câu phán quyết.
+- **Sửa khi chạy thử, `act3Live.ts` ba mạch:** hai câu chốt ("Line thirteen is ringing", "Ninety-one point five just came on")
+  bắt đầu cách nhau 0,36 giây: đi một mình ở bậc 3 trở lên không ai bắt được cả hai, phi vụ cuối không thể sạch. Sửa theo
+  bible (§4.6 bước 3: có Tess thì Tess nói to, có Max thì Max ghi): mạch bàn đường dây `cover: { crew: 'tess' }`, mạch ngoài
+  đường `cover: { crew: 'phone' }`, và câu mới h10 (Jun: "Still nothing. Just the gulls and the ferry horn.") trước câu chốt
+  ngoài đường để hai câu chốt cách nhau 4,1 giây khi đi một mình. Test mới: ở mọi phi vụ, hai câu chốt không ai giữ cách nhau
+  ít nhất 3 giây.
+- Không câu nào của Sam, Tom, Max đổi chữ: số clip Hồi III không đổi (22, chưa tạo). Mọi câu mới là người Westbay (giọng trình
+  duyệt). `npm run audio:generate -- --dry-run` hôm nay: 114 clip còn thiếu tất cả (town).
+- Chữ mang dấu thật / giả (bảng dấu giọng §2 của bible) không đổi.
+
+**Test:** `jobDoc.test.ts` (heat, grade, as, why, flag: đúng và sai); `jobs.test.ts`: câu giả có `as`, `job-live` có ba bước
+flag, hai pick có hai `why`, ba kết cục: đúng một cờ cho mỗi số giữ được 0–5 và mỗi độ truy nã 0 / 5 / 6 / 10, câu chốt cách
+nhau ≥ 3 giây.
+
+**Chạy thử bằng kịch bản** (Edge headless, dev server riêng, giọng giả có độ dài theo chữ, `window.__job`; gieo các phi vụ
+trước là đã xong để chuông gọi đúng phi vụ):
+
+| Phi vụ | Sạch | Ghi sai hết |
+|---|---|---|
+| 1 Tin nhắn không phải của Rico | Sạch, "Đó!" đúng v05 | Hỏng: place, name, tell, fooled |
+| 2 Hai Marcus | Sạch, xem lại ghi "Marcus (băng ghép)" | Hỏng: mọi hệ quả |
+| 3 Sam không gọi điện | Sạch, "Lyle Penn (nhại Sam)" | Hỏng: gave, clip, channel, word |
+| 4 Phòng ghép băng | Sạch | Hỏng: cue, line, day, cut |
+| 5 Tom gọi lên đài | Sạch, "Lyle Penn (nhại Tom)" | Hỏng: tell, clip, bus, meet, letter |
+| 6 Phát sóng trực tiếp | Sạch một mình (đổi mạch đúng lúc), cờ end-best | Hỏng: 7 hệ quả; với Tess: không dính `line` |
+
+Ba kết cục của phi vụ 6 bằng cờ gieo: 5 cờ giữ → `end-best`; 2 cờ (kept-tess, asked-dog) → `end-middle`; 0 cờ → `end-worst`;
+5 cờ + heat 7 (đặt qua module `heatStore` trong trang) → `end-middle`. Ảnh: `.assets-try/previews/act3-*.png` (Lyle ở nhà
+ga, Lyle và Shona ở Twin Ovens, ba mạch một mình và với Tess, ba Rico, hai màn xem lại).
+
+**Chưa / đoán:** Lyle "đứng sau cửa sổ" ở phi vụ 4 chưa dựng: nghe lén gọi hai người ra đứng ngoài đường trước tiệm; áo
+"xám dài" trên avatar VRoid ra tối màu (màu nhân lên phần thân của mẫu). Ai nghe phi vụ không ai biết; độ dài lời thật của
+giọng trình duyệt có thể khác độ dài đoán (`lineSeconds`) nên khoảng 4 giây giữa hai câu chốt là theo đồng hồ của máy, không
+theo tai. Câu chưa ai đọc, chưa ai nghe, chưa ai chơi bằng tay hay trên điện thoại.

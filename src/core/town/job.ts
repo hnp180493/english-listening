@@ -32,6 +32,8 @@ export interface JobLine {
   say?: string;
   /** Said in pieces with a silence (a hiss) at every "..." of the text: a line over a bad radio (core/town/jobDoc.ts §2). */
   broken?: boolean;
+  /** Who really says a forged line (a speaker id, or 'splice': a tape cut together); `who` is who it sounds like. */
+  as?: string;
 }
 
 /** A point of the map's tile grid. */

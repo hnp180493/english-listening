@@ -11,7 +11,7 @@ import type { StorySpeaker } from '../../core/town/story';
 import { storyLineById } from '../../core/town/storyLines';
 import { jobLineByRef } from '../../data/city/jobs';
 import { DISPATCH_CALLER, DISPATCH_TITLE, dispatchCallByRef, dispatchVoice } from '../../data/city/dispatch';
-import { jobVoice, jobSpeakerName } from '../../core/town/jobVoice';
+import { jobVoice, revealedName } from '../../core/town/jobVoice';
 import type { SpeakVoice } from '../../core/tts';
 import type { Chunk, Sentence } from '../../core/types';
 import { CHUNKS } from '../../data/chunks';
@@ -124,7 +124,7 @@ export function createResolver(src: ResolveSources): Resolver {
         if (job) {
           const voice = jobVoice(job.line.who);
           if (!voice) return null;
-          return { kind, id, ref, sentence: talkSentence(id, job.line, job.job), who: job.line.who, placeId: 'westbay', speaker: jobSpeakerName(job.line.who), episodeTitle: job.job.title, episodeOrder: 0, job: voice };
+          return { kind, id, ref, sentence: talkSentence(id, job.line, job.job), who: job.line.who, placeId: 'westbay', speaker: revealedName(job.line), episodeTitle: job.job.title, episodeOrder: 0, job: voice };
         }
         // a call to Rico's dispatch office (data/city/dispatch): the caller in the browser's voice
         const call = dispatchCallByRef(ref);

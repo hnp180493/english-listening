@@ -22,17 +22,17 @@ const LINES = [
   { id: id('a02'), who: 'kit', text: "He'll ring again at three. Listen with us. Stop me where he slips.", vi: 'Ba giờ hắn sẽ gọi nữa. Nghe cùng chúng tôi. Dừng tôi ở chỗ hắn lộ.' },
   { id: id('a03'), who: 'kit', text: 'You heard the real Tom ring us once. Same ears now.', vi: 'Bạn đã nghe Tom thật gọi lên một lần. Giờ dùng đúng đôi tai đó.' },
   // ── the impostor, on air ──
-  { id: id('f01'), who: 'tom-fake', text: 'Hi Marcus, Tom here. Great to be on the show again.', vi: 'Chào Marcus, Tom đây. Vui được lên chương trình lần nữa.' },
-  { id: id('f02'), who: 'tom-fake', text: 'Honestly, I love talking on the radio. I could do this all day.', vi: 'Thật lòng, tôi mê nói trên radio. Tôi nói cả ngày cũng được.' },
-  { id: id('f03'), who: 'tom-fake', text: 'Those letters? Marcus wrote every one of them himself.', vi: 'Mấy lá thư à? Marcus tự viết hết đấy.' },
-  { id: id('f04'), who: 'tom-fake', text: 'He made me up for the ratings. Sorry, everyone.', vi: 'Anh ấy bịa ra tôi để lấy lượt nghe. Xin lỗi mọi người.' },
+  { id: id('f01'), who: 'tom-fake', as: 'lyle', text: 'Hi Marcus, Tom here. Great to be on the show again.', vi: 'Chào Marcus, Tom đây. Vui được lên chương trình lần nữa.' },
+  { id: id('f02'), who: 'tom-fake', as: 'lyle', text: 'Honestly, I love talking on the radio. I could do this all day.', vi: 'Thật lòng, tôi mê nói trên radio. Tôi nói cả ngày cũng được.' },
+  { id: id('f03'), who: 'tom-fake', as: 'lyle', text: 'Those letters? Marcus wrote every one of them himself.', vi: 'Mấy lá thư à? Marcus tự viết hết đấy.' },
+  { id: id('f04'), who: 'tom-fake', as: 'lyle', text: 'He made me up for the ratings. Sorry, everyone.', vi: 'Anh ấy bịa ra tôi để lấy lượt nghe. Xin lỗi mọi người.' },
   { id: id('k00'), who: 'kit', text: 'Tom, loving the radio? Tom shakes holding a phone.', vi: 'Tom mà mê radio? Tom cầm điện thoại còn run.' },
   // ── three Toms ──
   { id: id('k01'), who: 'kit', text: "Three calls that say they're Tom. Which one is really him?", vi: 'Ba cuộc gọi tự nhận là Tom. Cuộc nào thật là anh ấy?' },
   { id: id('k02'), who: 'kit', text: "Listen for the ums. Tom can't get through a sentence without one.", vi: 'Nghe tiếng "um". Tom không nói hết câu nào mà thiếu nó.' },
-  { id: id('c1'), who: 'tom-fake', text: 'Hi, Tom here. Happy to help any time, Marcus.', vi: 'Chào, Tom đây. Lúc nào cũng sẵn lòng giúp, Marcus.' },
+  { id: id('c1'), who: 'tom-fake', as: 'lyle', text: 'Hi, Tom here. Happy to help any time, Marcus.', vi: 'Chào, Tom đây. Lúc nào cũng sẵn lòng giúp, Marcus.' },
   { id: id('c2'), who: 'board', text: "Um. Hi. It's Tom. Sorry, I'm no good at this.", vi: 'Ừm. Chào. Tom đây. Xin lỗi, tôi dở mấy cái này lắm.' },
-  { id: id('c3'), who: 'tom-fake', text: 'Evening, Westbay. Tom speaking. Lovely to be here.', vi: 'Chào buổi tối, Westbay. Tom đang nói. Rất vui được ở đây.' },
+  { id: id('c3'), who: 'tom-fake', as: 'lyle', text: 'Evening, Westbay. Tom speaking. Lovely to be here.', vi: 'Chào buổi tối, Westbay. Tom đang nói. Rất vui được ở đây.' },
   { id: id('k03'), who: 'kit', text: 'Not him. Tom has never said lovely to be here in his life.', vi: 'Không phải anh ấy. Cả đời Tom chưa từng nói "lovely to be here".' },
   // ── the letter ──
   { id: id('l01'), who: 'marcus', text: "His letter came this morning. I'll read it as he wrote it.", vi: 'Thư anh ấy tới sáng nay. Tôi đọc đúng như anh ấy viết.' },

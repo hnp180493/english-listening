@@ -14,6 +14,8 @@ export const JOB_CAST_LOOKS: Readonly<Record<string, CharacterLook>> = {
   delaney: { skin: '#f0cdb4', hair: { style: 'bob', color: '#8a7a6e' }, top: '#6c7280', bottom: '#565c68', shoes: '#26232a', extras: ['glasses', 'collar', 'skirt', 'lashes'] },
   // Shona (Kemp's assistant): a navy Bayline blazer like her boss, a neat ponytail
   shona: { skin: '#f4d2b8', hair: { style: 'ponytail', color: '#3b2a22' }, top: '#26324f', bottom: '#2b2f3a', shoes: '#26232a', extras: ['collar', 'lashes'] },
+  // Lyle Penn, the impersonator of Act III (docs/gta-story-3.md): a long grey coat, brown hair combed neat, no badge
+  lyle: { skin: '#eccaa8', hair: { style: 'short', color: '#6b4a33' }, top: '#7b7f87', bottom: '#5f636b', shoes: '#2a2724', extras: ['collar'], scale: 1.01 },
   // a Bayline driver: the firm's navy, a cap
   driver: { skin: '#c98f66', hair: { style: 'short', color: '#2a2222' }, top: '#26324f', bottom: '#3b4258', shoes: '#26232a', extras: ['cap'] },
 };
@@ -22,12 +24,15 @@ registerLooks(JOB_CAST_LOOKS);
 const guest = (id: string, resident: string, x: number, y: number): WorldPlace => ({ id: id as PlaceId, name: 'Westbay', resident, x, y, w: 0, d: 0, face: 'y', door: { x, y }, spot: { x, y } });
 
 /** Where they stand about when no job needs them: Kemp by Station Avenue, Mrs Delaney on the harbour square below the
- * Trust's office (over the electronics market), Shona by the Bay FM studio, the driver by the harbour gate. */
+ * Trust's office (over the electronics market), Shona by the Bay FM studio, the driver by the harbour gate, Lyle Penn by
+ * the station's departure board. */
 const CAST: readonly WorldPlace[] = [
   guest('kemp', 'Duncan Kemp', 44, 32),
   guest('delaney', 'Mrs Delaney', 61, 81),
   guest('shona', 'Shona', 51, 52),
   guest('driver', 'Tài xế Bayline', 69, 88),
+  // Lyle Penn: about the station, by the departure board, when no job needs him
+  guest('lyle', 'Người áo xám', 15, 28),
 ];
 
 const WITH = new WeakMap<TownWorld, TownWorld>();

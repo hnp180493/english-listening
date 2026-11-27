@@ -172,6 +172,8 @@ const rules: Record<string, string> = {
   'Thính giả gọi tới': 'Caller',
   'Ông Ashby · Coastline': 'Mr Ashby · Coastline',
   'Người áo xám': 'The man in the grey coat',
+  '{} (băng ghép)': '{0} (cut-together tape)',
+  '{} (nhại {})': '{0} (imitating {1})',
 };
 
 export default rules;
