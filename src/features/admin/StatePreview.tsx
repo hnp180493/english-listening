@@ -20,7 +20,7 @@ import { canvasOf, charStudio, paint } from '../town/three/offscreen';
 import { buildFurniture, type FurnitureId } from '../town/three/scene/furniture';
 import { SEAT_TOP } from '../town/three/scene/props3d';
 import { Umbrellas } from '../town/three/scene/umbrellas';
-import { RIDES, vehicleGeometry } from '../town/three/scene/vehicles3d';
+import { poseRide, RIDES, rideLift, vehicleMesh } from '../town/three/scene/vehicles3d';
 
 type VehicleKind = keyof typeof RIDES;
 
@@ -80,8 +80,86 @@ const STATES: readonly State[] = [
 ];
 
 const HALF = Math.ceil(STATES.length / 2);
+
+/** `…?horse`: the horse side on, eight frames of a cycle of each gait, without and with a rider (scene/horse3d.ts). */
+const HORSE = typeof window !== 'undefined' && window.location.hash.includes('horse');
+const HORSE_ROWS: readonly { name: string; speed: number; rider: boolean }[] = [
+  { name: 'Đứng', speed: 0, rider: false },
+  { name: 'Đi bước 1,0', speed: 1, rider: false },
+  { name: 'Kiệu 2,4', speed: 2.4, rider: false },
+  { name: 'Phi 4,4', speed: 4.4, rider: false },
+  { name: 'Đi bước 1,0', speed: 1, rider: true },
+  { name: 'Phi 4,4', speed: 4.4, rider: true },
+];
+const HW = 210;
+const HH = 170;
+
+/** One row: a horse (and its rider) stepped through a cycle, a picture every eighth of it. */
+async function drawHorseRow(row: (typeof HORSE_ROWS)[number], canvases: (HTMLCanvasElement | null)[]): Promise<void> {
+  const mat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0 });
+  const horse = vehicleMesh('horse', 0, mat)!;
+  horse.rotation.y = -Math.PI / 2;
+  const group = new Group();
+  group.add(horse);
+  let ch: Character3DPlus | null = null;
+  if (row.rider) {
+    const f = FIGURES[0];
+    ch = createPerson(f.id, f.look) as Character3DPlus;
+    const who = vrmFor(f.id, ch.look, import.meta.env.BASE_URL);
+    await wearVrm(ch, who.url, who);
+    ch.setHeading(Math.PI / 2, true);
+    ch.ride = 'horse';
+    ch.setAction('sit');
+    group.add(ch.root);
+  }
+  const step = (t: number, dt: number) => {
+    poseRide(horse, t, row.speed, false);
+    if (ch) {
+      ch.setSeatHeight((RIDES.horse.seatSlim ?? RIDES.horse.seat) + rideLift(horse));
+      ch.update(dt, row.speed);
+    }
+  };
+  let t = 0;
+  for (; t < 2; t += 1 / 60) step(t, 1 / 60);
+  // the stride of the gait at this speed (horse3d.ts GAITS): a cycle's length in time
+  const stride = row.speed >= 3.2 ? 1.5 : row.speed >= 1.4 ? 0.95 : 0.55;
+  const cycle = row.speed > 0 ? stride / row.speed : 4;
+  const st = charStudio();
+  st.scene.add(group);
+  const cam = st.camera;
+  cam.fov = 24;
+  cam.aspect = HW / HH;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  for (let k = 0; k < canvases.length; k++) {
+    for (const end = t + cycle / canvases.length; t < end - 1e-9; t += 1 / 240) step(t, 1 / 240);
+    group.updateMatrixWorld(true);
+    box.setFromObject(group, true);
+    box.getCenter(mid);
+    box.getSize(size);
+    const span = Math.max(size.y, size.z / (HW / HH)) * 1.15;
+    const dist = (span * 0.5) / Math.tan((cam.fov * Math.PI) / 360);
+    // side on, a little from above
+    cam.position.set(mid.x + dist, mid.y + dist * 0.1, mid.z);
+    cam.near = 0.02;
+    cam.far = dist * 6 + 10;
+    cam.lookAt(mid);
+    cam.updateProjectionMatrix();
+    const out = canvasOf(HW * dpr, HH * dpr);
+    const ok = paint(st, out);
+    const c = canvases[k];
+    const ctx = c?.getContext('2d');
+    if (ok && c && ctx) {
+      c.width = out.width;
+      c.height = out.height;
+      ctx.drawImage(out, 0, 0);
+    }
+  }
+  st.scene.remove(group);
+  ch?.dispose();
+  mat.dispose();
+}
 const hash = typeof window !== 'undefined' ? window.location.hash : '';
-const SHOWN = hash.includes('states2') ? STATES.slice(HALF) : hash.includes('states') ? STATES.slice(0, HALF) : [];
+const SHOWN = HORSE ? [] : hash.includes('states2') ? STATES.slice(HALF) : hash.includes('states') ? STATES.slice(0, HALF) : [];
 
 const W = 128;
 const H = 180;
@@ -116,15 +194,14 @@ async function drawState(fig: (typeof FIGURES)[number], s: State, canvases: (HTM
   if (s.ride) {
     // the vehicle under its rider as engine3d.ts places it (seatOffset, seatHeight; avatars: seatSlim, seatBack, side)
     const spec = RIDES[s.ride];
-    const g = vehicleGeometry(s.ride, 0);
-    if (g) {
-      const m = new Mesh(g, mat);
+    const m = vehicleMesh(s.ride, 0, mat);
+    if (m) {
       const along = spec.seatAt - (spec.seatBack ?? 0);
       const side = spec.side ?? 0;
       m.position.set(side, 0, -along);
       m.rotation.y = -Math.PI / 2;
       extra.push(m);
-      geos.push(g);
+      geos.push(m.geometry);
     }
     ch.ride = s.ride;
     ch.setSeatHeight(spec.seatSlim ?? spec.seat);
@@ -207,9 +284,17 @@ async function drawState(fig: (typeof FIGURES)[number], s: State, canvases: (HTM
 
 export default function StatePreview() {
   const cells = useRef<(HTMLCanvasElement | null)[]>([]);
+  const horseCells = useRef<(HTMLCanvasElement | null)[]>([]);
   useEffect(() => {
     const live = { gone: false };
     void (async () => {
+      for (let i = 0; HORSE && i < HORSE_ROWS.length && !live.gone; i++) {
+        try {
+          await drawHorseRow(HORSE_ROWS[i], horseCells.current.slice(i * 8, i * 8 + 8));
+        } catch (e) {
+          console.warn('horse', HORSE_ROWS[i].name, e);
+        }
+      }
       for (let i = 0; i < SHOWN.length && !live.gone; i++) {
         for (let f = 0; f < FIGURES.length && !live.gone; f++) {
           const k = (i * FIGURES.length + f) * 2;
@@ -226,6 +311,22 @@ export default function StatePreview() {
       live.gone = true;
     };
   }, []);
+  if (HORSE)
+    return (
+      <div className="adm-states" style={{ display: 'grid', gap: 6 }}>
+        {HORSE_ROWS.map((r, i) => (
+          <div key={i} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <span style={{ width: 110 }}>
+              {r.name}
+              {r.rider ? ' · có người cưỡi' : ''}
+            </span>
+            {Array.from({ length: 8 }, (_, k) => (
+              <canvas key={k} ref={(el) => void (horseCells.current[i * 8 + k] = el)} className="adm-pic" style={{ width: HW * 0.62, height: HH * 0.62 }} />
+            ))}
+          </div>
+        ))}
+      </div>
+    );
   if (SHOWN.length === 0) return <p className="adm-note">Thêm ?states hoặc ?states2 vào địa chỉ để xem.</p>;
   return (
     <div className="adm-states">

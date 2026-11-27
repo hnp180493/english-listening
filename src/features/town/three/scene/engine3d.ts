@@ -15,10 +15,11 @@ import { cameraDt, springStep } from '../../engine/spring';
 import { drawChatDots, drawEmote, drawFloat, drawParticles, drawSky, drawTag, drawTalkBubble, drawVignette, EMOTE_SECONDS, FLOAT_SECONDS, placeTags, tagSize, type EmoteKind, type TagBox } from '../../engine/draw/overlay';
 import type { ActKind, BurstKind, EngineCallbacks, Near, SafeInsets, StageTarget, TravelTarget } from '../../engine/stage';
 import type { VehicleKind } from '../../../../data/townWorld';
-import { RIDES, vehicleGeometry } from './vehicles3d';
+import { poseRide, RIDES, rideLift, vehicleMesh } from './vehicles3d';
 import type { StageExtra, StageExtraCtx } from './stageExtra';
 import type { RideState } from '../../engine/stage';
 import { onStage } from '../../engine/speechBubble';
+import { asideSpots, thingSeat } from '../../engine/listenSpots';
 import { Birds } from './birds';
 import { UMBRELLA_TIP, Umbrellas } from './umbrellas';
 import { paletteFor, type TownPalette } from '../../engine/palette';
@@ -1067,42 +1068,15 @@ export class TownEngine3D {
    * still plays; the player stands).
    */
   listenFrom(spot: ActivitySpotId, who: readonly PlaceId[]): boolean {
-    const a = this.world.activities?.[spot];
-    const seats = this.world.life?.seats ?? [];
-    if (!a?.box) return false;
-    // this thing's seats: on its own tile, there from the first day
-    const own = seats.filter((s) => !s.needs && Math.floor(s.x) === Math.floor(a.box!.x) && Math.floor(s.y) === Math.floor(a.box!.y));
-    // (the stool by the radio stands beside the table's middle, on the same tile)
-    const taken = new Set([...this.sim.residents.values()].map((r) => r.seat));
-    const seat = own.find((s) => !taken.has(s)) ?? null;
+    if (!this.world.activities?.[spot]?.box) return false;
+    // this thing's own seat (engine/listenSpots.ts: on its tile; the stool by the radio stands beside the table's middle)
+    const seat = thingSeat(this.world, spot, new Set([...this.sim.residents.values()].map((r) => r.seat)));
     const sat = seat ? this.sim.sitPlayer(seat) : false;
     if (who.length > 0) {
       const p = this.sim.player;
-      const h = octantHeading(seat?.oct ?? p.oct);
-      const fx = Math.cos(h);
-      const fy = Math.sin(h);
-      const fits = (c: { x: number; y: number }) => walkable({ x: Math.floor(c.x), y: Math.floor(c.y) }, this.sim.world) && bodyFits(c.x, c.y, PLAYER_RADIUS, this.sim.world);
-      // a few steps in front of the seat, the two side by side across the view; nearer or further where that is shut
-      let spots: { x: number; y: number }[] | null = null;
-      for (const d of [2.1, 2.7, 1.6, 3.3]) {
-        const c = { x: p.x + fx * d, y: p.y + fy * d };
-        const s = who.map((_, i) => ({ x: c.x - fy * (i - (who.length - 1) / 2) * 1.0, y: c.y + fx * (i - (who.length - 1) / 2) * 1.0 }));
-        if (s.every(fits)) {
-          spots = s;
-          break;
-        }
-      }
-      if (spots) {
-        // they walk in from further off the same way (out of the picture where there is room), else they are there
-        const from = spots.map((s) => {
-          for (const d of [5, 3.5]) {
-            const c = { x: s.x + fx * d, y: s.y + fy * d };
-            if (fits(c)) return c;
-          }
-          return null;
-        });
-        this.sim.talkAside(who, spots, from);
-      }
+      // a few steps in front of the seat, side by side; they walk in from further off the same way
+      const a = asideSpots(this.sim.world, p, seat?.oct ?? p.oct, who.length);
+      if (a) this.sim.talkAside(who, a.spots, a.from);
     }
     return sat;
   }
@@ -1605,9 +1579,8 @@ export class TownEngine3D {
       i = -1;
     }
     if (i < 0) {
-      const geo = vehicleGeometry(kind, v);
-      if (!geo) return false;
-      const mesh = new Mesh(geo, this.town.mats.std);
+      const mesh = vehicleMesh(kind, v, this.town.mats.std);
+      if (!mesh) return false;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.town.scene.add(mesh);
@@ -1701,9 +1674,8 @@ export class TownEngine3D {
     if (!this.ridesMade && this.ready) {
       this.ridesMade = true;
       (this.world.vehicles ?? []).forEach((v, i) => {
-        const geo = vehicleGeometry(v.kind, i);
-        if (!geo) return;
-        const mesh = new Mesh(geo, this.town.mats.std);
+        const mesh = vehicleMesh(v.kind, i, this.town.mats.std);
+        if (!mesh) return;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         this.town.scene.add(mesh);
@@ -1720,9 +1692,10 @@ export class TownEngine3D {
         const off = this.seatOffset(r.kind, r.heading);
         r.x = me.rx - off.x;
         r.y = me.rz - off.y;
-        const trot = r.kind === 'horse' && this.sim.player.moving && !this.still ? Math.abs(Math.sin(this.t * 9)) * 0.035 : 0;
-        r.mesh.position.set(r.x, this.town.lift(r.x, r.y) + trot, r.y);
+        r.mesh.position.set(r.x, this.town.lift(r.x, r.y), r.y);
       } else r.mesh.position.set(r.x, this.town.lift(r.x, r.y), r.y);
+      // (a horse walks, trots and canters by the pace it is ridden at, and stands when it is not: horse3d.ts)
+      poseRide(r.mesh, this.t, i === this.riding && this.sim.player.moving ? this.sim.player.v : 0, this.still);
       r.mesh.rotation.y = -r.heading;
       r.mesh.visible = !this.room;
     });
@@ -2954,7 +2927,7 @@ export class TownEngine3D {
       tz += Math.sin(h) * SEAT_FORWARD;
       (p.ch as Character3DPlus).setSeatHeight?.(SEAT_TOP);
     }
-    if (a.kind === 'player' && this.riding >= 0) (p.ch as Character3DPlus).setSeatHeight?.(this.seatHeight(this.rides[this.riding].kind));
+    if (a.kind === 'player' && this.riding >= 0) (p.ch as Character3DPlus).setSeatHeight?.(this.seatHeight(this.rides[this.riding].kind) + rideLift(this.rides[this.riding].mesh) * this.rideScale());
     // (what is ridden: an avatar poses for a bike, a horse, a car each in its way: chars/vrmBody.ts)
     if (a.kind === 'player') (p.ch as Partial<Character3DPlus>).ride = this.riding >= 0 ? this.rides[this.riding].kind : null;
     const gap = Math.hypot(tx - p.rx, tz - p.rz);

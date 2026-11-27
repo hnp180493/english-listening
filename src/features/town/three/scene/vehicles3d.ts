@@ -4,7 +4,8 @@
 // them where the world says (TownWorld.vehicles), puts the player on one (E, or the "Lên xe" button) and moves it with
 // them at its own pace; the player sits (the seated pose) at its seat.
 
-import type { BufferGeometry } from 'three';
+import { Mesh, type BufferGeometry, type Material, type Object3D } from 'three';
+import { horseLift, makeHorse, poseHorse } from './horse3d';
 import type { VehicleKind } from '../../../../data/townWorld';
 import { Merge, shapes } from './merge';
 import { C } from './palette3d';
@@ -44,7 +45,8 @@ export const RIDES: Readonly<Record<VehicleKind, RideSpec>> = {
   // (an avatar a little forward on the seat: from where it sat, its straight arms stopped short of the grips)
   scooter: { speed: 4.6, seat: 0.36, seatAt: -0.12, seatBack: -0.06, name: 'xe máy cho thuê' },
   car: { speed: 5.6, seat: 0.22, seatAt: -0.12, side: -0.13, seatSlim: 0.35, seatBack: 0.04, name: 'xe của hãng taxi Rico' },
-  horse: { speed: 4.4, seat: 0.62, seatAt: 0, name: 'ngựa của nông trại' },
+  // (an avatar sits ON the jointed horse's saddle, horse3d.ts: its top is 0.72 up; the round code body keeps 0.62)
+  horse: { speed: 4.4, seat: 0.62, seatAt: 0, seatSlim: 0.72, name: 'ngựa của nông trại' },
   // only bought (data/townGarage.ts): never parked for borrowing
   motorbike: { speed: 6.6, seat: 0.42, seatAt: -0.1, seatBack: -0.05, name: 'mô tô' },
   sportscar: { speed: 8.2, seat: 0.18, seatAt: -0.12, side: -0.14, seatSlim: 0.285, seatBack: 0.04, name: 'siêu xe' },
@@ -219,3 +221,21 @@ export function vehicleGeometry(kind: VehicleKind, v: number): BufferGeometry | 
   else horse(m, c);
   return m.build();
 }
+
+/**
+ * A vehicle to put in the town: the merged model in `mat`, or for the horse a jointed one that walks, trots and
+ * canters (horse3d.ts). Null when there is no model.
+ */
+export function vehicleMesh(kind: VehicleKind, v: number, mat: Material): Mesh | null {
+  if (kind === 'horse') return makeHorse(v, mat);
+  const geo = vehicleGeometry(kind, v);
+  return geo ? new Mesh(geo, mat) : null;
+}
+
+/** Each frame, a vehicle that moves its parts (the horse: its gait by the ground speed); nothing for the others. */
+export function poseRide(mesh: Object3D, t: number, speed: number, still: boolean): void {
+  poseHorse(mesh, t, speed, still);
+}
+
+/** How far the seat is up from its rest now (a horse's back with its steps; 0 for the others). */
+export const rideLift = horseLift;
