@@ -45,8 +45,13 @@ const STRIDE = 0.62;
  */
 const TALLER = 0.8;
 
-/** An avatar in a car's seat, against one on foot (the cars are built for the code body, 1.25 × an avatar's height). */
-const CAR_GROW = 1.25;
+/**
+ * An avatar on any vehicle, against one on foot: every vehicle is built for the code body (1.25 × an avatar's height).
+ * Cars first; since 2026-11-27 the bikes, scooters, motorbikes and the horse too: at 0.8 × the rider leaned to its limit
+ * and still could not reach the bars (the arms stuck out straight, the hands short of the grips), and sat on the horse
+ * like a child (.assets-try/previews/sweep-ride-*.png).
+ */
+const RIDE_GROW = 1.25;
 
 const Z = new Vector3(0, 0, 1);
 /** T pose → arms down (a little out from the body, so the hands clear the hips). */
@@ -288,10 +293,10 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
     const ride = seat > 0.001 ? ((ch as { ride?: string | null }).ride ?? null) : null;
 
     // seated on this VRM's own legs: the hip joints a little over the seat, the shins straight down to the ground
-    // (in a car a little larger: the cars are built for the round code body, and at the height that suits the doors
-    // and the bus an avatar is lost in their seats; the size comes and goes with the sitting down)
-    const inCar = ride === 'car' || ride === 'sportscar';
-    const sg = s * (inCar ? 1 + (CAR_GROW - 1) * seat : 1);
+    // (on a vehicle a little larger: they are built for the round code body, and at the height that suits the doors
+    // and the bus an avatar is lost in their seats and short of their bars; the size comes and goes with the sitting
+    // down)
+    const sg = s * (ride ? 1 + (RIDE_GROW - 1) * seat : 1);
     holder.scale.setScalar(sg);
     const seatY = (anim.seat * anim.tiles) / sg + ground;
     const sitHips = seatY + tall * 0.055;
