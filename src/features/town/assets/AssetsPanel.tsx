@@ -75,7 +75,7 @@ function Report({ report, primary, sound, onReward }: { report: AssetReport; pri
         <p className="ast-en" lang="en">
           {report.text}
         </p>
-        <p className="town-build-hint" data-vi>
+        <p className="town-build-hint">
           {report.vi}
         </p>
         <div className="ast-row">

@@ -87,7 +87,7 @@ export default function OfficeExtras({ sound, onReward }: OfficeExtrasProps) {
               </div>
               {plays > 0 && (
                 <div className="dsp-word-ask" role="group" aria-label={line.q}>
-                  <p className="dsp-word-q" data-vi>
+                  <p className="dsp-word-q">
                     {line.q}
                   </p>
                   <div className="dsp-word-opts">
@@ -109,7 +109,7 @@ export default function OfficeExtras({ sound, onReward }: OfficeExtrasProps) {
               <p className="dsp-word-en" lang="en">
                 {line.text.replace('{n}', numberWords(word.said))}
               </p>
-              <p className="town-build-hint" data-vi>
+              <p className="town-build-hint">
                 {tr(line.vi).replace('{n}', String(word.said))}
               </p>
               <button type="button" className="btn btn-ghost btn-sm" onClick={listen}>

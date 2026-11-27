@@ -100,7 +100,7 @@ export default function Scanner({ muted }: { /** A panel is over the stage: a bu
                     <li key={i}>
                       <span className="str-who">{l.who === 'dispatch' ? 'Tổng đài' : l.who === 'unit' ? 'Xe tuần tra' : 'Cảnh sát'}</span>
                       <span lang="en">{l.text}</span>
-                      <span className="str-vi" data-vi>
+                      <span className="str-vi">
                         {l.vi}
                       </span>
                     </li>

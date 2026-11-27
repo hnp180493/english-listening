@@ -257,7 +257,7 @@ function TapeItem({ line }: { line: TapeLine }) {
           <p className="hid-text" lang="en">
             {line.text}
           </p>
-          <p className="hid-vi" data-vi>
+          <p className="hid-vi">
             {line.vi}
           </p>
         </>

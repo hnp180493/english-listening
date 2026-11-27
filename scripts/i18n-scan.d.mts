@@ -25,3 +25,5 @@ export function visibleEntries(dicts: Map<string, Map<string, string>>, bundle: 
 export function answerGroups(): { at: string; group: string[] }[];
 export function slotsUsed(english: string): number[];
 export const UNACCENTED: Set<string>;
+export function sourceFiles(): string[];
+export function rel(file: string): string;
