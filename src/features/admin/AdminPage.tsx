@@ -30,6 +30,7 @@ import './admin.css';
 const LookPreview = lazy(() => import('./LookPreview'));
 /** Artist-made people on trial: the dev server only (its models are not in a build, so neither is the page). */
 const ModelPreview = import.meta.env.DEV ? lazy(() => import('./ModelPreview')) : null;
+const StatePreview = import.meta.env.DEV ? lazy(() => import('./StatePreview')) : null;
 
 interface Item {
   id: string;
@@ -360,6 +361,7 @@ export default function AdminPage() {
           <ModelPreview />
         </PreviewDetails>
       )}
+      {StatePreview && <PreviewDetails title="Rà trạng thái nhân vật" auto={/[?&]states/.test(window.location.hash)}><StatePreview /></PreviewDetails>}
       <PreviewDetails title="Xem thử: mặt nhân vật mới">
         <LookPreview />
       </PreviewDetails>
