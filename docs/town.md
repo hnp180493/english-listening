@@ -3258,12 +3258,11 @@ in code again.
   (Kim's coat and Emma's apron on the jog's thighs: the coat's halves lift high with the knees), `clipgame-bench.png` /
   `-bench-zoom.png` (seated on a log bench), `clipgame-umbrella.png` (standing and walking with umbrellas in the rain).
   Seen only as pictures with motion reduced or posed phases: nobody has watched a clip play, a fade, or the feet slide.
-  Same day (owner: "thằng nào nhìn cũng gù lưng", then after the clips were taken away "không tự nhiên rồi"): the
-  clips stay on for the LEGS only (thighs to toes, and the hips' rise and fall); the hips' turn, the back and the head
-  stay the code's, so nobody hunches. Arms from the clip when free. `townUi.motion` 'clips' | 'code' again (default
-  clips), the switch in Cài đặt too. On a Quaternius body the legs still use the clips but the back, the neck and the
-  head lose that skeleton's own forward bend (about 25° through the spine and 24° at the head; a little twist is kept),
-  the pelvis may lean at most 0.12 rad past its rest, and an old body's added stoop is 0.06 rad (0.03 for 'older').
+  Taken back for the walk (owner: "đi bộ ok rồi mày sửa làm gì tao bảo sửa chạy thôi"): avatars walk with the motion
+  made in code again (`townUi.motion` stays `'code'`, the setting gone); a run's arm swing is smaller (shoulder 0.42,
+  elbow 0.72, was 0.8 / 1.45). On a Quaternius body the legs still use the clips but the back, the neck and the head
+  lose that skeleton's own forward bend; a run pulls the clip's arms 70% toward the idle stand; the pelvis may lean at
+  most 0.12 rad past its rest; an old body's added stoop is 0.06 rad (0.03 for 'older').
 
 - **The horse, jointed (2026-11-28)** (owner: "con ngựa gì gớm vầy, thậm chí nó còn ko có animation chạy", of a stiff
   block on four posts that slid along). `three/scene/horse3d.ts`: a body with a chest and a rump, a neck reaching up and

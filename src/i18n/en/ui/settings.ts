@@ -270,7 +270,6 @@ const settings: Record<string, string> = {
   'Tự tính': 'Computed',
   'Dáng đi của nhân vật anime': 'How the anime characters move',
   'Hoạt hình dựng sẵn cho đi, chạy, đứng, ngồi; tự tính là chuyển động cũ. Chỉ lưu trên máy này, mở lại Thị trấn là thấy.': 'Ready-made animation for walking, running, standing and sitting; computed is the old motion. Saved on this device only; reopen the Town to see it.',
-  'Hoạt hình dựng sẵn cho chân khi đi và chạy (lưng vẫn tự tính, không gù); tự tính là toàn bộ chuyển động cũ. Chỉ lưu trên máy này, mở lại Thị trấn là thấy.': 'Ready-made animation for the legs when walking and running (the back stays computed, so nobody hunches); computed is the whole old motion. Saved on this device only; reopen the Town to see it.',
 };
 
 export default settings;

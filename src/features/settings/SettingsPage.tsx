@@ -274,12 +274,6 @@ const PEOPLE_OPTIONS: { value: 'anime' | 'classic'; label: string }[] = [
   { value: 'classic', label: 'Kiểu cũ' },
 ];
 
-/** How the anime people move (features/town/townUi.ts `motion`, this browser only). */
-const MOTION_OPTIONS: { value: 'clips' | 'code'; label: string }[] = [
-  { value: 'clips', label: 'Hoạt hình dựng sẵn' },
-  { value: 'code', label: 'Tự tính' },
-];
-
 function DisplaySection() {
   const settings = useSettings();
   const uid = useId();
@@ -323,15 +317,6 @@ function DisplaySection() {
             <span className="set-hint">Anime 3D nặng hơn; máy yếu thì chọn kiểu cũ. Chỉ lưu trên máy này, mở lại Thị trấn là thấy.</span>
           </span>
           <Segmented ariaLabel="Nhân vật trong thị trấn" value={townUi.people} onChange={(people) => setTownUi({ people })} options={PEOPLE_OPTIONS} />
-        </div>
-      )}
-      {anyVrm() && townUi.people === 'anime' && (
-        <div className="set-row">
-          <span className="set-row-text">
-            <span className="set-label">Dáng đi của nhân vật anime</span>
-            <span className="set-hint">Hoạt hình dựng sẵn cho chân khi đi và chạy (lưng vẫn tự tính, không gù); tự tính là toàn bộ chuyển động cũ. Chỉ lưu trên máy này, mở lại Thị trấn là thấy.</span>
-          </span>
-          <Segmented ariaLabel="Dáng đi của nhân vật anime" value={townUi.motion} onChange={(motion) => setTownUi({ motion })} options={MOTION_OPTIONS} />
         </div>
       )}
       <label className="set-row set-switch-row" htmlFor={`${uid}-ipa`}>

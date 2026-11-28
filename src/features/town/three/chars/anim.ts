@@ -932,10 +932,10 @@ export class Animator {
     // the head stays steady: level eyes against the lean, the sway and the pelvis' turn
     setRot(p, J.head, -lerp(0.04 + 0.02 * Math.min(vd, 2.2), 0.15, run), -twist * 0.2, -0.01 * side * waddle);
     // arms against the legs (the left arm back with the left leg forward), a little out from the round body; elbows
-    // bend more coming forward
-    const armA = lerp(lerp(0.32, 0.5, brisk), 0.8, run);
-    const elA = lerp(0.42, 1.45, run);
-    const out = ARM_OUT + 0.08 + run * 0.1;
+    // bend more coming forward. A run keeps a smaller swing (owner, 2026-11-28: "chạy bớt vung tay lại").
+    const armA = lerp(lerp(0.32, 0.5, brisk), 0.42, run);
+    const elA = lerp(0.42, 0.72, run);
+    const out = ARM_OUT + 0.08 + run * 0.04;
     setRot(p, J.shL, armA * swing, 0, out + 0.05 * Math.max(0, swing));
     setRot(p, J.elL, -elA - 0.4 * Math.max(0, -swing) * (1 - run), 0, 0);
     setRot(p, J.shR, -armA * swing, 0, -out - 0.05 * Math.max(0, -swing));

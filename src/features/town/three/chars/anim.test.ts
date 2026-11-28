@@ -302,12 +302,13 @@ describe('the upper body of a walk (rise and fall, sway, swing, lean)', () => {
     expect(w.squash).toBeLessThan(0.005);
   });
 
-  it('a run bounces higher, leans more and waddles less than a walk', () => {
+  it('a run bounces higher, leans more, waddles less and swings the arms less than a walk', () => {
     const w = measure(DEFAULT_WALK_SPEED);
     const r = measure(DEFAULT_RUN_SPEED);
     expect(r.bob).toBeGreaterThan(w.bob);
     expect(r.lean).toBeGreaterThan(w.lean + 0.05);
-    expect(r.arm).toBeGreaterThan(w.arm);
+    // (owner, 2026-11-28: "chạy bớt vung tay lại")
+    expect(r.arm).toBeLessThan(w.arm);
     expect(r.roll).toBeLessThan(w.roll);
   });
 
