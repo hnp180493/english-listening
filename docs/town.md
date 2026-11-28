@@ -3258,11 +3258,10 @@ in code again.
   (Kim's coat and Emma's apron on the jog's thighs: the coat's halves lift high with the knees), `clipgame-bench.png` /
   `-bench-zoom.png` (seated on a log bench), `clipgame-umbrella.png` (standing and walking with umbrellas in the rain).
   Seen only as pictures with motion reduced or posed phases: nobody has watched a clip play, a fade, or the feet slide.
-  Taken back for the walk (owner: "đi bộ ok rồi mày sửa làm gì tao bảo sửa chạy thôi"): avatars walk with the motion
-  made in code again (`townUi.motion` stays `'code'`, the setting gone); a run's arm swing is smaller (shoulder 0.42,
-  elbow 0.72, was 0.8 / 1.45). On a Quaternius body the legs still use the clips but the back, the neck and the head
-  lose that skeleton's own forward bend; a run pulls the clip's arms 70% toward the idle stand; the pelvis may lean at
-  most 0.12 rad past its rest; an old body's added stoop is 0.06 rad (0.03 for 'older').
+  Taken back for the walk (owner: "đi bộ ok rồi … sửa chạy thôi"): avatars walk with the motion made in code
+  (`townUi.motion` stays `'code'`). A run pumps the arms close to the ribs with the elbows bent ~90° (shoulder ~0.52,
+  elbow 1.2, out 0.06) — less flailing out, not a limp half-swing. On a Quaternius body a run replaces the clip's
+  flailing arms with that same code pump; the back stays straightened as before.
 
 - **The horse, jointed (2026-11-28)** (owner: "con ngựa gì gớm vầy, thậm chí nó còn ko có animation chạy", of a stiff
   block on four posts that slid along). `three/scene/horse3d.ts`: a body with a chest and a rump, a neck reaching up and
@@ -3780,10 +3779,8 @@ red (and on amber unless already close), keeps its distance from the car ahead, 
 player, the residents, the patrol. The rule that keeps moving things from trapping the player: a car never brings its
 middle within `BODY_GAP` (1.1 tiles) of a body ahead, and `blockersFor` never gives the sim a car's circle or the patrol
 when the player already stands inside it, so they can always walk off (a ten-minute test round a walker standing in the
-road and at three junctions). Drawn as three instanced meshes (one a colour) plus a seated driver a car (six skin tones
-instanced; owner, 2026-11-28: empty convertibles read as "xe không người lái"): about a dozen draw calls for the whole
-layer with the lights. The patrol has an officer in its seat too. A car the learner rides keeps no baked driver (they
-are already in it).
+road and at three junctions). Drawn as three instanced meshes (one a colour): about five draw calls for the whole layer
+with the lights. (A blob "driver" was tried 2026-11-28 and removed: it was not one of the town's people.)
 
 **Offences, while riding or driving** (`features/town/streets/streetsWorld.ts`): into a lit junction's box against red
 (+3 heat; an amber never counts), touching a car at speed (+2), knocking into a thing of the street at speed (+1: bins,

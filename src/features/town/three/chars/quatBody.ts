@@ -266,13 +266,10 @@ export async function wearQuat(ch: Character3DPlus, recipe: QuatRecipe, grow = 1
   const pelvisStand = new Quaternion();
   if (pelvis) pelvisStand.copy(pelvis.quaternion);
   let sitPelvis = tallM * 0.5;
-  /** Idle arm pose: a run's clip flails; arms are pulled this far back toward idle (owner: "chạy bớt vung tay"). */
-  const armIdle = new Map<Object3D, Quaternion>();
   if (pelvis && actions.idle) {
     actions.idle.play().setEffectiveWeight(1);
     mixer.update(0);
     pelvisFix.copy(pelvisRest).sub(pelvis.position);
-    for (const b of [arms.shL, arms.elL, arms.shR, arms.elR]) if (b) armIdle.set(b, b.quaternion.clone());
     actions.idle.stop();
     if (actions.sit) {
       actions.sit.play().setEffectiveWeight(1);
@@ -461,18 +458,24 @@ export async function wearQuat(ch: Character3DPlus, recipe: QuatRecipe, grow = 1
     const close = STAND_CLOSE * (w.idle + 0.4 * (w.walk + w.jog));
     turn(thighs[0], Z, -close);
     turn(thighs[1], Z, close);
-    // a run: pull the clip's flailing arms toward the idle stand (walk keeps the clip)
-    const runArm = (w.jog + w.sprint) * 0.7 * (1 - seat);
-    if (runArm > 0.01) {
-      for (const [node, idle] of armIdle) {
-        overClip(node, () => {
-          node.quaternion.slerp(idle, runArm);
-        });
-      }
-    }
-    // the code pose's arms while they wave, talk or hold (the clips' arms otherwise), and the head's turn
+    // a run: the clip flails out; drop it and put the code's compact pump. A walk keeps the clip's arms.
     const busyL = anim.armsBusy[0];
     const busyR = anim.armsBusy[1];
+    const runArm = (w.jog + w.sprint) * (1 - seat);
+    if (runArm > 0.05) {
+      for (const b of [arms.shL, arms.elL, arms.shR, arms.elR]) {
+        if (!b) continue;
+        overClip(b, () => {
+          b.quaternion.identity();
+        });
+      }
+      turn(arms.shL, X, -p[J.shL * 3] * runArm);
+      turn(arms.shL, Z, p[J.shL * 3 + 2] * runArm);
+      turn(arms.elL, X, -p[J.elL * 3] * runArm);
+      turn(arms.shR, X, -p[J.shR * 3] * runArm);
+      turn(arms.shR, Z, -p[J.shR * 3 + 2] * runArm);
+      turn(arms.elR, X, -p[J.elR * 3] * runArm);
+    }
     const arm = (node: Object3D | null, j: number, busy: number, side: number): void => {
       if (busy < 0.01) return;
       turn(node, X, -p[j * 3] * busy);

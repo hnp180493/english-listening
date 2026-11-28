@@ -302,13 +302,14 @@ describe('the upper body of a walk (rise and fall, sway, swing, lean)', () => {
     expect(w.squash).toBeLessThan(0.005);
   });
 
-  it('a run bounces higher, leans more, waddles less and swings the arms less than a walk', () => {
+  it('a run bounces higher, leans more, waddles less; arms pump without a walk-wide flail', () => {
     const w = measure(DEFAULT_WALK_SPEED);
     const r = measure(DEFAULT_RUN_SPEED);
     expect(r.bob).toBeGreaterThan(w.bob);
     expect(r.lean).toBeGreaterThan(w.lean + 0.05);
-    // (owner, 2026-11-28: "chạy bớt vung tay lại")
-    expect(r.arm).toBeLessThan(w.arm);
+    // compact pump: still swings, not the old 0.8 flail (p2p stayed under the walk's out-swing)
+    expect(r.arm).toBeGreaterThan(0.7);
+    expect(r.arm).toBeLessThan(w.arm * 1.15);
     expect(r.roll).toBeLessThan(w.roll);
   });
 

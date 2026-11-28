@@ -931,15 +931,15 @@ export class Animator {
     setRot(p, J.spine, lerp(0.04 + 0.02 * Math.min(vd, 2.2), 0.16, run), -twist * 1.2, -0.01 * side * waddle);
     // the head stays steady: level eyes against the lean, the sway and the pelvis' turn
     setRot(p, J.head, -lerp(0.04 + 0.02 * Math.min(vd, 2.2), 0.15, run), -twist * 0.2, -0.01 * side * waddle);
-    // arms against the legs (the left arm back with the left leg forward), a little out from the round body; elbows
-    // bend more coming forward. A run keeps a smaller swing (owner, 2026-11-28: "chạy bớt vung tay lại").
-    const armA = lerp(lerp(0.32, 0.5, brisk), 0.42, run);
-    const elA = lerp(0.42, 0.72, run);
-    const out = ARM_OUT + 0.08 + run * 0.04;
-    setRot(p, J.shL, armA * swing, 0, out + 0.05 * Math.max(0, swing));
-    setRot(p, J.elL, -elA - 0.4 * Math.max(0, -swing) * (1 - run), 0, 0);
-    setRot(p, J.shR, -armA * swing, 0, -out - 0.05 * Math.max(0, -swing));
-    setRot(p, J.elR, -elA - 0.4 * Math.max(0, swing) * (1 - run), 0, 0);
+    // arms against the legs. A walk swings them out a little; a run pumps them close to the ribs with the elbows
+    // bent ~90° (owner, 2026-11-28: "chạy bớt vung tay" = less flailing out, not a limp half-swing).
+    const armA = lerp(lerp(0.32, 0.5, brisk), 0.52, run);
+    const elA = lerp(0.42, 1.2, run);
+    const out = lerp(ARM_OUT + 0.08, 0.06, run);
+    setRot(p, J.shL, armA * swing, 0, out + 0.04 * Math.max(0, swing) * (1 - run));
+    setRot(p, J.elL, -elA - 0.35 * Math.max(0, -swing) * (1 - run), 0, 0);
+    setRot(p, J.shR, -armA * swing, 0, -out - 0.04 * Math.max(0, -swing) * (1 - run));
+    setRot(p, J.elR, -elA - 0.35 * Math.max(0, swing) * (1 - run), 0, 0);
   }
 
   /**
