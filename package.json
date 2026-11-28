@@ -9,6 +9,7 @@
     "portable": "node scripts/build-portable.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
+    "smoke": "node scripts/smoke-build.mjs",
     "test": "vitest run",
     "audio:inventory": "node scripts/audio-inventory.mjs",
     "audio:generate": "node scripts/generate-audio.mjs",

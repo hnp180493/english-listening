@@ -124,10 +124,14 @@ const webBuild: UserConfig['build'] = {
           { name: 'three', test: /node_modules[/\\]three[/\\](?!examples[/\\]jsm[/\\]loaders[/\\]GLTFLoader)/, priority: 3 },
           // the VRoid people (features/town/three/chars/vrmBody.ts: three-vrm and the glTF loader), loaded only when a
           // resident with an avatar is on the stage and the learner wants avatars; the old and the children's Quaternius
-          // bodies (chars/quatBody.ts: it uses the same glTF loader) with them
-          { name: 'vrm', test: /node_modules[/\\](@pixiv[/\\]three-vrm|three[/\\]examples[/\\]jsm[/\\]loaders[/\\]GLTFLoader)|src[/\\]features[/\\]town[/\\]three[/\\]chars[/\\](vrmBody|quatBody)/, priority: 2 },
-          // the town's people (bodies, faces, hair, portraits; three/chars): code-built, loaded with the town page
-          { name: 'town-people', test: /src[/\\]features[/\\]town[/\\]three[/\\]chars[/\\]/, priority: 1 },        // the English dictionaries (src/i18n/en, docs/i18n.md): one chunk per bundle, loaded only in English mode
+          // bodies (chars/quatBody.ts: it uses the same glTF loader) with them. Every module that imports three-vrm or the
+          // loader is in here (vrmClips, vrmGarments, and vrmBody's own helpers): one left in town-people made the two
+          // chunks import each other, and the browser ran vrmBody before chars/anim.ts ("reading 'hips'" of undefined,
+          // 2026-11-28; `npm run smoke` and scripts/chunk-cycles.mjs catch it now)
+          { name: 'vrm', test: /node_modules[/\\](@pixiv[/\\]three-vrm|three[/\\]examples[/\\]jsm[/\\]loaders[/\\]GLTFLoader)|src[/\\]features[/\\]town[/\\]three[/\\]chars[/\\](vrmBody|quatBody|vrmClips|vrmGarments|vrmAge|vrmGait)\.ts/, priority: 2 },
+          // the town's people (bodies, faces, hair, portraits; three/chars) and the offscreen studio their portraits are
+          // drawn in (three/offscreen.ts: left out, it went to the thumbnails' chunk, which imports this one)
+          { name: 'town-people', test: /src[/\\]features[/\\]town[/\\]three[/\\](chars[/\\]|offscreen\.ts)/, priority: 1 },        // the English dictionaries (src/i18n/en, docs/i18n.md): one chunk per bundle, loaded only in English mode
           { name: 'en-ui', test: /src[/\\]i18n[/\\]en[/\\]ui/ },
           { name: 'en-content', test: /src[/\\]i18n[/\\]en[/\\]content/ },
           { name: 'en-town', test: /src[/\\]i18n[/\\]en[/\\]town/ },
