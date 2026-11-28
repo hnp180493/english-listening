@@ -1,7 +1,7 @@
 // Westbay's traffic drawn (docs/town.md §28): the cars of core/town/traffic.ts as three instanced meshes (one a
 // colour), a real townsperson (chars/person.ts, a passer-by look) seated at each wheel with ride='car' (hands on the
-// wheel, legs out — same pose as the player), anime mode wearing their avatar through dressWhenNear (classic body
-// stays hidden when the avatar is off), the traffic lights of core/town/streets.ts, and the patrol car of
+// wheel, legs out — same pose as the player), anime mode wearing their avatar through dressWhenNear (the code body at
+// the wheel whenever the avatar is not on, ./driverSeats.ts one driver a car: never an empty seat), the traffic lights of core/town/streets.ts, and the patrol car of
 // core/town/police.ts with its blue and red lamps. Drawing only: what moves where is decided elsewhere
 // (features/town/streets/streetsWorld.ts).
 
@@ -10,7 +10,8 @@ import { carAngle, type TrafficCar } from '../../../../core/town/traffic';
 import { lightAt, type Light, type RoadNet } from '../../../../core/town/streets';
 import { getTownUi } from '../../townUi';
 import { createCharacter, passerLook, type Character3DPlus } from '../characters';
-import { dressWhenNear, hideCodeWhenBare, undressNow } from '../chars/vrmPeople';
+import { dressWhenNear, standInWhileBare, undressNow } from '../chars/vrmPeople';
+import { assignDrivers } from './driverSeats';
 import { Merge, shapes } from './merge';
 import type { StageExtraCtx } from './stageExtra';
 import { rideScaleOf, seatPlace, vehicleGeometry } from './vehicles3d';
@@ -44,6 +45,8 @@ export class TrafficLayer {
   private readonly cars: InstancedMesh[] = [];
   /** One townsperson a traffic car (passer-by looks), seated at the wheel. */
   private readonly drivers: Character3DPlus[] = [];
+  /** Which driver of the pool is in which car (by the car's id), kept from frame to frame. */
+  private seats = new Map<number, number>();
   private readonly posts: Mesh | null;
   private readonly bulbs: InstancedMesh | null;
   private readonly heads: Head[] = [];
@@ -123,18 +126,8 @@ export class TrafficLayer {
       });
       this.group.add(this.bulbs);
     } else this.bulbs = null;
-    const anime = getTownUi().people === 'anime';
-    // a pool of townspeople for the traffic (one look a car id); settle the sit pose so the first frame is not standing
-    for (let i = 0; i < MAX_CARS; i++) {
-      const ch = createCharacter(`traffic-${i}`, passerLook(1000 + i * 17)) as Character3DPlus;
-      ch.ride = 'car';
-      ch.setAction('sit');
-      ch.update(1, 0);
-      ch.root.visible = false;
-      if (anime) hideCodeWhenBare(ch);
-      ctx.scene.add(ch.root);
-      this.drivers.push(ch);
-    }
+    // a pool of townspeople for the traffic (grown when more cars drive than it has: addDriver)
+    for (let i = 0; i < MAX_CARS; i++) this.addDriver();
     // the patrol car: a blue car with a bar of lamps on its windscreen, and an officer in the seat
     this.patrol = new Group();
     const pgeo = vehicleGeometry('car', 1);
@@ -159,9 +152,23 @@ export class TrafficLayer {
     this.patrolDriver.setAction('sit');
     this.patrolDriver.update(1, 0);
     this.patrolDriver.root.visible = false;
-    if (anime) hideCodeWhenBare(this.patrolDriver);
+    standInWhileBare(this.patrolDriver);
     ctx.scene.add(this.patrolDriver.root);
     ctx.scene.add(this.group);
+  }
+
+  /** One more townsperson for the pool; the sit pose settled so the first frame is not standing. */
+  private addDriver(): void {
+    const i = this.drivers.length;
+    const ch = createCharacter(`traffic-${i}`, passerLook(1000 + i * 17)) as Character3DPlus;
+    ch.ride = 'car';
+    ch.setAction('sit');
+    ch.update(1, 0);
+    ch.root.visible = false;
+    // (the code body at the wheel whenever the avatar is not on: never an empty seat)
+    standInWhileBare(ch);
+    this.ctx.scene.add(ch.root);
+    this.drivers.push(ch);
   }
 
   /** Seat a driver in a car at (x, y) facing `heading` (ride='car': wheel reach + RIDE_GROW like the player). */
@@ -182,7 +189,7 @@ export class TrafficLayer {
       const p = this.ctx.sim.player;
       // (penalise distance so walkers keep the avatar budget; near cars still dress)
       dressWhenNear(ch, (px - p.x) * DRIVER_FAR, (py - p.y) * DRIVER_FAR);
-    }
+    } else undressNow(ch);
     ch.update(dt, 0);
   }
 
@@ -190,17 +197,23 @@ export class TrafficLayer {
   private parkDriver(ch: Character3DPlus): void {
     ch.root.visible = false;
     ch.ride = null;
-    undressNow(ch, getTownUi().people === 'anime');
+    undressNow(ch);
   }
 
   /** Draw the cars where they are, each with a townsperson at the wheel. */
   setCars(cars: readonly TrafficCar[], dt: number, night: number): void {
     const counts = this.cars.map(() => 0);
+    // (the cars drawn this frame, each with its own driver: ./driverSeats.ts)
+    const drawn = cars.filter((c) => counts[c.v % this.cars.length]++ < MAX_CARS);
+    counts.fill(0);
+    this.seats = assignDrivers(
+      drawn.map((c) => c.id),
+      this.seats,
+    );
     const seen = new Set<number>();
-    for (const c of cars) {
+    for (const c of drawn) {
       const k = c.v % this.cars.length;
       const mesh = this.cars[k];
-      if (counts[k] >= MAX_CARS) continue;
       const heading = carAngle(c.dir);
       this.e.set(0, -heading, 0);
       this.q.setFromEuler(this.e);
@@ -208,11 +221,10 @@ export class TrafficLayer {
       this.s.setScalar(this.scale);
       this.m.compose(this.v, this.q, this.s);
       mesh.setMatrixAt(counts[k]++, this.m);
-      const di = ((c.id % this.drivers.length) + this.drivers.length) % this.drivers.length;
-      if (!seen.has(di)) {
-        seen.add(di);
-        this.putDriver(this.drivers[di], c.x, c.y, heading, dt, night);
-      }
+      const di = this.seats.get(c.id)!;
+      while (this.drivers.length <= di) this.addDriver();
+      seen.add(di);
+      this.putDriver(this.drivers[di], c.x, c.y, heading, dt, night);
     }
     this.cars.forEach((mesh, k) => {
       mesh.count = counts[k];

@@ -8,7 +8,7 @@ import { Group, Mesh, type BufferGeometry } from 'three';
 import { getTownUi } from '../townUi';
 import { CITY_PLACES } from '../../../data/cityWorld';
 import { createCharacter, passerLook, type Character3DPlus } from '../three/characters';
-import { dressWhenNear, hideCodeWhenBare, undressNow } from '../three/chars/vrmPeople';
+import { dressWhenNear, standInWhileBare, undressNow } from '../three/chars/vrmPeople';
 import type { StageExtra, StageExtraCtx } from '../three/scene/stageExtra';
 import { rideScaleOf, seatPlace, vehicleGeometry } from '../three/scene/vehicles3d';
 
@@ -67,7 +67,8 @@ class ParkedLayer implements StageExtra {
     ch.setAction('sit');
     ch.update(1, 0);
     ch.root.visible = false;
-    if (getTownUi().people === 'anime') hideCodeWhenBare(ch);
+    // (the code body at the wheel whenever the avatar is not on: never an empty seat)
+    standInWhileBare(ch);
     this.ctx.scene.add(ch.root);
     return ch;
   }
@@ -86,7 +87,7 @@ class ParkedLayer implements StageExtra {
     if (getTownUi().people === 'anime') {
       const p = this.ctx.sim.player;
       dressWhenNear(ch, (px - p.x) * DRIVER_FAR, (py - p.y) * DRIVER_FAR);
-    }
+    } else undressNow(ch);
     ch.update(dt, 0);
   }
 
@@ -98,14 +99,14 @@ class ParkedLayer implements StageExtra {
         c.mesh.removeFromParent();
         c.driver.root.visible = false;
         c.driver.ride = null;
-        undressNow(c.driver, getTownUi().people === 'anime');
+        undressNow(c.driver);
         c.driver.dispose();
         this.cars.delete(k);
       }
     if (this.ctx.inRoom()) {
       for (const c of this.cars.values()) {
         c.driver.root.visible = false;
-        undressNow(c.driver, getTownUi().people === 'anime');
+        undressNow(c.driver);
       }
       return;
     }
@@ -138,7 +139,7 @@ class ParkedLayer implements StageExtra {
     this.group.removeFromParent();
     for (const g of this.geos.values()) g.dispose();
     for (const c of this.cars.values()) {
-      undressNow(c.driver, true);
+      undressNow(c.driver);
       c.driver.dispose();
     }
     this.cars.clear();

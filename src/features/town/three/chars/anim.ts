@@ -313,6 +313,11 @@ interface Shot {
   action: OneShot;
   t: number;
   dur: number;
+  /**
+   * Done with the left hand (a wave while an umbrella is up or going up): chosen once as it starts, so an umbrella
+   * coming or going in the rain's first second never swaps the hand mid-wave (QA 2026-11-28, BUG-15).
+   */
+  left?: boolean;
   /** When it was cut short: the weight it fades from, and how long it has been fading. */
   fadeFrom?: number;
   fadeT?: number;
@@ -359,6 +364,8 @@ export class Animator {
    * a cheer, talking, reading. A body moved by ready-made clips (chars/vrmBody.ts) lets this pose have those arms.
    */
   readonly armsBusy = new Float32Array(2);
+  /** The one-shot being posed is done with the left hand (Shot.left), for its pose. */
+  shotLeft = false;
   /** Locomotion weight 0…1 and the run share 0…1 (read by tests and the harness). */
   move = 0;
   runShare = 0;
@@ -485,7 +492,7 @@ export class Animator {
           s.fadeT = 0;
         }
       }
-      this.shots.push({ action, t: 0, dur: ACTION_SECONDS[action] });
+      this.shots.push({ action, t: 0, dur: ACTION_SECONDS[action], left: this.umbrellaWant || this.umbrellaBlend > 0.05 });
       return;
     }
     if (action === this.loop) return;
@@ -839,6 +846,7 @@ export class Animator {
       if (w <= 0) continue;
       const tmp = this.tmp;
       tmp.set(p);
+      this.shotLeft = !!s.left;
       SHOT_POSES[s.action](tmp, s.t, s.dur, this);
       blendInto(p, tmp, w);
       if (s.action === 'cheer') cheer = Math.max(cheer, w);
@@ -877,7 +885,7 @@ export class Animator {
       for (const s of this.shots) {
         const k = this.shotWeight(s);
         if (s.action === 'wave') {
-          if (this.umbrellaBlend > 0.5) waveL = Math.max(waveL, k);
+          if (s.left) waveL = Math.max(waveL, k);
           else waveR = Math.max(waveR, k);
         } else if (s.action === 'cheer') both = Math.max(both, k);
       }
@@ -1347,7 +1355,7 @@ const wavePose: ShotPose = (p, t, dur, a) => {
   const up = smoothstep(0, 0.3, t) * (1 - smoothstep(dur - 0.35, dur, t));
   const wag = Math.sin((t - 0.25) * Math.PI * 2 * 2.1) * smoothstep(0.2, 0.4, t);
   // (with an umbrella up in the right hand, the left one waves: the mirror of the right's wave)
-  const m = a.umbrellaBlend > 0.5 ? -1 : 1;
+  const m = a.shotLeft ? -1 : 1;
   const sh = m > 0 ? J.shR : J.shL;
   const el = m > 0 ? J.elR : J.elL;
   setRot(p, sh, lerp(p[sh * 3], -0.35, up), 0, lerp(p[sh * 3 + 2], -1.75 * m, up));

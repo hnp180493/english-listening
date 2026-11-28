@@ -33,8 +33,13 @@ interface Entry {
 
 const people = new Map<Character3D, Entry>();
 const failed = new WeakSet<Character3D>();
-/** Take the avatar off without bringing the code body back (traffic drivers in anime: no classic flash in a car). */
-const hideCode = new WeakSet<Character3D>();
+/**
+ * Somebody whose code body stands in for them whenever their avatar is not on (while it loads, after it is taken off for
+ * somebody nearer, when its file does not load): a car's driver. A car never drives with nobody at the wheel (QA
+ * 2026-11-28, BUG-01, and the owner's picture of an empty yellow car: "xe không người lái chạy như đúng rồi?"); from
+ * the distance a driver is not dressed at, nobody tells the two apart.
+ */
+const standIn = new WeakSet<Character3D>();
 const waiting: (() => Promise<void>)[] = [];
 let running = 0;
 
@@ -56,13 +61,15 @@ function start(ch: Character3D, d2: number, keep: boolean, grow = 1): void {
   const plus = ch as Partial<Character3DPlus>;
   if (!plus.animator || !plus.look) return;
   const who = vrmFor(ch.id, plus.look, import.meta.env.BASE_URL);
-  // the old and the children wear a Quaternius body instead (data/townQuat.ts, ./quatBody.ts)
-  const quat = quatFor(ch.id, plus.look, who.face, who.tall);
+  // the old and the children wear a Quaternius body instead (data/townQuat.ts, ./quatBody.ts); never the learner, who
+  // drives and rides every vehicle in the VRoid body's poses (QA 2026-11-28, BUG-05: grey hair made the learner a
+  // Quaternius body without them, hands off the wheel); grey hair still picks the VRoid's older body (data/townVrm.ts)
+  const quat = ch.id === 'player' ? null : quatFor(ch.id, plus.look, who.face, who.tall);
   const e: Entry = { worn: null, d2, keep, gone: false };
   people.set(ch, e);
-  // not drawn until the avatar is there
+  // not drawn until the avatar is there (a stand-in is: a driver in the code body meanwhile)
   const body = bodyOf(ch);
-  if (body) body.visible = false;
+  if (body) body.visible = standIn.has(ch);
   const dispose = ch.dispose.bind(ch);
   ch.dispose = () => {
     e.gone = true;
@@ -130,7 +137,7 @@ export function dressWhenNear(ch: Character3D, dx: number, dz: number): void {
       e.gone = true;
       if (e.worn) e.worn.undress();
       const body = bodyOf(far);
-      if (body) body.visible = !hideCode.has(far);
+      if (body) body.visible = true;
       people.delete(far);
     }
   }
@@ -138,11 +145,10 @@ export function dressWhenNear(ch: Character3D, dx: number, dz: number): void {
 }
 
 /**
- * Take `ch`'s avatar off now (a traffic driver that left the view, the patrol after a chase). `keepHidden`: leave the
- * code body off too (anime traffic: never flash the classic body in a car).
+ * Take `ch`'s avatar off now (a traffic driver whose car left, the patrol after a chase, the classic look chosen): the
+ * code body is back (hide the character's root to hide them altogether).
  */
-export function undressNow(ch: Character3D, keepHidden = false): void {
-  if (keepHidden) hideCode.add(ch);
+export function undressNow(ch: Character3D): void {
   const e = people.get(ch);
   if (e) {
     e.gone = true;
@@ -150,17 +156,22 @@ export function undressNow(ch: Character3D, keepHidden = false): void {
     people.delete(ch);
   }
   const body = bodyOf(ch);
-  if (body) body.visible = !keepHidden && !hideCode.has(ch);
+  if (body) body.visible = true;
 }
 
-/** Mark a character whose code body must stay hidden when their avatar is off (traffic drivers in anime mode). */
-export function hideCodeWhenBare(ch: Character3D): void {
-  hideCode.add(ch);
+/** Mark `ch` as a stand-in (a car's driver): their code body shows whenever their avatar is not on. */
+export function standInWhileBare(ch: Character3D): void {
+  standIn.add(ch);
+  const body = bodyOf(ch);
+  if (body && !people.get(ch)?.worn) body.visible = true;
 }
 
-/** Whether every avatar asked for so far is on (nobody is still waiting for a file): the town may show itself. */
+/**
+ * Whether every avatar asked for so far is on (nobody is still waiting for a file): the town may show itself. A driver
+ * whose avatar is coming does not hold it up (they are drawn meanwhile).
+ */
 export function avatarsSettled(): boolean {
-  for (const e of people.values()) if (!e.worn && !e.gone) return false;
+  for (const [ch, e] of people) if (!e.worn && !e.gone && !standIn.has(ch)) return false;
   return true;
 }
 
@@ -171,6 +182,6 @@ export function avatarsSettled(): boolean {
  */
 export function bodyDrawn(ch: Character3D): boolean {
   const e = people.get(ch);
-  if (e) return !!e.worn && !e.gone;
-  return bodyOf(ch)?.visible !== false;
+  if (e && !standIn.has(ch)) return !!e.worn && !e.gone;
+  return !!e?.worn || bodyOf(ch)?.visible !== false;
 }

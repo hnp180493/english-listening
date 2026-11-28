@@ -565,6 +565,35 @@ describe('no pops', () => {
     expect(a.weight('talk')).toBeGreaterThan(0.95);
   });
 
+  it('a wave as the rain starts is waved with the left hand to its end; without the umbrella, with the right', () => {
+    // (QA 2026-11-28, BUG-15: the hand was chosen again every frame, so it swapped as the umbrella eased up)
+    const a = new Animator({ seed: 3 });
+    a.umbrellaWant = true;
+    a.setAction('wave');
+    let leftUp = 0;
+    let rightUp = 0;
+    for (let t = 0; t < ACTION_SECONDS.wave; t += DT) {
+      // the rain stops halfway through: the umbrella goes down, the wave stays with the left hand
+      if (t > ACTION_SECONDS.wave / 2) a.umbrellaWant = false;
+      a.update(DT, 0);
+      leftUp = Math.max(leftUp, a.armsBusy[0]);
+      if (t > 0.4) rightUp = Math.max(rightUp, a.armsBusy[1] - a.pose[C.umbrella]);
+    }
+    expect(leftUp).toBeGreaterThan(0.9);
+    expect(rightUp).toBeLessThan(0.05);
+    const b = new Animator({ seed: 3 });
+    b.setAction('wave');
+    let bRight = 0;
+    let bLeft = 0;
+    for (let t = 0; t < ACTION_SECONDS.wave; t += DT) {
+      b.update(DT, 0);
+      bRight = Math.max(bRight, b.armsBusy[1]);
+      bLeft = Math.max(bLeft, b.armsBusy[0]);
+    }
+    expect(bRight).toBeGreaterThan(0.9);
+    expect(bLeft).toBeLessThan(0.05);
+  });
+
   it('walking puts down the cup; talking carries on', () => {
     const a = new Animator({ seed: 4 });
     a.setAction('drink');
