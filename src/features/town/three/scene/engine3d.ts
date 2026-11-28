@@ -15,7 +15,7 @@ import { cameraDt, springStep } from '../../engine/spring';
 import { drawChatDots, drawEmote, drawFloat, drawParticles, drawSky, drawTag, drawTalkBubble, drawVignette, EMOTE_SECONDS, FLOAT_SECONDS, placeTags, tagSize, type EmoteKind, type TagBox } from '../../engine/draw/overlay';
 import type { ActKind, BurstKind, EngineCallbacks, Near, SafeInsets, StageTarget, TravelTarget } from '../../engine/stage';
 import type { VehicleKind } from '../../../../data/townWorld';
-import { poseRide, RIDES, rideLift, vehicleMesh } from './vehicles3d';
+import { poseRide, RIDES, rideLift, rideScaleOf, seatPlace, vehicleMesh } from './vehicles3d';
 import type { StageExtra, StageExtraCtx } from './stageExtra';
 import type { RideState } from '../../engine/stage';
 import { onStage } from '../../engine/speechBubble';
@@ -244,8 +244,6 @@ const SLIDE_TIME = 0.45;
 const RIDE_REACH = 2;
 /** Those talking aside nearer than this (tiles) to the player are framed with them (goal). */
 const ASIDE_FRAME = 4.5;
-/** The vehicles' size with the VRoid avatars on (rideScale). */
-const RIDE_SCALE_AVATAR = 1;
 
 /** Stats for checking the town in a dev build (headless runs read window.__town3d). */
 export interface Stats3D {
@@ -1597,34 +1595,23 @@ export class TownEngine3D {
     return true;
   }
 
-  /**
-   * How much bigger the vehicles are drawn than their models (vehicles3d.ts, made for the code-built body). 1 since the
-   * VRoid avatars stand just under that body's height (chars/vrmBody.ts TALLER); it was 1.55 and 1.2 for taller ones.
-   */
+  /** How much bigger the vehicles are drawn than their models (vehicles3d.ts rideScaleOf). */
   private rideScale(): number {
-    return getTownUi().people === 'anime' ? RIDE_SCALE_AVATAR : 1;
+    return rideScaleOf();
   }
 
   /**
    * From a vehicle's middle to where its rider is (world tiles), the vehicle heading `heading`: along it to the seat,
-   * and for an avatar in a car sideways to the driver's seat (vehicles3d.ts RideSpec `side`; the model's +z is the
-   * vehicle's right as it is drawn).
+   * and for an avatar in a car sideways to the driver's seat (vehicles3d.ts seatPlace).
    */
   private seatOffset(kind: VehicleKind, heading: number): { x: number; y: number } {
-    const spec = RIDES[kind];
-    const k = this.rideScale();
-    const anime = getTownUi().people === 'anime';
-    const side = anime ? (spec.side ?? 0) * k : 0;
-    const along = (spec.seatAt - (anime ? (spec.seatBack ?? 0) : 0)) * k;
-    const c = Math.cos(heading);
-    const s = Math.sin(heading);
-    return { x: c * along - s * side, y: s * along + c * side };
+    const s = seatPlace(kind, heading);
+    return { x: s.x, y: s.y };
   }
 
   /** How high the rider's seat is (tiles): the cushion's top for an avatar in a car, else where the round body sits. */
   private seatHeight(kind: VehicleKind): number {
-    const spec = RIDES[kind];
-    return (getTownUi().people === 'anime' ? (spec.seatSlim ?? spec.seat) : spec.seat) * this.rideScale();
+    return seatPlace(kind, 0).h;
   }
 
   /** On the vehicle beside the player, or off the one ridden. False = neither (none in reach, a talk, a dip). */

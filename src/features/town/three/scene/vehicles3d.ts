@@ -7,8 +7,20 @@
 import { Mesh, type BufferGeometry, type Material, type Object3D } from 'three';
 import { horseLift, makeHorse, poseHorse } from './horse3d';
 import type { VehicleKind } from '../../../../data/townWorld';
+import { getTownUi } from '../../townUi';
 import { Merge, shapes } from './merge';
 import { C } from './palette3d';
+
+/**
+ * How much bigger vehicles are drawn than their models with the VRoid avatars on (engine3d rideScale). 1 since the
+ * avatars stand just under the code body's height; it was 1.55 and 1.2 for taller ones.
+ */
+export const RIDE_SCALE_AVATAR = 1;
+
+/** The drawn size of a vehicle for the people look now (anime: RIDE_SCALE_AVATAR, classic: 1). */
+export function rideScaleOf(): number {
+  return getTownUi().people === 'anime' ? RIDE_SCALE_AVATAR : 1;
+}
 
 export interface RideSpec {
   /** The player's pace riding it (tiles/s; on foot 1.6, running 2.8: sim.ts PLAYER_SPEED / PLAYER_RUN). */
@@ -51,6 +63,25 @@ export const RIDES: Readonly<Record<VehicleKind, RideSpec>> = {
   motorbike: { speed: 6.6, seat: 0.42, seatAt: -0.1, seatBack: -0.05, name: 'mô tô' },
   sportscar: { speed: 8.2, seat: 0.18, seatAt: -0.12, side: -0.14, seatSlim: 0.285, seatBack: 0.04, name: 'siêu xe' },
 };
+
+/**
+ * Where a rider sits relative to a vehicle's middle (world tiles) and how high the seat is, matching engine3d's
+ * seatOffset / seatHeight (anime uses side / seatSlim / seatBack; classic sits in the middle on `seat`).
+ */
+export function seatPlace(kind: VehicleKind, heading: number): { x: number; y: number; h: number } {
+  const spec = RIDES[kind];
+  const k = rideScaleOf();
+  const anime = getTownUi().people === 'anime';
+  const side = anime ? (spec.side ?? 0) * k : 0;
+  const along = (spec.seatAt - (anime ? (spec.seatBack ?? 0) : 0)) * k;
+  const c = Math.cos(heading);
+  const s = Math.sin(heading);
+  return {
+    x: c * along - s * side,
+    y: s * along + c * side,
+    h: (anime ? (spec.seatSlim ?? spec.seat) : spec.seat) * k,
+  };
+}
 
 /** Colours a vehicle may come in (by its index: two of a kind are told apart). */
 const BODY: Readonly<Record<VehicleKind, readonly string[]>> = {

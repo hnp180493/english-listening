@@ -19,7 +19,7 @@ import { lookView } from '../../../core/town/wardrobe';
 import type { Body } from '../engine/sim';
 import { TrafficLayer } from '../three/scene/traffic';
 import type { StageExtra, StageExtraCtx } from '../three/scene/stageExtra';
-import { getTownUi } from '../townUi';
+import { rideScaleOf } from '../three/scene/vehicles3d';
 import { getHeat, setHeat } from '../jobs/heatStore';
 import { coolStep, jobPatrolStep, patrolPath, startJobPatrol, type JobPatrolRun } from '../../../core/town/jobPatrol';
 import type { Pt } from '../../../core/town/traffic';
@@ -80,9 +80,8 @@ export class StreetsWorld implements StageExtra {
 
   constructor(ctx: StageExtraCtx) {
     this.ctx = ctx;
-    const anime = getTownUi().people === 'anime';
     this.cars = seedTraffic(this.net, TRAFFIC_CARS, Math.floor(Date.now() / 1000));
-    this.layer = new TrafficLayer(ctx, this.net, anime ? 1.2 : 1);
+    this.layer = new TrafficLayer(ctx, this.net, rideScaleOf());
     this.posts = this.layer.postFeet().map((p) => ({ ...p, gap: POST_GAP }));
     streets.attach(this);
     setTrafficSource(this.source);
@@ -208,6 +207,9 @@ export class StreetsWorld implements StageExtra {
     const jobHeading = this.jobRun ? this.jobRun.run.path.heading : 0;
     if (this.ctx.inRoom()) {
       this.layer.setVisible(false);
+      // (a dip into a room or "Đến ngay": the next open-world frame must not treat the jump as a red-light run)
+      this.prev = null;
+      this.speed = 0;
       return;
     }
     this.layer.setVisible(true);
@@ -215,6 +217,12 @@ export class StreetsWorld implements StageExtra {
     this.lookIn -= dt;
     const now = Date.now();
     const p = this.ctx.sim.player;
+    // a teleport / "Đến ngay" / leaving a room: skip offence checks this frame (prev → p would cross half the map)
+    const jumped = !!this.prev && Math.hypot(p.x - this.prev.x, p.y - this.prev.y) > 2.5;
+    if (jumped) {
+      this.prev = null;
+      this.speed = 0;
+    }
     if (this.prev && dt > 0) {
       const v = Math.hypot(p.x - this.prev.x, p.y - this.prev.y) / dt;
       this.speed += (v - this.speed) * Math.min(1, dt * 8);

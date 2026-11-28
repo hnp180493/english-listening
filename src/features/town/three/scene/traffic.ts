@@ -1,22 +1,29 @@
 // Westbay's traffic drawn (docs/town.md §28): the cars of core/town/traffic.ts as three instanced meshes (one a
-// colour), a real townsperson (chars/person.ts, a passer-by look) seated at each wheel — anime mode wears their
-// avatar through dressWhenNear like the street, classic keeps the code body — the traffic lights of
-// core/town/streets.ts, and the patrol car of core/town/police.ts with its blue and red lamps. Drawing only: what
-// moves where is decided elsewhere (features/town/streets/streetsWorld.ts).
+// colour), a real townsperson (chars/person.ts, a passer-by look) seated at each wheel with ride='car' (hands on the
+// wheel, legs out — same pose as the player), anime mode wearing their avatar through dressWhenNear (classic body
+// stays hidden when the avatar is off), the traffic lights of core/town/streets.ts, and the patrol car of
+// core/town/police.ts with its blue and red lamps. Drawing only: what moves where is decided elsewhere
+// (features/town/streets/streetsWorld.ts).
 
 import { Color, Euler, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, Vector3, type BufferGeometry } from 'three';
 import { carAngle, type TrafficCar } from '../../../../core/town/traffic';
 import { lightAt, type Light, type RoadNet } from '../../../../core/town/streets';
+import { getTownUi } from '../../townUi';
 import { createCharacter, passerLook, type Character3DPlus } from '../characters';
-import { dressWhenNear } from '../chars/vrmPeople';
+import { dressWhenNear, hideCodeWhenBare, undressNow } from '../chars/vrmPeople';
 import { Merge, shapes } from './merge';
 import type { StageExtraCtx } from './stageExtra';
-import { RIDES, vehicleGeometry } from './vehicles3d';
+import { rideScaleOf, seatPlace, vehicleGeometry } from './vehicles3d';
 
 const MAX_CARS = 16;
 /** Where a post stands from its box's corner (tiles, out onto the pavement), its height and its head's. */
 const POST_OUT = 0.22;
 const POST_H = 1.6;
+/**
+ * How much further a traffic driver must be than a walker to keep an avatar slot (dressWhenNear d2 × this²): residents
+ * win the budget; cars still dress when they are clearly next to the player.
+ */
+const DRIVER_FAR = 1.7;
 
 /** The colour of a bulb lit, and dim. */
 const LIT: Readonly<Record<Light, string>> = { red: '#ff3b30', amber: '#ffb31a', green: '#2fe07a' };
@@ -30,16 +37,6 @@ interface Head {
   face: number;
   axis: 'ew' | 'ns';
   junction: number;
-}
-
-/** Where a driver sits in a car's own frame (tiles), then turned by the car's heading. */
-function seatAt(heading: number, scale: number): { dx: number; dy: number; h: number } {
-  const spec = RIDES.car;
-  const along = spec.seatAt * scale;
-  const side = (spec.side ?? -0.13) * scale;
-  const c = Math.cos(heading);
-  const s = Math.sin(heading);
-  return { dx: c * along - s * side, dy: s * along + c * side, h: (spec.seatSlim ?? spec.seat) * scale };
 }
 
 export class TrafficLayer {
@@ -64,10 +61,10 @@ export class TrafficLayer {
 
   private readonly ctx: StageExtraCtx;
   private readonly net: RoadNet;
-  /** How much bigger than their models vehicles are drawn (the avatars' scale: engine3d rideScale). */
+  /** How much bigger than their models vehicles are drawn (vehicles3d rideScaleOf). */
   private readonly scale: number;
 
-  constructor(ctx: StageExtraCtx, net: RoadNet, scale: number) {
+  constructor(ctx: StageExtraCtx, net: RoadNet, scale = rideScaleOf()) {
     this.ctx = ctx;
     this.net = net;
     this.scale = scale;
@@ -91,7 +88,7 @@ export class TrafficLayer {
         // north-west: for the eastbound (looks west); south-east: the westbound (looks east)
         [j.x - POST_OUT, j.y - POST_OUT, Math.PI, 'ew'],
         [j.x + 2 + POST_OUT, j.y + 2 + POST_OUT, 0, 'ew'],
-        // north-east: the southbound (looks north); south-west: the northbound (looks south)
+        // north-east: for the southbound (looks north); south-west: the northbound (looks south)
         [j.x + 2 + POST_OUT, j.y - POST_OUT, -Math.PI / 2, 'ns'],
         [j.x - POST_OUT, j.y + 2 + POST_OUT, Math.PI / 2, 'ns'],
       ];
@@ -126,11 +123,15 @@ export class TrafficLayer {
       });
       this.group.add(this.bulbs);
     } else this.bulbs = null;
-    // a pool of townspeople for the traffic (one look a car id); grown as cars appear
+    const anime = getTownUi().people === 'anime';
+    // a pool of townspeople for the traffic (one look a car id); settle the sit pose so the first frame is not standing
     for (let i = 0; i < MAX_CARS; i++) {
       const ch = createCharacter(`traffic-${i}`, passerLook(1000 + i * 17)) as Character3DPlus;
+      ch.ride = 'car';
       ch.setAction('sit');
+      ch.update(1, 0);
       ch.root.visible = false;
+      if (anime) hideCodeWhenBare(ch);
       ctx.scene.add(ch.root);
       this.drivers.push(ch);
     }
@@ -154,28 +155,42 @@ export class TrafficLayer {
     this.patrol.visible = false;
     this.group.add(this.patrol);
     this.patrolDriver = createCharacter('traffic-patrol', passerLook(42)) as Character3DPlus;
+    this.patrolDriver.ride = 'car';
     this.patrolDriver.setAction('sit');
+    this.patrolDriver.update(1, 0);
     this.patrolDriver.root.visible = false;
+    if (anime) hideCodeWhenBare(this.patrolDriver);
     ctx.scene.add(this.patrolDriver.root);
     ctx.scene.add(this.group);
   }
 
-  /** Seat a driver in a car at (x, y) facing `heading` (anime mode: their avatar when near, same as the street). */
+  /** Seat a driver in a car at (x, y) facing `heading` (ride='car': wheel reach + RIDE_GROW like the player). */
   private putDriver(ch: Character3DPlus, x: number, y: number, heading: number, dt: number, night: number): void {
-    const seat = seatAt(heading, this.scale);
-    const px = x + seat.dx;
-    const py = y + seat.dy;
+    const seat = seatPlace('car', heading);
+    const px = x + seat.x;
+    const py = y + seat.y;
     const g = this.ctx.lift(px, py);
     ch.root.visible = true;
     ch.root.position.set(px, g, py);
     ch.setHeading(heading, true);
     ch.setSeatHeight(seat.h);
+    ch.ride = 'car';
     ch.setAction('sit');
     ch.setNight(night);
-    // (people 'anime': wear the same VRoid / Quaternius path as passers-by; classic stays the code body)
-    const p = this.ctx.sim.player;
-    dressWhenNear(ch, px - p.x, py - p.y);
+    const anime = getTownUi().people === 'anime';
+    if (anime) {
+      const p = this.ctx.sim.player;
+      // (penalise distance so walkers keep the avatar budget; near cars still dress)
+      dressWhenNear(ch, (px - p.x) * DRIVER_FAR, (py - p.y) * DRIVER_FAR);
+    }
     ch.update(dt, 0);
+  }
+
+  /** Hide a driver that is not in a car this frame (and free their avatar slot). */
+  private parkDriver(ch: Character3DPlus): void {
+    ch.root.visible = false;
+    ch.ride = null;
+    undressNow(ch, getTownUi().people === 'anime');
   }
 
   /** Draw the cars where they are, each with a townsperson at the wheel. */
@@ -203,14 +218,16 @@ export class TrafficLayer {
       mesh.count = counts[k];
       mesh.instanceMatrix.needsUpdate = true;
     });
-    for (let i = 0; i < this.drivers.length; i++) if (!seen.has(i)) this.drivers[i].root.visible = false;
+    for (let i = 0; i < this.drivers.length; i++) if (!seen.has(i)) this.parkDriver(this.drivers[i]);
   }
 
   /** The patrol car (null: no search), its lamps taking turns, an officer in the seat. */
   setPatrol(p: { x: number; y: number; heading: number } | null, dt: number, night: number): void {
     this.patrol.visible = !!p && !this.ctx.inRoom();
-    this.patrolDriver.root.visible = this.patrol.visible;
-    if (!p) return;
+    if (!p) {
+      this.parkDriver(this.patrolDriver);
+      return;
+    }
     this.t += dt;
     this.patrol.position.set(p.x, this.ctx.lift(p.x, p.y), p.y);
     this.patrol.rotation.y = -p.heading;
@@ -239,8 +256,8 @@ export class TrafficLayer {
   setVisible(on: boolean): void {
     this.group.visible = on;
     if (!on) {
-      for (const d of this.drivers) d.root.visible = false;
-      this.patrolDriver.root.visible = false;
+      for (const d of this.drivers) this.parkDriver(d);
+      this.parkDriver(this.patrolDriver);
     }
   }
 

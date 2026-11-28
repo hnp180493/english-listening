@@ -33,6 +33,8 @@ interface Entry {
 
 const people = new Map<Character3D, Entry>();
 const failed = new WeakSet<Character3D>();
+/** Take the avatar off without bringing the code body back (traffic drivers in anime: no classic flash in a car). */
+const hideCode = new WeakSet<Character3D>();
 const waiting: (() => Promise<void>)[] = [];
 let running = 0;
 
@@ -127,14 +129,33 @@ export function dressWhenNear(ch: Character3D, dx: number, dz: number): void {
     if (e) {
       e.gone = true;
       if (e.worn) e.worn.undress();
-      else {
-        const body = bodyOf(far);
-        if (body) body.visible = true;
-      }
+      const body = bodyOf(far);
+      if (body) body.visible = !hideCode.has(far);
       people.delete(far);
     }
   }
   start(ch, d2, false);
+}
+
+/**
+ * Take `ch`'s avatar off now (a traffic driver that left the view, the patrol after a chase). `keepHidden`: leave the
+ * code body off too (anime traffic: never flash the classic body in a car).
+ */
+export function undressNow(ch: Character3D, keepHidden = false): void {
+  if (keepHidden) hideCode.add(ch);
+  const e = people.get(ch);
+  if (e) {
+    e.gone = true;
+    if (e.worn) e.worn.undress();
+    people.delete(ch);
+  }
+  const body = bodyOf(ch);
+  if (body) body.visible = !keepHidden && !hideCode.has(ch);
+}
+
+/** Mark a character whose code body must stay hidden when their avatar is off (traffic drivers in anime mode). */
+export function hideCodeWhenBare(ch: Character3D): void {
+  hideCode.add(ch);
 }
 
 /** Whether every avatar asked for so far is on (nobody is still waiting for a file): the town may show itself. */

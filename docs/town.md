@@ -3248,9 +3248,9 @@ in code again.
   the clothes built in code (the thighs are the clip's) and `vrm.update` with the hair's springs, so nothing is a frame
   behind. The clips are carried over once per avatar file and shared by everybody wearing it (`clipCache`), each with a
   mixer of its own; `people.glb` comes with the first avatar (`loadClips`, beside the VRM's own fetch), in the lazy
-  `vrm` chunk, not the town's; a file that does not load leaves the code's motion. `townUi.motion` 'clips' | 'code'
-  (device-local, default 'clips'), Cài đặt → Hiển thị "Dáng đi của nhân vật anime" beside the avatar switch, when
-  the town is opened. Classic people unchanged; reduced motion: each clip's first frame. Cost (the software renderer,
+  `vrm` chunk, not the town's; a file that does not load leaves the code's motion. `townUi.motion` was 'clips' | 'code'
+  with a Settings switch; that path is forced to `'code'` now (no UI). Classic people unchanged; reduced motion: each
+  clip's first frame. Cost (the software renderer,
   `ch.update` of every worn avatar, 120 frames timed): with clips 7 avatars 5.6 ms a frame walking, 3.1 jogging; with
   the code's motion 8 avatars 4.2 and 3.9; about 0.45–0.8 ms an avatar either way on this machine, noisy. Pictures
   `clipgame-stride.png` / `-2.png` (`?stride`: stroll, everyday pace, run, Grace, Hal, a child), `clipgame-states.png` /
@@ -3780,9 +3780,11 @@ player, the residents, the patrol. The rule that keeps moving things from trappi
 middle within `BODY_GAP` (1.1 tiles) of a body ahead, and `blockersFor` never gives the sim a car's circle or the patrol
 when the player already stands inside it, so they can always walk off (a ten-minute test round a walker standing in the
 road and at three junctions). Drawn as three instanced meshes (one a colour), each with a real townsperson at the wheel
-(`createCharacter` + `passerLook`, seated: owner, 2026-11-28, empty cars and blob fakes both refused; anime mode dresses
-them through `dressWhenNear` like everybody else on the street, not the classic body). The patrol has an officer too.
-About five draw calls for the cars and lights, plus ~2 a driver.
+(`createCharacter` + `passerLook`, `ride: 'car'` so hands reach the wheel and `RIDE_GROW` matches the player; seat from
+`vehicles3d.seatPlace` / scale `rideScaleOf` — owner, 2026-11-28, empty cars, blob fakes, classic bodies in anime mode
+and the old 1.2× car size all refused). Anime dresses them through `dressWhenNear` (a distance penalty so residents keep
+the avatar budget; `undressNow` frees the patrol's slot after a chase and never flashes the classic body in a car). The
+patrol has an officer too. About five draw calls for the cars and lights, plus ~2 a driver.
 
 **Offences, while riding or driving** (`features/town/streets/streetsWorld.ts`): into a lit junction's box against red
 (+3 heat; an amber never counts), touching a car at speed (+2), knocking into a thing of the street at speed (+1: bins,
