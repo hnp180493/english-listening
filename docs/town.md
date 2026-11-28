@@ -3258,6 +3258,14 @@ in code again.
   (Kim's coat and Emma's apron on the jog's thighs: the coat's halves lift high with the knees), `clipgame-bench.png` /
   `-bench-zoom.png` (seated on a log bench), `clipgame-umbrella.png` (standing and walking with umbrellas in the rain).
   Seen only as pictures with motion reduced or posed phases: nobody has watched a clip play, a fade, or the feet slide.
+  Taken back out the same day (owner: "tướng đi bây giờ kỳ dữ vậy", "thằng nào nhìn cũng gù lưng", "đi bộ lúc trước ok
+  rồi"): the clips' idle stands about 20° more bent than the skeleton bind (spine_02 and spine_03), and that bend was
+  copied onto every straight VRM back; the everyday pace picks the jog, which also twists the chest about 30°. Avatars
+  walk with the motion made in code again. `townUi.motion` stays `'code'` (a stored `'clips'` reads as that); the
+  switch in Cài đặt is gone. On a Quaternius body the legs still use the clips (that skeleton has no other walk) but
+  the back, the neck and the head lose that skeleton's own forward bend (about 25° through the spine and 24° at
+  the head; a little twist is kept), the pelvis may lean at most 0.12 rad past its rest, and an old body's added
+  stoop is 0.06 rad (0.03 for 'older').
 
 - **The horse, jointed (2026-11-28)** (owner: "con ngựa gì gớm vầy, thậm chí nó còn ko có animation chạy", of a stiff
   block on four posts that slid along). `three/scene/horse3d.ts`: a body with a chest and a rump, a neck reaching up and
@@ -4135,7 +4143,7 @@ domain), the copies the owner's game Giang Hồ ships (`.assets-try/quaternius-g
 lines, a Quaternius body put at the front of the loading queue): the clips of `public/anim/people.glb` play on these
 very bones (no retargeting): idle; walk under 1.1 tiles a second, jog, sprint from 2.4 (an old body walks up to 1.7 and
 never sprints, its clips 0.82–0.92 slower); seated, the sit clip with the hips on the seat; faded over 0.2 s; each clip
-sped to the ground speed within 0.8–1.5×. On top: an old body's stoop (0.16 rad over the back for 'old', 0.08 for
+sped to the ground speed within 0.8–1.5×. The back, the neck and the head lose that skeleton's own forward bend (about 25° through the spine, 24° at the head; the jog's twist is clamped; the pelvis may lean at most 0.12 rad past its rest). On top: an old body's stoop (0.06 rad over the back for 'old', 0.03 for
 'older', the head a little down), the code pose's arms while waving, talking or holding (`Animator.armsBusy`), the head's
 turn toward whoever speaks, the umbrella in the right hand (the canopy over the head: seen in Westbay's rain), what is
 held (cup, can, rod in the right hand, a book before the chest). Three's mixer writes a bone only when its mixed value

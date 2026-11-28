@@ -38,13 +38,11 @@ import { loadClips, retarget, type ClipName, type ClipRig } from './vrmClips';
 import { getTownUi } from '../../townUi';
 
 /**
- * Ready-made motion (owner, 2026-11-28, on the code's walk beside his own game's: "rồi tao bảo mày tham khảo game kia
- * mày không làm được gì hết à"): the clips of public/anim/people.glb (Quaternius' Universal Animation Library, CC0,
- * carried over by ./vrmClips.ts) move the legs, the hips and the back of every avatar standing, walking, jogging,
- * running and seated, picked by the ground speed as in his game: a stroll walks, the everyday pace jogs, the run
- * sprints. The code's pose keeps what the clips have not: an arm that holds, waves or talks (Animator.armsBusy), the
- * head that turns to whoever speaks, an old body's stoop on top, the legs on a seat and the whole body on a vehicle.
- * `townUi.motion` 'code' (per browser, Cài đặt → Hiển thị) keeps the code's motion; a file that does not load too.
+ * The ready-made clips (public/anim/people.glb) are not worn. Their idle stands about 20° more bent than the
+ * skeleton's bind, and carrying that bend over hunched every straight back here; the jog, which the everyday pace
+ * picked, also twists the chest (owner, 2026-11-28: "thằng nào nhìn cũng gù lưng", "đi như quái thai"). The walk
+ * made in code stays. The machinery below still runs only when a clip file was asked for, which nothing asks for
+ * while `townUi.motion` stays 'code'.
  */
 const LOCO: readonly ClipName[] = ['idle', 'walk', 'jog', 'sprint', 'sit'];
 /** Tiles a second (a grown-up's) from which the clip is a jog, and a sprint. */

@@ -15,7 +15,7 @@
 // talks or holds something (Animator.armsBusy), the head's turn toward whoever speaks, the umbrella and what is held in
 // the right hand.
 
-import { AnimationMixer, CanvasTexture, Color, CylinderGeometry, Float32BufferAttribute, type BufferGeometry, Group, MathUtils, Mesh, MeshToonMaterial, Quaternion, SphereGeometry, SRGBColorSpace, TorusGeometry, Vector3, type AnimationAction, type AnimationClip, type Material, type Object3D, type SkinnedMesh, type Texture } from 'three';
+import { AnimationMixer, CanvasTexture, Color, CylinderGeometry, Euler, Float32BufferAttribute, type BufferGeometry, Group, MathUtils, Mesh, MeshToonMaterial, Quaternion, SphereGeometry, SRGBColorSpace, TorusGeometry, Vector3, type AnimationAction, type AnimationClip, type Material, type Object3D, type SkinnedMesh, type Texture } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { QuatRecipe } from '../../../../data/townQuat';
@@ -37,8 +37,16 @@ const CLIP_RATE: readonly [number, number] = [0.8, 1.5];
 const CLIP_FADE = 0.2;
 /** The clips' own pace (metres a second for a body 1.8 m tall: Quaternius' walk, jog and sprint). */
 const NATIVE = { walk: 1.35, jog: 3.1, sprint: 5.4 } as const;
-/** An old body: the stoop (radians over the back and the neck) and how much slower its step is. */
-const STOOP = { old: 0.16, older: 0.08 } as const;
+/**
+ * An old body: a small stoop (radians over the back and the neck) and how much slower its step is. Kept small: the
+ * clips' own stand is already rounded, and a larger stoop on top of it read as a hunch.
+ */
+const STOOP = { old: 0.06, older: 0.03 } as const;
+/**
+ * How far a run may tip the pelvis past the idle stand (radians). The jog and the sprint fold it much further, and
+ * with the chest's own bend that read as a hunch on every body.
+ */
+const PELVIS_LEAN = 0.12;
 const OLD_RATE = { old: 0.82, older: 0.92 } as const;
 /** Things held, as large as a person's (./vrmBody.ts HELD_SIZE). */
 const HELD_SIZE = { cup: 0.35, book: 0.45, rod: 0.55, can: 0.75 } as const;
@@ -130,6 +138,8 @@ const _q = new Quaternion();
 const _q2 = new Quaternion();
 const _dq = new Quaternion();
 const _ax = new Vector3();
+const _eu = new Euler();
+const _eu2 = new Euler();
 const X = new Vector3(1, 0, 0);
 const Y = new Vector3(0, 1, 0);
 const Z = new Vector3(0, 0, 1);
@@ -248,8 +258,13 @@ export async function wearQuat(ch: Character3DPlus, recipe: QuatRecipe, grow = 1
     const clip = kit.clips.get(n);
     actions[n] = clip ? mixer.clipAction(clip) : null;
   }
-  // where the clips put the pelvis (their mannequin's) against this skeleton's: added back every frame
+  // where the clips put the pelvis (their mannequin's) against this skeleton's: added back every frame.
+  // This skeleton's rest already rounds the chest (about 25° over the three spine bones) and tips the head down
+  // (about 24°). Worn as the stand, with the clips' jog on top, everybody looked hunched. The pelvis rest is how the
+  // body stands; a clip may lean it only a little past that.
   const pelvisFix = new Vector3();
+  const pelvisStand = new Quaternion();
+  if (pelvis) pelvisStand.copy(pelvis.quaternion);
   let sitPelvis = tallM * 0.5;
   if (pelvis && actions.idle) {
     actions.idle.play().setEffectiveWeight(1);
@@ -326,6 +341,44 @@ export async function wearQuat(ch: Character3DPlus, recipe: QuatRecipe, grow = 1
     if (pelvis) pelvis.position.sub(pelvisAdded);
     pelvisAdded.set(0, 0, 0);
   };
+  /**
+   * Remember the clip's own turn, so the next frame can take this addition off before the mixer writes again
+   * (see undoAdded). Then `pose` replaces it.
+   */
+  const overClip = (node: Object3D, pose: () => void): void => {
+    if (!savedNow.has(node)) {
+      let q = clipQ.get(node);
+      if (!q) clipQ.set(node, (q = new Quaternion()));
+      q.copy(node.quaternion);
+      savedNow.add(node);
+    }
+    pose();
+    node.updateMatrix();
+  };
+  /**
+   * Take the forward bend off a spine, neck or head bone (their rest is that bend) and keep only a little twist.
+   * The legs keep the clip.
+   */
+  const holdBack = (node: Object3D | null): void => {
+    if (!node) return;
+    overClip(node, () => {
+      _eu.setFromQuaternion(node.quaternion, 'XYZ');
+      _eu.x = 0;
+      _eu.y = MathUtils.clamp(_eu.y, -0.12, 0.12);
+      _eu.z = MathUtils.clamp(_eu.z, -0.08, 0.08);
+      node.quaternion.setFromEuler(_eu);
+    });
+  };
+  /** A run may tip the pelvis a little past the idle stand, not fold the whole body forward. */
+  const holdPelvis = (): void => {
+    if (!pelvis) return;
+    overClip(pelvis, () => {
+      _eu.setFromQuaternion(pelvis.quaternion, 'XYZ');
+      const ix = _eu2.setFromQuaternion(pelvisStand, 'XYZ').x;
+      _eu.x = MathUtils.clamp(_eu.x, ix - PELVIS_LEAN, ix + PELVIS_LEAN);
+      pelvis.quaternion.setFromEuler(_eu);
+    });
+  };
   /** Turn a bone by `angle` round an axis given in the holder's frame (the body's own: x right, y up, z ahead). */
   const turn = (node: Object3D | null, axis: Vector3, angle: number): void => {
     if (!node?.parent || Math.abs(angle) < 1e-5) return;
@@ -339,6 +392,7 @@ export async function wearQuat(ch: Character3DPlus, recipe: QuatRecipe, grow = 1
     node.parent.getWorldQuaternion(_q2);
     _ax.copy(axis).applyQuaternion(_q).applyQuaternion(_q2.invert());
     node.quaternion.premultiply(_dq.setFromAxisAngle(_ax, angle));
+    node.updateMatrix();
   };
 
   const old = recipe.kind === 'old' || recipe.kind === 'older' ? recipe.kind : null;
@@ -381,6 +435,14 @@ export async function wearQuat(ch: Character3DPlus, recipe: QuatRecipe, grow = 1
     if (pelvis) {
       pelvis.position.add(pelvisFix);
       pelvisAdded.copy(pelvisFix);
+    }
+    // standing and walking, the chest and the head lose the rest pose's forward bend (a seat keeps the sit clip).
+    // The pelvis may lean a little, not fold.
+    if (seat < 0.5) {
+      for (const b of spine) holdBack(b);
+      holdBack(neck);
+      holdBack(head);
+      holdPelvis();
     }
     // seated: the hips on the seat (the clip sits on a chair of its own height)
     const seatTop = (anim.seat * anim.tiles) / s;
