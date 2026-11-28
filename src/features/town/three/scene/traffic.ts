@@ -1,5 +1,6 @@
 // Westbay's traffic drawn (docs/town.md §28): the cars of core/town/traffic.ts as three instanced meshes (one a
-// colour), a real townsperson (chars/person.ts, a passer-by look) seated at each wheel, the traffic lights of
+// colour), a real townsperson (chars/person.ts, a passer-by look) seated at each wheel — anime mode wears their
+// avatar through dressWhenNear like the street, classic keeps the code body — the traffic lights of
 // core/town/streets.ts, and the patrol car of core/town/police.ts with its blue and red lamps. Drawing only: what
 // moves where is decided elsewhere (features/town/streets/streetsWorld.ts).
 
@@ -7,6 +8,7 @@ import { Color, Euler, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Q
 import { carAngle, type TrafficCar } from '../../../../core/town/traffic';
 import { lightAt, type Light, type RoadNet } from '../../../../core/town/streets';
 import { createCharacter, passerLook, type Character3DPlus } from '../characters';
+import { dressWhenNear } from '../chars/vrmPeople';
 import { Merge, shapes } from './merge';
 import type { StageExtraCtx } from './stageExtra';
 import { RIDES, vehicleGeometry } from './vehicles3d';
@@ -158,7 +160,7 @@ export class TrafficLayer {
     ctx.scene.add(this.group);
   }
 
-  /** Seat a driver in a car at (x, y) facing `heading`. */
+  /** Seat a driver in a car at (x, y) facing `heading` (anime mode: their avatar when near, same as the street). */
   private putDriver(ch: Character3DPlus, x: number, y: number, heading: number, dt: number, night: number): void {
     const seat = seatAt(heading, this.scale);
     const px = x + seat.dx;
@@ -170,6 +172,9 @@ export class TrafficLayer {
     ch.setSeatHeight(seat.h);
     ch.setAction('sit');
     ch.setNight(night);
+    // (people 'anime': wear the same VRoid / Quaternius path as passers-by; classic stays the code body)
+    const p = this.ctx.sim.player;
+    dressWhenNear(ch, px - p.x, py - p.y);
     ch.update(dt, 0);
   }
 
