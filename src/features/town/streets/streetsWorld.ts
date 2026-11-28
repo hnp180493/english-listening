@@ -203,7 +203,7 @@ export class StreetsWorld implements StageExtra {
     return step.at;
   }
 
-  update(dt: number): void {
+  update(dt: number, night = 0): void {
     const jobAt = this.stepJobPatrol(dt);
     const jobHeading = this.jobRun ? this.jobRun.run.path.heading : 0;
     if (this.ctx.inRoom()) {
@@ -273,10 +273,10 @@ export class StreetsWorld implements StageExtra {
     const cooled = coolStep(getHeat(), this.cool, dt, !!streets.search(), paused, COOL_EVERY);
     this.cool = cooled.cool;
     if (cooled.heat !== getHeat()) setHeat(cooled.heat);
-    // draw
-    this.layer.setCars(this.cars);
+    // draw (each car a townsperson at the wheel)
+    this.layer.setCars(this.cars, dt, night);
     const sNow = streets.search();
-    this.layer.setPatrol(jobAt ? { ...jobAt, heading: jobHeading } : sNow ? sNow.patrol : null, dt);
+    this.layer.setPatrol(jobAt ? { ...jobAt, heading: jobHeading } : sNow ? sNow.patrol : null, dt, night);
     this.layer.setLights(now);
   }
 

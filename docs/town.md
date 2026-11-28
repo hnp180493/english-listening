@@ -3779,8 +3779,9 @@ red (and on amber unless already close), keeps its distance from the car ahead, 
 player, the residents, the patrol. The rule that keeps moving things from trapping the player: a car never brings its
 middle within `BODY_GAP` (1.1 tiles) of a body ahead, and `blockersFor` never gives the sim a car's circle or the patrol
 when the player already stands inside it, so they can always walk off (a ten-minute test round a walker standing in the
-road and at three junctions). Drawn as three instanced meshes (one a colour): about five draw calls for the whole layer
-with the lights. (A blob "driver" was tried 2026-11-28 and removed: it was not one of the town's people.)
+road and at three junctions). Drawn as three instanced meshes (one a colour), each with a real townsperson at the wheel
+(`createCharacter` + `passerLook`, seated: owner, 2026-11-28, empty cars and blob fakes both refused). The patrol has
+an officer too. About five draw calls for the cars and lights, plus ~2 a driver.
 
 **Offences, while riding or driving** (`features/town/streets/streetsWorld.ts`): into a lit junction's box against red
 (+3 heat; an amber never counts), touching a car at speed (+2), knocking into a thing of the street at speed (+1: bins,

@@ -1,15 +1,15 @@
 // Westbay's traffic drawn (docs/town.md §28): the cars of core/town/traffic.ts as three instanced meshes (one a
-// colour), the traffic lights of core/town/streets.ts (every post and head in one merged mesh, every bulb one instance
-// of one mesh, lit or dim by the clock), and the patrol car of core/town/police.ts with its blue and red lamps. About
-// six draw calls whatever the number of cars. Drawing only: what moves where is decided elsewhere
-// (features/town/streets/streetsWorld.ts).
+// colour), a real townsperson (chars/person.ts, a passer-by look) seated at each wheel, the traffic lights of
+// core/town/streets.ts, and the patrol car of core/town/police.ts with its blue and red lamps. Drawing only: what
+// moves where is decided elsewhere (features/town/streets/streetsWorld.ts).
 
 import { Color, Euler, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Quaternion, SphereGeometry, Vector3, type BufferGeometry } from 'three';
 import { carAngle, type TrafficCar } from '../../../../core/town/traffic';
 import { lightAt, type Light, type RoadNet } from '../../../../core/town/streets';
+import { createCharacter, passerLook, type Character3DPlus } from '../characters';
 import { Merge, shapes } from './merge';
 import type { StageExtraCtx } from './stageExtra';
-import { vehicleGeometry } from './vehicles3d';
+import { RIDES, vehicleGeometry } from './vehicles3d';
 
 const MAX_CARS = 16;
 /** Where a post stands from its box's corner (tiles, out onto the pavement), its height and its head's. */
@@ -30,13 +30,26 @@ interface Head {
   junction: number;
 }
 
+/** Where a driver sits in a car's own frame (tiles), then turned by the car's heading. */
+function seatAt(heading: number, scale: number): { dx: number; dy: number; h: number } {
+  const spec = RIDES.car;
+  const along = spec.seatAt * scale;
+  const side = (spec.side ?? -0.13) * scale;
+  const c = Math.cos(heading);
+  const s = Math.sin(heading);
+  return { dx: c * along - s * side, dy: s * along + c * side, h: (spec.seatSlim ?? spec.seat) * scale };
+}
+
 export class TrafficLayer {
   private readonly group = new Group();
   private readonly cars: InstancedMesh[] = [];
+  /** One townsperson a traffic car (passer-by looks), seated at the wheel. */
+  private readonly drivers: Character3DPlus[] = [];
   private readonly posts: Mesh | null;
   private readonly bulbs: InstancedMesh | null;
   private readonly heads: Head[] = [];
   private readonly patrol: Group;
+  private readonly patrolDriver: Character3DPlus;
   private readonly lamps: [Mesh, Mesh];
   private lastPhase = '';
   private t = 0;
@@ -111,7 +124,15 @@ export class TrafficLayer {
       });
       this.group.add(this.bulbs);
     } else this.bulbs = null;
-    // the patrol car: a blue car with a bar of lamps on its windscreen
+    // a pool of townspeople for the traffic (one look a car id); grown as cars appear
+    for (let i = 0; i < MAX_CARS; i++) {
+      const ch = createCharacter(`traffic-${i}`, passerLook(1000 + i * 17)) as Character3DPlus;
+      ch.setAction('sit');
+      ch.root.visible = false;
+      ctx.scene.add(ch.root);
+      this.drivers.push(ch);
+    }
+    // the patrol car: a blue car with a bar of lamps on its windscreen, and an officer in the seat
     this.patrol = new Group();
     const pgeo = vehicleGeometry('car', 1);
     if (pgeo) {
@@ -130,32 +151,60 @@ export class TrafficLayer {
     this.patrol.scale.setScalar(scale);
     this.patrol.visible = false;
     this.group.add(this.patrol);
+    this.patrolDriver = createCharacter('traffic-patrol', passerLook(42)) as Character3DPlus;
+    this.patrolDriver.setAction('sit');
+    this.patrolDriver.root.visible = false;
+    ctx.scene.add(this.patrolDriver.root);
     ctx.scene.add(this.group);
   }
 
-  /** Draw the cars where they are. */
-  setCars(cars: readonly TrafficCar[]): void {
+  /** Seat a driver in a car at (x, y) facing `heading`. */
+  private putDriver(ch: Character3DPlus, x: number, y: number, heading: number, dt: number, night: number): void {
+    const seat = seatAt(heading, this.scale);
+    const px = x + seat.dx;
+    const py = y + seat.dy;
+    const g = this.ctx.lift(px, py);
+    ch.root.visible = true;
+    ch.root.position.set(px, g, py);
+    ch.setHeading(heading, true);
+    ch.setSeatHeight(seat.h);
+    ch.setAction('sit');
+    ch.setNight(night);
+    ch.update(dt, 0);
+  }
+
+  /** Draw the cars where they are, each with a townsperson at the wheel. */
+  setCars(cars: readonly TrafficCar[], dt: number, night: number): void {
     const counts = this.cars.map(() => 0);
+    const seen = new Set<number>();
     for (const c of cars) {
       const k = c.v % this.cars.length;
       const mesh = this.cars[k];
       if (counts[k] >= MAX_CARS) continue;
-      this.e.set(0, -carAngle(c.dir), 0);
+      const heading = carAngle(c.dir);
+      this.e.set(0, -heading, 0);
       this.q.setFromEuler(this.e);
       this.v.set(c.x, this.ctx.lift(c.x, c.y), c.y);
       this.s.setScalar(this.scale);
       this.m.compose(this.v, this.q, this.s);
       mesh.setMatrixAt(counts[k]++, this.m);
+      const di = ((c.id % this.drivers.length) + this.drivers.length) % this.drivers.length;
+      if (!seen.has(di)) {
+        seen.add(di);
+        this.putDriver(this.drivers[di], c.x, c.y, heading, dt, night);
+      }
     }
     this.cars.forEach((mesh, k) => {
       mesh.count = counts[k];
       mesh.instanceMatrix.needsUpdate = true;
     });
+    for (let i = 0; i < this.drivers.length; i++) if (!seen.has(i)) this.drivers[i].root.visible = false;
   }
 
-  /** The patrol car (null: no search), its lamps taking turns. */
-  setPatrol(p: { x: number; y: number; heading: number } | null, dt: number): void {
+  /** The patrol car (null: no search), its lamps taking turns, an officer in the seat. */
+  setPatrol(p: { x: number; y: number; heading: number } | null, dt: number, night: number): void {
     this.patrol.visible = !!p && !this.ctx.inRoom();
+    this.patrolDriver.root.visible = this.patrol.visible;
     if (!p) return;
     this.t += dt;
     this.patrol.position.set(p.x, this.ctx.lift(p.x, p.y), p.y);
@@ -163,6 +212,7 @@ export class TrafficLayer {
     const on = Math.floor(this.t * 4) % 2 === 0;
     this.lamps[0].visible = on;
     this.lamps[1].visible = !on;
+    this.putDriver(this.patrolDriver, p.x, p.y, p.heading, dt, night);
   }
 
   /** The lights as the clock has them (the bulbs are written only when a phase changes). */
@@ -183,6 +233,10 @@ export class TrafficLayer {
 
   setVisible(on: boolean): void {
     this.group.visible = on;
+    if (!on) {
+      for (const d of this.drivers) d.root.visible = false;
+      this.patrolDriver.root.visible = false;
+    }
   }
 
   dispose(): void {
@@ -191,11 +245,14 @@ export class TrafficLayer {
     this.posts?.geometry.dispose();
     for (const c of this.cars) c.dispose();
     this.bulbs?.dispose();
+    for (const d of this.drivers) d.dispose();
+    this.patrolDriver.dispose();
   }
 
-  /** Draw calls this layer adds (for the report): the car meshes in use, the posts, the bulbs, the patrol. */
+  /** Draw calls this layer adds (for the report): the car meshes, each driver (~2), the posts, the bulbs, the patrol. */
   drawCalls(): number {
-    return this.cars.filter((c) => c.count > 0).length + (this.posts ? 1 : 0) + (this.bulbs ? 1 : 0) + (this.patrol.visible ? 2 : 0);
+    const driving = this.drivers.filter((d) => d.root.visible).length + (this.patrolDriver.root.visible ? 1 : 0);
+    return this.cars.filter((c) => c.count > 0).length + driving * 2 + (this.posts ? 1 : 0) + (this.bulbs ? 1 : 0) + (this.patrol.visible ? 2 : 0);
   }
 
   /** The posts' feet, for the sim (a walker goes round them). */
