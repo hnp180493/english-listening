@@ -208,6 +208,30 @@ function sportscar(m: Merge, c: string): void {
   for (const z of [-0.08, 0.08]) m.add(shapes.cyl(0.03, 0.03, 0.06, 10), CHROME, { x: -0.68, y: 0.16, z, rz: Math.PI / 2 }, { ao: false });
 }
 
+/**
+ * A simple seated driver for traffic cars (convertible: empty seats read as driverless). Facing +x, origin on the
+ * ground under the car's middle, on the driver's seat (RIDES.car side / seatAt). Skin `tone`. Not used on a car the
+ * learner rides: that car already has them in it.
+ */
+export function driverGeometry(tone: string): BufferGeometry {
+  const m = new Merge();
+  const side = RIDES.car.side ?? -0.13;
+  const at = RIDES.car.seatAt;
+  const y = (RIDES.car.seatSlim ?? RIDES.car.seat) + 0.08;
+  // hips and torso on the seat, head, arms to the wheel
+  m.add(shapes.sphere(0.07, 10, 8), tone, { x: at, y: y + 0.02, z: side, s: [1.1, 0.7, 0.9] });
+  m.add(shapes.sphere(0.09, 12, 10), tone, { x: at - 0.02, y: y + 0.16, z: side, s: [0.85, 1.15, 0.75] });
+  m.add(shapes.sphere(0.075, 12, 10), tone, { x: at + 0.02, y: y + 0.32, z: side });
+  m.add(shapes.sphere(0.028, 8, 6), '#2a2222', { x: at + 0.02, y: y + 0.38, z: side, s: [1.1, 0.7, 1.1] }, { ao: false });
+  for (const z of [side - 0.05, side + 0.05]) {
+    m.add(shapes.cyl(0.022, 0.02, 0.16, 8), tone, { x: at + 0.1, y: y + 0.2, z, rz: -1.1 });
+  }
+  return m.build()!;
+}
+
+/** Skin tones for traffic drivers (cycled by the car's id). */
+export const DRIVER_TONES: readonly string[] = ['#c98f66', '#e8b892', '#8d5a3c', '#f1cba9', '#b47a52', '#5c3a2a'];
+
 /** The model of a vehicle (`v`: which of its colours), facing +x, origin on the ground under its middle. */
 export function vehicleGeometry(kind: VehicleKind, v: number): BufferGeometry | null {
   const m = new Merge();

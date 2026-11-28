@@ -3258,14 +3258,12 @@ in code again.
   (Kim's coat and Emma's apron on the jog's thighs: the coat's halves lift high with the knees), `clipgame-bench.png` /
   `-bench-zoom.png` (seated on a log bench), `clipgame-umbrella.png` (standing and walking with umbrellas in the rain).
   Seen only as pictures with motion reduced or posed phases: nobody has watched a clip play, a fade, or the feet slide.
-  Taken back out the same day (owner: "tướng đi bây giờ kỳ dữ vậy", "thằng nào nhìn cũng gù lưng", "đi bộ lúc trước ok
-  rồi"): the clips' idle stands about 20° more bent than the skeleton bind (spine_02 and spine_03), and that bend was
-  copied onto every straight VRM back; the everyday pace picks the jog, which also twists the chest about 30°. Avatars
-  walk with the motion made in code again. `townUi.motion` stays `'code'` (a stored `'clips'` reads as that); the
-  switch in Cài đặt is gone. On a Quaternius body the legs still use the clips (that skeleton has no other walk) but
-  the back, the neck and the head lose that skeleton's own forward bend (about 25° through the spine and 24° at
-  the head; a little twist is kept), the pelvis may lean at most 0.12 rad past its rest, and an old body's added
-  stoop is 0.06 rad (0.03 for 'older').
+  Same day (owner: "thằng nào nhìn cũng gù lưng", then after the clips were taken away "không tự nhiên rồi"): the
+  clips stay on for the LEGS only (thighs to toes, and the hips' rise and fall); the hips' turn, the back and the head
+  stay the code's, so nobody hunches. Arms from the clip when free. `townUi.motion` 'clips' | 'code' again (default
+  clips), the switch in Cài đặt too. On a Quaternius body the legs still use the clips but the back, the neck and the
+  head lose that skeleton's own forward bend (about 25° through the spine and 24° at the head; a little twist is kept),
+  the pelvis may lean at most 0.12 rad past its rest, and an old body's added stoop is 0.06 rad (0.03 for 'older').
 
 - **The horse, jointed (2026-11-28)** (owner: "con ngựa gì gớm vầy, thậm chí nó còn ko có animation chạy", of a stiff
   block on four posts that slid along). `three/scene/horse3d.ts`: a body with a chest and a rump, a neck reaching up and
@@ -3783,8 +3781,10 @@ red (and on amber unless already close), keeps its distance from the car ahead, 
 player, the residents, the patrol. The rule that keeps moving things from trapping the player: a car never brings its
 middle within `BODY_GAP` (1.1 tiles) of a body ahead, and `blockersFor` never gives the sim a car's circle or the patrol
 when the player already stands inside it, so they can always walk off (a ten-minute test round a walker standing in the
-road and at three junctions). Drawn as three instanced meshes (one a colour): about five draw calls for the whole layer
-with the lights.
+road and at three junctions). Drawn as three instanced meshes (one a colour) plus a seated driver a car (six skin tones
+instanced; owner, 2026-11-28: empty convertibles read as "xe không người lái"): about a dozen draw calls for the whole
+layer with the lights. The patrol has an officer in its seat too. A car the learner rides keeps no baked driver (they
+are already in it).
 
 **Offences, while riding or driving** (`features/town/streets/streetsWorld.ts`): into a lit junction's box against red
 (+3 heat; an amber never counts), touching a car at speed (+2), knocking into a thing of the street at speed (+1: bins,

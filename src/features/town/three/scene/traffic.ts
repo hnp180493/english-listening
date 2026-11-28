@@ -9,7 +9,7 @@ import { carAngle, type TrafficCar } from '../../../../core/town/traffic';
 import { lightAt, type Light, type RoadNet } from '../../../../core/town/streets';
 import { Merge, shapes } from './merge';
 import type { StageExtraCtx } from './stageExtra';
-import { vehicleGeometry } from './vehicles3d';
+import { DRIVER_TONES, driverGeometry, vehicleGeometry } from './vehicles3d';
 
 const MAX_CARS = 16;
 /** Where a post stands from its box's corner (tiles, out onto the pavement), its height and its head's. */
@@ -33,6 +33,8 @@ interface Head {
 export class TrafficLayer {
   private readonly group = new Group();
   private readonly cars: InstancedMesh[] = [];
+  /** One seated figure per traffic car (and the patrol): convertibles looked empty without them. */
+  private readonly drivers: InstancedMesh[] = [];
   private readonly posts: Mesh | null;
   private readonly bulbs: InstancedMesh | null;
   private readonly heads: Head[] = [];
@@ -66,6 +68,16 @@ export class TrafficLayer {
       mesh.count = 0;
       mesh.frustumCulled = false;
       this.cars.push(mesh);
+      this.group.add(mesh);
+    }
+    for (const tone of DRIVER_TONES) {
+      const geo = driverGeometry(tone);
+      this.geos.push(geo);
+      const mesh = new InstancedMesh(geo, ctx.mats.std, MAX_CARS);
+      mesh.castShadow = true;
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      this.drivers.push(mesh);
       this.group.add(mesh);
     }
     // the lights: four posts round each crossing's box, each head looking at the traffic it stops
@@ -111,7 +123,7 @@ export class TrafficLayer {
       });
       this.group.add(this.bulbs);
     } else this.bulbs = null;
-    // the patrol car: a blue car with a bar of lamps on its windscreen
+    // the patrol car: a blue car with a bar of lamps on its windscreen, and an officer in the seat
     this.patrol = new Group();
     const pgeo = vehicleGeometry('car', 1);
     if (pgeo) {
@@ -120,6 +132,11 @@ export class TrafficLayer {
       body.castShadow = true;
       this.patrol.add(body);
     }
+    const officer = driverGeometry(DRIVER_TONES[2]);
+    this.geos.push(officer);
+    const who = new Mesh(officer, ctx.mats.std);
+    who.castShadow = true;
+    this.patrol.add(who);
     const lampGeo = shapes.box(0.12, 0.05, 0.16, 0.02, 1);
     const blue = new Mesh(lampGeo, new MeshBasicMaterial({ color: '#2f6dff', toneMapped: false }));
     const red = new Mesh(lampGeo, new MeshBasicMaterial({ color: '#ff3040', toneMapped: false }));
@@ -133,9 +150,10 @@ export class TrafficLayer {
     ctx.scene.add(this.group);
   }
 
-  /** Draw the cars where they are. */
+  /** Draw the cars where they are, each with a seated driver. */
   setCars(cars: readonly TrafficCar[]): void {
     const counts = this.cars.map(() => 0);
+    const dCounts = this.drivers.map(() => 0);
     for (const c of cars) {
       const k = c.v % this.cars.length;
       const mesh = this.cars[k];
@@ -146,9 +164,15 @@ export class TrafficLayer {
       this.s.setScalar(this.scale);
       this.m.compose(this.v, this.q, this.s);
       mesh.setMatrixAt(counts[k]++, this.m);
+      const d = ((c.id % this.drivers.length) + this.drivers.length) % this.drivers.length;
+      if (dCounts[d] < MAX_CARS) this.drivers[d].setMatrixAt(dCounts[d]++, this.m);
     }
     this.cars.forEach((mesh, k) => {
       mesh.count = counts[k];
+      mesh.instanceMatrix.needsUpdate = true;
+    });
+    this.drivers.forEach((mesh, k) => {
+      mesh.count = dCounts[k];
       mesh.instanceMatrix.needsUpdate = true;
     });
   }
@@ -190,12 +214,19 @@ export class TrafficLayer {
     for (const g of this.geos) g.dispose();
     this.posts?.geometry.dispose();
     for (const c of this.cars) c.dispose();
+    for (const d of this.drivers) d.dispose();
     this.bulbs?.dispose();
   }
 
-  /** Draw calls this layer adds (for the report): the car meshes in use, the posts, the bulbs, the patrol. */
+  /** Draw calls this layer adds (for the report): the car meshes in use, the drivers, the posts, the bulbs, the patrol. */
   drawCalls(): number {
-    return this.cars.filter((c) => c.count > 0).length + (this.posts ? 1 : 0) + (this.bulbs ? 1 : 0) + (this.patrol.visible ? 2 : 0);
+    return (
+      this.cars.filter((c) => c.count > 0).length +
+      this.drivers.filter((d) => d.count > 0).length +
+      (this.posts ? 1 : 0) +
+      (this.bulbs ? 1 : 0) +
+      (this.patrol.visible ? 3 : 0)
+    );
   }
 
   /** The posts' feet, for the sim (a walker goes round them). */

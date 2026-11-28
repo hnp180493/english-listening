@@ -21,16 +21,15 @@ export interface TownUi {
    */
   people: 'anime' | 'classic';
   /**
-   * How the avatars move. Always 'code': the ready-made clips hunched every back (their idle stands bent past the
-   * skeleton's bind, and that bend was copied onto the avatars; the jog twisted the chest). The walk made in code
-   * is the one that stands straight. The field stays so a stored 'clips' still parses.
+   * How the avatars move (chars/vrmBody.ts): the ready-made clips for the legs ('clips', the default; the back stays
+   * the code's, so nobody hunches), or the whole pose made in code ('code'). Per browser.
    */
   motion: 'clips' | 'code';
   /** The vehicle of the garage (data/townGarage.ts) the "Gọi …" button brings; '' = the dearest one owned. */
   ride: string;
 }
 
-export const DEFAULT_TOWN_UI: TownUi = { sound: true, welcomed: false, greet: true, hi: {}, said: {}, people: 'anime', motion: 'code', ride: '' };
+export const DEFAULT_TOWN_UI: TownUi = { sound: true, welcomed: false, greet: true, hi: {}, said: {}, people: 'anime', motion: 'clips', ride: '' };
 
 const HI_ID = /^[a-z][a-z0-9-]{0,59}$/;
 
@@ -58,7 +57,7 @@ function parseSaid(raw: unknown): TownUi['said'] {
 export function parseTownUi(raw: unknown): TownUi {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...DEFAULT_TOWN_UI, hi: {}, said: {} };
   const r = raw as Record<string, unknown>;
-  return { sound: typeof r.sound === 'boolean' ? r.sound : DEFAULT_TOWN_UI.sound, welcomed: r.welcomed === true, greet: typeof r.greet === 'boolean' ? r.greet : DEFAULT_TOWN_UI.greet, hi: parseHi(r.hi), said: parseSaid(r.said), people: r.people === 'classic' ? 'classic' : 'anime', motion: 'code', ride: typeof r.ride === 'string' && HI_ID.test(r.ride) ? r.ride : '' };
+  return { sound: typeof r.sound === 'boolean' ? r.sound : DEFAULT_TOWN_UI.sound, welcomed: r.welcomed === true, greet: typeof r.greet === 'boolean' ? r.greet : DEFAULT_TOWN_UI.greet, hi: parseHi(r.hi), said: parseSaid(r.said), people: r.people === 'classic' ? 'classic' : 'anime', motion: r.motion === 'code' ? 'code' : 'clips', ride: typeof r.ride === 'string' && HI_ID.test(r.ride) ? r.ride : '' };
 }
 
 let cache: TownUi | null = null;

@@ -38,11 +38,11 @@ import { loadClips, retarget, type ClipName, type ClipRig } from './vrmClips';
 import { getTownUi } from '../../townUi';
 
 /**
- * The ready-made clips (public/anim/people.glb) are not worn. Their idle stands about 20° more bent than the
- * skeleton's bind, and carrying that bend over hunched every straight back here; the jog, which the everyday pace
- * picked, also twists the chest (owner, 2026-11-28: "thằng nào nhìn cũng gù lưng", "đi như quái thai"). The walk
- * made in code stays. The machinery below still runs only when a clip file was asked for, which nothing asks for
- * while `townUi.motion` stays 'code'.
+ * Ready-made motion (owner, 2026-11-28): the clips of public/anim/people.glb move the LEGS of every avatar walking,
+ * jogging and running. The back, the hips' turn and the head stay the code's (owner the same day: carrying the clips'
+ * back over hunched every straight body, "thằng nào nhìn cũng gù lưng"; taking the walk away entirely left them
+ * sliding and stiff). Arms from the clip when free, from the code when busy. `townUi.motion` 'code' keeps the whole
+ * pose made in code.
  */
 const LOCO: readonly ClipName[] = ['idle', 'walk', 'jog', 'sprint', 'sit'];
 /** Tiles a second (a grown-up's) from which the clip is a jog, and a sprint. */
@@ -393,7 +393,6 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
   const rawHipsName = vrm.humanoid.getRawBoneNode('hips')?.name;
   const rawHips = rawHipsName ? proxy.getObjectByName(rawHipsName) : undefined;
   const rawHipsRest = rawHips ? rawHips.position.clone() : new Vector3();
-  const spineNode = bone('spine');
   const pivot = ch.root.getObjectByName('pivot');
   if (pivot) pivot.visible = false;
   ch.root.add(holder);
@@ -717,11 +716,20 @@ export async function wearVrm(ch: Character3DPlus, url: string, opts: Partial<Vr
         for (const b of clipBones) {
           // (a bone the code does not pose is at rest under the clip, not left where the last frame had it)
           if (!b.code) b.norm.quaternion.identity();
-          const w = clipOn * (b.part === 'armL' ? 1 - busyL : b.part === 'armR' ? 1 - busyR : b.part === 'legs' && sitting ? 0 : 1);
+          // legs only (not the hips' turn: that tip leans the whole torso), arms when free; never the back
+          const w =
+            clipOn *
+            (b.part === 'back' || b.norm === hips
+              ? 0
+              : b.part === 'armL'
+                ? 1 - busyL
+                : b.part === 'armR'
+                  ? 1 - busyR
+                  : b.part === 'legs' && sitting
+                    ? 0
+                    : 1);
           if (w > 0.001) b.norm.quaternion.slerp(b.raw.quaternion, w);
         }
-        // an old body's stoop on the clip's back (the code's own went with its pose)
-        if (stoop > 0 && spineNode) spineNode.quaternion.multiply(_gq.setFromEuler(_euler.set((old ? -1 : 1) * stoop * (1 - seat) * clipOn, 0, 0, 'XYZ')));
         // the clip's hips rise and fall walking; seated they stay on the seat as the code puts them
         if (hips && rawHips) hips.position.addScaledVector(_v.copy(rawHips.position).sub(rawHipsRest), clipOn * (1 - seat));
       }
